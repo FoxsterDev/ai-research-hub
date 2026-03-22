@@ -188,15 +188,4 @@ When merging multiple chats or prior artifacts:
 
 Your output should feel like a high-quality engineering review document that can be reused in future code reviews, architecture reviews, and stability discussions.
 
-Merge mode is enabled if attached markdown file with previous data collected.
-
-You are updating an existing engineering review artifact using a new conversation.
-Your priority is:
-1. preserve important existing knowledge
-2. integrate new insights
-3. remove only true redundancy
-4. improve precision
-5. keep all important warnings, caveats, and edge cases
-
-Do not produce a side-by-side comparison.
-Produce one consolidated final artifact.
+Produce one consolidated final artifact. Create a mark down file with the report in the project directory.
