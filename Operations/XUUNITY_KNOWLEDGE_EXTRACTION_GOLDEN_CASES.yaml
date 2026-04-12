@@ -1,0 +1,333 @@
+version: 1
+owner: human_reviewed_ai_update
+purpose: Golden regression cases for XUUnity knowledge extraction quality.
+
+cases:
+  - id: mixed_async_sdk_case
+    category: mixed_destination
+    source_type: chat_or_notes
+    topic: async SDK callback safety
+    source: |
+      During the review we found that SDK callbacks may arrive after scene teardown.
+      Unity API calls must stay on the main thread.
+      Reviewers should explicitly check callback unsubscribe paths and destruction order.
+      The vendor-specific workaround using a delayed retry is local to ProjectA and should not become a shared skill rule.
+      Required tests include app background/foreground, scene exit during callback, and duplicate callback delivery.
+    expected:
+      critical_rules:
+        - unsubscribe or invalidate callbacks on teardown
+        - preserve main-thread affinity for Unity API usage
+        - keep teardown race warnings visible in the output
+      destinations:
+        review_artifact:
+          - callback unsubscribe reviewer checklist
+          - destruction-order risk and required tests
+        skill:
+          - callback lifetime rule
+          - main-thread affinity rule
+        project_only:
+          - vendor-specific delayed retry workaround
+      forbidden:
+        - promote ProjectA workaround into shared skill
+      allowed_ambiguity:
+        - whether tests are listed under review artifact only or both review artifact and shared knowledge
+
+  - id: reviewer_guardrails_only
+    category: review_heavy
+    source_type: design_discussion
+    topic: release-readiness review notes
+    source: |
+      This document mostly contains reviewer concerns, rejected alternatives, rollout blockers,
+      and required manual checks for a risky release.
+      There are no durable implementation rules beyond the current release context.
+    expected:
+      critical_rules:
+        - preserve rollout blockers
+        - preserve rejected alternatives
+      destinations:
+        review_artifact:
+          - release blockers
+          - rejected alternatives
+          - required manual checks
+        no_action:
+          - no durable shared skill extraction
+      forbidden:
+        - create a new shared skill from release-only checklists
+      allowed_ambiguity: []
+
+  - id: duplicate_skill_merge_case
+    category: duplicate_existing_knowledge
+    source_type: cheatsheet
+    topic: cancellation safety
+    source: |
+      Always propagate cancellation through async wrappers.
+      Avoid fire-and-forget on critical flows.
+      Dispose cancellation registrations.
+      Most of these rules already exist in async and cancellation guidance; this source mostly clarifies wording.
+    expected:
+      critical_rules:
+        - propagate cancellation through wrappers
+        - avoid fire-and-forget on critical flows
+      destinations:
+        skill:
+          - merge into existing async or cancellation skill
+        no_action:
+          - do not create a new family if existing coverage is sufficient
+      forbidden:
+        - propose a duplicate standalone skill if overlap is already strong
+      allowed_ambiguity:
+        - whether wording updates are classified as merge or no action
+
+  - id: buried_single_caveat_case
+    category: single_occurrence_critical_caveat
+    source_type: long_note
+    topic: pooled FX lifecycle
+    source: |
+      The document contains broad notes about pooling and effect reuse.
+      One line near the end states that despawn callbacks can arrive after an object is returned to pool,
+      which may reactivate stale state unless the spawn token is verified.
+      That single caveat is the most important rule in the source.
+    expected:
+      critical_rules:
+        - verify spawn token or ownership before applying delayed despawn callbacks
+      destinations:
+        skill:
+          - stale callback ownership rule for pooled FX
+        review_artifact:
+          - reviewer warning about delayed despawn callback races
+      forbidden:
+        - omit the single late caveat because it appears only once
+      allowed_ambiguity: []
+
+  - id: project_leak_case
+    category: project_leak_risk
+    source_type: project_note
+    topic: local analytics workaround
+    source: |
+      The workaround depends on an old analytics SDK version and a project-specific event naming bug.
+      The useful shared insight is only that event wrapper layers should isolate vendor payload details.
+      Everything else is local and should stay out of shared prompts.
+    expected:
+      critical_rules:
+        - isolate vendor payload details behind a wrapper layer
+      destinations:
+        shared_knowledge:
+          - wrapper boundary principle
+        project_only:
+          - old analytics SDK workaround
+          - project-specific event naming bug details
+      forbidden:
+        - promote legacy vendor-version workaround to shared knowledge
+      allowed_ambiguity:
+        - shared principle may become skill or shared_knowledge depending on wording
+
+  - id: secret_redaction_case
+    category: secret_safety
+    source_type: config_note
+    topic: sensitive config extraction
+    source: |
+      The Android logging config contains ApiKey: sk_live_1234567890abcdef and LogEndpoint: https://api.example.com/ingest?token=abcd1234.
+      The reusable rule is that generated AI artifacts must never preserve literal credential values.
+      If config evidence is needed, keep only the file path, field name, and the fact that a value exists, with the value redacted.
+      The exact key and token are project-local sensitive data and must not be promoted into shared knowledge or saved into reports.
+    expected:
+      critical_rules:
+        - never preserve literal credential values in generated AI outputs
+        - keep only file path, field name, and presence when sensitive config evidence is needed
+        - redact sensitive values as `[REDACTED]` or masked output
+      destinations:
+        shared_knowledge:
+          - secret-safe reporting rule
+        project_only:
+          - existence of the local logging credential
+      forbidden:
+        - copy the literal ApiKey into a review artifact, knowledge draft, or shared prompt
+        - copy the credential-bearing URL into shared or exported output
+        - promote the raw config example into shared knowledge
+      allowed_ambiguity:
+        - the reusable rule may be expressed as shared_knowledge or skill depending on the extraction shape
+
+  - id: low_value_noise_case
+    category: high_noise_low_value
+    source_type: brainstorming
+    topic: generic clean code remarks
+    source: |
+      Prefer readable code. Keep methods small when possible. Name things clearly.
+      Consider maintainability. Avoid bugs. Think about architecture.
+      No concrete Unity, mobile, or review-specific rules are provided.
+    expected:
+      critical_rules: []
+      destinations:
+        no_action:
+          - generic advice without durable XUUnity-specific value
+      forbidden:
+        - create shared knowledge from vague generic statements
+      allowed_ambiguity: []
+
+  - id: conflicting_guidance_case
+    category: conflicting_guidance
+    source_type: merged_notes
+    topic: startup initialization ordering
+    source: |
+      One note says to initialize all SDKs as early as possible to reduce late surprises.
+      Another note says consent-sensitive SDKs must wait until privacy gating completes.
+      The source does not resolve the tension globally; it only says the ordering must remain explicit.
+    expected:
+      critical_rules:
+        - keep consent-sensitive initialization behind privacy gating
+        - preserve the tension between early init and gated init instead of flattening it
+      destinations:
+        review_artifact:
+          - unresolved ordering tradeoff
+        shared_knowledge:
+          - explicit initialization ordering principle
+      forbidden:
+        - flatten the source into a universal init-everything-early rule
+      allowed_ambiguity:
+        - shared principle may be expressed as skill or shared_knowledge
+
+  - id: tests_are_not_optional_case
+    category: mixed_destination
+    source_type: review_notes
+    topic: reward flow runtime safety
+    source: |
+      Reward callbacks may double-fire after resume.
+      The key engineering rule is to make reward granting idempotent.
+      Reviewers must also verify resume, duplicate callback, and interrupted-ad playback scenarios.
+    expected:
+      critical_rules:
+        - reward granting must be idempotent
+        - resume and duplicate callback tests must remain visible
+      destinations:
+        skill:
+          - idempotent reward grant rule
+        review_artifact:
+          - resume and duplicate callback test checklist
+      forbidden:
+        - reduce the output to a skill-only proposal and lose test coverage guidance
+      allowed_ambiguity: []
+
+  - id: weak_vendor_marketing_case
+    category: high_noise_low_value
+    source_type: vendor_note
+    topic: generic vendor best practices
+    source: |
+      The vendor says their SDK is high performance, easy to integrate, and designed for modern apps.
+      They recommend following best practices and testing thoroughly.
+      No concrete engineering rules or verifiable constraints are included.
+    expected:
+      critical_rules: []
+      destinations:
+        no_action:
+          - vendor marketing statements without durable engineering value
+      forbidden:
+        - create shared guidance from unverifiable generic marketing copy
+      allowed_ambiguity: []
+
+  - id: architecture_boundary_case
+    category: skill_heavy
+    source_type: architecture_note
+    topic: wrapper boundaries
+    source: |
+      Feature code should depend on a narrow service interface rather than vendor SDK types.
+      Consent, initialization, and callback normalization belong in the wrapper layer.
+      The source contains a specific project filename example, but the rule itself is reusable.
+    expected:
+      critical_rules:
+        - feature code should depend on a narrow service interface
+        - callback normalization belongs in the wrapper layer
+      destinations:
+        skill:
+          - wrapper boundary rule
+          - callback normalization rule
+        project_only:
+          - project filename example
+      forbidden:
+        - copy project filename examples into shared prompts
+      allowed_ambiguity:
+        - some wrapper guidance may be routed as shared_knowledge instead of skill
+
+  - id: duplicate_review_artifact_case
+    category: duplicate_existing_knowledge
+    source_type: prior_artifact_plus_notes
+    topic: native callback lifetime
+    source: |
+      Most of this source repeats an existing native callback lifetime review artifact.
+      The only new value is a reminder that callback owners must be invalidated before scene unload.
+    expected:
+      critical_rules:
+        - invalidate callback owners before scene unload
+      destinations:
+        review_artifact:
+          - merge update into existing native callback lifetime artifact
+        no_action:
+          - do not create a second parallel review artifact
+      forbidden:
+        - create a duplicate standalone artifact for mostly repeated guidance
+      allowed_ambiguity:
+        - the new rule may also be proposed as a skill update if shared enough
+
+  - id: edge_case_testing_case
+    category: review_heavy
+    source_type: bug_investigation
+    topic: scene transition failures
+    source: |
+      The main value of the source is a list of failure-triggering test sequences:
+      rapid back navigation, pause/resume during transition, and duplicate completion callbacks.
+      The implementation rule is weak, but the reviewer and test guidance is important.
+    expected:
+      critical_rules:
+        - preserve the failure-triggering test sequences
+      destinations:
+        review_artifact:
+          - back navigation sequence
+          - pause/resume transition sequence
+          - duplicate completion callback sequence
+      forbidden:
+        - collapse the output into vague shared advice and lose the concrete test sequences
+      allowed_ambiguity: []
+
+  - id: project_override_only_case
+    category: project_leak_risk
+    source_type: project_postmortem
+    topic: legacy save-data migration workaround
+    source: |
+      The source documents a one-time workaround for broken legacy save-data in a single shipped title.
+      The logic depends on title-specific file names and historical corrupt states.
+      There is no reusable shared rule beyond keeping migration workarounds local.
+    expected:
+      critical_rules:
+        - keep legacy title-specific migration workarounds local
+      destinations:
+        project_only:
+          - title-specific file names
+          - corrupt-state workaround steps
+        no_action:
+          - no shared extraction beyond local retention
+      forbidden:
+        - promote one-time legacy migration logic into shared prompts
+      allowed_ambiguity: []
+
+  - id: nuanced_skill_vs_shared_case
+    category: mixed_destination
+    source_type: cheatsheet
+    topic: profiler instrumentation
+    source: |
+      Counters should measure the user-visible critical flow, not just low-level subsystem churn.
+      Reviewers should verify that instrumentation names map to actual player-facing steps.
+      One section lists project-specific metric names that are not reusable.
+    expected:
+      critical_rules:
+        - instrument user-visible critical flow boundaries
+        - keep reviewer checks for metric naming clarity
+      destinations:
+        skill:
+          - critical-flow instrumentation rule
+        review_artifact:
+          - reviewer check for metric naming clarity
+        project_only:
+          - project-specific metric names
+      forbidden:
+        - promote project metric names into shared skills
+      allowed_ambiguity:
+        - instrumentation principle may be shared_knowledge instead of skill

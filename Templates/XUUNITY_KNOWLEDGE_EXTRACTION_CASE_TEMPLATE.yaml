@@ -1,0 +1,30 @@
+id: example_case_id
+category: mixed_destination
+source_type: chat_or_notes
+topic: short topic name
+source: |
+  Put the source artifact text here.
+
+expected:
+  critical_rules:
+    - first must-not-miss rule
+    - second must-not-miss rule
+
+  destinations:
+    review_artifact:
+      - item expected in reviewer-facing artifact
+    skill:
+      - item expected in reusable skill guidance
+    shared_knowledge:
+      - item expected in shared non-skill knowledge
+    project_only:
+      - item that must stay local
+    no_action:
+      - low-value or non-durable remainder
+
+  forbidden:
+    - item that must not be promoted
+    - unsafe routing outcome
+
+  allowed_ambiguity:
+    - acceptable routing ambiguity note

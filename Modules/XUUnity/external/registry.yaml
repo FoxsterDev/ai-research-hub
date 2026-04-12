@@ -1,0 +1,8 @@
+repos:
+  - id: external_repo_test_1
+    display_name: external_repo_test_1
+    path: AIRoot/Modules/XUUnity/external/repos/external_repo_test_1
+    role: optional_external_source
+    promotion_allowed: true
+    direct_reference_allowed: false
+    status: disabled_by_default
