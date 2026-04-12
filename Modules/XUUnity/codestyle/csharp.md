@@ -1,0 +1,75 @@
+# XUUnity Code Style: CSharp
+
+## Goals
+- production readability
+- safe async and ownership patterns
+- low-allocation runtime paths
+- clear boundaries between game logic, services, and platform bridges
+
+## Rules
+- Use English for identifiers, logs, and documentation.
+- Do not add inline comments in C# unless the project explicitly requires them.
+- Public APIs may use XML docs when the contract is not obvious.
+- Prefer explicit naming over clever abstractions.
+- Prefer small focused types over broad mixed-responsibility classes.
+- Keep async ownership explicit and avoid hidden fire-and-forget flows.
+- Avoid per-frame allocations, hidden LINQ allocations, and unnecessary closure captures on hot paths.
+- Prefer dependency boundaries that are testable and easy to reason about.
+- If thread safety matters, make synchronization explicit.
+
+## Naming
+- Types, methods, properties, and public members use `PascalCase`.
+- Private instance fields use `_camelCase`.
+- Unity serialized fields also use `_camelCase`.
+- Interfaces use `I` + `PascalCase`.
+- Type parameters use `T` + `PascalCase`.
+- Private constants use `ALL_UPPER_CASE` when they are true constants.
+
+## Member Shape
+- Always use explicit accessibility on non-interface members.
+- Prefer modifier order like `public static`, `private readonly`, `protected override`.
+- Prefer `var` when the type is obvious or repeated on the right-hand side.
+- Do not qualify instance members with `this.` unless disambiguation is required.
+- Prefer `sealed` on concrete classes that are not designed for inheritance.
+- Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
+- Prefer early-return guard clauses over deep nesting.
+
+## Braces And Blocks
+- Open braces go on a new line.
+- Always use braces for `if`, `else`, `for`, `foreach`, and `while`.
+- Single-line blocks are acceptable only when they stay naturally short and clear.
+
+## Spacing And Formatting
+- Use 4 spaces for indentation.
+- Keep line length near 120 characters.
+- Use one space after control-flow keywords: `if (...)`, `for (...)`.
+- Use spaces around binary operators.
+- Use one space after commas.
+- Do not use spaces inside method-call parentheses or square brackets.
+- Keep method declarations and method calls tight: `Foo(bar)`, not `Foo ( bar )`.
+- Wrap parameters, arguments, long assignments, tuples, and call chains only when needed.
+
+## Structure
+- Use block-style namespaces.
+- Keep `using` directives at the top of the file.
+- Keep files and types arranged for readability, not for stylistic cleverness.
+- Do not group unrelated fields or methods just to reduce line count.
+- Keep declaration order stable when editing existing files unless there is a clear reason to reorganize.
+- Common class order:
+  1. constants
+  2. readonly fields
+  3. serialized fields or regular private fields
+  4. public properties
+  5. events
+  6. constructors
+  7. public methods
+  8. protected overrides
+  9. private methods
+
+## Review Focus
+- naming clarity
+- format consistency
+- ownership clarity
+- async safety
+- allocation behavior
+- behavior-preserving structure

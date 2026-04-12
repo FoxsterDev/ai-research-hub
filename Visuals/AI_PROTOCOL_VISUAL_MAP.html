@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Protocol Visual Map</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --panel: #fffdf8;
+      --text: #1f1a14;
+      --muted: #6c6256;
+      --border: #d9cfbf;
+      --accent: #315c4b;
+      --accent-soft: #e5efe9;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: linear-gradient(180deg, #efe7d8 0%, var(--bg) 100%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 28px rgba(54, 43, 26, 0.06);
+    }
+
+    h1, h2 { margin-top: 0; }
+    p, li { color: var(--muted); }
+    code {
+      background: var(--accent-soft);
+      padding: 2px 6px;
+      border-radius: 6px;
+      color: var(--accent);
+    }
+
+    pre {
+      background: #f7f4ee;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8f3ea;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="card">
+      <h1>AI Protocol Visual Map</h1>
+      <p>This page summarizes the public <code>AIRoot</code> routing model. It documents the public <code>xuunity</code> core, generic optional host-local overlays, and project-local memory boundaries.</p>
+    </section>
+
+    <section class="card">
+      <h2>1. Protocol Families</h2>
+      <pre>Repo Router (Agents.md)
+  -> xuunity
+  -> optional host-local protocols</pre>
+      <p>The public module names only <code>xuunity</code>. Host-local families may exist, but public <code>AIRoot</code> refers to them only generically.</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Load Order</h2>
+      <pre>Repo Agents.md
+  -> Public XUUnity Core (AIRoot/Modules/XUUnity/)
+    -> Optional Host-Local Overlays (AIModules/ when attached)
+      -> Project Agents.md
+        -> ProjectMemory (Assets/AIOutput/ProjectMemory/)
+          -> Previous Outputs (Assets/AIOutput/)</pre>
+    </section>
+
+    <section class="card">
+      <h2>3. Knowledge Flow</h2>
+      <pre>New Knowledge
+  -> Extract
+    -> Intake Review
+      -> public-safe reusable      -> AIRoot/Modules/XUUnity/
+      -> host-local reusable       -> AIModules/
+      -> project-specific          -> ProjectMemory / SkillOverrides
+      -> report or draft           -> Assets/AIOutput/
+      -> reject                    -> No Action</pre>
+    </section>
+
+    <section class="card">
+      <h2>4. Storage Boundaries</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Layer</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>AIRoot</code></td>
+            <td>Public reusable modules, setup guidance, templates, and visuals.</td>
+          </tr>
+          <tr>
+            <td><code>AIModules</code></td>
+            <td>Optional host-local overlays and private protocol families.</td>
+          </tr>
+          <tr>
+            <td><code>AIOutput</code></td>
+            <td>Host-local mutable registry, reports, wrappers, and operational notes.</td>
+          </tr>
+          <tr>
+            <td><code>&lt;Project&gt;/Assets/AIOutput/ProjectMemory/</code></td>
+            <td>Project-local durable truth and overrides.</td>
+          </tr>
+          <tr>
+            <td><code>&lt;Project&gt;/Assets/AIOutput/</code></td>
+            <td>Project-local reports, audits, and drafts.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>5. Quick Routing Guide</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Need</th>
+            <th>Route</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Fix or refactor code</td>
+            <td><code>xuunity ...</code></td>
+          </tr>
+          <tr>
+            <td>Review SDK or native integration</td>
+            <td><code>xuunity sdk ...</code> or <code>xuunity native ...</code></td>
+          </tr>
+          <tr>
+            <td>Ask product-facing implementation question</td>
+            <td><code>xuunity product ...</code></td>
+          </tr>
+          <tr>
+            <td>Audit project readiness</td>
+            <td><code>xuunity product health ...</code></td>
+          </tr>
+          <tr>
+            <td>Check project-memory freshness</td>
+            <td><code>xuunity project memory freshness ...</code></td>
+          </tr>
+          <tr>
+            <td>Use private host-local flows</td>
+            <td>Host-specific protocol selected by the host router</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</body>
+</html>
