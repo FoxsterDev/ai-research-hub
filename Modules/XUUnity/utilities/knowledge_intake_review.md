@@ -32,6 +32,11 @@ Integration may happen only after the user explicitly says one of:
 1. Ingest the knowledge from chat, link, book, or note source.
 2. Extract durable rules and separate them from examples and narrative.
 3. Map the knowledge to existing public-core `skills/`, `knowledge/`, `codestyle/`, `platforms/`, internal shared overlay destinations, or project overrides.
+   - route by semantic type first, not by convenience:
+     - `codestyle/` for naming, formatting, code-shape, and local coding conventions
+     - `knowledge/` for architectural doctrine, routing rules, ownership rules, and root-level reusable decision guidance
+     - `skills/` for repeatable workflows and implementation practice
+   - do not use `codestyle/` as the default bucket for reusable guidance that is not actually style guidance
 4. Compare the new knowledge with the current source of truth.
 5. Evaluate:
    - technical quality
@@ -90,6 +95,7 @@ Interpretation:
 - Source summary
 - Candidate output split
 - Candidate destination
+- Why that destination is semantically correct
 - Public-core candidate
 - Internal-shared candidate
 - External promotion candidate

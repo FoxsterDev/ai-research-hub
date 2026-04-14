@@ -24,6 +24,7 @@
 - Interfaces use `I` + `PascalCase`.
 - Type parameters use `T` + `PascalCase`.
 - Private constants use `ALL_UPPER_CASE` when they are true constants.
+- For platform-specific variants, keep the platform suffix at the end of the identifier: `BannerUrliOS`, `StoreConfigAndroid`.
 
 ## Member Shape
 - Always use explicit accessibility on non-interface members.

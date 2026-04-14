@@ -47,12 +47,20 @@ Use narrower utilities only when the user already knows the exact target:
    - project report or draft only
    - external promotion candidate
    - no action
+4a. Apply semantic destination checks before proposing a file target:
+   - `codestyle/` only for language- and code-shape guidance such as naming, formatting, member shape, API shape, and reviewable code conventions
+   - `knowledge/` for decision heuristics, architectural rules, ownership boundaries, routing doctrine, and other root-level reusable guidance that is not a code-style rule
+   - `skills/` for repeatable implementation workflows, task playbooks, or domain-specific engineering practice
+   - review artifacts for findings, risks, decision history, and review-specific guardrails
+   - project memory for project truth, local constraints, and project-specific overrides
+   - never use `codestyle/` as a fallback destination for generic reusable guidance just because it affects code indirectly
 5. For each candidate, decide:
    - is it reusable outside the current project
    - is it reusable outside this monorepo
    - is it public-safe
    - does it depend on internal process, private architecture, or confidential rollout context
    - why it does not belong one layer higher or lower
+   - why the selected destination is semantically correct and why nearby alternatives such as `codestyle/`, `knowledge/`, or `skills/` were rejected
 6. Compare each candidate with current public core, internal overlay, and known outputs to avoid duplication.
 7. Score each candidate for quality, reuse value, merge fitness, and routing confidence.
 8. Produce one review package with:
