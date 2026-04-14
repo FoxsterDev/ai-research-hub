@@ -29,6 +29,8 @@ Semantic destination rules:
 - `skills/` is for repeatable workflows, implementation playbooks, and domain practice
 - never place a rule into `codestyle/` only because it is short, generic, or likely to affect code review behavior
 - if a rule changes how the agent should think about routing, ownership, architecture, or integration, prefer `knowledge/` over `codestyle/`
+- do not integrate a new shared knowledge file unless its load path is also defined or already exists
+- when adding a new knowledge file, update the relevant routing layer, trigger hints, or protocol references in the same approved change when needed
 
 Never collapse `project-only` content into shared prompts just because the rule is technically useful in one project.
 If a rule depends on one project's memory, architecture, vendor workaround, naming bug, or confidential rollout context, keep it project-local unless the reusable part can be cleanly split out first.
@@ -67,6 +69,7 @@ Allowed approval forms:
 6. If the approved outcome requires a new skill family, create the new family instead of forcing the knowledge into an unrelated existing one.
 7. Avoid duplication and conflicts with existing files.
 7a. Re-check that each approved item still matches the semantic destination chosen during review; do not let `codestyle/` become a catch-all bucket during apply.
+7b. Re-check that each newly added shared knowledge file is reachable by at least one explicit routing path, keyword trigger, or utility/protocol reference; do not leave dead shared knowledge as passive ballast.
 8. If approved content contains both public-core and internal-shared parts, split it before writing files instead of choosing one shared destination for everything.
 9. If approved content contains both shared and project-specific parts, split it before writing files instead of choosing one destination for everything.
 10. Route nothing into `AIRoot/Modules/XUUnity/` unless the approved content is explicitly public-safe.

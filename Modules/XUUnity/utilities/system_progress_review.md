@@ -21,6 +21,7 @@ Evaluate where the current AI system stands against the roadmap and execution pl
 ## Process
 1. Identify what roadmap phases already have meaningful implementation coverage.
 2. Check whether the public `xuunity` core and the internal shared overlay are both structurally coherent.
+2a. Check whether newly added shared knowledge has actually been wired into routing, trigger hints, or protocol references instead of only being stored on disk.
 3. Check whether `AIOutput/Registry/project_registry.yaml` is present and whether its key fields still match the current repo structure.
 4. Compare the current system against the active execution-plan deliverables.
 5. Score progress by workstream:
@@ -47,6 +48,10 @@ Evaluate where the current AI system stands against the roadmap and execution pl
   - public core current
   - internal overlay current
   - boundary drift detected
+- knowledge routing status:
+  - reachable
+  - partially reachable
+  - dead ballast detected
 - current bottleneck
 - recommended next milestone
 - recommended next 3 deliverables
