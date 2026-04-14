@@ -87,6 +87,31 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode monor
 
 - `../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md`
 
+## Codex Slack MCP
+
+Use this when a teammate needs Slack MCP in Codex clients that do not expose
+the Slack connector UI.
+
+### Preview target
+
+```bash
+bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
+```
+
+### Apply target
+
+```bash
+bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
+```
+
+### Script
+
+- `AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh`
+
+### Guide
+
+- `AIRoot/Operations/CodexSlackMcp/README.md`
+
 ## Existing Router Safety Rules
 
 - Existing repo `Agents.md` is not rewritten silently.
