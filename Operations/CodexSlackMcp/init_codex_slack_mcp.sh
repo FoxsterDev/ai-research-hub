@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       cat <<'EOF'
 Usage:
-  bash AIOutput/Operations/CodexSlackMcp/init_codex_slack_mcp.sh [--dry-run] [--force]
+  bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh [--dry-run] [--force]
 
 Flags:
   --dry-run  Print intended actions without writing files.
@@ -43,9 +43,14 @@ run_path="$install_dir/run.sh"
 
 run() {
   if [[ $dry_run -eq 1 ]]; then
-    printf '[dry-run] %s\n' "$*"
+    printf '[dry-run] %s' "$1"
+    shift
+    for arg in "$@"; do
+      printf ' %q' "$arg"
+    done
+    printf '\n'
   else
-    eval "$@"
+    "$@"
   fi
 }
 
@@ -59,8 +64,8 @@ copy_if_needed() {
     return
   fi
 
-  run "cp \"$src\" \"$dst\""
-  run "chmod $mode \"$dst\""
+  run cp "$src" "$dst"
+  run chmod "$mode" "$dst"
   printf 'installed %s\n' "$dst"
 }
 
@@ -90,11 +95,63 @@ append_mcp_block_if_missing() {
   printf 'updated %s\n' "$config_path"
 }
 
-run "mkdir -p \"$codex_home\" \"$install_dir\""
+append_post_approval_if_missing() {
+  local block
+  block=$'[mcp_servers.slack_single_channel.tools.slack_post_message]\n'
+  block+=$'approval_mode = "prompt"\n'
+
+  if [[ -f "$config_path" ]] && rg -q '^\[mcp_servers\.slack_single_channel\.tools\.slack_post_message\]' "$config_path"; then
+    printf 'kept existing slack_post_message approval in %s\n' "$config_path"
+    return
+  fi
+
+  if [[ $dry_run -eq 1 ]]; then
+    printf '[dry-run] append slack_post_message approval block to %s\n' "$config_path"
+    printf '%s' "$block"
+    return
+  fi
+
+  mkdir -p "$codex_home"
+  touch "$config_path"
+  if [[ -s "$config_path" ]]; then
+    printf '\n' >> "$config_path"
+  fi
+  printf '%s' "$block" >> "$config_path"
+  printf 'updated %s\n' "$config_path"
+}
+
+append_upload_approval_if_missing() {
+  local block
+  block=$'[mcp_servers.slack_single_channel.tools.slack_upload_file]\n'
+  block+=$'approval_mode = "prompt"\n'
+
+  if [[ -f "$config_path" ]] && rg -q '^\[mcp_servers\.slack_single_channel\.tools\.slack_upload_file\]' "$config_path"; then
+    printf 'kept existing slack_upload_file approval in %s\n' "$config_path"
+    return
+  fi
+
+  if [[ $dry_run -eq 1 ]]; then
+    printf '[dry-run] append slack_upload_file approval block to %s\n' "$config_path"
+    printf '%s' "$block"
+    return
+  fi
+
+  mkdir -p "$codex_home"
+  touch "$config_path"
+  if [[ -s "$config_path" ]]; then
+    printf '\n' >> "$config_path"
+  fi
+  printf '%s' "$block" >> "$config_path"
+  printf 'updated %s\n' "$config_path"
+}
+
+run mkdir -p "$codex_home" "$install_dir"
 copy_if_needed "$templates_dir/server.mjs" "$install_dir/server.mjs" 644
 copy_if_needed "$templates_dir/run.sh" "$install_dir/run.sh" 755
 copy_if_needed "$templates_dir/slack-single-channel.env.template" "$env_path" 600
 append_mcp_block_if_missing
+append_post_approval_if_missing
+append_upload_approval_if_missing
 
 cat <<EOF
 

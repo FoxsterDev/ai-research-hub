@@ -112,6 +112,10 @@ bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
 
 - `AIRoot/Operations/CodexSlackMcp/README.md`
 
+### Prompt Templates
+
+- `AIRoot/Templates/CodexSlackMcp/README.md`
+
 ## Existing Router Safety Rules
 
 - Existing repo `Agents.md` is not rewritten silently.

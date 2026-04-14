@@ -1,3 +1,9 @@
 [mcp_servers.slack_single_channel]
 command = "~/.codex-tools/slack-single-channel-mcp/run.sh"
 required = false
+
+[mcp_servers.slack_single_channel.tools.slack_post_message]
+approval_mode = "prompt"
+
+[mcp_servers.slack_single_channel.tools.slack_upload_file]
+approval_mode = "prompt"
