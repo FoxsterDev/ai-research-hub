@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 
+import { readFile, stat } from "node:fs/promises";
+import path from "node:path";
+
 const SERVER_NAME = "slack-single-channel";
 const SERVER_VERSION = "0.1.0";
 const PROTOCOL_VERSION = "2025-03-26";
+const MAX_UPLOAD_BYTES = 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
 
 const token = process.env.SLACK_BOT_TOKEN ?? "";
 const readToken = process.env.SLACK_READ_TOKEN?.trim() || token;
@@ -198,6 +203,35 @@ function buildTools() {
         additionalProperties: false,
       },
     },
+    {
+      name: "slack_upload_file",
+      description:
+        "Upload one local markdown or text file to the fixed Slack channel. This server cannot upload to any other destination.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            minLength: 1,
+            description: "Absolute or relative path to a local .md, .markdown, or .txt file.",
+          },
+          title: {
+            type: "string",
+            description: "Optional Slack title for the uploaded file.",
+          },
+          initial_comment: {
+            type: "string",
+            description: "Optional message text to accompany the file share.",
+          },
+          thread_ts: {
+            type: "string",
+            description: "Optional parent timestamp to upload inside a thread.",
+          },
+        },
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
   ].filter((tool) => threadReadEnabled || tool.name !== "slack_read_thread");
 }
 
@@ -280,6 +314,40 @@ async function callTool(params) {
           "Open the target Slack channel and use the returned ts/thread_ts to verify delivery.",
       });
     }
+    case "slack_upload_file": {
+      const filePath = requireNonEmptyString(args.path, "path");
+      const title = optionalNonEmptyString(args.title);
+      const initialComment = optionalNonEmptyString(args.initial_comment);
+      const threadTs = optionalNonEmptyString(args.thread_ts);
+      const file = await loadUploadFile(filePath);
+      const upload = await slackApi("files.getUploadURLExternal", {
+        filename: file.filename,
+        length: file.buffer.length,
+      });
+      await uploadBytes(upload.upload_url, file.filename, file.buffer);
+      const complete = await slackApi("files.completeUploadExternal", {
+        files: [
+          {
+            id: upload.file_id,
+            title: title ?? file.filename,
+          },
+        ],
+        channel_id: allowedChannelId,
+        ...(initialComment ? { initial_comment: initialComment } : {}),
+        ...(threadTs ? { thread_ts: threadTs } : {}),
+      });
+      const completedFile = complete.files?.[0] ?? null;
+      return toolResult({
+        ok: true,
+        channel_id: allowedChannelId,
+        file_id: upload.file_id,
+        file_name: completedFile?.name ?? file.filename,
+        title: completedFile?.title ?? title ?? file.filename,
+        permalink: completedFile?.permalink ?? null,
+        mimetype: completedFile?.mimetype ?? null,
+        thread_ts: threadTs,
+      });
+    }
     default:
       throw new Error(`Unsupported tool: ${String(name)}`);
   }
@@ -310,6 +378,46 @@ async function slackApi(method, payload, authToken = token) {
     throw new Error(`Slack API ${method} error: ${data.error ?? "unknown_error"}`);
   }
   return data;
+}
+
+async function uploadBytes(uploadUrl, filename, buffer) {
+  const formData = new FormData();
+  formData.append("filename", filename);
+  formData.append("file", new Blob([buffer]), filename);
+  const response = await fetch(uploadUrl, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Slack file upload failed with HTTP ${response.status}: ${body.slice(0, 200)}`);
+  }
+}
+
+async function loadUploadFile(filePath) {
+  const resolvedPath = path.resolve(filePath);
+  const extension = path.extname(resolvedPath).toLowerCase();
+  if (!ALLOWED_UPLOAD_EXTENSIONS.has(extension)) {
+    throw new Error(
+      `Unsupported upload file type: ${extension || "<none>"}. Allowed types: ${[...ALLOWED_UPLOAD_EXTENSIONS].join(", ")}`,
+    );
+  }
+
+  const fileStat = await stat(resolvedPath);
+  if (!fileStat.isFile()) {
+    throw new Error("Upload path must point to a regular file.");
+  }
+  if (fileStat.size > MAX_UPLOAD_BYTES) {
+    throw new Error(
+      `Upload file is too large: ${fileStat.size} bytes. Max supported size is ${MAX_UPLOAD_BYTES} bytes.`,
+    );
+  }
+
+  return {
+    resolvedPath,
+    filename: path.basename(resolvedPath),
+    buffer: await readFile(resolvedPath),
+  };
 }
 
 function sanitizeMessage(message) {

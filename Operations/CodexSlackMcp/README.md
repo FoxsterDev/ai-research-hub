@@ -30,6 +30,10 @@ Provide a Slack MCP path for Rider/Codex that:
 - `templates/slack-single-channel.env.template`
 - `templates/config.toml.snippet`
 
+Reusable prompt templates:
+
+- `AIRoot/Templates/CodexSlackMcp/`
+
 ## Install
 
 From the repo root:
@@ -52,6 +56,16 @@ The script copies files into the local Codex home:
 - `~/.codex-tools/slack-single-channel-mcp/run.sh`
 - `~/.codex/slack-single-channel.env`
 - `~/.codex/config.toml` MCP block when missing
+
+The installed config also pins `slack_post_message` to explicit Codex approval:
+
+- `[mcp_servers.slack_single_channel.tools.slack_post_message]`
+- `approval_mode = "prompt"`
+
+If you enable Slack file uploads, the installed config should also pin:
+
+- `[mcp_servers.slack_single_channel.tools.slack_upload_file]`
+- `approval_mode = "prompt"`
 
 `CODEX_HOME` is respected. When `CODEX_HOME` is set, the env file is created in
 that Codex home. The tools directory still defaults to `~/.codex-tools` unless
@@ -163,6 +177,10 @@ configure the app manually.
    - `channels:history` for a public channel
    - `groups:history` for a private channel
 
+Add this only if you want Codex to upload local files into Slack:
+
+- `files:write`
+
 Avoid granting these unless there is a clear operational reason:
 
 - `chat:write.public`
@@ -261,6 +279,10 @@ Default safe setup:
 - `channels:history` for a public channel
 - `groups:history` for a private channel
 
+Optional only when local file upload is required:
+
+- `files:write`
+
 Do not grant unless you explicitly need them:
 
 - `chat:write.public`
@@ -286,6 +308,43 @@ Available tools:
 - `slack_channel_status`
 - `slack_read_recent`
 - `slack_post_message`
+- `slack_upload_file`
+
+`slack_post_message` should require an explicit Codex approval prompt via the
+installed config block:
+
+```toml
+[mcp_servers.slack_single_channel.tools.slack_post_message]
+approval_mode = "prompt"
+```
+
+`slack_upload_file` should also require explicit Codex approval:
+
+```toml
+[mcp_servers.slack_single_channel.tools.slack_upload_file]
+approval_mode = "prompt"
+```
+
+`slack_upload_file` is intentionally narrow:
+
+- uploads only to `SLACK_ALLOWED_CHANNEL_ID`
+- accepts only local `.md`, `.markdown`, and `.txt` files
+- defaults to a 1 MiB maximum file size
+- uses Slack's current external upload flow:
+  - `files.getUploadURLExternal`
+  - `files.completeUploadExternal`
+
+## Prompt Templates
+
+Public reusable prompt templates live in:
+
+- `AIRoot/Templates/CodexSlackMcp/README.md`
+- `AIRoot/Templates/CodexSlackMcp/upload_local_file.md`
+- `AIRoot/Templates/CodexSlackMcp/upload_local_file_with_comment.md`
+- `AIRoot/Templates/CodexSlackMcp/upload_local_file_to_thread.md`
+
+Repo-scoped prompt packs may add ready-to-run prompts with real local paths for a
+specific project or workflow.
 
 `slack_read_thread` is intentionally not enabled by default because Slack thread
 reads in channels often require broader access than the default safe bot-token
