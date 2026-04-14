@@ -18,6 +18,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 9. Select one task file.
 10. Add only the review, utility, and platform files required.
 11. If the host repo provides `AIModules/XUUnityInternal/`, load only the minimum relevant internal shared overlay files after the public `XUUnity` core.
+11a. When a host-local internal overlay exists, prefer starting from its host-local overlay entrypoint before loading narrower internal files.
 12. When the task touches internal presenter-driven UI, choose the narrowest internal UI skill by lifetime shape:
    - `skills/ui/screen_presenters.md` for long-lived screens, tabs, pages, or root screen composition
    - `skills/ui/flow_presenters.md` for one-shot popups, modal flows, or explicit flow-result presenters
@@ -35,6 +36,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 - Treat `AIRoot/Modules/XUUnity/` as the public-safe default core for `xuunity`.
 - Treat `AIModules/XUUnityInternal/` as an optional monorepo-internal overlay, not as a replacement for the public core.
 - Load internal overlay files only when they materially improve the current task.
+- If a host-local internal overlay provides its own routing entrypoint, prefer that entrypoint over ad hoc direct loading of narrow internal files.
 - When public core and internal overlay differ, follow the internal overlay for monorepo-specific behavior unless current project memory overrides both.
 - Do not load broad internal overlay files when a narrower lifetime-specific UI skill exists.
 

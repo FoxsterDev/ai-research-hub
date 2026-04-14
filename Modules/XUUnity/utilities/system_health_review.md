@@ -16,6 +16,10 @@ Review the health of the prompt system itself, not only the product code.
 - Prefer a machine-readable extraction regression summary when available.
 - Prefer the canonical latest authoritative summary over ad hoc run files.
 - If extraction routing changed recently and no regression evidence exists, flag that gap explicitly.
+- Audit shared knowledge reachability:
+    - identify shared `knowledge/` or internal overlay knowledge files that have no explicit routing, trigger hints, utility references, or load path
+    - treat knowledge with no realistic selection path as dead ballast
+    - flag knowledge added without corresponding trigger updates as a system-health issue
 - Check storage-consistency explicitly:
     - repo-level storage rule in `Agents.md`
     - public core references to `AIRoot/Modules/XUUnity/`
@@ -31,6 +35,7 @@ Review the health of the prompt system itself, not only the product code.
 - Redundant files or sections
 - Missing files or weak layers
 - Knowledge extraction regression status
+- Knowledge reachability status
 - Public core versus internal overlay boundary status
 - Storage consistency status
 - Recommended cleanup order

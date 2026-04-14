@@ -37,6 +37,12 @@ Integration may happen only after the user explicitly says one of:
      - `knowledge/` for architectural doctrine, routing rules, ownership rules, and root-level reusable decision guidance
      - `skills/` for repeatable workflows and implementation practice
    - do not use `codestyle/` as the default bucket for reusable guidance that is not actually style guidance
+   - for any new shared knowledge candidate, identify how it becomes reachable in normal use:
+     - explicit `start_session` load rule
+     - shorthand routing
+     - keyword or code-signal trigger
+     - direct utility or protocol reference
+   - if no realistic load path exists, treat the candidate as incomplete until routing is added or the destination is changed
 4. Compare the new knowledge with the current source of truth.
 5. Evaluate:
    - technical quality
@@ -96,6 +102,9 @@ Interpretation:
 - Candidate output split
 - Candidate destination
 - Why that destination is semantically correct
+- Reachability plan:
+  - how this knowledge will actually be loaded
+  - which keywords, intents, code signals, or protocol references trigger it
 - Public-core candidate
 - Internal-shared candidate
 - External promotion candidate
