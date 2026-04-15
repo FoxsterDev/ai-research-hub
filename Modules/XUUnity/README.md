@@ -13,6 +13,10 @@ Canonical module path:
 Internal overlay when present in this host repo:
 - `AIModules/XUUnityInternal/`
 
+Canonical session entrypoint:
+- `tasks/start_session.md`
+- do not look for `start_session.md` at the module root
+
 ## Standard Layering
 1. One primary file from `role/` and optional supporting role files only when the task benefits from multiple angles
 2. One or more files from `codestyle/`
@@ -109,6 +113,8 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/severity_matrix.md`
 
 Some reusable SDK version-comparison methodology is intentionally stored in `knowledge/` instead of `skills/` because it is decision support, not direct implementation behavior.
+Knowledge files are not a default bundle.
+Load them only when `tasks/start_session.md` or a narrower review or utility file explicitly triggers them.
 
 ## Code Style
 - `codestyle/README.md`

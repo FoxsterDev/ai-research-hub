@@ -17,6 +17,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 8. Infer and load only the relevant task-specific skill packs from `skills/`.
 9. Select one task file.
 10. Add only the review, utility, and platform files required.
+10a. Add root-level `knowledge/` files only when a concrete routing hint or the selected task or review requires them.
 11. If the host repo provides `AIModules/XUUnityInternal/`, load only the minimum relevant internal shared overlay files after the public `XUUnity` core.
 11a. When a host-local internal overlay exists, prefer starting from its host-local overlay entrypoint before loading narrower internal files.
 12. When the task touches internal presenter-driven UI, choose the narrowest internal UI skill by lifetime shape:
@@ -44,6 +45,13 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 - If the task is about a long-lived screen, tab, lobby page, or page-composition presenter on the internal `_Core.UI/UIPresenter` stack, prefer `AIModules/XUUnityInternal/skills/ui/screen_presenters.md`.
 - If the task is about a popup, modal, temporary flow, wizard-like interaction, or presenter that returns an explicit flow result, prefer `AIModules/XUUnityInternal/skills/ui/flow_presenters.md`.
 - If the task is about choosing between presenter lifetime shapes, extracting presenter patterns, or refactoring the boundary between scene roots and presenters, also load `AIModules/XUUnityInternal/skills/ui/presenter_development.md`.
+
+## Shared Knowledge Routing Hints
+- Do not load the whole `knowledge/` folder by default.
+- Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, or runtime config mutation policy.
+- Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
+- Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
+- Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
