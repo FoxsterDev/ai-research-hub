@@ -8,6 +8,8 @@ Review the health of the prompt system itself, not only the product code.
 - Treat duplicated routing, conflicting source-of-truth rules, and dead paths as high-severity issues.
 - Flag any prompt file that adds cost without changing behavior.
 - Recommend deletions, merges, or moves only when they improve clarity and routing reliability.
+- Use `knowledge/decision_rules.md` when judging shared-vs-project destination, ownership boundaries, or public-safe placement.
+- Use `knowledge/severity_matrix.md` when classifying the severity of system-health findings.
 - Check whether the public `xuunity` core and the monorepo-internal `xuunity` overlay are clearly separated.
 - Flag any active rule that still treats all reusable knowledge as a single shared layer.
 - Flag any active rule that allows non-public-safe guidance to drift into `AIRoot/Modules/XUUnity/`.

@@ -24,6 +24,10 @@ Treat Unity lifecycle, scene/reload behavior, and async/threading assumptions as
 - `skills/tests/integration_tests.md`
 - `skills/tests/smoke_and_release_checks.md`
 
+Also load:
+- `knowledge/sdk_stability_scoring.md` when the review compares upgrade candidates, connector tracks, or bundled native version lines
+- `knowledge/severity_matrix.md` when the breakage review needs shared severity framing
+
 ## Review Angle
 Act like:
 - a rushed integrator trying to ship fast

@@ -27,3 +27,5 @@
 ## Escalate To
 If the integration is high-risk or breakage-prone, also load:
 - `reviews/sdk_breakage_review.md`
+
+Also load `knowledge/sdk_stability_scoring.md` when the review compares SDK versions, wrapper releases, bundled native SDKs, or connector-track choices.

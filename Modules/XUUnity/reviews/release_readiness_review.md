@@ -16,6 +16,9 @@
 - whether any issue is already a confirmed bug
 - manual QA scope required before release confidence is credible
 
+## Additional Context
+- Load `knowledge/severity_matrix.md` when release findings need explicit shared severity or release-blocker framing.
+
 ## Output
 - Findings table:
   - `Category | Issue | Severity | Remediation`
