@@ -320,9 +320,9 @@ async function callTool(params) {
       const initialComment = optionalNonEmptyString(args.initial_comment);
       const threadTs = optionalNonEmptyString(args.thread_ts);
       const file = await loadUploadFile(filePath);
-      const upload = await slackApi("files.getUploadURLExternal", {
+      const upload = await slackApiForm("files.getUploadURLExternal", {
         filename: file.filename,
-        length: file.buffer.length,
+        length: String(file.buffer.length),
       });
       await uploadBytes(upload.upload_url, file.filename, file.buffer);
       const complete = await slackApi("files.completeUploadExternal", {
@@ -351,6 +351,41 @@ async function callTool(params) {
     default:
       throw new Error(`Unsupported tool: ${String(name)}`);
   }
+}
+
+async function slackApiForm(method, payload, authToken = token) {
+  const formBody = new URLSearchParams();
+  for (const [key, value] of Object.entries(payload)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    formBody.append(key, String(value));
+  }
+
+  const response = await fetch(`https://slack.com/api/${method}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formBody.toString(),
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Slack API ${method} returned non-JSON response (${response.status}).`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Slack API ${method} failed with HTTP ${response.status}.`);
+  }
+  if (!data.ok) {
+    throw new Error(`Slack API ${method} error: ${data.error ?? "unknown_error"}`);
+  }
+  return data;
 }
 
 async function slackApi(method, payload, authToken = token) {
