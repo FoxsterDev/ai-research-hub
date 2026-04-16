@@ -10,6 +10,7 @@
 - Keep consent state and privacy gating explicit.
 - Do not initialize or enable restricted SDK behavior before required consent gates.
 - Separate compliance decisions from vendor-specific implementation details.
+- Do not let an ATT or privacy plugin take ownership of unrelated ad-stack attribution behavior or ad-network plist population.
 - Validate platform-specific behavior for iOS privacy and Android data collection settings.
 - Require privacy-manifest validity checks for iOS submissions that include third-party SDK bundles:
   - verify manifests are present where required

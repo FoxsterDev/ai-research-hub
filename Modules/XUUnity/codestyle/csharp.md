@@ -34,6 +34,8 @@
 - Prefer `sealed` on concrete classes that are not designed for inheritance.
 - Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
 - Prefer early-return guard clauses over deep nesting.
+- Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
+- Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
 
 ## Braces And Blocks
 - Open braces go on a new line.
