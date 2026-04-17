@@ -33,6 +33,9 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 19. Identify whether the task touches shared state, async flows, native boundaries, startup, UI, rendering, loading, monetization, or other critical project flows.
 20. Decide the safest implementation shape before writing code.
 21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
+22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
+23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
+24. If a host-local or project-local rule requires Unity validation to go through MCP or another repo-specific integration, treat that as a hard must-not for direct shell-launched Unity and do not fall back to the CLI.
 
 ## Shared Layer Rules
 - Treat `AIRoot/Modules/XUUnity/` as the public-safe default core for `xuunity`.
