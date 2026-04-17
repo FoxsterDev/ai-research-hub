@@ -17,5 +17,6 @@
 - If the public bridge exposes a direct native request entrypoint, protect the request path itself against duplicate in-flight calls instead of relying only on higher-level async sharing.
 - When platform split is already enforced by factory or assembly boundaries, do not duplicate platform routing with runtime platform checks inside the platform-specific implementation.
 - In platform-specific implementations, keep `#if` usage narrow and limited to code that would not compile on the current target, such as interop declarations or editor-only APIs.
+- If a platform-specific managed bridge file is still compiled for other targets, wrap native interop declarations such as `DllImport("__Internal")` in compile-time platform defines and provide same-signature fallback stubs for unsupported targets so IL2CPP and native link steps never see unresolved symbols from the wrong platform.
 - If a native bridge call can wait on non-cooperative lower layers, design a bounded recovery path instead of trusting caller cancellation alone.
 - Prefer ANR prevention and flow recovery over perfect cleanup when the native side can hang outside application control.
