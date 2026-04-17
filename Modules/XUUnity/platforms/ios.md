@@ -11,6 +11,8 @@
 - `skills/sdk/privacy_compliance.md`
 - `skills/sdk/store_compliance.md`
 
+Also load `knowledge/ios_passive_network_monitoring.md` when the task is specifically about passive network-environment monitoring, `NWPathMonitor`, proxy inspection, tunnel heuristics, or iOS VPN detection review.
+
 ## iOS-Specific Checks
 - Validate supported iOS range against the native APIs actually used.
 - Check UIKit and app lifecycle paths for main-thread correctness.

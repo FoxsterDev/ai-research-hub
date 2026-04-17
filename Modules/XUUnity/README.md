@@ -109,6 +109,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 ## Knowledge Base
 - `knowledge/glossary.md`
 - `knowledge/decision_rules.md`
+- `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/severity_matrix.md`
 
