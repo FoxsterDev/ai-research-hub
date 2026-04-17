@@ -32,6 +32,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 18. If historical reports are loaded, keep them lower-priority than current-truth memory and current source code.
 19. Identify whether the task touches shared state, async flows, native boundaries, startup, UI, rendering, loading, monetization, or other critical project flows.
 20. Decide the safest implementation shape before writing code.
+21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
 
 ## Shared Layer Rules
 - Treat `AIRoot/Modules/XUUnity/` as the public-safe default core for `xuunity`.
@@ -48,7 +49,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
-- Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, or runtime config mutation policy.
+- Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
@@ -187,6 +188,7 @@ Examples:
 - Keep impact on performance, GC, startup time, ANR risk, frame spikes, and critical project flows as low as possible.
 - Avoid microfreezes in loading, UI transitions, scene changes, and reward or monetization flows.
 - If the requirement conflicts with safety or performance, surface the tradeoff explicitly.
+- Do not overclaim Unity validation coverage. If editor-integrated or otherwise representative validation tooling is unavailable, say so explicitly and do not substitute non-equivalent shell-driven checks as proof by default.
 
 ## Role Selection
 Default:
