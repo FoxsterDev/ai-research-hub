@@ -10,6 +10,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 1. Classify the task from the user request, even if the request is shorthand.
 2. Detect whether the user requested a specific role.
 3. If no role was requested, infer the best primary role from the task type and risk profile.
+3a. Infer whether the task needs explicit risk classification and policy-pack routing.
 4. Decide whether the task needs one role or a small role group.
 5. Select the primary role file and only the minimum useful supporting role files.
 6. Select one or more relevant files from `codestyle/`.
@@ -18,6 +19,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 9. Select one task file.
 10. Add only the review, utility, and platform files required.
 10a. Add root-level `knowledge/` files only when a concrete routing hint or the selected task or review requires them.
+10b. If the task is risk-sensitive, load only the minimum matched policy-pack files from `reviews/policy_packs/` and surface the trigger reason explicitly.
 11. If the host repo provides `AIModules/XUUnityInternal/`, load only the minimum relevant internal shared overlay files after the public `XUUnity` core.
 11a. When a host-local internal overlay exists, prefer starting from its host-local overlay entrypoint before loading narrower internal files.
 12. When the task touches internal presenter-driven UI, choose the narrowest internal UI skill by lifetime shape:
@@ -53,10 +55,33 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
+- Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
+
+## Risk Routing Hints
+- Keep risk routing additive and narrow. Do not turn policy-pack matching into a broad always-on bundle.
+- Prefer one primary policy pack:
+  - `reviews/policy_packs/sdk_changes.md`
+  - `reviews/policy_packs/startup_changes.md`
+  - `reviews/policy_packs/manifest_native_changes.md`
+- If more than one family clearly matches, keep one primary pack and load only the extra overlays the second family contributes.
+- Use `knowledge/risk_classification.md` to infer:
+  - `low`
+  - `moderate`
+  - `high`
+  - `critical`
+- Escalate risk when multiple independent high-risk signals are present, when validation-path uncertainty is material, or when the task directly touches critical flows.
+- Show the trigger reason explicitly in task framing, for example:
+  - `risk class: high`
+  - `policy pack: startup changes`
+  - `triggered by: startup sequencing + SDK initialization`
+- Prefer the first matched policy pack by dominant breakage surface:
+  - SDK wrapper, version, connector, or vendor-boundary change -> `reviews/policy_packs/sdk_changes.md`
+  - startup sequence, first interactive flow, or startup-blocking consent/init change -> `reviews/policy_packs/startup_changes.md`
+  - manifest, plist, entitlement, privacy-manifest, JNI, or native bridge contract change -> `reviews/policy_packs/manifest_native_changes.md`
 
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
@@ -69,6 +94,7 @@ Interpret short commands by intent:
 - `xuunity feature presenter ...` -> `tasks/feature_development.md` plus the narrowest internal presenter skill by inferred lifetime shape
 - `xuunity implementation plan ...` or `xuunity feature plan ...` -> `tasks/implementation_plan.md`
 - `xuunity validation plan ...` or `xuunity feature validation ...` -> `tasks/validation_plan.md`
+- `xuunity rollout plan ...` or `xuunity feature rollout plan ...` -> `tasks/rollout_plan.md`
 - `xuunity delivery risk ...` or `xuunity feature risk review ...` -> `reviews/delivery_risk_review.md`
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`
@@ -133,6 +159,7 @@ Interpret short commands by intent:
 - `xuunity feature presenter ...` should infer whether the request is a screen presenter or flow presenter task before loading the narrower internal overlay skill
 - `xuunity implementation plan ...` should prefer `tasks/implementation_plan.md` when the user is asking for execution sequencing rather than direct coding
 - `xuunity validation plan ...` should prefer `tasks/validation_plan.md` when the user is asking how the feature should be validated before or during implementation
+- `xuunity rollout plan ...` or `xuunity feature rollout plan ...` should prefer `tasks/rollout_plan.md` when the user is asking how the feature should be exposed, monitored, or rolled back rather than whether it is already ready to ship
 
 Role selectors are also valid.
 Examples:
@@ -247,6 +274,7 @@ If the user does not specify a role, route by task:
 - `product explain or implementation brief` -> `role/product_owner.md`
 - `product change impact` -> `role/product_owner.md`
 - `product rollout readiness` -> `role/product_owner.md`
+- `rollout planning` -> `role/product_owner.md`
 - `product dependency map` -> `role/product_owner.md`
 - `product bug impact` -> `role/product_owner.md`
 - `project health audit` -> `role/product_owner.md`
@@ -295,6 +323,10 @@ Recommended role groups:
   - `role/product_owner.md`
   - `role/qa_manual.md`
   - `role/qa_automation.md`
+- rollout planning:
+  - `role/product_owner.md`
+  - `role/qa_manual.md`
+  - `role/qa_automation.md`
 - product dependency or bug impact brief:
 - `role/product_owner.md`
 - `role/senior_unity_developer.md`
@@ -339,6 +371,11 @@ When the task is a high-risk SDK review, also prefer:
 - `skills/native/` if native/plugin layers are involved
 - `skills/tests/` for breakage-oriented test design
 
+When policy-pack routing is active:
+- load the matched `reviews/policy_packs/*.md` file
+- keep the pack narrow by composing existing `reviews/`, `skills/`, `knowledge/`, and `platforms/` files
+- preserve narrower routes such as `sdk breakage review`, `native review`, and `release readiness` instead of flattening them into generic risk routing
+
 When async signals are present, load:
 - `skills/async/base_async_rules.md`
 - the relevant async topic files from `skills/async/`
@@ -361,6 +398,7 @@ Use these utilities when the task is about the protocol system itself:
 ## Output
 - Selected stack
 - Inferred task type
+- Inferred risk class and matched policy pack, if any
 - Inferred skill packs
 - Missing project memory, if any
 - Main risk areas for the session
