@@ -40,6 +40,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `tasks/feature_design_brief.md`
 - `tasks/implementation_plan.md`
 - `tasks/validation_plan.md`
+- `tasks/rollout_plan.md`
 - `tasks/feature_development.md`
 - `tasks/code_review.md`
 - `tasks/sdk_integration.md`
@@ -55,6 +56,9 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `reviews/native_plugin_review.md`
 - `reviews/architecture_review.md`
 - `reviews/release_readiness_review.md`
+- `reviews/policy_packs/sdk_changes.md`
+- `reviews/policy_packs/startup_changes.md`
+- `reviews/policy_packs/manifest_native_changes.md`
 
 ## Utility Coverage
 - `utilities/README.md`
@@ -109,13 +113,27 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 ## Knowledge Base
 - `knowledge/glossary.md`
 - `knowledge/decision_rules.md`
+- `knowledge/risk_classification.md`
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/severity_matrix.md`
 
 Some reusable SDK version-comparison methodology is intentionally stored in `knowledge/` instead of `skills/` because it is decision support, not direct implementation behavior.
+Shared risk classification is also stored in `knowledge/` because it is routing doctrine for task assembly, not a code-style or implementation skill by itself.
 Knowledge files are not a default bundle.
 Load them only when `tasks/start_session.md` or a narrower review or utility file explicitly triggers them.
+
+## Risk Routing
+`XUUnity` can strengthen the stack for risky work without turning every task into a broad review bundle.
+
+The initial shared policy-pack surface is:
+- `reviews/policy_packs/sdk_changes.md`
+- `reviews/policy_packs/startup_changes.md`
+- `reviews/policy_packs/manifest_native_changes.md`
+
+These policy packs are review-routing overlays.
+They compose existing `reviews/`, `skills/`, `knowledge/`, and `platforms/` files.
+They should be selected through `tasks/start_session.md` only when the task's dominant breakage surface warrants them.
 
 ## Code Style
 - `codestyle/README.md`
@@ -186,6 +204,8 @@ Recommended short commands:
 - `xuunity feature screen this flow`
 - `xuunity feature popup this flow`
 - `xuunity feature presenter this flow`
+- `xuunity rollout plan this feature`
+- `xuunity feature rollout plan this flow`
 - `xuunity extract knowledge`
 - `xuunity extract this source`
 - `xuunity extract implementation pattern`
