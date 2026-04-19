@@ -42,33 +42,43 @@ Choose the minimum useful verification depth and say which one was used:
    - Resolve what counts as bootstrap evidence from the repo router, project router, and any project-local memory guidance before assuming specific artifact names.
 3. Confirm whether historical reports already live in `Assets/AIOutput/`.
    - If they do, say so directly when it matters.
-4. Do not rely on historical reports by default.
+4. Inventory the relevant root `Assets/AIOutput/` bootstrap artifacts that still influence project understanding.
+   - For each one, classify it as:
+     - `runtime-support current evidence`
+     - `durable knowledge that should be absorbed into ProjectMemory`
+     - `historical context worth keeping but not loading by default`
+     - `stale report that should be refreshed before reuse`
+   - If a root artifact now has a durable same-claim equivalent in `ProjectMemory/`, call out that the root artifact should usually drop to archive/secondary status rather than remain in the default mental model.
+5. Do not rely on historical reports by default.
    - Use them only for current-vs-past behavior drift, legacy reconstruction, old bug research, or bootstrap absorption on the first gameplay refresh.
-5. Identify the most important current-truth claims from the audit units.
-6. If bootstrap evidence was used, split the findings into:
+6. Identify the most important current-truth claims from the audit units.
+7. If bootstrap evidence was used, split the findings into:
    - already durable in `ProjectMemory/`
    - supported only by bootstrap evidence in `Assets/AIOutput/`
    - missing from both durable memory and bootstrap evidence
-7. Choose verification depth:
+8. Choose verification depth:
    - `spot-check`
    - `targeted verification`
    - `broad verification`
-8. Perform source-code verification on the claims most likely to cause wrong answers if stale.
-9. Classify each important claim as:
+9. Perform source-code verification on the claims most likely to cause wrong answers if stale.
+10. Classify each important claim as:
    - `verified current`
    - `partially stale`
    - `likely stale`
    - `unverifiable from current context`
-10. Classify the overall project memory freshness.
-11. Report where stale memory would cause wrong product or engineering answers.
-12. Recommend which files should be updated first.
-13. If bootstrap artifacts contain durable guidance that is not yet represented in `ProjectMemory/`, call that out explicitly as a memory-absorption gap.
+11. Classify the overall project memory freshness.
+12. Report where stale memory would cause wrong product or engineering answers.
+13. Recommend which files should be updated first.
+14. If bootstrap artifacts contain durable guidance that is not yet represented in `ProjectMemory/`, call that out explicitly as a memory-absorption gap.
+15. If bootstrap artifacts are still present after absorption, recommend whether each one should stay as secondary evidence, be refreshed, or be archived.
 
 ## Bootstrap Evidence Rules
 - Host-local gameplay onboarding/bootstrap artifacts are valid seed evidence for gameplay-project memory refresh.
 - Runtime-support artifacts in `Assets/AIOutput/` may be used as current evidence for integration shape or flow coverage even when they are not themselves durable `ProjectMemory/`.
 - Onboarding reports, surveys, analysis outputs, reviewer outputs, and setup reports are bootstrap evidence, not default current truth.
 - When bootstrap evidence remains the only source for a repeatedly needed claim, recommend absorbing the durable part into `ProjectMemory/`.
+- After durable absorption exists, old bootstrap reports should be treated as secondary evidence and usually become archive candidates rather than active current-truth context.
+- Do not recommend deletion only because a bootstrap report is old; prefer `archive` unless the artifact is junk, duplicate, or explicitly safe to remove under the cleanup protocol.
 - Once strong `ProjectMemory/` exists, bootstrap artifacts should drop back to secondary evidence unless the task is specifically about onboarding history or gameplay-bridge integration drift.
 
 ## Freshness Classes
@@ -107,6 +117,11 @@ Use these outcome labels in the report:
   - historical-context-only claim
 - Call out when a stale file affects product answers differently from engineering workflows.
 - If a bootstrap artifact is carrying durable operational knowledge that should have been absorbed into `ProjectMemory/`, flag that as a structure problem, not only a freshness problem.
+- When reporting recommendations, separate:
+  - `absorb into ProjectMemory`
+  - `refresh bootstrap artifact`
+  - `keep as runtime-support artifact`
+  - `archive as historical bootstrap evidence`
 
 ## Output
 Use `output/project_health_report_format.md`.
