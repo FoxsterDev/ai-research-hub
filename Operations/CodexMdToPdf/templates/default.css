@@ -1,0 +1,268 @@
+body {
+  color: #1f2328;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  margin: 0;
+  orphans: 3;
+  widows: 3;
+}
+
+h1, h2, h3, h4 {
+  color: #111827;
+  page-break-after: avoid;
+  break-after: avoid-page;
+  margin-top: 1.1em;
+}
+
+h1 {
+  font-size: 24pt;
+  border-bottom: 2px solid #d0d7de;
+  padding-bottom: 8px;
+}
+
+h2 {
+  font-size: 17pt;
+  border-bottom: 1px solid #d0d7de;
+  padding-bottom: 4px;
+  margin-bottom: 0.55em;
+}
+
+h3 {
+  font-size: 12.6pt;
+  margin-bottom: 0.35em;
+}
+
+p, ul, ol {
+  margin-top: 0.45em;
+  margin-bottom: 0.65em;
+}
+
+ul, ol {
+  padding-left: 1.25rem;
+}
+
+pre, code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+pre {
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  break-inside: avoid-page;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-size: 9.4pt;
+  line-height: 1.4;
+  margin: 8px 0 12px;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  page-break-inside: avoid;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+}
+
+code {
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+
+table {
+  break-inside: avoid-page;
+  border-collapse: collapse;
+  page-break-inside: avoid;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #d0d7de;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+img {
+  break-inside: avoid-page;
+  max-width: 100%;
+  page-break-inside: avoid;
+}
+
+blockquote {
+  border-left: 3px solid #d0d7de;
+  break-inside: avoid-page;
+  color: #57606a;
+  margin-left: 0;
+  page-break-inside: avoid;
+  padding-left: 12px;
+}
+
+h3 + pre,
+h4 + pre,
+p + pre,
+ul + pre,
+ol + pre {
+  break-before: avoid-page;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1rem 0;
+}
+
+.hero {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 52%, #eff6ff 100%);
+  border: 1px solid #dbe3f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  margin: 0 0 18px;
+  padding: 18px 20px 16px;
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+}
+
+.hero-kicker {
+  color: #9a3412;
+  font-size: 8.4pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  border: 0;
+  color: #0f172a;
+  font-size: 24pt;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.hero-subtitle {
+  color: #334155;
+  font-size: 12pt;
+  line-height: 1.45;
+  margin: 0 0 14px;
+  max-width: 92%;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  background: #ffffff;
+  border: 1px solid #d7dee9;
+  border-radius: 999px;
+  color: #1e293b;
+  display: inline-block;
+  font-size: 8.8pt;
+  font-weight: 600;
+  padding: 5px 10px;
+}
+
+.fact-grid,
+.feature-grid {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 14px;
+}
+
+.fact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fact-card,
+.feature-card {
+  background: #f8fafc;
+  border: 1px solid #dbe3f0;
+  border-radius: 14px;
+  break-inside: avoid-page;
+  page-break-inside: avoid;
+  padding: 12px 14px;
+}
+
+.fact-card h3,
+.feature-card h3 {
+  color: #0f172a;
+  margin-top: 0;
+}
+
+.fact-card ul,
+.feature-card p {
+  margin-bottom: 0;
+}
+
+.info-panel {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border: 1px solid #dbe3f0;
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+}
+
+.section-lead {
+  color: #475569;
+  margin-bottom: 10px;
+}
+
+.callout {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 5px solid #3b82f6;
+  border-radius: 10px;
+  break-inside: avoid-page;
+  color: #1e3a8a;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  page-break-inside: avoid;
+}
+
+.callout.accent {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  border-left-color: #f97316;
+  color: #9a3412;
+}
+
+@media print {
+  body {
+    font-size: 10.1pt;
+  }
+
+  .hero {
+    margin-bottom: 14px;
+    padding: 16px 18px 14px;
+  }
+
+  .hero-title {
+    font-size: 22pt;
+  }
+
+  .hero-subtitle {
+    font-size: 11pt;
+    max-width: 100%;
+  }
+
+  .fact-grid,
+  .feature-grid {
+    gap: 10px;
+  }
+
+  .fact-card,
+  .feature-card,
+  .info-panel,
+  .callout {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+}
