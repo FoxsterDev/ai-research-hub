@@ -9,6 +9,7 @@
 - Risks
 - Missing context
 - Freshness findings
+- Bootstrap artifact disposition
 - Evidence summary
 - Recommended next actions
 - Verification status
@@ -71,11 +72,24 @@
   - project router
   - local memory rules
 - if bootstrap evidence was used, identify which important claims still live only in bootstrap artifacts and should be absorbed into `ProjectMemory/`
+- if bootstrap evidence was used, say whether root `Assets/AIOutput/` artifacts were inventoried for disposition:
+  - `yes`
+  - `no`
 - include the resulting trust decision:
   - `safe for product answers`
   - `safe only for engineering ideation`
   - `code-first verification required`
   - `memory update required before use`
+
+## Bootstrap Artifact Disposition Expectations
+- list the relevant root `Assets/AIOutput/` bootstrap artifacts that were reviewed
+- for each reviewed artifact, assign one disposition:
+  - `keep as runtime-support current evidence`
+  - `absorb durable claims into ProjectMemory`
+  - `refresh before reuse`
+  - `archive as historical bootstrap evidence`
+- say explicitly when a root artifact has already been superseded by durable `ProjectMemory/`
+- do not recommend deletion unless the cleanup rules clearly make it safe
 
 ## Verification Status Values
 - `verified in source code`
