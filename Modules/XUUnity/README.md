@@ -28,6 +28,9 @@ Canonical session entrypoint:
 8. Project memory from `Assets/AIOutput/ProjectMemory/`
 9. Previous outputs from `Assets/AIOutput/` only if they help the current task
 
+These storage paths are the default project-local topology.
+If the active repo router, project router, or project registry declares a different storage mode, follow that host-local contract first and translate legacy `Assets/AIOutput/...` references before loading project memory or prior outputs.
+
 For gameplay-project `project memory freshness` or first-readiness audits, host-local onboarding/bootstrap artifacts in `Assets/AIOutput/` may also be used as seed evidence when `ProjectMemory/` is still sparse. Resolve the exact evidence set from the host repo router, project router, or local memory rules. They do not replace curated durable memory.
 
 In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the public core and before project-local memory when internal shared overlays are relevant.
