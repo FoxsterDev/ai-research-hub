@@ -8,3 +8,4 @@ Extract durable engineering guidance from implementation or review chat.
 - Extracted insights
 - Proposed destination
 - Required verification
+- Recommended report location for the reviewed extraction package
