@@ -8,11 +8,13 @@ This guide is for non-technical product owners who want fast answers about:
 - what a feature depends on
 - whether something is ready for rollout
 - what product impact a bug has
+- whether the project is structurally ready for reliable AI-assisted product work
+- whether project memory is fresh enough to trust for product-facing answers
 
 You do not need to read code directly.
 
 If you want the shortest version first, read:
-- [AI_PRODUCT_OWNER_QUICKSTART.md](./AI_PRODUCT_OWNER_QUICKSTART.md)
+- `AI_PRODUCT_OWNER_QUICKSTART.md`
 
 ## What You Need
 One of these:
@@ -45,6 +47,12 @@ Do not start from:
 - `Assets/`
 - `Assets/Scripts/`
 - a random nested subfolder
+
+## Infrastructure-Sensitive Project Rule
+For projects with startup-, SDK-, manifest-, plist-, entitlement-, or compliance-sensitive infrastructure:
+- product-facing infrastructure answers should default to code-backed verification
+- project memory is useful for navigation and scoping, but current behavior claims should start from source code and build artifacts when platform behavior matters
+- SDK, startup, manifest, plist, entitlement, and compliance-sensitive claims should not be answered from memory alone
 
 ## Choose Your Working Mode
 
@@ -85,6 +93,7 @@ Read Agents.md first.
 Use XUUnity product protocols.
 Verify current behavior against source code before answering.
 If project memory and code disagree, code wins.
+For infrastructure, SDK, startup, manifest, plist, entitlement, or compliance-sensitive questions, use code-first verification.
 Mark answers as:
 - verified in source code
 - based on project memory
@@ -103,11 +112,13 @@ If the AI already reads repo instructions automatically, you usually do not need
 
 ```text
 We are working in this Unity repo.
+Read Agents.md first.
 Use XUUnity product protocols.
 Answer for a non-technical product owner.
 Verify current behavior against source code before answering.
 If project memory and code disagree, code wins.
 Use verification status in the answer.
+For infrastructure, SDK, startup, manifest, plist, entitlement, or compliance-sensitive questions, use code-first verification.
 ```
 
 5. Then ask one short command such as:
@@ -129,6 +140,7 @@ Open at least one project root and make sure the AI can see:
 - ask one focused question at a time
 - prefer one project per chat
 - if the answer says `partially inferred`, ask for a code verification pass
+- if the question is about rollout, project readiness, or memory trust, ask directly with the matching product protocol
 - if you move to another project, start a new chat
 
 ## VS Code Setup
@@ -159,11 +171,13 @@ Ask someone to help once if needed, then just keep this simple:
 
 ```text
 We are working in this Unity repo.
+Read Agents.md first.
 Use XUUnity product protocols.
 Answer for a non-technical product owner.
 Verify current behavior against source code before answering.
 If project memory and code disagree, code wins.
 Use verification status in the answer.
+For infrastructure, SDK, startup, manifest, plist, entitlement, or compliance-sensitive questions, use code-first verification.
 ```
 
 4. Then ask product commands like:
@@ -204,14 +218,27 @@ Never start from:
 - `Scripts/`
 - a random subfolder
 
+## Product Commands To Know
+- `xuunity product explain this feature`
+- `xuunity product brief this system`
+- `xuunity product impact this flow change`
+- `xuunity product deps this popup`
+- `xuunity product rollout this feature`
+- `xuunity product bug this issue`
+- `xuunity product health this project`
+- `xuunity project memory freshness this project`
+- `xuunity po evaluate this feature`
+
 ## Fast Starter Prompt
 Use this when starting a fresh session:
 
 ```text
 We are working in this Unity repo.
+Read Agents.md first.
 Use XUUnity product protocols.
 Answer for a non-technical product owner.
 Verify current behavior against source code before answering.
 If project memory and code disagree, code wins.
 Use verification status in the answer.
+For infrastructure, SDK, startup, manifest, plist, entitlement, or compliance-sensitive questions, use code-first verification.
 ```
