@@ -39,6 +39,9 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
 24. If a host-local or project-local rule requires Unity validation to go through MCP or another repo-specific integration, treat that as a hard must-not for direct shell-launched Unity and do not fall back to the CLI.
 
+Default storage references in this file assume the standard project-local layout.
+If the active repo router, project router, or project registry declares a different storage mode, follow that host-local contract first and translate legacy `Assets/AIOutput/...` paths accordingly before loading project memory, skill overrides, or prior outputs.
+
 ## Shared Layer Rules
 - Treat `AIRoot/Modules/XUUnity/` as the public-safe default core for `xuunity`.
 - Treat `AIModules/XUUnityInternal/` as an optional monorepo-internal overlay, not as a replacement for the public core.

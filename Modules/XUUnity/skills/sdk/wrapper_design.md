@@ -7,6 +7,7 @@
 
 ## Rules
 - Treat third-party SDKs as zero-trust boundaries.
+- Keep the public wrapper facade thin: initialization checks, early synchronous validation, and delegation only. Put orchestration below the facade.
 - Do not leak third-party data structures into core application logic.
 - Map SDK models to internal safe structs or DTOs immediately at the wrapper boundary.
 - Keep public wrapper interfaces stateless where possible.
@@ -18,6 +19,8 @@
 - If an async SDK call returns meaningful metadata, return it as a result struct instead of exposing mutable state flags.
 - Prefer small top-level result or status types over nested public contract types when the result is reused or part of the stable wrapper surface.
 - Avoid `partial` and nested public API shape unless language tooling or generation actually requires it.
+- Keep canonical mirrored state in one owner only. If platform or vendor mirroring fails, preserve the previous canonical value instead of partially applying the mutation.
+- When launch behavior materially differs across modes such as native vs browser, prefer strategy split over a broad capability-probing interface with methods that some implementations should never use.
 - Keep editor helpers, test hooks, and platform-specific support classes out of the main production wrapper folder when they are not part of the runtime contract.
 - Contain malformed data, nulls, parsing failures, and vendor exceptions inside the wrapper layer.
 - Keep SDK-specific assumptions and vendor quirks out of core gameplay, UI, and business logic.
