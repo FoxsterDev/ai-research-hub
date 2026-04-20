@@ -71,6 +71,10 @@ Use narrower utilities only when the user already knows the exact target:
    - project-dependency assessment
    - conflicts and duplication analysis
    - explicit apply options
+8a. Store the review package in the correct report destination, not in a raw-material inbox:
+   - host-level shared review package -> `AIOutput/Reports/ReviewArtifacts/`
+   - project-bound review package -> `<Project>/Assets/AIOutput/` or `AIOutput/Projects/<Project>/Reports/` based on scope
+   - leave `AIOutput/KnowledgeInbox/` for the raw source item only
 9. Stop and wait for user approval.
 
 ## Approval Rule
@@ -104,3 +108,4 @@ Allowed approval styles include:
 - Duplicate and conflict analysis
 - Recommended apply scope
 - Approval options for the user
+- Recommended storage location for the review package

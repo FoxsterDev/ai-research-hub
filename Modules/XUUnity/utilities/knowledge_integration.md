@@ -74,7 +74,8 @@ Allowed approval forms:
 9. If approved content contains both shared and project-specific parts, split it before writing files instead of choosing one destination for everything.
 10. Route nothing into `AIRoot/Modules/XUUnity/` unless the approved content is explicitly public-safe.
 11. If the approved outcome includes external promotion, prepare or apply the reusable public-safe version for the selected optional external repo.
-12. Report exactly what changed.
+12. If the approved package was previously stored in `AIOutput/KnowledgeInbox/`, move or rewrite that reviewed package into the correct report destination and leave the inbox only for raw source parking.
+13. Report exactly what changed.
 
 ## Secret Safety Rule
 - Do not integrate literal secret values into any destination, including project memory, reports, shared prompts, or external knowledge.
