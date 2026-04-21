@@ -36,6 +36,7 @@ It defines the default Unity `6000+` mobile safety posture:
 - `profiling/`
 - `tests/`
 - `architecture/`
+- `refactoring/`
 - `mobile/`
 - `sdk/`
 - `native/`

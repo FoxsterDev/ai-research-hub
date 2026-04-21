@@ -9,6 +9,12 @@ Turn an accepted feature design into a concrete execution plan before code chang
 - changes that touch multiple files, systems, or critical flows
 - features where validation and rollback checkpoints should be visible before coding
 
+## Do Not Use For
+- choosing the target subsystem split or ownership model from scratch
+- comparing architecture options before a preferred design shape exists
+- deciding whether a presenter, facade, service, wrapper, or state boundary should exist at all
+- cases where the main uncertainty is long-term design direction rather than execution sequencing
+
 ## Inputs
 - feature design brief
 - project router and project memory
@@ -65,6 +71,8 @@ Turn an accepted feature design into a concrete execution plan before code chang
 
 ## Rules
 - Do not jump into code if the sequence of changes is still ambiguous.
+- Do not use this task to hide unresolved architecture decisions behind implementation sequencing.
 - Prefer the smallest safe execution shape over broad simultaneous rewrites.
 - Keep critical-flow checkpoints visible so validation is not deferred until the end.
 - If the plan depends on stale or uncertain memory, say so and fall back to code-backed planning.
+- If the target shape is still contested, step back to architecture planning or feature design before producing an execution plan.

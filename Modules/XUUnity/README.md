@@ -41,6 +41,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `tasks/refactoring.md`
 - `tasks/feature_request_intake.md`
 - `tasks/feature_design_brief.md`
+- `tasks/architecture_plan.md`
 - `tasks/implementation_plan.md`
 - `tasks/validation_plan.md`
 - `tasks/rollout_plan.md`
@@ -185,6 +186,7 @@ First-class skill families include:
 - `profiling/`
 - `tests/`
 - `architecture/`
+- `refactoring/`
 - `mobile/`
 - `sdk/`
 - `native/`

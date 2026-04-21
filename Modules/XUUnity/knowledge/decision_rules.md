@@ -10,6 +10,7 @@
 - Treat runtime client/build configuration as input, not mutable state. Compute effective remote or derived values locally at the feature or system boundary instead of merging them back into config objects at runtime.
 - Prefer the narrowest existing owner for behavior changes. If a behavior can be resolved in a feature/helper/policy boundary, do not push the special-case logic into app-root or bootstrapper code.
 - Keep shared public-core guidance project-agnostic. Do not use project-, product-, brand-, or repo-specific identifiers in shared examples or reusable rules.
+- In shared public-core files, keep provenance abstract and portable. `Derived From`, evidence notes, and examples must not expose concrete project names, project-local paths, or repo-private artifact names. Use generic evidence labels instead.
 - Do not add new shared knowledge unless it is reachable by an explicit load path, routing rule, or keyword/intent trigger. When adding knowledge, also verify how it will be selected during normal task assembly.
 - Do not claim stronger validation than the evidence actually supports. When representative Unity validation tooling is unavailable, do not treat generated project-file `dotnet build` or `dotnet test` runs, or ad hoc substitute execution paths, as equivalent proof by default. Keep the validation gap explicit and prefer narrow source-level changes over inflated confidence.
 - Distinguish fake-backed contract validation from real device/native bridge validation. Do not present the former as proof of the latter.

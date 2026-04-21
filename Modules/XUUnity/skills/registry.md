@@ -210,12 +210,81 @@ Triggers:
 - model
 - lifecycle
 - boundary
+Trigger note:
+- prefer this family when the task is primarily about target-shape design, subsystem boundaries, ownership model, or event-flow design, not about safely migrating existing code in place
 Use for:
 - subsystem design
 - event flows
 - dependency boundaries
+Do not use for:
+- behavior-preserving cleanup or seam-first migration of an existing implementation
+- local refactors where the target architecture is already known and the main risk is safe transition
 Project override:
 - `Assets/AIOutput/ProjectMemory/SkillOverrides/architecture.md`
+
+Key files:
+- `architecture/routing.md`
+- `architecture/dependency_boundaries.md`
+- `architecture/state_management.md`
+- `architecture/event_driven_design.md`
+
+## Refactoring
+Skill family: `refactoring/`
+Triggers:
+- refactor
+- refactoring
+- cleanup
+- simplify
+- extract
+- extract service
+- extract interface
+- extract wrapper
+- extract presenter
+- split
+- split class
+- split presenter
+- split service
+- decouple
+- untangle
+- migration
+- staged migration
+- incremental migration
+- strangler
+- legacy cleanup
+- move ownership
+- ownership split
+- dependency seam
+- seam
+- thin adapter
+- adapter-backed transition
+- replace global access
+- isolate sdk
+- isolate platform
+Trigger note:
+- broad words such as `cleanup`, `simplify`, or `split` are not enough by themselves; prefer this family only when the request also implies structural change, ownership movement, seam creation, or staged migration
+Use for:
+- behavior-preserving structure work
+- incremental migration
+- dependency seam creation
+- safe legacy cleanup
+Do not use for:
+- target-shape architecture design when the main question is what the subsystem boundaries or ownership model should be
+- pure bug fixing with a local minimal-diff fix and no boundary or ownership change
+- generic code review with no proposed structural change
+- pure performance tuning when there is no structural migration or seam work
+- simple naming, formatting, or file-move cleanup without behavioral risk
+Project override:
+- `Assets/AIOutput/ProjectMemory/SkillOverrides/refactoring.md`
+
+Key files:
+- `refactoring/behavior_preservation.md`
+- `refactoring/incremental_migration.md`
+- `refactoring/dependency_seams.md`
+- `refactoring/presenter_lifetime_split.md`
+- `refactoring/progression_snapshot_reconciliation.md`
+- `refactoring/reward_grant_idempotency.md`
+- `refactoring/startup_bridge_narrowing.md`
+- `refactoring/state_stream_simplification.md`
 
 ## Mobile
 Skill family: `mobile/`
