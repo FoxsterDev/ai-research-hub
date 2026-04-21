@@ -12,6 +12,8 @@
 - Keep shared public-core guidance project-agnostic. Do not use project-, product-, brand-, or repo-specific identifiers in shared examples or reusable rules.
 - Do not add new shared knowledge unless it is reachable by an explicit load path, routing rule, or keyword/intent trigger. When adding knowledge, also verify how it will be selected during normal task assembly.
 - Do not claim stronger validation than the evidence actually supports. When representative Unity validation tooling is unavailable, do not treat generated project-file `dotnet build` or `dotnet test` runs, or ad hoc substitute execution paths, as equivalent proof by default. Keep the validation gap explicit and prefer narrow source-level changes over inflated confidence.
+- Distinguish fake-backed contract validation from real device/native bridge validation. Do not present the former as proof of the latter.
+- Do not add permanent runtime test seams to shipping code by default. Treat them as a justified tradeoff only when automated device validation is regular, trusted, and release-gating.
 - Do not treat stale generated build artifacts as current truth when `Library/` was rebuilt, package resolution changed, or a clean build may have regenerated the platform outputs after the inspected snapshot.
 - Before recommending a permanent source fix for a vendor-managed build declaration, verify same-build log evidence for the owning resolver or postprocess step and check whether a clean rebuild already resolves the issue.
 - If a workaround would mask the deeper question of ownership between source manifests and vendor postprocessing, call out that tradeoff explicitly instead of presenting the workaround as the preferred fix.

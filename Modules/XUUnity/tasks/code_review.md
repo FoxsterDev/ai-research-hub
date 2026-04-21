@@ -10,6 +10,9 @@ Review code for production risk in Unity and native integration paths.
 - Missing tests or missing validation coverage
 - Feature and core-flow breakage risk
 - QA validation needs for changed user journeys
+- Callback ownership, dispatch ownership, and cleanup ownership
+- Policy or launch-mode decisions living at the wrong layer
+- Strategy-versus-platform boundary drift in SDK and native wrapper code
 
 ## Output
 - Findings ordered by severity

@@ -12,6 +12,7 @@
 - Recoverable bridge startup failure should become explicit bridge state, not uncaught native or managed exception control flow.
 - Keep bridge ownership narrow. Do not let a permission, privacy, or SDK wrapper own unrelated attribution, plist, or product-domain responsibilities.
 - Keep Unity-facing wrappers stable even if native details change.
+- When a higher orchestration layer already owns public callbacks, prefer platform bridge methods that execute or throw rather than mixing direct user callback invocation with exception control flow in the same platform path.
 - Prefer direct, typed bridge contracts over stringly-typed fallback channels on critical paths.
 - For high-frequency callbacks, use bridge shapes that preserve thread ownership and reduce marshaling overhead.
 - By default, callbacks, events, and async completions that re-enter Unity from native code should hand off to the Unity main thread unless the contract explicitly says otherwise.
