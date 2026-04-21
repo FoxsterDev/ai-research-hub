@@ -2,9 +2,8 @@
 
 ## Goals
 - production readability
-- safe async and ownership patterns
-- low-allocation runtime paths
-- clear boundaries between game logic, services, and platform bridges
+- maintainable public API surfaces
+- consistent type and file structure
 
 ## Rules
 - Use English for identifiers, logs, and documentation.
@@ -12,13 +11,7 @@
 - Public APIs may use XML docs when the contract is not obvious.
 - Prefer explicit naming over clever abstractions.
 - Prefer small focused types over broad mixed-responsibility classes.
-- Prefer intent-oriented public APIs over exposing transient technical state directly when callers only need a business decision such as whether an action may start.
-- Keep async ownership explicit and avoid hidden fire-and-forget flows.
-- Avoid per-frame allocations, hidden LINQ allocations, and unnecessary closure captures on hot paths.
-- Prefer dependency boundaries that are testable and easy to reason about.
-- If thread safety matters, make synchronization explicit.
 - Do not call virtual members from constructors. If controlled overrides are needed, move bridge or service setup into an explicit initialization step.
-- Prefer test doubles or test-only implementations over compile-flag fake branches mixed into production hot paths.
 
 ## Naming
 - Types, methods, properties, and public members use `PascalCase`.
@@ -38,7 +31,6 @@
 - Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
 - Prefer early-return guard clauses over deep nesting.
 - Remove one-line forwarding wrappers and duplicate guards when they do not preserve a real boundary or contract.
-- Keep transient synchronization or pending-confirmation flags private or internal by default when outward callers can use a behavior method such as `CanStartAction(...)` instead.
 - Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
 - Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
 
@@ -63,8 +55,6 @@
 - Keep files and types arranged for readability, not for stylistic cleverness.
 - Do not group unrelated fields or methods just to reduce line count.
 - Keep declaration order stable when editing existing files unless there is a clear reason to reorganize.
-- Keep long-lived domain or UI state mutation and derived availability rules in the model or state-owning layer.
-- Keep network wait timeouts, cancellation, and refresh orchestration in the coordinating layer rather than pushing them down into leaf state objects.
 - Common class order:
   1. constants
   2. readonly fields
@@ -78,10 +68,7 @@
 
 ## Review Focus
 - naming clarity
+- API surface readability
 - format consistency
-- ownership clarity
-- async safety
-- API intent clarity versus technical-state leakage
-- allocation behavior
-- behavior-preserving structure
-- lock scope minimalism and side-effect placement
+- declaration and structure consistency
+- constructor and override safety

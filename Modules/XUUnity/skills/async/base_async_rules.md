@@ -5,9 +5,10 @@
 
 ## Rules
 - Choose one async primitive deliberately. Do not mix `UniTask`, `Awaitable`, and `.NET Task` in the same flow without a clear boundary.
-- Treat cancellation ownership as part of the API contract.
+- Keep async ownership explicit. Treat cancellation ownership as part of the API contract.
 - Do not use fire-and-forget on critical flows unless failure handling is explicit and safe.
 - Never assume background continuations may touch Unity objects.
+- If state may be touched across callbacks, threads, or async continuations, make single-thread ownership or synchronization explicit.
 - Avoid sync-over-async, blocking waits, and hidden main-thread stalls.
 - Prefer designs that are observable, cancellable, and failure-contained.
 
