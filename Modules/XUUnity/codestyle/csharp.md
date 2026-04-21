@@ -16,6 +16,8 @@
 - Avoid per-frame allocations, hidden LINQ allocations, and unnecessary closure captures on hot paths.
 - Prefer dependency boundaries that are testable and easy to reason about.
 - If thread safety matters, make synchronization explicit.
+- Do not call virtual members from constructors. If controlled overrides are needed, move bridge or service setup into an explicit initialization step.
+- Prefer test doubles or test-only implementations over compile-flag fake branches mixed into production hot paths.
 
 ## Naming
 - Types, methods, properties, and public members use `PascalCase`.
@@ -34,6 +36,7 @@
 - Prefer `sealed` on concrete classes that are not designed for inheritance.
 - Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
 - Prefer early-return guard clauses over deep nesting.
+- Remove one-line forwarding wrappers and duplicate guards when they do not preserve a real boundary or contract.
 - Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
 - Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
 
@@ -76,3 +79,4 @@
 - async safety
 - allocation behavior
 - behavior-preserving structure
+- lock scope minimalism and side-effect placement

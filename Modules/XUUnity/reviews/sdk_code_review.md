@@ -4,6 +4,10 @@
 - Initialization order
 - Threading model
 - callback ownership
+- callback dispatch ownership
+- cleanup ownership
+- strategy-versus-platform responsibility split
+- launch or policy decisions implemented too low in the stack
 - privacy and store declarations
 - dependency version risk
 - version and connector inventory accuracy
