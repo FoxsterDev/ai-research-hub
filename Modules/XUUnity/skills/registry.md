@@ -80,6 +80,29 @@ Use for:
 Project override:
 - `Assets/AIOutput/ProjectMemory/SkillOverrides/ui.md`
 
+## UI Tweens
+Skill family: `ui_tweens/`
+Triggers:
+- tween
+- tweens
+- primetween
+- dotween
+- sequence
+- ui animation
+- fade
+- scale tween
+- move tween
+Use for:
+- tween-library-specific UI work
+- tween target lifetime bugs
+- animation ownership and interrupt handling
+- popup and screen close-order issues involving tweens
+Project override:
+- `Assets/AIOutput/ProjectMemory/SkillOverrides/ui_tweens.md`
+
+Key files:
+- `ui_tweens/primetween.md`
+
 ## Editor
 Skill family: `editor/`
 Triggers:

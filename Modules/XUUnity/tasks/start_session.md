@@ -64,6 +64,10 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
 
+## Skill Routing Hints
+- If the task mentions `PrimeTween`, `DOTween`, tween sequences, UI fade or scale transitions, or null or destroyed tween targets, load the narrowest relevant file from `skills/ui_tweens/`.
+- Prefer `skills/ui_tweens/primetween.md` when the codebase uses PrimeTween and the bug or review depends on tween target lifetime, callback ownership, or popup close order.
+
 ## Risk Routing Hints
 - Keep risk routing additive and narrow. Do not turn policy-pack matching into a broad always-on bundle.
 - Prefer one primary policy pack:
@@ -147,6 +151,7 @@ Interpret short commands by intent:
 - `xuunity system archive old reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system audit ai clutter ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system evaluation cadence ...` -> `utilities/system_evaluation_cadence.md`
+- `xuunity slack summary ...`, `xuunity post this work to slack`, or `xuunity report this work to slack` -> use the repo-level Slack delivery route and load the host-local Slack work-summary utility when the repo router declares one
 - `xuunity product explain ...` or `xuunity product feature ...` -> `product/protocols/feature_explainer.md`
   - if the queried feature is represented by a project-local class that inherits from or delegates into a shared runtime layer, inspect that shared layer before answering
   - for gameplay projects that use a project-local gameplay bridge, flow-style explain requests should inspect the host-declared bridge entry artifact under `Assets/AIOutput/` first unless the current project router or project memory explicitly opts out of that path
