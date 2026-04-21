@@ -8,5 +8,5 @@
 ## Rules
 - Isolate external SDKs and platform APIs behind stable boundaries.
 - Keep gameplay, UI, monetization, analytics, and persistence responsibilities separated.
-- Prefer narrow interfaces over broad global access patterns.
-- Make high-risk dependencies replaceable and testable.
+- Prefer narrow dependency boundaries that are testable and easy to reason about over broad global access patterns.
+- Make high-risk dependencies replaceable without blurring ownership.
