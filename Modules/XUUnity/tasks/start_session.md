@@ -88,10 +88,12 @@ If the active repo router, project router, or project registry declares a differ
 
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
-- `xuunity refactor ...` -> `tasks/refactoring.md`
+- `xuunity refactor ...` -> `tasks/refactoring.md` plus `skills/refactoring/`
+- `xuunity extract service ...`, `xuunity split class ...`, `xuunity split presenter ...`, `xuunity decouple ...`, `xuunity untangle ...`, or `xuunity migrate ...` should also prefer `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity fix ...` -> `tasks/bug_fixing.md`
 - `xuunity feature request ...` or `xuunity intake feature ...` -> `tasks/feature_request_intake.md`
 - `xuunity feature design ...` or `xuunity design feature ...` -> `tasks/feature_design_brief.md`
+- `xuunity architecture plan ...`, `xuunity arch plan ...`, `xuunity plan this subsystem split ...`, or `xuunity plan the architecture ...` -> `tasks/architecture_plan.md`
 - `xuunity feature screen ...` -> `tasks/feature_development.md` plus internal `skills/ui/screen_presenters.md` when the host overlay exists
 - `xuunity feature popup ...` -> `tasks/feature_development.md` plus internal `skills/ui/flow_presenters.md` when the host overlay exists
 - `xuunity feature presenter ...` -> `tasks/feature_development.md` plus the narrowest internal presenter skill by inferred lifetime shape
@@ -156,11 +158,12 @@ Interpret short commands by intent:
 - `xuunity product health ...` or `xuunity project health audit ...` -> `product/protocols/project_health_audit.md`
 - `xuunity product memory freshness ...` or `xuunity project memory freshness ...` -> `product/protocols/project_memory_freshness.md`
 - `xuunity feature request ...` should prefer `tasks/feature_request_intake.md` before `tasks/feature_development.md` when the user is asking to define scope rather than immediately build
-- `xuunity feature design ...` should prefer `tasks/feature_design_brief.md` when the user is asking for the safest implementation shape before execution planning
+- `xuunity feature design ...` should prefer `tasks/feature_design_brief.md` when the user is shaping a feature before architecture selection or execution planning
 - `xuunity feature screen ...` should prefer the internal `screen_presenters.md` overlay when the task is clearly about a long-lived presenter-driven screen on this monorepo stack
 - `xuunity feature popup ...` should prefer the internal `flow_presenters.md` overlay when the task is clearly about a modal, popup, or one-shot flow presenter
 - `xuunity feature presenter ...` should infer whether the request is a screen presenter or flow presenter task before loading the narrower internal overlay skill
-- `xuunity implementation plan ...` should prefer `tasks/implementation_plan.md` when the user is asking for execution sequencing rather than direct coding
+- `xuunity implementation plan ...` should prefer `tasks/implementation_plan.md` when the user is asking for execution sequencing rather than target-shape design or direct coding
+- `xuunity architecture plan ...` or `xuunity arch plan ...` should prefer `tasks/architecture_plan.md` plus `role/architect.md` and `skills/architecture/`
 - `xuunity validation plan ...` should prefer `tasks/validation_plan.md` when the user is asking how the feature should be validated before or during implementation
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` should prefer `tasks/rollout_plan.md` when the user is asking how the feature should be exposed, monitored, or rolled back rather than whether it is already ready to ship
 
@@ -363,6 +366,7 @@ Prefer these skill families when triggered by the task:
 - `skills/profiling/` for profiler evidence, instrumentation, and regression analysis
 - `skills/tests/` for unit, integration, playmode, smoke, and release-critical validation
 - `skills/architecture/` for subsystem boundaries, state ownership, and event-driven flows
+- `skills/refactoring/` for behavior-preserving cleanup, extraction, decoupling, and staged migration
 - `skills/mobile/` for startup, resume, thermal, battery, and critical mobile runtime posture
 - `skills/sdk/` for SDK init, callback safety, consent, and privacy-sensitive integration
 - `skills/native/` for JNI, Java, Kotlin, Swift, Objective-C, Objective-C++, and bridge ownership
@@ -381,8 +385,18 @@ When policy-pack routing is active:
 
 When async signals are present, load:
 - `skills/async/base_async_rules.md`
-- the relevant async topic files from `skills/async/`
+- the relevant topic files from `skills/async/`
 - `Assets/AIOutput/ProjectMemory/SkillOverrides/async.md` if present
+
+For family distinctions, prefer the canonical family routing files:
+- `skills/architecture/routing.md`
+- `skills/refactoring/routing.md`
+
+Use this planning split:
+- `tasks/feature_design_brief.md` for feature-shape and user-flow design
+- `tasks/architecture_plan.md` for target-shape and ownership decisions
+- `tasks/refactoring.md` plus `skills/refactoring/` for safe migration on live code
+- `tasks/implementation_plan.md` for execution sequencing after the target shape is accepted
 
 ## System Utility Hints
 Use these utilities when the task is about the protocol system itself:

@@ -9,6 +9,12 @@ Convert an accepted feature request into the safest implementation shape before 
 - requests where implementation direction is not obvious yet
 - cases where dependencies, ownership boundaries, or failure modes need to be made explicit
 
+## Do Not Use For
+- choosing a long-term subsystem split from scratch
+- comparing architecture options whose main difference is ownership or boundary design
+- cases where the central question is structural architecture rather than feature shape
+- cases where the main uncertainty is ownership or boundary design rather than feature behavior
+
 ## Inputs
 - feature intake result
 - project router and project memory
@@ -69,6 +75,9 @@ Convert an accepted feature request into the safest implementation shape before 
 
 ## Rules
 - Do not jump from feature request directly to code-level task breakdown if implementation shape is still ambiguous.
+- Do not use this task to hide unresolved architecture questions behind feature wording.
+- Do not use this task when the main unresolved question is ownership or boundary design.
 - Keep shared versus project-local boundaries explicit.
 - If code and memory disagree about current ownership, trust code for current behavior and note the memory drift.
 - If the change touches critical flows, make the risk visible now instead of deferring it to implementation.
+- If the main uncertainty is long-term boundary or ownership design, step back to architecture planning.
