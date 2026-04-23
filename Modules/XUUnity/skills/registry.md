@@ -222,6 +222,10 @@ Use for:
 Project override:
 - `Assets/AIOutput/ProjectMemory/SkillOverrides/tests.md`
 
+Key files:
+- `tests/playmode_tests.md`
+- `tests/runtime_service_testability.md`
+
 ## Architecture
 Skill family: `architecture/`
 Triggers:
@@ -312,23 +316,38 @@ Key files:
 ## Mobile
 Skill family: `mobile/`
 Triggers:
+- lifecycle
+- focus
 - startup
+- suspend
+- interruption
+- background
+- foreground
 - resume
 - pause
 - thermal
 - battery
+- lowmemory
 - low memory
 - critical flow
 - vulkan
 - opengles
 - graphics api
 Use for:
+- Unity mobile lifecycle boundaries
+- pause and focus modeling
+- mobile persistence triggers
+- interruption-safe runtime behavior
 - startup
 - mobile runtime posture
 - critical user flows
 - Android graphics API choice and validation posture
+Project override:
+- `Assets/AIOutput/ProjectMemory/SkillOverrides/mobile.md`
 
 Key files:
+- `mobile/lifecycle_boundaries.md`
+- `mobile/lifecycle_boundary_review.md`
 - `mobile/startup.md`
 - `mobile/critical_flows.md`
 - `mobile/performance.md`

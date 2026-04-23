@@ -9,3 +9,5 @@ Use `skills/mobile/` for mobile runtime posture, especially startup, performance
 - `performance.md`
 - `android_manifest_stability.md`
 - `graphics_api_selection.md`
+- `lifecycle_boundaries.md`
+- `lifecycle_boundary_review.md`
