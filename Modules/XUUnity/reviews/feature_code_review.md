@@ -13,6 +13,13 @@
 - Feature and core-flow breakage probability
 - Whether any path is already a deterministic bug
 - Manual QA scenarios needed to validate the changed flow
+- For Unity lifecycle wrappers, whether raw engine signals are separated from derived consumer-facing state
+- For consumer-facing lifecycle enums, whether states express product meaning instead of raw callback-order combinations
+- Whether Android transient focus loss can be mistaken for real backgrounding
+- Whether iOS save behavior relies on quit instead of focus-loss or pause-safe paths
+- Whether `Application.lowMemory` handling is bounded and idempotent enough for repeated pressure
+- Whether `DontDestroyOnLoad` runtime-service integration tests were placed in PlayMode rather than forced into EditMode
+- Whether testability was achieved without unnecessary test-only pollution of production APIs
 
 ## Output
 - Findings table:
