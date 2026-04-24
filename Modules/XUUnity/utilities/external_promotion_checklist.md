@@ -31,6 +31,11 @@ Approve entry into `AIRoot/Modules/XUUnity/` only if the knowledge is:
 - not dependent on private vendor configuration
 - stable enough to survive reuse without heavy rewriting
 
+When narrowing for public core:
+- keep concrete public API details when they materially improve the rule
+- examples such as Unity engine APIs, Android bridge exception types, or platform-owned wrapper surfaces are acceptable if they are public, reusable, and non-confidential
+- remove project-private class names, repo-local paths, proprietary architecture, rollout notes, and business-specific conventions
+
 ## Keep Internal Shared If
 - the knowledge is reused across many monorepo projects but still depends on host-local workflows
 - it reflects internal release, telemetry, compliance, or review conventions
@@ -47,6 +52,10 @@ Approve promotion only if the knowledge is:
 - specific enough to be useful
 - generic enough to avoid project leakage
 - stable enough to survive reuse without heavy rewriting
+
+Do not mistake specificity for leakage:
+- reject private or confidential specifics
+- keep public technical specifics when removing them would make the rule materially weaker or more ambiguous
 
 ## Reject Promotion If
 - the knowledge depends on project memory to make sense

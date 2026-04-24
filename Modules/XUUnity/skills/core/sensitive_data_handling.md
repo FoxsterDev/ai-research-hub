@@ -10,6 +10,7 @@ Define the baseline confidentiality posture for all XUUnity work that touches pr
 - Never print literal secret values in chat responses, review reports, knowledge drafts, project memory, or shared prompts.
 - When sensitive evidence matters, reference only the file path, the field name, and the fact that a value is present. Use `[REDACTED]` or a short masked form instead of the full value.
 - Do not copy project-specific confidential details into reusable shared or upstream knowledge. Only promote public-safe abstractions.
+- Public-safe does not require vague wording. Concrete references to public engine, platform, language, or library APIs are allowed when they improve the quality of the reusable rule and do not expose confidential project context.
 - If a report template or utility would normally quote a config snippet, redact sensitive fields before saving the artifact.
 - If the user requests literal disclosure of a secret value, warn that it is sensitive and default to a redacted answer unless they clearly require local-only inspection.
 
