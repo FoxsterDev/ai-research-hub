@@ -11,6 +11,11 @@
 - Prefer the narrowest existing owner for behavior changes. If a behavior can be resolved in a feature/helper/policy boundary, do not push the special-case logic into app-root or bootstrapper code.
 - Keep shared public-core guidance project-agnostic. Do not use project-, product-, brand-, or repo-specific identifiers in shared examples or reusable rules.
 - In shared public-core files, keep provenance abstract and portable. `Derived From`, evidence notes, and examples must not expose concrete project names, project-local paths, or repo-private artifact names. Use generic evidence labels instead.
+- Do not over-generalize public-safe guidance into vague advice. If a concrete Unity, Android, iOS, C#, or other public API detail materially improves correctness, keep that detail in shared guidance as long as it does not reveal confidential project context.
+- Public-core specificity is allowed when the detail is:
+  - part of a public engine, language, platform, or library API
+  - reusable outside the current project
+  - not tied to private architecture, business logic, or confidential rollout context
 - Do not add new shared knowledge unless it is reachable by an explicit load path, routing rule, or keyword/intent trigger. When adding knowledge, also verify how it will be selected during normal task assembly.
 - Do not claim stronger validation than the evidence actually supports. When representative Unity validation tooling is unavailable, do not treat generated project-file `dotnet build` or `dotnet test` runs, or ad hoc substitute execution paths, as equivalent proof by default. Keep the validation gap explicit and prefer narrow source-level changes over inflated confidence.
 - Do not invent or imply specific business or revenue uplift or downside percentages unless the number is backed by real measurement, experiment results, or user-supplied business modeling. When that evidence is missing, describe impact qualitatively in terms of stability, outage prevention, latency, readiness, UX continuity, or other observable technical and product qualities instead of speculative numeric deltas.

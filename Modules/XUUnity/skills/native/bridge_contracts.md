@@ -10,11 +10,14 @@
 - Validate nullability, optional values, and failure cases across the boundary.
 - Prefer one clear ownership model per bridge API.
 - Recoverable bridge startup failure should become explicit bridge state, not uncaught native or managed exception control flow.
+- Do not allow raw `AndroidJavaObject` calls to escape review without `AndroidJavaException` handling. Centralize that handling in interop helpers when possible.
 - Keep bridge ownership narrow. Do not let a permission, privacy, or SDK wrapper own unrelated attribution, plist, or product-domain responsibilities.
 - Keep Unity-facing wrappers stable even if native details change.
 - When a higher orchestration layer already owns public callbacks, prefer platform bridge methods that execute or throw rather than mixing direct user callback invocation with exception control flow in the same platform path.
 - Prefer direct, typed bridge contracts over stringly-typed fallback channels on critical paths.
 - On critical request flows, prefer explicit operation methods over generic `methodName` plus payload helpers when the generic form hides lifecycle, logging, or test seams.
+- Inside the interop helper itself, prefer paired strict and best-effort call surfaces so required bridge operations fail loudly while cleanup and teardown can degrade safely with warnings.
+- Translate native bridge exceptions at one boundary with operation-scoped context instead of building bespoke error strings at every call site.
 - For high-frequency callbacks, use bridge shapes that preserve thread ownership and reduce marshaling overhead.
 - By default, callbacks, events, and async completions that re-enter Unity from native code should hand off to the Unity main thread unless the contract explicitly says otherwise.
 - If a bridge exposes both Unity-safe and immediate threaded callback surfaces, make the thread-affinity difference explicit in API naming and documentation.

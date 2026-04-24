@@ -8,6 +8,7 @@
 ## Rules
 - Make ownership of native handles, listeners, and buffers explicit.
 - Treat Unity-returned Android Java wrappers as borrowed unless ownership is explicit. Do not blindly call `Dispose` on wrappers returned from Unity-owned surfaces.
+- Treat `AndroidApplication.currentActivity` specifically as borrowed Unity-owned state, not as a caller-owned `AndroidJavaObject`.
 - Avoid ambiguous cleanup responsibilities across C#, Java/Kotlin, and Objective-C/Swift layers.
 - Prefer safe teardown over aggressive reuse when lifecycle uncertainty is high.
 - Contain bridge failures so they do not take down the Unity runtime.

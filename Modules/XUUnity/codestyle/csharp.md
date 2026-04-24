@@ -34,6 +34,8 @@
 - Remove one-line forwarding wrappers and duplicate guards when they do not preserve a real boundary or contract.
 - Prefer one coherent method over several tiny pass-through helpers when the split adds call-hopping but not isolation, reuse, or test value.
 - Simplify method signatures when extra parameters only mirror ambient state or are immediately forwarded unchanged through one more layer.
+- Name native collaborators by role, not by implementation vagueness. Prefer specific names such as `_paymentBridge`, `_resultListenerProxy`, or `_browserBridge` over `_bridge` or `_proxy` when the narrower name reduces ambiguity.
+- Prefer a boundary-specific logger decorator when many call sites need the same subsystem prefix or context; do not repeat the same log prefix string at every call site.
 - Prefer explicit operation-specific helper names over generic `Invoke(methodName, payload)` helpers on critical native or SDK flows when the generic form hides ownership or lifecycle differences.
 - Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
 - Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
