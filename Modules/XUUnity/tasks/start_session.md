@@ -16,6 +16,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
 3b. If the task touches SDK initialization, consent sequencing, attribution identity, ad revenue reporting, startup ownership, or third-party wrapper code, require root-cause tracing before proposing a source-level fix.
+3c. If a bug-fix task is likely to move ownership between layers or introduce non-trivial state orchestration such as queues, flush paths, cache fallbacks, helper wrappers, or duplicated triggers, keep `tasks/bug_fixing.md` as the primary task but also load `tasks/refactoring.md` as a behavior-preserving overlay.
 4. Decide whether the task needs one role or a small role group.
 5. Select the primary role file and only the minimum useful supporting role files.
 6. Select one or more relevant files from `codestyle/`.
@@ -126,6 +127,7 @@ If the active repo router, project router, or project registry declares a differ
   - `skills/mobile/startup.md`
   - host-local startup-consent knowledge when available
 - If the task touches attribution identity, queued delivery, consent-gated SDK start, or revenue-reporting boundaries, prefer `skills/sdk/initialization.md`, `skills/sdk/wrapper_design.md`, and `skills/sdk/callback_safety.md`.
+- If the likely fix shape also includes moving code across layers, merging duplicated orchestration, or introducing state machinery such as queues, flushes, or cache-backed fallback behavior, also load `tasks/refactoring.md` as an overlay so the final patch is simplified after it works.
 
 ## Root Cause Before Patch
 - For SDK, startup, consent, attribution, identity-bound, and ad-revenue bugs, do not propose or implement a callsite-only fix before tracing the full ownership path.
@@ -145,6 +147,7 @@ Interpret short commands by intent:
 - `xuunity extract service ...`, `xuunity split class ...`, `xuunity split presenter ...`, `xuunity decouple ...`, `xuunity untangle ...`, or `xuunity migrate ...` should also prefer `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity fix ...` -> `tasks/bug_fixing.md`
   - when the request also carries SDK, startup, consent, attribution, identity, ad revenue, or third-party wrapper signals, keep `tasks/bug_fixing.md` as the task file but also load the matched SDK-sensitive and startup-sensitive stack instead of staying on a narrow local fix route
+  - when the likely fix shape changes ownership boundaries or adds non-trivial orchestration or state handling, also load `tasks/refactoring.md` as a cleanup and behavior-preservation overlay
 - `xuunity feature request ...` or `xuunity intake feature ...` -> `tasks/feature_request_intake.md`
 - `xuunity feature design ...` or `xuunity design feature ...` -> `tasks/feature_design_brief.md`
 - `xuunity architecture plan ...`, `xuunity arch plan ...`, `xuunity plan this subsystem split ...`, or `xuunity plan the architecture ...` -> `tasks/architecture_plan.md`
