@@ -21,6 +21,7 @@
 - Type parameters use `T` + `PascalCase`.
 - Private constants use `ALL_UPPER_CASE` when they are true constants.
 - For platform-specific variants, keep the platform suffix at the end of the identifier: `BannerUrliOS`, `StoreConfigAndroid`.
+- Use intent-bearing verbs consistently: `Try...` for non-throwing attempts, `...OrThrow` for enforcing wrappers, `Use...` for callback-scoped borrowed-resource access, and `TakeAndClear...` for ownership transfer plus reset.
 
 ## Member Shape
 - Always use explicit accessibility on non-interface members.
@@ -31,6 +32,9 @@
 - Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
 - Prefer early-return guard clauses over deep nesting.
 - Remove one-line forwarding wrappers and duplicate guards when they do not preserve a real boundary or contract.
+- Prefer one coherent method over several tiny pass-through helpers when the split adds call-hopping but not isolation, reuse, or test value.
+- Simplify method signatures when extra parameters only mirror ambient state or are immediately forwarded unchanged through one more layer.
+- Prefer explicit operation-specific helper names over generic `Invoke(methodName, payload)` helpers on critical native or SDK flows when the generic form hides ownership or lifecycle differences.
 - Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
 - Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
 

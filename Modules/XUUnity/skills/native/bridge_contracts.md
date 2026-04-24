@@ -14,11 +14,14 @@
 - Keep Unity-facing wrappers stable even if native details change.
 - When a higher orchestration layer already owns public callbacks, prefer platform bridge methods that execute or throw rather than mixing direct user callback invocation with exception control flow in the same platform path.
 - Prefer direct, typed bridge contracts over stringly-typed fallback channels on critical paths.
+- On critical request flows, prefer explicit operation methods over generic `methodName` plus payload helpers when the generic form hides lifecycle, logging, or test seams.
 - For high-frequency callbacks, use bridge shapes that preserve thread ownership and reduce marshaling overhead.
 - By default, callbacks, events, and async completions that re-enter Unity from native code should hand off to the Unity main thread unless the contract explicitly says otherwise.
 - If a bridge exposes both Unity-safe and immediate threaded callback surfaces, make the thread-affinity difference explicit in API naming and documentation.
 - For queued callback hops, prefer safe ownership-transfer shapes over carrying raw unmanaged pointers across the hop when a safer object or string transfer can express the same data.
 - If the public bridge exposes a direct native request entrypoint, protect the request path itself against duplicate in-flight calls instead of relying only on higher-level async sharing.
+- If a request is accepted and then posted to a platform thread, separate scheduling failure from posted execution failure. Outer callers should own scheduling failure; the posted callback should own execution failure and resolution of the accepted request contract.
+- When duplicate in-flight requests are expected operationally, prefer resolving them through the documented request completion contract instead of surfacing them as uncaught bridge exceptions.
 - When platform split is already enforced by factory or assembly boundaries, do not duplicate platform routing with runtime platform checks inside the platform-specific implementation.
 - In platform-specific implementations, keep `#if` usage narrow and limited to code that would not compile on the current target, such as interop declarations or editor-only APIs.
 - If a platform-specific managed bridge file is still compiled for other targets, wrap native interop declarations such as `DllImport("__Internal")` in compile-time platform defines and provide same-signature fallback stubs for unsupported targets so IL2CPP and native link steps never see unresolved symbols from the wrong platform.

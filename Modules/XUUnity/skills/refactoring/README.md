@@ -32,6 +32,7 @@ Then add only the needed topic files:
 - `dependency_seams.md`
 - `presenter_lifetime_split.md`
 - `progression_snapshot_reconciliation.md`
+- `request_bridge_hardening.md`
 - `reward_grant_idempotency.md`
 - `startup_bridge_narrowing.md`
 - `state_stream_simplification.md`

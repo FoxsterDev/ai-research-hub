@@ -18,9 +18,11 @@
 - For SDK wrappers with multiple launch paths, verify path separation explicitly so native and browser flows cannot silently collapse into the same orchestration path.
 - Distinguish public-contract validation from real device/native bridge validation. Controlled fake-backed coverage is valid for contract checks but is not equivalent to proof of real bridge correctness on device.
 - Prefer test doubles and fake-backed boundary tests over adding broad runtime fake branches into shipping production paths.
+- For request-shaped native bridges, test failure phases separately: duplicate in-flight rejection, scheduling failure before the platform thread accepts work, and execution failure after the platform thread starts the accepted request.
 - For callback-driven SDK wrappers, lock stable guarantees first:
   - early validation failures follow the documented public thread contract
   - accepted async completions arrive on the documented thread
+  - accepted async failure completions caused after platform-thread handoff still arrive on the documented thread
   - callback lifetime matches actual launch registration rather than speculative pre-registration
 - Prefer explicit device-validation coverage or manual validation protocol for real Android/iOS bridge behavior instead of treating shipping runtime test seams as the default answer.
 - For consent and compliance-sensitive integrations, verify partial-accept and partial-deny paths instead of testing only all-accept and all-deny cases.
