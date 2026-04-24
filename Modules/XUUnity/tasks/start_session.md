@@ -8,9 +8,14 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 
 ## Process
 1. Classify the task from the user request, even if the request is shorthand.
+1a. Resolve the target project from referenced local source paths before role and stack assembly.
+1b. If all referenced local source paths fall under one project root, treat that project as resolved immediately.
+1c. If the repo contains multiple Unity projects and no concrete target project can be resolved, do not assume the current workspace root is the target project; ask for clarification or perform minimal project discovery first.
+1d. If the target project is resolved, load that project's router before final stack narrowing.
 2. Detect whether the user requested a specific role.
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
+3b. If the task touches SDK initialization, consent sequencing, attribution identity, ad revenue reporting, startup ownership, or third-party wrapper code, require root-cause tracing before proposing a source-level fix.
 4. Decide whether the task needs one role or a small role group.
 5. Select the primary role file and only the minimum useful supporting role files.
 6. Select one or more relevant files from `codestyle/`.
@@ -49,6 +54,14 @@ If the active repo router, project router, or project registry declares a differ
 - If a host-local internal overlay provides its own routing entrypoint, prefer that entrypoint over ad hoc direct loading of narrow internal files.
 - When public core and internal overlay differ, follow the internal overlay for monorepo-specific behavior unless current project memory overrides both.
 - Do not load broad internal overlay files when a narrower lifetime-specific UI skill exists.
+
+## Monorepo Project Resolution
+- In a multi-project Unity monorepo, referenced local source paths are the strongest project-selection signal.
+- If the request references one or more files under a single project root such as `<Project>/Assets/...`, `<Project>/Packages/...`, or another project-owned source subtree, treat that project as the active target project immediately.
+- When the target project is resolved from source paths, load that project's router and project memory before final role, skill, and review narrowing.
+- Do not remain on repo-generic `xuunity` routing when a concrete project path already identifies the project.
+- If referenced local paths span more than one project root, ask for clarification instead of guessing.
+- If no project can be resolved in a multi-project monorepo, prefer one short clarification question over a repo-generic implementation proposal.
 
 ## Internal Overlay Routing Hints
 - If the task is about a long-lived screen, tab, lobby page, or page-composition presenter on the internal `_Core.UI/UIPresenter` stack, prefer `AIModules/XUUnityInternal/skills/ui/screen_presenters.md`.
@@ -90,11 +103,48 @@ If the active repo router, project router, or project registry declares a differ
   - startup sequence, first interactive flow, or startup-blocking consent/init change -> `reviews/policy_packs/startup_changes.md`
   - manifest, plist, entitlement, privacy-manifest, JNI, or native bridge contract change -> `reviews/policy_packs/manifest_native_changes.md`
 
+## Critical Bug Escalation Rules
+- Do not keep a bug on generic `tasks/bug_fixing.md` only when the request touches SDK startup, consent sequencing, attribution identity, ad revenue reporting, or third-party wrappers.
+- Automatically escalate a bug-fix task into SDK-sensitive and startup-sensitive routing when the request, code paths, or referenced files mention signals such as:
+  - `AppsFlyer`
+  - `Firebase`
+  - `OneSignal`
+  - `CustomerUserId`
+  - `setCustomerUserId`
+  - `af_ad_revenue`
+  - `logAdRevenue`
+  - `initSDK`
+  - `startSDK`
+  - `consent`
+  - `ATT`
+  - `startup`
+- For these signals, add the minimum relevant stack from:
+  - `reviews/policy_packs/sdk_changes.md`
+  - `reviews/policy_packs/startup_changes.md`
+  - `skills/sdk/`
+  - `skills/async/`
+  - `skills/mobile/startup.md`
+  - host-local startup-consent knowledge when available
+- If the task touches attribution identity, queued delivery, consent-gated SDK start, or revenue-reporting boundaries, prefer `skills/sdk/initialization.md`, `skills/sdk/wrapper_design.md`, and `skills/sdk/callback_safety.md`.
+
+## Root Cause Before Patch
+- For SDK, startup, consent, attribution, identity-bound, and ad-revenue bugs, do not propose or implement a callsite-only fix before tracing the full ownership path.
+- Trace at minimum:
+  - the user-visible symptom
+  - the wrapper or adapter that emits the event
+  - the startup or consent owner that initializes the SDK
+  - the identity owner for user or customer ids
+  - any queueing, delay, or retry path between initialization and delivery
+- If the reported symptom is a missing or empty field on an SDK event, inspect where that field is owned and when the event can be emitted relative to consent, startup readiness, and identity assignment.
+- Prefer ownership and sequencing fixes over payload-only patching when the bug touches startup, consent, async delivery, or SDK state.
+- A local patch such as `set the id immediately before sending the event` is not sufficient by default when the real breakage surface may be SDK readiness, delayed delivery, consent order, or startup ownership.
+
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
 - `xuunity refactor ...` -> `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity extract service ...`, `xuunity split class ...`, `xuunity split presenter ...`, `xuunity decouple ...`, `xuunity untangle ...`, or `xuunity migrate ...` should also prefer `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity fix ...` -> `tasks/bug_fixing.md`
+  - when the request also carries SDK, startup, consent, attribution, identity, ad revenue, or third-party wrapper signals, keep `tasks/bug_fixing.md` as the task file but also load the matched SDK-sensitive and startup-sensitive stack instead of staying on a narrow local fix route
 - `xuunity feature request ...` or `xuunity intake feature ...` -> `tasks/feature_request_intake.md`
 - `xuunity feature design ...` or `xuunity design feature ...` -> `tasks/feature_design_brief.md`
 - `xuunity architecture plan ...`, `xuunity arch plan ...`, `xuunity plan this subsystem split ...`, or `xuunity plan the architecture ...` -> `tasks/architecture_plan.md`
@@ -197,6 +247,7 @@ Examples:
 - `xuunity tm find the root cause of this legacy bug`
 
 Then auto-load the rest of the stack:
+- the resolved project router when the target project is known
 - the selected primary role file from `role/`
 - only the minimum useful supporting role files if multi-angle work is needed
 - one or more relevant files from `codestyle/`
