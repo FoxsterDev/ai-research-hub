@@ -6,7 +6,10 @@
 - callback ownership
 - callback dispatch ownership
 - cleanup ownership
+- request-shaped native flow phase split: duplicate-in-flight rejection, scheduling failure, and posted-thread execution failure
 - strategy-versus-platform responsibility split
+- redundant ingress or egress thread normalization across facade, dispatch, and platform layers
+- compile-flagged duplicate wrapper variants without dedicated coverage or a shared core
 - launch or policy decisions implemented too low in the stack
 - privacy and store declarations
 - dependency version risk
@@ -20,6 +23,21 @@
 - feature and core-flow risk for startup, consent, ads, IAP, attribution, auth, notifications, or resume flows touched by the SDK
 - deterministic bug versus probabilistic breakage assessment
 - manual QA scenarios needed for risky integration paths
+
+## Review Checklist
+### What To Delete Before Extracting
+- forwarding wrappers that do not preserve a real SDK or platform boundary
+- pass-through parameters that widen signatures without affecting decisions
+- generic bridge dispatch helpers that hide distinct native operations behind strings
+- duplicated callback, disposal, or guard logic that should have one owner
+- fake-path production branches that belong in test doubles or dedicated test support
+
+### What Must Survive Extraction
+- boundaries that make SDK versus platform responsibility obvious
+- the single owner of callback completion, dispatch, and teardown
+- explicit seams for operations with different native behavior or failure phases
+- the state owner for single-flight, retry, or listener-lifetime coordination
+- seams that keep device-risky paths testable without shipping fake execution branches
 
 ## Output
 - Findings table:

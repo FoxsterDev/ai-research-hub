@@ -7,6 +7,7 @@
 
 ## Rules
 - Treat third-party SDKs as zero-trust boundaries.
+- Do not trade stable product behavior or public wrapper contract semantics for internal cleanup.
 - Keep the public wrapper facade thin: explicit contract checks, required ingress normalization, and delegation only. Do early synchronous validation only when it does not violate the documented public thread contract. Put orchestration below the facade.
 - Do not leak third-party data structures into core application logic.
 - Map SDK models to internal safe structs or DTOs immediately at the wrapper boundary.
@@ -19,6 +20,9 @@
 - If a wrapper promises any-thread public entry, normalize thread ingress at the public facade boundary before Unity-dependent work, Unity networking, or platform bridge code begins.
 - If initialization is the single main-thread-only public entry point, state that explicitly and do not invent pre-init any-thread queue semantics unless product requirements clearly demand them.
 - When a family of public wrapper APIs shares the same threading and error contract, prefer one consistent internal execution path instead of helper stacks that diverge by method.
+- Keep public method shape, callback contract, threading guarantees, and error semantics stable during refactors unless the contract change is intentional, documented, and propagated through all callers.
+- If public ingress normalization already happens at the facade or dispatch layer, remove redundant lower-layer thread posting instead of stacking two dispatch owners for the same call path.
+- Do not fork near-identical platform wrapper implementations behind compile flags unless the behavioral difference is substantial enough to justify independent tests, ownership, and maintenance.
 - If an async SDK call returns meaningful metadata, return it as a result struct instead of exposing mutable state flags.
 - Prefer small top-level result or status types over nested public contract types when the result is reused or part of the stable wrapper surface.
 - Avoid `partial` and nested public API shape unless language tooling or generation actually requires it.
@@ -28,6 +32,7 @@
 - Do not add permanent runtime test seams to shipping wrapper code unless automated device validation is regular, trusted, and release-gating.
 - Contain malformed data, nulls, parsing failures, and vendor exceptions inside the wrapper layer.
 - Keep SDK-specific assumptions and vendor quirks out of core gameplay, UI, and business logic.
+- Name wrapper variants after the narrow guarantee they actually provide. Do not advertise full thread-safety when the implementation still depends on Unity-owned or thread-affine interop surfaces.
 
 ## Review Focus
 - third-party type leakage
