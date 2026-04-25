@@ -207,6 +207,15 @@ Priority:
 - policy packs for SDK, startup, and manifest changes
 - auto-routing updates in `start_session.md`
 
+### Sprint 3 Follow-Up
+- minimum bug-fix execution contract slice
+  - add a lightweight execution contract to `tasks/start_session.md`
+  - add patch-shape classification to `tasks/bug_fixing.md`
+  - strengthen bug-fix closure and output contract in the same pass
+- bug-fix hardening follow-up
+  - add complexity-budget hardening
+  - add deterministic verification mapping
+
 ### Sprint 4
 - product protocol refinement
 - product-owner quick workflows
@@ -226,6 +235,10 @@ Priority:
 6. `AIRoot/Modules/XUUnity/reviews/delivery_risk_review.md`
 7. `AIRoot/Modules/XUUnity/knowledge/risk_classification.md`
 8. host registry file in `AIOutput/Registry/`
+9. execution-contract hardening in `AIRoot/Modules/XUUnity/tasks/start_session.md`
+10. bug-fix closure hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
+11. complexity-budget hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
+12. deterministic verification mapping in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
 
 ## Decision Rules
 - if a deliverable improves many projects at once, build it before project-specific polish

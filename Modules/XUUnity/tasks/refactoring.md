@@ -22,10 +22,13 @@ Improve structure without changing intended behavior or weakening Unity mobile p
 - Prefer staged migration, thin adapters, and reversible steps over one-shot rewrites on high-risk flows.
 - Do not introduce new waits, blocking work, hidden main-thread stalls, or unhandled exception paths during refactor work.
 - Add regression protection where breakage is expensive, especially before deleting the old path.
+- When loaded as a bug-fixing overlay, simplify temporary ownership or orchestration added during diagnosis until the remaining structure is the smallest stable model that still preserves behavior.
+- When loaded as a bug-fixing overlay, justify any remaining queues, flags, wrappers, fallback paths, or delay gates that survive simplification.
 
 ## Output
 - Refactor target
 - Behavior-preservation risks
 - Ownership and boundary changes
+- Simplification outcome when used as a bug-fix overlay
 - Migration steps
 - Validation plan
