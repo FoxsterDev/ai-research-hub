@@ -6,7 +6,7 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 ## Focus
 - Narrow the defect to ownership, threading, lifecycle, marshaling, state, or initialization order.
 - Prefer low-risk fixes before structural redesign.
-- Keep the fix task primary, but if the fix changes ownership boundaries, state orchestration, startup sequencing, SDK wrapper responsibilities, queue or flush logic, cache behavior, or cross-layer placement, also load `tasks/refactoring.md` as a behavior-preserving overlay.
+- Keep the fix task primary, but if investigation or the patch plan shows that the fix changes ownership boundaries, state orchestration, startup sequencing, SDK wrapper responsibilities, queue or flush logic, cache behavior, or cross-layer placement, also load `tasks/refactoring.md` as a behavior-preserving overlay.
 - Check project memory before changing platform or SDK behavior.
 - For Android manifest, Gradle, resolver, or SDK-startup defects, verify that the inspected generated artifacts come from the same fresh build being diagnosed.
 - If `Library/` was deleted, reimport is in progress, or generated Bee/Gradle outputs may predate a clean rebuild, treat those artifacts as potentially stale evidence rather than root-cause proof.
