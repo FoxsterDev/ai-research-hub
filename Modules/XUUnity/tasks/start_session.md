@@ -40,6 +40,20 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 18. If historical reports are loaded, keep them lower-priority than current-truth memory and current source code.
 19. Identify whether the task touches shared state, async flows, native boundaries, startup, UI, rendering, loading, monetization, or other critical project flows.
 20. Decide the safest implementation shape before writing code.
+20a. Before implementation, review, or planning output is finalized, derive a compact execution contract for the session.
+20b. Minimum execution-contract fields:
+  - `resolved_project`
+  - `primary_task`
+  - `overlay_tasks`
+  - `matched_skills`
+  - `matched_policy_packs`
+  - `trigger_reasons`
+  - `required_validation`
+  - `required_self_review`
+20c. Keep the execution contract short and concrete. Use `none` when a field is intentionally empty instead of omitting it.
+20d. If investigation changes the inferred stack, risk class, or validation obligations, update the execution contract before proposing a patch or final recommendation.
+20e. For `tasks/bug_fixing.md`, treat `required_validation` as provisional until patch-shape classification is known, then derive it from patch shape and bug family instead of leaving it at generic wording such as `validate fix`.
+20f. If investigation reveals queues, flush paths, cache fallbacks, delay gates, helper wrappers, or other orchestration ballast, add those signals to `trigger_reasons` and make `required_self_review` explicitly cover simplification and complexity-budget review.
 21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
 22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
 23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
@@ -140,6 +154,23 @@ If the active repo router, project router, or project registry declares a differ
 - If the reported symptom is a missing or empty field on an SDK event, inspect where that field is owned and when the event can be emitted relative to consent, startup readiness, and identity assignment.
 - Prefer ownership and sequencing fixes over payload-only patching when the bug touches startup, consent, async delivery, or SDK state.
 - A local patch such as `set the id immediately before sending the event` is not sufficient by default when the real breakage surface may be SDK readiness, delayed delivery, consent order, or startup ownership.
+
+## Execution Contract
+- Derive and surface a compact execution contract before patching, large review output, or implementation planning.
+- Use this shape:
+  - `resolved_project`
+  - `primary_task`
+  - `overlay_tasks`
+  - `matched_skills`
+  - `matched_policy_packs`
+  - `trigger_reasons`
+  - `required_validation`
+  - `required_self_review`
+- `required_validation` should name the narrowest representative proof currently required, such as affected assembly compile, representative build target, explicit runtime validation gap, or a review-only limitation.
+- For `tasks/bug_fixing.md`, update `required_validation` after patch-shape classification so it reflects patch shape and bug family rather than generic session risk alone.
+- `required_self_review` should say what must still be re-checked before closure, such as hidden behavior drift, queue cleanup, ownership fallout, or contract fallout from moved call paths.
+- When queues, flags, wrappers, flush paths, or cache-backed fallbacks appear during investigation, include them in `trigger_reasons` and require explicit simplification and complexity-budget review before closure.
+- If investigation changes routing or patch shape later in the session, update the execution contract before patching or final closure.
 
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
@@ -473,9 +504,16 @@ Use these utilities when the task is about the protocol system itself:
 
 ## Output
 - Selected stack
-- Inferred task type
-- Inferred risk class and matched policy pack, if any
-- Inferred skill packs
+- Inferred risk class, if any
+- Derived execution contract:
+  - resolved project
+  - primary task
+  - overlay tasks
+  - matched skill packs
+  - matched policy packs
+  - trigger reasons
+  - required validation
+  - required self-review
 - Missing project memory, if any
 - Main risk areas for the session
 - Critical flows that must not regress
