@@ -1,3 +1,8 @@
 .idea
 .DS_Store
+.vscode
 *.sln
+*.swp
+*.sln.DotSettings.user
+*.DotSettings.user
+*.user
