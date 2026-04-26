@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unity Mobile AI Transformation Consulting for Founders and CTOs | AIRoot</title>
+  <meta
+    name="description"
+    content="Premium AI transformation consulting for Unity mobile founders and CTOs: faster delivery, safer startup flows, stronger monetization-sensitive execution, and governed workflow integration."
+  >
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+  <meta name="theme-color" content="#152531">
+  <link rel="canonical" href="https://foxsterdev.github.io/ai-research-hub/consulting.html">
+  <meta property="og:title" content="Unity Mobile AI Transformation Consulting for Founders and CTOs | AIRoot">
+  <meta
+    property="og:description"
+    content="A workflow-first AI transformation program for Unity mobile teams that need faster delivery, safer releases, and stronger monetization-sensitive execution."
+  >
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AIRoot">
+  <meta property="og:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
+  <meta property="og:url" content="https://foxsterdev.github.io/ai-research-hub/consulting.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Unity Mobile AI Transformation Consulting | AIRoot">
+  <meta
+    name="twitter:description"
+    content="Premium AI transformation consulting for Unity mobile founders and CTOs: faster delivery, safer startup flows, and stronger monetization-sensitive execution."
+  >
+  <meta name="twitter:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
+  <style>
+    :root {
+      --paper: #f6f0e7;
+      --paper-strong: #fffaf3;
+      --ink: #152531;
+      --ink-soft: #435765;
+      --line: rgba(21, 37, 49, 0.12);
+      --accent: #ca5538;
+      --accent-deep: #97371d;
+      --teal: #2f7c84;
+      --gold: #d9b561;
+      --shadow: 0 24px 60px rgba(31, 42, 52, 0.12);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --site-width: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(120deg, rgba(217, 181, 97, 0.08), transparent 24%),
+        radial-gradient(circle at top left, rgba(202, 85, 56, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(47, 124, 132, 0.13), transparent 24%),
+        linear-gradient(180deg, #fcf7f0 0%, #f4ede3 100%);
+      font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(21, 37, 49, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(21, 37, 49, 0.015) 1px, transparent 1px);
+      background-size: 26px 26px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 70%);
+      opacity: 0.3;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      width: min(var(--site-width), calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(16px);
+      background: rgba(246, 240, 231, 0.84);
+      border-bottom: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 250, 243, 0.62);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 8px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      color: var(--paper-strong);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--teal) 100%);
+      box-shadow: 0 12px 28px rgba(47, 124, 132, 0.24);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-copy {
+      line-height: 1.1;
+    }
+
+    .brand-copy strong,
+    h1,
+    h2,
+    h3 {
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-size: 0.96rem;
+    }
+
+    .brand-copy span {
+      display: block;
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+    }
+
+    .topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .topnav a,
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      background: rgba(255, 250, 243, 0.72);
+      text-decoration: none;
+      font-size: 0.84rem;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .topnav a:hover,
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(21, 37, 49, 0.22);
+    }
+
+    .button.primary {
+      min-height: 44px;
+      padding: 0 18px;
+      color: var(--paper-strong);
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+      box-shadow: 0 16px 36px rgba(151, 55, 29, 0.2);
+      font-size: 0.95rem;
+    }
+
+    .button.secondary {
+      min-height: 44px;
+      padding: 0 18px;
+      background: rgba(255, 250, 243, 0.88);
+      font-size: 0.95rem;
+    }
+
+    main section {
+      padding: 32px 0 20px;
+    }
+
+    .hero {
+      padding: 34px 0 20px;
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 28px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      align-items: start;
+    }
+
+    .hero-copy h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.5rem, 4.5vw, 4.5rem);
+      line-height: 0.92;
+    }
+
+    .hero-copy p {
+      max-width: 64ch;
+      margin: 0 0 18px;
+      color: var(--ink-soft);
+      font-size: 1.04rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .proof-strip {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .proof-pill {
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 250, 243, 0.82);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+      font-size: 0.9rem;
+    }
+
+    .proof-pill.featured {
+      background:
+        linear-gradient(135deg, rgba(255, 244, 214, 0.96), rgba(255, 232, 171, 0.84));
+      border-color: rgba(217, 181, 97, 0.28);
+      color: #6f5417;
+    }
+
+    .hero-panel {
+      position: relative;
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: var(--radius-xl);
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.98), rgba(47, 124, 132, 0.94)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.14);
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(217, 181, 97, 0.28), rgba(47, 124, 132, 0.18), rgba(21, 37, 49, 0.08));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .panel-badge,
+    .mini-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .panel-badge {
+      background: linear-gradient(135deg, rgba(255, 241, 198, 0.2), rgba(255, 250, 243, 0.08));
+      border: 1px solid rgba(255, 225, 141, 0.22);
+      color: rgba(255, 242, 212, 0.96);
+    }
+
+    .mini-badge {
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 225, 141, 0.16);
+      color: rgba(255, 242, 212, 0.9);
+      padding: 6px 10px;
+      font-size: 0.76rem;
+    }
+
+    .hero-panel h2 {
+      margin: 8px 0;
+      font-size: clamp(1.55rem, 2.6vw, 2.25rem);
+    }
+
+    .hero-panel p {
+      margin: 0;
+      color: rgba(255, 250, 243, 0.82);
+    }
+
+    .author-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 4px;
+    }
+
+    .author-card {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 250, 243, 0.14);
+    }
+
+    .author-card.featured {
+      background:
+        linear-gradient(135deg, rgba(255, 222, 128, 0.34), rgba(232, 178, 58, 0.26)),
+        linear-gradient(180deg, rgba(255, 247, 220, 0.2), rgba(255, 214, 102, 0.12));
+      border-color: rgba(255, 226, 140, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 249, 232, 0.28),
+        0 8px 18px rgba(196, 142, 32, 0.16);
+    }
+
+    .author-card strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+    }
+
+    .author-card span {
+      color: rgba(255, 250, 243, 0.82);
+      font-size: 0.82rem;
+    }
+
+    .author-card.featured strong,
+    .author-card.featured span,
+    .author-card.featured a {
+      color: #fff4d9;
+    }
+
+    .signature-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .signature-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 225, 141, 0.16);
+      color: rgba(255, 242, 212, 0.88);
+      font-size: 0.78rem;
+    }
+
+    .section-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 0.96;
+    }
+
+    .section-title p {
+      max-width: 60ch;
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card,
+    .band,
+    .panel {
+      padding: 22px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 243, 0.84);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+    }
+
+    .panel.dark {
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.98), rgba(202, 85, 56, 0.92)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+      box-shadow: var(--shadow);
+    }
+
+    .card h3,
+    .panel h3,
+    .band h3 {
+      margin: 0 0 10px;
+      font-size: 1.34rem;
+    }
+
+    .card p,
+    .panel p,
+    .band p,
+    li {
+      color: var(--ink-soft);
+    }
+
+    .panel.dark p,
+    .panel.dark li {
+      color: rgba(255, 250, 243, 0.82);
+    }
+
+    ul.clean {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    ul.clean li {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(246, 240, 231, 0.78);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .panel.dark ul.clean li {
+      background: rgba(255, 250, 243, 0.1);
+      border-color: rgba(255, 250, 243, 0.14);
+    }
+
+    .price-grid .card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .price-grid .card.featured {
+      border-color: rgba(217, 181, 97, 0.26);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        0 20px 40px rgba(31, 42, 52, 0.08);
+      background:
+        linear-gradient(180deg, rgba(255, 250, 243, 0.96), rgba(255, 244, 217, 0.82));
+    }
+
+    .price-grid .card::before {
+      content: "";
+      position: absolute;
+      inset: auto -28px -28px auto;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(202, 85, 56, 0.14), transparent 68%);
+      pointer-events: none;
+    }
+
+    .price {
+      display: block;
+      margin-top: 10px;
+      color: var(--accent-deep);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .cta-band {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.96), rgba(47, 124, 132, 0.94)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+    }
+
+    .cta-band p {
+      color: rgba(255, 250, 243, 0.82);
+      margin: 0;
+    }
+
+    .contact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .contact-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      background: rgba(255, 250, 243, 0.88);
+      text-decoration: none;
+      color: var(--ink);
+      font-size: 0.92rem;
+    }
+
+    footer {
+      padding: 22px 0 46px;
+    }
+
+    footer .shell {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .footer-links a {
+      color: var(--ink-soft);
+      text-decoration: none;
+    }
+
+    @media (max-width: 1080px) {
+      .hero-grid,
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4,
+      .proof-strip,
+      .author-grid,
+      .cta-band {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-grid > :first-child,
+      .cta-band > :first-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar-inner,
+      .hero-grid,
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4,
+      .proof-strip,
+      .author-grid,
+      .cta-band {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy h1,
+      .section-title h2 {
+        font-size: clamp(2rem, 10vw, 3rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="./index.html">
+        <div class="brand-mark">AI</div>
+        <div class="brand-copy">
+          <strong>AIRoot</strong>
+          <span>For founders who want big-studio Unity quality without big-studio drag</span>
+        </div>
+      </a>
+      <nav class="topnav" aria-label="Primary">
+        <a href="./index.html">Main site</a>
+        <a href="#offer">Offer</a>
+        <a href="#problems">Problems</a>
+        <a href="#model">Model</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="offer">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <h1>Ship faster, protect revenue-sensitive flows, and raise Unity engineering quality without scaling chaos.</h1>
+          <p>
+            A premium AI transformation offer for Unity mobile founders and CTOs who need a safer startup path,
+            faster feature delivery, stronger release confidence, and less dependence on hero-driven senior review.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#contact">Scope a paid diagnostic</a>
+            <a class="button secondary" href="#problems">See the four transformation domains</a>
+          </div>
+          <div class="proof-strip" aria-label="Proof strip">
+            <div class="proof-pill featured">Built for founder / CTO buyers, not AI tourists</div>
+            <div class="proof-pill">15 years in mobile development</div>
+            <div class="proof-pill">Playtika 2017-2025</div>
+            <div class="proof-pill">Current architect-level work in GameStory / Apperfun</div>
+            <div class="proof-pill">3 years using AI directly in delivery work</div>
+          </div>
+        </div>
+
+        <aside class="hero-panel">
+          <div class="panel-badge">Author credibility</div>
+          <h2>Built for teams where delivery mistakes cost revenue, retention, and release confidence.</h2>
+          <p>
+            This is a workflow-first operating method shaped across startup quality, monetization-sensitive
+            delivery, SDK and plugin risk, release pressure, and live production constraints.
+          </p>
+          <div class="mini-badge">Unity AI workflow for mobile teams</div>
+          <div class="author-grid">
+            <div class="author-card featured">
+              <strong>GameStory / Apperfun now</strong>
+              <span>Current architect-level platform work across live projects including <a href="https://play.google.com/store/apps/details?id=com.apperfun.hub&amp;hl=en" target="_blank" rel="noreferrer">Blingz / Apperfun Hub</a>.</span>
+            </div>
+            <div class="author-card">
+              <strong>Playtika 2017-2025</strong>
+              <span>Board Kings, Best Fiends, and large-scale Unity mobile delivery.</span>
+            </div>
+            <div class="author-card">
+              <strong>Public project proof</strong>
+              <span>Current hands-on work is visible through shipped public products, not just consulting copy.</span>
+            </div>
+            <div class="author-card">
+              <strong>3 years with AI</strong>
+              <span>Used directly in reviews, audits, fixes, and production-facing delivery work.</span>
+            </div>
+          </div>
+          <div class="signature-strip" aria-label="Author system traits">
+            <span class="signature-pill">Author-built operating method</span>
+            <span class="signature-pill">Shaped in real Unity production</span>
+            <span class="signature-pill">Not a white-label AI wrapper</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="section-title">
+          <h2>This is not generic AI advisory.</h2>
+          <p>
+            AIRoot is not a prompt pack, a chatbot rollout, or a vague AI strategy exercise.
+            It is a Unity mobile AI operating model for the workflows that matter most.
+          </p>
+        </div>
+        <div class="grid cols-2">
+          <article class="card">
+            <h3>What it focuses on</h3>
+            <ul class="clean">
+              <li>Startup quality and first-session reliability</li>
+              <li>Monetization-sensitive execution and traffic protection</li>
+              <li>SDK, plugin, and native integration risk</li>
+              <li>Review depth, release readiness, and feature delivery speed</li>
+            </ul>
+          </article>
+          <article class="panel dark">
+            <div class="panel-badge">Best fit</div>
+            <h3>For teams that already feel delivery pressure</h3>
+            <ul class="clean">
+              <li>Founders and CEOs who want stronger execution without bloating headcount</li>
+              <li>CTOs and engineering leaders who need a practical AI operating model</li>
+              <li>Product leaders who want faster feature movement and clearer rollout-risk visibility</li>
+              <li>Unity teams dealing with startup issues, SDK churn, plugin risk, and inconsistent review quality</li>
+            </ul>
+          </article>
+        </div>
+        <div class="grid cols-2" style="margin-top: 18px;">
+          <article class="card">
+            <h3>What founders and CTOs are really buying</h3>
+            <p>Not more AI activity. Not more dashboards. Not a generic platform rollout. The actual purchase is a controlled operating upgrade around the Unity workflows that already affect speed, quality, and money.</p>
+          </article>
+          <article class="card">
+            <h3>What this is not for</h3>
+            <p>This is not a fit for tiny teams without budget, broad AI curiosity programs, or companies that want a generic enablement workshop without a live workflow worth transforming.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="problems">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Where the program creates the most value</h2>
+          <p>
+            This offer is strongest where business pain and engineering pain overlap.
+          </p>
+        </div>
+        <div class="grid cols-3">
+          <article class="card">
+            <h3>Feature delivery is too slow</h3>
+            <p>Product and engineering spend too much time in back-and-forth before work becomes implementation-ready. Senior judgment is trapped in a few people, and review quality is inconsistent.</p>
+          </article>
+          <article class="card">
+            <h3>Startup friction hurts retention</h3>
+            <p>Users drop during login, loading, consent, offline states, or startup sequencing before they ever reach the core product.</p>
+          </article>
+          <article class="card">
+            <h3>Revenue-sensitive flows are too fragile</h3>
+            <p>Ads, monetization timing, network-quality checks, and startup logic interact in ways that can quietly waste traffic and damage first-session revenue.</p>
+          </article>
+          <article class="card">
+            <h3>SDK and plugin risk is too high</h3>
+            <p>Native bridges, plugins, third-party SDKs, and lifecycle complexity create hard-to-review change surfaces with expensive failure modes.</p>
+          </article>
+          <article class="card">
+            <h3>AI inside the company is fragmented</h3>
+            <p>People are experimenting with AI, but there is no coherent operating model, no governance, and no repeatable workflow that actually improves delivery.</p>
+          </article>
+          <article class="panel dark">
+            <div class="panel-badge">Business outcome</div>
+            <h3>You are not buying a tool. You are buying a controlled operating upgrade.</h3>
+            <ul class="clean">
+              <li>Faster feature framing and implementation readiness</li>
+              <li>Stronger code review and issue detection before release</li>
+              <li>Safer startup, monetization, and SDK change surfaces</li>
+              <li>Lower reliance on hero-driven senior intervention</li>
+              <li>A repeatable AI operating model the team can keep using</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="section-title">
+          <h2>The core domains we transform first</h2>
+          <p>
+            The program starts where workflow redesign can produce fast, measurable leverage.
+          </p>
+        </div>
+        <div class="grid cols-4">
+          <article class="card">
+            <h3>Delivery acceleration</h3>
+            <p>Move from feature request to implementation-ready plan faster, with better technical framing and stronger review quality.</p>
+          </article>
+          <article class="card">
+            <h3>Startup, retention, and conversion</h3>
+            <p>Reduce avoidable user loss during startup, login, loading, and first-session transitions.</p>
+          </article>
+          <article class="card">
+            <h3>Monetization and acquisition protection</h3>
+            <p>Protect first-session revenue and traffic quality by reviewing ad-loading, monetization timing, and startup interaction patterns.</p>
+          </article>
+          <article class="card">
+            <h3>Integration and runtime risk control</h3>
+            <p>Reduce expensive failures around SDKs, plugins, native bridges, and runtime edge cases.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="model">
+      <div class="shell">
+        <div class="section-title">
+          <h2>The engagement model</h2>
+          <p>
+            The commercial structure is phased to reduce risk, prove value early, and scale only after evidence.
+          </p>
+        </div>
+        <div class="grid cols-4">
+          <article class="card">
+            <h3>Phase 1. Diagnostic</h3>
+            <p>A short, high-value review that identifies the best transformation wedge: one workflow, one product surface, one business problem.</p>
+          </article>
+          <article class="card">
+            <h3>Phase 2. Pilot</h3>
+            <p>One team, one live repo, one workflow. The goal is measurable value, not abstract enablement.</p>
+          </article>
+          <article class="card">
+            <h3>Phase 3. Transformation</h3>
+            <p>Multiple workflows, governance, adoption, team enablement, and leadership visibility.</p>
+          </article>
+          <article class="card">
+            <h3>Phase 4. Retainer / expansion</h3>
+            <p>Ongoing optimization, rollout support, new workflow onboarding, and executive review cadence.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="grid cols-2">
+          <article class="panel dark">
+            <div class="panel-badge">Why the author</div>
+            <h3>Why this approach is different</h3>
+            <p>This system was not designed as a white-label AI consultancy wrapper. It comes from real Unity mobile production work, technical leadership, and current architect-level platform building.</p>
+            <p style="margin-top: 12px;">The method has been shaped across top mobile Unity environments, large-scale delivery constraints, and live production realities where startup quality, release confidence, monetization, and team leverage matter.</p>
+          </article>
+          <article class="card">
+            <h3>What a first paid engagement should produce</h3>
+            <ul class="clean">
+              <li>A clear transformation wedge with business and engineering rationale</li>
+              <li>A mapped workflow with bottlenecks, review surfaces, and failure points</li>
+              <li>A pilot-ready scope</li>
+              <li>Governance and accountability boundaries</li>
+              <li>A shortlist of metrics tied to delivery and business outcomes</li>
+              <li>A recommendation on whether to stop, pilot, or scale</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Commercial structure</h2>
+          <p>
+            The program is designed to create a clean path from proof to transformation.
+          </p>
+        </div>
+        <div class="grid cols-4 price-grid">
+          <article class="card featured">
+            <h3>Diagnostic</h3>
+            <p>2 to 4 weeks. A tightly scoped leadership and workflow review.</p>
+            <span class="price">$20k to $35k</span>
+          </article>
+          <article class="card">
+            <h3>Pilot</h3>
+            <p>6 to 10 weeks. One team, one live workflow, one measurable result.</p>
+            <span class="price">$40k to $75k</span>
+          </article>
+          <article class="card">
+            <h3>Transformation</h3>
+            <p>6 to 9 months. Multiple workflows, governance, adoption, and operating cadence.</p>
+            <span class="price">$100k to $250k+</span>
+          </article>
+          <article class="card">
+            <h3>Advisory / Expansion</h3>
+            <p>Monthly support for rollout, optimization, and new workflow onboarding.</p>
+            <span class="price">Scope-based retainer</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <div class="shell">
+        <div class="band cta-band">
+          <div>
+            <h2 style="margin: 0 0 8px; font-size: clamp(1.7rem, 3vw, 2.5rem);">If your team already feels the cost of startup friction, release risk, or slow feature delivery, start with the diagnostic.</h2>
+            <p>The diagnostic is the fastest way to identify one Unity workflow worth transforming before you commit to a broader rollout.</p>
+          </div>
+          <a class="button secondary" href="mailto:contact.foxsterdev@gmail.com">Email to scope the paid diagnostic</a>
+        </div>
+        <div class="contact-links">
+          <a href="https://www.linkedin.com/in/khalandachou/" target="_blank" rel="noreferrer">Start on LinkedIn</a>
+          <a href="mailto:contact.foxsterdev@gmail.com">Email the author</a>
+          <a href="https://t.me/FoxsterDev" target="_blank" rel="noreferrer">Message in Telegram</a>
+          <a href="./index.html">Back to AIRoot main site</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <p>
+        Premium consulting page for the AIRoot Unity mobile AI transformation offer.
+      </p>
+      <div class="footer-links">
+        <a href="./index.html">Main site</a>
+        <a href="./handbook.html">Unity AI handbook</a>
+        <a href="./visual-map.html">Architecture visual map</a>
+        <a href="./integration.html">Integration guide</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
