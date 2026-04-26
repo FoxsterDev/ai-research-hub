@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Protocol Visual Map</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AI Protocol Visual Map</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>AI_PROTOCOL_VISUAL_MAP.md</code></span>
+        <span class="pill">Generated: 2026-04-26 00:36:26 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./AI_PROTOCOL_VISUAL_MAP.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#1-protocol-families">1. Protocol Families</a>
+        <a href="#2-load-order">2. Load Order</a>
+        <a href="#3-xuunity-main-stack">3. XUUnity Main Stack</a>
+        <a href="#4-knowledge-flow">4. Knowledge Flow</a>
+        <a href="#5-storage-boundaries">5. Storage Boundaries</a>
+        <a href="#6-quick-routing-guide">6. Quick Routing Guide</a>
+        <a href="#7-main-rule">7. Main Rule</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<h2 id="purpose">Purpose</h2>
+<p>This file gives a generic visual overview of the public <code>AIRoot</code> protocol model.</p>
+<p>It focuses on:</p>
+<ul>
+<li>the public <code>xuunity</code> core</li>
+<li>optional host-local overlays</li>
+<li>project-local memory and outputs</li>
+</ul>
+<p>It is a navigation aid, not the source of truth.</p>
+<h2 id="1-protocol-families">1. Protocol Families</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[Repo Router\nAgents.md] --&gt; B[XUUnity]
+    A --&gt; C[Optional Host-Local Protocols]
+
+    B --&gt; B1[Engineering Work]
+    B --&gt; B2[Product Protocols]
+    B --&gt; B3[System Utilities]
+    B --&gt; B4[Skills]
+
+    C --&gt; C1[Private Host Flows]
+    C --&gt; C2[Monorepo Helpers]
+    C --&gt; C3[Private Architecture or Survey Layers]
+</code></pre>
+<h2 id="2-load-order">2. Load Order</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[Repo Agents.md] --&gt; B[Public XUUnity Core\nAIRoot/Modules/XUUnity/]
+    B --&gt; C[Optional Host-Local Overlays\nAIModules/ when attached]
+    C --&gt; D[Project Agents.md]
+    D --&gt; E[ProjectMemory\nAssets/AIOutput/ProjectMemory/]
+    E --&gt; F[Previous Outputs\nAssets/AIOutput/]
+</code></pre>
+<h2 id="3-xuunity-main-stack">3. XUUnity Main Stack</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[User Command\nxuunity ...] --&gt; B[Start Session Routing]
+    B --&gt; C[Primary Role]
+    C --&gt; D[Code Style]
+    D --&gt; E[Task File]
+    E --&gt; F[Core Skills]
+    F --&gt; G[Matched Skill Families]
+    G --&gt; H[Reviews or Utilities]
+    H --&gt; I[Platform Overlay if needed]
+    I --&gt; J[Optional Host Overlay if relevant]
+    J --&gt; K[Project Memory]
+    K --&gt; L[Relevant Prior Outputs]
+</code></pre>
+<h2 id="4-knowledge-flow">4. Knowledge Flow</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[New Knowledge] --&gt; B[Extract]
+    B --&gt; C[Intake Review]
+    C --&gt; D{Decision}
+    D --&gt;|public-safe reusable| E[Public Core\nAIRoot/Modules/XUUnity/]
+    D --&gt;|host-local reusable| F[AIModules/]
+    D --&gt;|project-specific| G[ProjectMemory or SkillOverrides]
+    D --&gt;|report or draft| H[Assets/AIOutput/]
+    D --&gt;|reject| I[No Action]
+</code></pre>
+<h2 id="5-storage-boundaries">5. Storage Boundaries</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[AIRoot] --&gt; A1[Public reusable modules]
+    A --&gt; A2[Public setup and templates]
+    B[AIModules] --&gt; B1[Optional host-local overlays]
+    C[AIOutput] --&gt; C1[Host-local mutable state]
+    D[ProjectMemory] --&gt; D1[Project-local durable truth]
+    E[Project Outputs] --&gt; E1[Project-local reports and drafts]
+</code></pre>
+<h2 id="6-quick-routing-guide">6. Quick Routing Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Route</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fix or refactor code</td>
+<td><code>xuunity ...</code></td>
+</tr>
+<tr>
+<td>Review SDK or native integration</td>
+<td><code>xuunity sdk ...</code> or <code>xuunity native ...</code></td>
+</tr>
+<tr>
+<td>Ask product-facing implementation question</td>
+<td><code>xuunity product ...</code></td>
+</tr>
+<tr>
+<td>Audit project readiness</td>
+<td><code>xuunity product health ...</code></td>
+</tr>
+<tr>
+<td>Check project-memory freshness</td>
+<td><code>xuunity project memory freshness ...</code></td>
+</tr>
+<tr>
+<td>Extract reusable knowledge</td>
+<td><code>xuunity extract knowledge</code></td>
+</tr>
+<tr>
+<td>Convert a long chat into reusable engineering context</td>
+<td><code>xuunity system extract review artifact from this chat</code></td>
+</tr>
+<tr>
+<td>Use private host-local flows</td>
+<td>host-specific protocol selected by the host router</td>
+</tr>
+</tbody></table></div>
+<h2 id="7-main-rule">7. Main Rule</h2>
+<p>Public <code>AIRoot</code> documents:</p>
+<ul>
+<li><code>xuunity</code></li>
+<li>generic optional host-local overlays</li>
+</ul>
+<p>Private host-only protocol families should be documented only in host-local routers and host-local docs.</p>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+<script src="./visual-map.assets/mermaid.min.js"></script>
+<script>
+  if (typeof mermaid === "undefined") {
+    console.warn("Mermaid failed to load from local asset.");
+  } else {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#f4e4cf",
+        primaryTextColor: "#211b17",
+        primaryBorderColor: "#b98152",
+        lineColor: "#214f5c",
+        secondaryColor: "#e2eff4",
+        tertiaryColor: "#fff8f0",
+        clusterBkg: "#fffaf4",
+        clusterBorder: "#c9b9a7",
+        edgeLabelBackground: "#fffaf4",
+        fontFamily: "Georgia, Times New Roman, serif",
+        fontSize: "18px"
+      },
+      flowchart: {
+        curve: "basis",
+        padding: 18,
+        nodeSpacing: 34,
+        rankSpacing: 46,
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+
+    const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
+    for (const codeBlock of mermaidBlocks) {
+      const shell = document.createElement("figure");
+      shell.className = "diagram-shell";
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "diagram-toolbar";
+
+      const label = document.createElement("span");
+      label.className = "diagram-label";
+      label.textContent = "Diagram";
+      toolbar.appendChild(label);
+
+      const body = document.createElement("div");
+      body.className = "diagram-body";
+
+      const host = document.createElement("div");
+      host.className = "mermaid";
+      host.dataset.rendered = "false";
+      host.textContent = codeBlock.textContent.trim();
+
+      body.appendChild(host);
+      shell.appendChild(toolbar);
+      shell.appendChild(body);
+      codeBlock.parentElement.replaceWith(shell);
+    }
+
+    if (mermaidBlocks.length > 0) {
+      mermaid.run({ querySelector: ".mermaid" });
+    }
+  }
+</script>
+</body>
+</html>

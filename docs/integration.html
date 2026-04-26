@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIRoot Integration Guide</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AIRoot Integration Guide</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>INTEGRATION.md</code></span>
+        <span class="pill">Generated: 2026-04-26 00:36:26 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./INTEGRATION.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#expected-host-responsibilities">Expected Host Responsibilities</a>
+        <a href="#recommended-host-topology">Recommended Host Topology</a>
+        <a href="#recommended-routing-contract">Recommended Routing Contract</a>
+        <a href="#output-contract">Output Contract</a>
+        <a href="#notes-for-tooling">Notes For Tooling</a>
+        <a href="#first-repo-bootstrap">First Repo Bootstrap</a>
+        <a href="#new-project-bootstrap">New Project Bootstrap</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<h2 id="purpose">Purpose</h2>
+<p>Use this guide when attaching <code>AIRoot</code> to a host repository as a reusable module or submodule.
+Treat it as an integration contract for AI agents, MCP tools, and automation layers rather than as a manual human checklist.</p>
+<h2 id="expected-host-responsibilities">Expected Host Responsibilities</h2>
+<p>The host repo should provide:</p>
+<ul>
+<li>a repo-level router such as <code>Agents.md</code></li>
+<li>any host-local prompt families or private modules</li>
+<li>a repo-level mutable AI state root such as <code>AIOutput/</code></li>
+<li>project routers</li>
+<li>project-local durable memory under <code>Assets/AIOutput/ProjectMemory/</code></li>
+</ul>
+<h2 id="recommended-host-topology">Recommended Host Topology</h2>
+<pre><code class="language-text">HostRepo/
+  Agents.md
+  AIRoot/
+    Modules/
+      XUUnity/
+    Design/
+    Operations/
+    Templates/
+    Visuals/
+  AIModules/
+    XUUnityInternal/
+  AIOutput/
+    Registry/
+    Reports/
+    Operations/
+  ProjectA/
+    Agents.md
+    Assets/
+      AIOutput/
+        ProjectMemory/
+</code></pre>
+<h2 id="recommended-routing-contract">Recommended Routing Contract</h2>
+<ul>
+<li>host repo router first</li>
+<li><code>AIRoot/Modules/XUUnity/</code> for the public <code>xuunity</code> core</li>
+<li><code>AIModules/XUUnityInternal/</code> as the monorepo-internal shared overlay for <code>xuunity</code> when available</li>
+<li>host-local modules outside <code>AIRoot</code> when they are private or not public-safe</li>
+<li>project router and project memory after the shared module layer</li>
+</ul>
+<h2 id="output-contract">Output Contract</h2>
+<ul>
+<li>project-local outputs stay under <code>Assets/AIOutput/</code></li>
+<li>host-level mutable state stays under repo-level <code>AIOutput/</code></li>
+<li><code>AIRoot</code> should remain read-mostly and public-safe</li>
+<li>monorepo-internal shared overlays stay under <code>AIModules/</code></li>
+</ul>
+<h2 id="notes-for-tooling">Notes For Tooling</h2>
+<ul>
+<li>scripts in <code>AIRoot/Operations/</code> may need an explicit host repo root or output directory when run outside an attached host repo</li>
+<li>do not assume a specific host repo name, workstation path, or solution file</li>
+</ul>
+<h2 id="first-repo-bootstrap">First Repo Bootstrap</h2>
+<p>When an automation layer attaches <code>AIRoot</code> to a host repo for the first time, it should bootstrap the repo-level router first:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
+</code></pre>
+<p>or, for a monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo --dry-run
+</code></pre>
+<p>Then execute the non-preview command only after the governing workflow approves the plan.</p>
+<p>Safety rule:</p>
+<ul>
+<li>if the host already has <code>Agents.md</code>, the script must not rewrite it silently</li>
+<li>use <code>--refresh-managed-router</code> only for an already managed repo router that you intentionally want to rewrite</li>
+<li>use <code>--adopt-existing-router</code> only after explicitly deciding to replace an unmanaged repo router</li>
+</ul>
+<h2 id="new-project-bootstrap">New Project Bootstrap</h2>
+<p>When an automation layer attaches <code>AIRoot</code> to a host repo that adds a new Unity project, it should bootstrap the project router from the host root with:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project
+</code></pre>
+<p>or, for a monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo
+</code></pre>
+<p>Use <code>--dry-run</code> first when the agent needs a no-write preview of:</p>
+<ul>
+<li>chosen repo topology</li>
+<li>alias wiring</li>
+<li>router creation or conflict handling</li>
+</ul>
+<p>Examples:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project --dry-run
+bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo --dry-run
+</code></pre>
+<p>This creates or refreshes:</p>
+<ul>
+<li><code>Agents.md</code> for the project</li>
+<li><code>Agents.repo.md</code> as the local repo-router alias</li>
+<li><code>Assets/AIOutput/ProjectMemory/</code> as the project memory root</li>
+</ul>
+<p>If the host repo has <code>AIModules/</code>, the script also creates:</p>
+<ul>
+<li><code>AIModules</code> as the local host-module alias</li>
+</ul>
+<p>If the host repo only attaches <code>AIRoot</code> and does not provide <code>AIModules/</code>, the script still works and generates a router that uses the public <code>xuunity</code> core while marking internal overlays and host-local families as unavailable until they are attached.</p>
+<p>Safety rule:</p>
+<ul>
+<li>if the project already has <code>Agents.md</code>, the script must not rewrite it silently</li>
+<li>use <code>--refresh-managed-router</code> only for an already managed router that you intentionally want to rewrite</li>
+<li>use <code>--adopt-existing-router</code> only after explicitly deciding to replace an unmanaged router</li>
+</ul>
+<p>For a starting repo-level router, use:</p>
+<ul>
+<li><a href="./Templates/REPO_AGENTS_ROUTER_TEMPLATE.md">REPO_AGENTS_ROUTER_TEMPLATE.md</a></li>
+</ul>
+<p>For a starting project-level router, use:</p>
+<ul>
+<li><a href="./Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md">PROJECT_AGENTS_ROUTER_TEMPLATE.md</a></li>
+</ul>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+</body>
+</html>
