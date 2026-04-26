@@ -116,7 +116,10 @@ Main entrypoints:
 - [`scripts/`](./scripts/)
   Bootstrap helpers for attaching `AIRoot` to a host repo.
 
-Main bootstrap scripts:
+Main bootstrap entrypoints:
+- `AIRoot/AIROOT_SETUP.md`
+- `AIRoot/Operations/AIROOT_SETUP_PROTOCOL.md`
+- `AIRoot/scripts/init_ai_topology.sh`
 - `AIRoot/scripts/init_ai_repo.sh`
 - `AIRoot/scripts/init_ai_project.sh`
 

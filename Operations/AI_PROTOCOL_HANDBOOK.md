@@ -257,7 +257,7 @@ For extraction-quality regression work, use:
 
 `xuunity system health review` should also check whether the extraction workflow has current regression evidence.
 If extraction routing changed but the golden pack was not rerun, treat that as a system-health gap rather than a silent assumption.
-Use `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` as the preferred extraction-health evidence when it exists.
+Use `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` as the preferred extraction-health evidence only when it is a real evaluation output, not a scaffold slot or placeholder.
 
 ### System Progress
 1. `xuunity system progress review`

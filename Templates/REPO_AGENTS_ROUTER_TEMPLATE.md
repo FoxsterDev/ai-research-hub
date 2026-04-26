@@ -46,6 +46,17 @@ Use it to select shared prompt families, define load order, and route project-lo
 - Use `xuunity` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
 - Optional host-local protocols may exist outside `AIRoot`, but they should be declared by the host repo, not by this public template.
 
+## Fast Shortcuts
+- `xuunity fix this bug`
+- `xuunity refactor this code`
+- `xuunity review the git change`
+- `xuunity sdk review this integration`
+- `xuunity native review this bridge`
+- `xuunity feature plan this flow`
+- `xuunity product explain this feature`
+- `xuunity product health this project`
+- `xuunity project memory freshness this project`
+
 ## Prompt Family Map
 - `xuunity` -> `AIRoot/Modules/XUUnity/`
 - host-local private protocols -> `AIModules/` when attached
@@ -79,6 +90,17 @@ Use it to select shared prompt families, define load order, and route project-lo
 ## Routing Table
 - Use `xuunity` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
 - Optional host-local protocols may exist outside `AIRoot`, but they should be declared by the host repo, not by this public template.
+
+## Fast Shortcuts
+- `xuunity fix this bug`
+- `xuunity refactor this code`
+- `xuunity review the git change`
+- `xuunity sdk review this integration`
+- `xuunity native review this bridge`
+- `xuunity feature plan this flow`
+- `xuunity product explain this feature`
+- `xuunity product health this project`
+- `xuunity project memory freshness this project`
 
 ## Prompt Family Map
 - `xuunity` -> public core `AIRoot/Modules/XUUnity/` plus internal overlay `AIModules/XUUnityInternal/` when the host uses it

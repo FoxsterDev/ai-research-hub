@@ -91,6 +91,45 @@ Use this rule:
 
 When an AI agent initializes a host repo that does not yet have a prepared root router, it should bootstrap the repo layer first.
 
+Recommended agent-facing entrypoint:
+
+Command phrase:
+- `airoot setup`
+
+Interpretation rule:
+- treat `airoot setup` as a repo-local setup phrase, not as a required globally installed binary
+- an agent should resolve this phrase through `AIRoot/AIROOT_SETUP.md` and `Operations/AIROOT_SETUP_PROTOCOL.md`
+- the agent should clarify missing setup details, run a preview first, and apply only after confirmation
+- the agent must not mutate the parent of `AIRoot` implicitly; if setup starts from the `AIRoot` repo itself, it must resolve the real host root first
+
+Recommended public entrypoint:
+
+Single-project default:
+
+```bash
+bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --dry-run
+```
+
+Monorepo / multi-project default:
+
+```bash
+bash AIRoot/scripts/init_ai_topology.sh --profile monorepo_overlay_default --dry-run
+```
+
+If the current working directory is not the host repo root, use:
+
+```bash
+bash /path/to/host/AIRoot/scripts/init_ai_topology.sh --host-root /path/to/host --profile <profile> --dry-run
+```
+
+This topology-first path:
+- resolves the host profile explicitly
+- bootstraps the repo router
+- scaffolds `AIModules/XUUnityInternal/` for the monorepo overlay profile
+- writes `AIOutput/Registry/host_topology.yaml`
+- writes `AIOutput/Registry/setup_status.yaml`
+- scaffolds extraction evidence slots under `AIOutput/Reports/System/` without creating fake canonical health evidence
+
 Execution target for a single-project repo preview:
 
 ```bash
@@ -118,7 +157,10 @@ bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo
 Expected script effect:
 - creates the host-level `AIOutput/` scaffold
 - creates a managed repo-level `Agents.md` when none exists
+- seeds the managed repo-level `Agents.md` with popular `xuunity` shorthand shortcuts for daily routing
+- creates extraction-evidence slots instead of fake latest-summary health evidence
 - refuses to rewrite an existing repo router unless you pass an explicit approval flag
+- can optionally scaffold `AIModules/XUUnityInternal/` when the host intentionally asks for the monorepo internal overlay
 
 If the repo already has a managed root router and the automation flow explicitly approves a rewrite:
 
@@ -152,6 +194,7 @@ After evaluating the preview output, the agent may execute the non-preview comma
 
 Expected script effect:
 - creates `Assets/AIOutput/ProjectMemory/` if missing
+- seeds a project-memory baseline when those files are missing
 - creates `Agents.repo.md` and, when available in the host, the `AIModules` alias
 - creates a canonical `Agents.md` router when none exists
 - refuses to rewrite an existing project router unless you pass an explicit approval flag
