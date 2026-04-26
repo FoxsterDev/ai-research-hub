@@ -31,6 +31,7 @@ render_page "Visuals/AI_PROTOCOL_VISUAL_MAP.md" "docs/visual-map.html"
 render_page "Operations/AI_PROTOCOL_HANDBOOK.md" "docs/handbook.html"
 render_page "Operations/SETUP_INDEX.md" "docs/setup-index.html"
 render_page "INTEGRATION.md" "docs/integration.html"
+render_page "Operations/AI_PRODUCT_OWNER_QUICKSTART.md" "docs/product-owner-quickstart.html"
 
 if command -v sips >/dev/null 2>&1; then
   SOCIAL_SVG="$ASSETS_DIR/airroot-social-card.svg"
@@ -51,6 +52,7 @@ echo "  - docs/visual-map.html"
 echo "  - docs/handbook.html"
 echo "  - docs/setup-index.html"
 echo "  - docs/integration.html"
+echo "  - docs/product-owner-quickstart.html"
 echo
 echo "If the social card SVG changed, refreshed assets are:"
 echo "  - docs/assets/airroot-social-card.png"

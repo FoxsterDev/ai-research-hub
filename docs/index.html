@@ -459,6 +459,62 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .audience-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .audience-card {
+      padding: 22px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 243, 0.86);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+    }
+
+    .audience-card strong {
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(202, 85, 56, 0.1);
+      color: var(--accent-deep);
+      font-size: 0.88rem;
+    }
+
+    .audience-card h3 {
+      margin: 0 0 10px;
+      font-size: 1.34rem;
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .audience-card p {
+      margin: 0 0 12px;
+      color: var(--ink-soft);
+    }
+
+    .audience-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .audience-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      background: rgba(255, 250, 243, 0.88);
+      text-decoration: none;
+      font-size: 0.92rem;
+      color: var(--ink);
+    }
+
     .use-case {
       padding: 22px;
       border-radius: var(--radius-lg);
@@ -596,6 +652,7 @@
       .architecture,
       .grid.cards-4,
       .grid.cards-3,
+      .audience-grid,
       .steps,
       .use-case-grid,
       .benefit-strip,
@@ -621,6 +678,7 @@
       .architecture,
       .grid.cards-4,
       .grid.cards-3,
+      .audience-grid,
       .steps,
       .use-case-grid,
       .benefit-strip,
@@ -659,6 +717,7 @@
       </a>
       <nav class="topnav" aria-label="Primary">
         <a href="#start">Start Here</a>
+        <a href="#choose-path">Choose Your Path</a>
         <a href="#architecture">Architecture</a>
         <a href="#use-cases">Use Cases</a>
         <a href="#paths">Adoption Paths</a>
@@ -770,6 +829,62 @@
               bootstrap flow with the expected topology and safety rules.
             </p>
             <a href="./setup-index.html">Open setup index</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="choose-path">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Choose your path</h2>
+          <p>
+            Start with the shared overview above. Then take the route that matches what you need
+            right now: business clarity, product guidance, or engineering depth.
+          </p>
+        </div>
+
+        <div class="audience-grid">
+          <article class="audience-card">
+            <strong>CEO / founder</strong>
+            <h3>See delivery risk and business impact fast</h3>
+            <p>
+              Use the site as a fast translation layer from technical change to business risk:
+              what can break, what needs validation, what should block release, and where startup
+              or monetization changes affect confidence.
+            </p>
+            <div class="audience-links">
+              <a href="#use-cases">See proven use cases</a>
+              <a href="./product-owner-quickstart.html">Open non-technical quickstart</a>
+            </div>
+          </article>
+
+          <article class="audience-card">
+            <strong>Product owner</strong>
+            <h3>Ask better product questions without reading code</h3>
+            <p>
+              Get a practical route for feature explainers, change-impact questions, rollout
+              readiness, dependency mapping, bug impact, and project-health checks with
+              source-backed verification when it matters.
+            </p>
+            <div class="audience-links">
+              <a href="./product-owner-quickstart.html">Open product owner quickstart</a>
+              <a href="#use-cases">See product-facing examples</a>
+            </div>
+          </article>
+
+          <article class="audience-card">
+            <strong>New Unity developer</strong>
+            <h3>Understand the workflows before touching the code</h3>
+            <p>
+              Start from the public command surface, inspect the system shape once, then use
+              concrete examples for bug fixing, native bridges, plugin audits, and risky SDK or
+              startup flows.
+            </p>
+            <div class="audience-links">
+              <a href="./handbook.html">Open developer handbook</a>
+              <a href="./visual-map.html">Open visual map</a>
+            </div>
           </article>
         </div>
       </div>
@@ -944,10 +1059,10 @@
     <section id="paths">
       <div class="shell">
         <div class="section-title">
-          <h2>Three practical adoption paths</h2>
+          <h2>How teams usually adopt it</h2>
           <p>
-            Different visitors need different entrypoints. AIRoot should explain itself to all
-            three without mixing public docs with private runtime assumptions.
+            After choosing your role-specific path, this is the common adoption sequence teams
+            usually follow: evaluate, mount into a host repo, then extend only when needed.
           </p>
         </div>
 
