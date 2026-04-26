@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Protocol Handbook</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AI Protocol Handbook</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>AI_PROTOCOL_HANDBOOK.md</code></span>
+        <span class="pill">Generated: 2026-04-26 00:36:26 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./AI_PROTOCOL_HANDBOOK.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#start-here">Start Here</a>
+        <a href="#supported-host-topologies">Supported Host Topologies</a>
+        <a href="#protocol-map">Protocol Map</a>
+        <a href="#fast-command-lookup">Fast Command Lookup</a>
+        <a href="#role-shortcuts">Role Shortcuts</a>
+        <a href="#what-the-system-solves-well">What The System Solves Well</a>
+        <a href="#what-the-system-does-not-do-reliably-by-itself">What The System Does Not Do Reliably By Itself</a>
+        <a href="#best-practices">Best Practices</a>
+        <a href="#effective-workflows">Effective Workflows</a>
+        <a href="#verification-rules">Verification Rules</a>
+        <a href="#if-you-are-unsure-which-command-to-use">If You Are Unsure Which Command To Use</a>
+        <a href="#quick-limits-summary">Quick Limits Summary</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<h2 id="purpose">Purpose</h2>
+<p>This handbook is the main navigation guide for the AI protocol system.
+Use it to understand:</p>
+<ul>
+<li>what each protocol is for</li>
+<li>which tasks are a good fit</li>
+<li>which commands to use</li>
+<li>what the system can solve well today</li>
+<li>where you still need extra context, code verification, or human judgment</li>
+</ul>
+<h2 id="start-here">Start Here</h2>
+<ul>
+<li>Use <code>xuunity</code> for most Unity engineering, review, product-facing implementation questions, and protocol-system work.</li>
+<li>Host repos may attach additional private protocols outside <code>AIRoot</code>, but they are not part of this public handbook.</li>
+</ul>
+<h2 id="supported-host-topologies">Supported Host Topologies</h2>
+<h3 id="core-only-setup">Core-only setup</h3>
+<p>Use this for a single-project repo or any host that does not need a shared internal layer across multiple projects.</p>
+<p>Load shape:</p>
+<ul>
+<li>repo router</li>
+<li><code>AIRoot/Modules/XUUnity/</code></li>
+<li>project router</li>
+<li>project memory</li>
+</ul>
+<p>Rule:</p>
+<ul>
+<li>do not create <code>AIModules/XUUnityInternal/</code> just because <code>xuunity</code> exists</li>
+</ul>
+<h3 id="core-plus-internal-overlay">Core plus internal overlay</h3>
+<p>Use this for monorepos or multi-project hosts that need reusable internal shared knowledge across projects.</p>
+<p>Load shape:</p>
+<ul>
+<li>repo router</li>
+<li><code>AIRoot/Modules/XUUnity/</code></li>
+<li><code>AIModules/XUUnityInternal/</code> when present</li>
+<li>project router</li>
+<li>project memory</li>
+</ul>
+<p>Rule:</p>
+<ul>
+<li><code>AIModules/XUUnityInternal/</code> is an optional host overlay, not a mandatory part of <code>xuunity</code></li>
+</ul>
+<h2 id="protocol-map">Protocol Map</h2>
+<h3 id="xuunity"><code>xuunity</code></h3>
+<p>Best for:</p>
+<ul>
+<li>bug fixing</li>
+<li>refactoring</li>
+<li>feature development</li>
+<li>code review</li>
+<li>SDK integration and SDK review</li>
+<li>native plugin work and review</li>
+<li>runtime safety</li>
+<li>performance, startup, ANR, microfreeze, thermal, battery</li>
+<li>product-facing implementation explanations</li>
+<li>AI knowledge extraction, merge, and system maintenance</li>
+</ul>
+<h2 id="fast-command-lookup">Fast Command Lookup</h2>
+<h3 id="daily-engineering">Daily Engineering</h3>
+<ul>
+<li><code>xuunity fix this bug</code></li>
+<li><code>xuunity refactor this code</code></li>
+<li><code>xuunity review this component</code></li>
+<li><code>xuunity review the git change</code></li>
+<li><code>xuunity git change review</code></li>
+<li><code>xuunity feature request this flow</code></li>
+<li><code>xuunity feature design this flow</code></li>
+<li><code>xuunity feature screen this flow</code></li>
+<li><code>xuunity feature popup this flow</code></li>
+<li><code>xuunity feature presenter this flow</code></li>
+<li><code>xuunity feature plan this flow</code></li>
+<li><code>xuunity feature validation this flow</code></li>
+<li><code>xuunity feature risk review this flow</code></li>
+<li><code>xuunity feature implement this flow</code></li>
+<li><code>xuunity sdk review this integration</code></li>
+<li><code>xuunity sdk breakage review this integration</code></li>
+<li><code>xuunity native review this iOS bridge</code></li>
+</ul>
+<h3 id="product-queries">Product Queries</h3>
+<ul>
+<li><code>xuunity product explain this feature</code></li>
+<li><code>xuunity product brief this system</code></li>
+<li><code>xuunity product impact this flow change</code></li>
+<li><code>xuunity product rollout this feature</code></li>
+<li><code>xuunity product deps this popup</code></li>
+<li><code>xuunity product bug this issue</code></li>
+<li><code>xuunity product health this project</code></li>
+<li><code>xuunity project memory freshness this project</code></li>
+</ul>
+<h3 id="knowledge-and-system-work">Knowledge And System Work</h3>
+<ul>
+<li><code>xuunity extract knowledge</code></li>
+<li><code>xuunity extract this source</code></li>
+<li><code>xuunity extract implementation pattern</code></li>
+<li><code>xuunity extract presenter pattern</code></li>
+<li><code>xuunity system extract knowledge</code></li>
+<li><code>xuunity system extract implementation pattern</code></li>
+<li><code>xuunity apply approved extraction</code></li>
+<li><code>xuunity system apply approved extraction</code></li>
+<li><code>xuunity intake this knowledge</code></li>
+<li><code>xuunity integrate approved knowledge</code></li>
+<li><code>xuunity system extract skill candidates</code></li>
+<li><code>xuunity system extract review artifact from this chat</code></li>
+<li><code>xuunity system merge review artifacts</code></li>
+<li><code>xuunity system integrate review artifacts</code></li>
+<li><code>xuunity system merge these new UniTask rules into skills</code></li>
+<li><code>xuunity system intake review this knowledge</code></li>
+<li><code>xuunity system progress review</code></li>
+<li><code>xuunity system registry refresh</code></li>
+<li><code>xuunity system project registry audit</code></li>
+<li><code>xuunity system evaluation cadence</code></li>
+<li><code>xuunity system next milestone</code></li>
+<li><code>xuunity system research watch</code></li>
+<li><code>xuunity system health review</code></li>
+<li><code>xuunity system cleanup</code></li>
+<li><code>xuunity system cleanup projects</code></li>
+<li><code>xuunity system cleanup reports</code></li>
+<li><code>xuunity system cleanup all</code></li>
+<li><code>xuunity system cleanup apply</code></li>
+<li><code>xuunity system apply cleanup</code></li>
+<li><code>xuunity system cleanup stale reports</code></li>
+<li><code>xuunity system cleanup ai outputs</code></li>
+<li><code>xuunity system archive old reports</code></li>
+<li><code>xuunity system evaluate the xuunity protocol structure</code></li>
+</ul>
+<h2 id="role-shortcuts">Role Shortcuts</h2>
+<p>Use these when you want a specific angle instead of default routing.</p>
+<ul>
+<li><code>xuunity po ...</code> -&gt; product owner</li>
+<li><code>xuunity sud ...</code> -&gt; senior unity developer</li>
+<li><code>xuunity arch ...</code> -&gt; architect</li>
+<li><code>xuunity td ...</code> -&gt; technical developer</li>
+<li><code>xuunity ta ...</code> -&gt; technical artist</li>
+<li><code>xuunity ui ...</code> -&gt; ui integrator</li>
+<li><code>xuunity qa ...</code> -&gt; qa manual</li>
+<li><code>xuunity qa auto ...</code> -&gt; qa automation</li>
+<li><code>xuunity researcher ...</code> -&gt; researcher</li>
+<li><code>xuunity tm ...</code> -&gt; troubleshooter master</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><code>xuunity td fix this frame spike</code></li>
+<li><code>xuunity tm find the root cause of this legacy bug</code></li>
+<li><code>xuunity po evaluate this feature</code></li>
+</ul>
+<h2 id="what-the-system-solves-well">What The System Solves Well</h2>
+<h3 id="high-confidence">High confidence</h3>
+<ul>
+<li>Unity implementation and refactor work with clear local code context</li>
+<li>review of risky SDK and native integrations</li>
+<li>performance and stability guidance for mobile-critical flows</li>
+<li>extracting reusable engineering knowledge from real implementation work</li>
+<li>product-facing explanations when source code is available for verification</li>
+<li>consolidating engineering reasoning into reusable review artifacts</li>
+</ul>
+<h3 id="good-but-context-sensitive">Good, but context-sensitive</h3>
+<ul>
+<li>architecture proposals across messy legacy code</li>
+<li>release-readiness evaluation</li>
+<li>migration planning between SDK versions</li>
+<li>turning informal chats into durable shared skills</li>
+<li>using prior reports and project memory as working context</li>
+<li>periodic roadmap progress assessment</li>
+<li>external research watch if strong sources are used and findings are filtered through current system needs</li>
+<li>project health and memory freshness assessments when code and project memory are both available</li>
+</ul>
+<h3 id="needs-careful-verification">Needs careful verification</h3>
+<ul>
+<li>answers based mostly on old project memory</li>
+<li>product questions when source code is not available</li>
+<li>build-system and manifest conclusions without checking merged artifacts</li>
+<li>vendor-specific SDK recommendations that depend on changing external releases</li>
+</ul>
+<h2 id="what-the-system-does-not-do-reliably-by-itself">What The System Does Not Do Reliably By Itself</h2>
+<ul>
+<li>verify current third-party release status from the internet without fresh external evidence</li>
+<li>guarantee current behavior if only stale docs are loaded</li>
+<li>replace device testing for ANR, ad-flow, rendering, or lifecycle regressions</li>
+<li>replace human approval for knowledge integration into shared prompts</li>
+<li>decide project-specific rollout risk without enough project context</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li>Start from the project root or monorepo root, not from nested code folders.</li>
+<li>Let shorthand commands stay short. Do not manually enumerate the whole prompt stack unless needed.</li>
+<li>Choose repo topology first: <code>core-only</code> for single-project hosts, <code>core + internal overlay</code> for true multi-project hosts.</li>
+<li>For gameplay projects, keep <code>Assets/AIOutput/ProjectMemory/</code> as the default context layer.</li>
+<li>Treat <code>Assets/AIOutput/</code> as historical artifact storage, not default working memory.</li>
+<li>Load historical artifacts only when investigating behavior drift, reconstructing legacy intent, or researching old bugs.</li>
+<li>For product questions, prefer queries that point to a concrete feature, flow, or file area.</li>
+<li>For knowledge work, use <code>intake review</code> before integration.</li>
+<li>For long technical chats, first create a review artifact, then decide whether any of it should become shared knowledge.</li>
+<li>For risky SDK updates, verify dependency track, native versions, and merged build outputs.</li>
+<li>For mobile stability questions, verify with code and build artifacts before trusting old memory.</li>
+<li>Treat <code>AIRoot</code> as intentionally routerless. Do not create <code>AIRoot/Agents.md</code> or <code>AIRoot/Assets/AIOutput/ProjectMemory/</code> to emulate a project-local runtime layer.</li>
+<li>Treat <code>AIModules/XUUnityInternal/</code> as optional. Use it only when there is real host-level reusable internal knowledge across projects.</li>
+</ul>
+<h2 id="effective-workflows">Effective Workflows</h2>
+<h3 id="bug-fix">Bug Fix</h3>
+<ol>
+<li><code>xuunity fix this bug</code></li>
+<li>Let the system load role, skills, project memory, and prior reports.</li>
+<li>If the bug is deep or legacy-heavy, switch to <code>xuunity tm ...</code></li>
+</ol>
+<h3 id="presenter-based-feature-work">Presenter-Based Feature Work</h3>
+<ol>
+<li><code>xuunity feature screen ...</code> for long-lived presenter-driven screens, pages, tabs, or lobby sections</li>
+<li><code>xuunity feature popup ...</code> for modal, popup, or one-shot flow presenters</li>
+<li><code>xuunity feature presenter ...</code> if you want presenter-based routing but want the system to infer the lifetime shape</li>
+<li>If the task is only shaping implementation before coding, use <code>xuunity feature design ...</code> or <code>xuunity feature plan ...</code></li>
+</ol>
+<h3 id="sdk-upgrade-or-review">SDK Upgrade Or Review</h3>
+<ol>
+<li><code>xuunity sdk review this integration</code></li>
+<li>If breakage risk is high, use <code>xuunity sdk breakage review this integration</code></li>
+<li>If rollout risk matters, follow with <code>xuunity product rollout this feature</code></li>
+</ol>
+<p>Expected review output:</p>
+<ul>
+<li>findings</li>
+<li>feature and core-flow risk assessment</li>
+<li>QA manual validation recommendations</li>
+<li>candidate test cases when useful</li>
+<li>release recommendation or residual risk</li>
+</ul>
+<p>Canonical generic review template:</p>
+<ul>
+<li><code>AIRoot/Templates/XUUNITY_REVIEW_REPORT_TEMPLATE.md</code></li>
+</ul>
+<h3 id="git-change-review">Git Change Review</h3>
+<ol>
+<li><code>xuunity review the git change</code></li>
+<li>review the branch diff against <code>develop</code> by default</li>
+<li>if local uncommitted changes exist, assess them as additional delta unless the user asked for committed changes only</li>
+<li>save a short review report under <code>&lt;Project&gt;/Assets/AIOutput/CodeReviews/</code> with a timestamped collision-safe filename like <code>YYYY-MM-DD_HH-MM-SS_git_change_review_&lt;branch_slug&gt;_vs_&lt;base_slug&gt;.md</code></li>
+<li>include feature/core-flow risk scoring, QA manual validation recommendations, and candidate test cases when the code evidence is sufficient</li>
+<li>inspect the scorecard and release recommendation</li>
+<li>fix blocking issues before moving toward production</li>
+</ol>
+<p>Canonical template:</p>
+<ul>
+<li><code>AIRoot/Templates/XUUNITY_GIT_CHANGE_REVIEW_TEMPLATE.md</code></li>
+</ul>
+<p>Expected saved review contents:</p>
+<ul>
+<li>findings</li>
+<li>scorecard</li>
+<li>feature and core-flow risk assessment</li>
+<li>QA manual validation recommendations</li>
+<li>candidate test cases when useful</li>
+<li>release recommendation</li>
+</ul>
+<p>Use <code>100</code> breakage probability only for deterministic bugs that can be explained from the current code or diff.</p>
+<h3 id="new-knowledge">New Knowledge</h3>
+<ol>
+<li><code>xuunity extract knowledge</code></li>
+<li>review the triage package across review artifacts, skills, and shared knowledge</li>
+<li>approve only the destinations you want</li>
+<li><code>xuunity apply approved extraction</code></li>
+</ol>
+<p>When the source is primarily code and the goal is to learn a repeated implementation style from multiple concrete examples, prefer:</p>
+<ol>
+<li><code>xuunity extract implementation pattern</code></li>
+<li>review the extracted invariants, variations, and non-promoted quirks</li>
+<li>approve only the destination layer you want</li>
+<li><code>xuunity apply approved extraction</code></li>
+</ol>
+<p>For extraction-quality regression work, use:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUNITY_KNOWLEDGE_EXTRACTION_EVALUATION.md</code></li>
+<li><code>AIRoot/Operations/XUUNITY_KNOWLEDGE_EXTRACTION_GOLDEN_CASES.yaml</code></li>
+<li><code>AIRoot/Operations/XUUNITY_EXTRACTION_AUTHORITATIVE_APPROVAL_CHECKLIST.md</code></li>
+</ul>
+<p><code>xuunity system health review</code> should also check whether the extraction workflow has current regression evidence.
+If extraction routing changed but the golden pack was not rerun, treat that as a system-health gap rather than a silent assumption.
+Use <code>AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json</code> as the preferred extraction-health evidence when it exists.</p>
+<h3 id="system-progress">System Progress</h3>
+<ol>
+<li><code>xuunity system progress review</code></li>
+<li>review the maturity snapshot</li>
+<li>take the recommended next milestone</li>
+<li>if project inventory or project metadata changed, update <code>AIOutput/Registry/project_registry.yaml</code> in the same maintenance pass</li>
+</ol>
+<h3 id="system-output-cleanup">System Output Cleanup</h3>
+<ol>
+<li><code>xuunity system cleanup</code>, <code>xuunity system cleanup reports</code>, or <code>xuunity system cleanup all</code></li>
+<li>review the filled cleanup scorecards and the <code>keep</code>, <code>archive</code>, <code>delete_candidate</code>, and <code>manual_review</code> buckets</li>
+<li><code>xuunity system cleanup apply</code> only after explicit approval</li>
+<li>archive meaningful old reports first</li>
+<li>delete only junk, exact duplicates, or orphan artifacts after explicit approval</li>
+</ol>
+<h3 id="project-registry-refresh">Project Registry Refresh</h3>
+<ol>
+<li><code>xuunity system registry refresh</code></li>
+<li>review changed versus unchanged entries</li>
+<li>if ambiguities remain, keep the registry conservative and flag them for human review</li>
+</ol>
+<h3 id="project-registry-audit">Project Registry Audit</h3>
+<ol>
+<li><code>xuunity system project registry audit</code></li>
+<li>review current, stale, missing, and ambiguous entries</li>
+<li>run <code>xuunity system registry refresh</code> only if the required updates are low-risk and evidence-backed</li>
+</ol>
+<h3 id="internet-research-watch">Internet Research Watch</h3>
+<ol>
+<li><code>xuunity system research watch</code></li>
+<li>review what is actually new and useful</li>
+<li>if strong findings appear, run <code>xuunity system intake review this knowledge</code></li>
+</ol>
+<h3 id="long-engineering-chat">Long Engineering Chat</h3>
+<ol>
+<li><code>xuunity system extract review artifact from this chat</code></li>
+<li>If there are multiple artifacts, <code>xuunity system merge review artifacts</code></li>
+<li>If durable rules emerged, run <code>xuunity system intake review this knowledge</code></li>
+</ol>
+<h3 id="product-question">Product Question</h3>
+<ol>
+<li><code>xuunity product explain this feature</code></li>
+<li>Check whether the answer is:<ul>
+<li><code>verified in source code</code></li>
+<li><code>based on project memory</code></li>
+<li><code>partially inferred</code></li>
+</ul>
+</li>
+<li>If verification is weak, ask for a code-backed answer</li>
+</ol>
+<h3 id="project-health">Project Health</h3>
+<ol>
+<li><code>xuunity product health this project</code></li>
+<li>review blockers, risks, and readiness scores</li>
+<li>if memory trust is unclear, run <code>xuunity project memory freshness this project</code></li>
+</ol>
+<h2 id="verification-rules">Verification Rules</h2>
+<ul>
+<li>Code wins over project memory when they conflict.</li>
+<li>Merged build artifacts matter more than source declarations for manifest and plist checks.</li>
+<li>Review artifacts are reusable context, not automatic source of truth.</li>
+<li>Shared knowledge must be approved before integration.</li>
+<li>Public-safe reusable guidance belongs in <code>AIRoot/Modules/XUUnity/</code>.</li>
+<li>Reusable monorepo-internal guidance belongs in <code>AIModules/XUUnityInternal/</code> when that overlay exists.</li>
+<li>Project-only durable guidance belongs in project memory or project outputs unless the reusable part is cleanly split out first.</li>
+<li><code>AIOutput/Registry/project_registry.yaml</code> should be refreshed when project routers, project memory presence, or host-defined gameplay-bridge availability change.</li>
+<li>Host-level system and review-artifact outputs belong in <code>AIOutput/Reports/</code>, with registry and portfolio state stored under <code>AIOutput/Registry/</code>.</li>
+</ul>
+<h2 id="if-you-are-unsure-which-command-to-use">If You Are Unsure Which Command To Use</h2>
+<ul>
+<li>Need code changed or reviewed: start with <code>xuunity</code></li>
+<li>Need architecture direction beyond public <code>xuunity</code>: use the host repo&#39;s private architecture protocol if one exists</li>
+<li>Need host-specific onboarding beyond public <code>xuunity</code>: use the host repo&#39;s private onboarding protocol if one exists</li>
+<li>Need to process a new piece of knowledge: start with <code>xuunity extract knowledge</code></li>
+<li>Need to extract a repeated development style from code: start with <code>xuunity extract implementation pattern</code></li>
+<li>Need to process a long technical chat: start with <code>xuunity system extract review artifact from this chat</code></li>
+</ul>
+<h2 id="quick-limits-summary">Quick Limits Summary</h2>
+<ul>
+<li>Best results happen when the AI can see the code, project memory, and relevant outputs.</li>
+<li>Product answers are only as good as their verification level.</li>
+<li>Upstream or shared knowledge should be integrated intentionally, not copied blindly.</li>
+<li>Device-level runtime risks still require real testing.</li>
+</ul>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+</body>
+</html>

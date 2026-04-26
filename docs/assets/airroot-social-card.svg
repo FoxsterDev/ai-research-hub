@@ -1,0 +1,62 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="48" x2="1184" y2="592" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7EE"/>
+      <stop offset="1" stop-color="#F0E5D7"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="84" y1="92" x2="676" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#13212B"/>
+      <stop offset="1" stop-color="#2F7C84"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="720" y1="118" x2="1180" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C95538"/>
+      <stop offset="1" stop-color="#E98763"/>
+    </linearGradient>
+    <linearGradient id="olive" x1="722" y1="346" x2="1180" y2="522" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#586B47"/>
+      <stop offset="1" stop-color="#88996D"/>
+    </linearGradient>
+    <filter id="shadow" x="40" y="66" width="1200" height="520" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="16"/>
+      <feGaussianBlur stdDeviation="18"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0823529 0 0 0 0 0.145098 0 0 0 0 0.192157 0 0 0 0.14 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" rx="36" fill="url(#bg)"/>
+  <circle cx="1120" cy="90" r="124" fill="#F4CCB8" fill-opacity="0.74"/>
+  <circle cx="142" cy="578" r="140" fill="#D8ECEC"/>
+
+  <g filter="url(#shadow)">
+    <rect x="84" y="92" width="592" height="456" rx="30" fill="url(#hero)"/>
+    <text x="132" y="172" fill="#FFF9F3" font-family="Georgia, 'Times New Roman', serif" font-size="62" font-weight="700">AIRoot</text>
+    <text x="132" y="222" fill="#E8F5F4" font-family="'Trebuchet MS', sans-serif" font-size="24">Public AI layer for engineering repos</text>
+    <text x="132" y="286" fill="#FFF9F3" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700">Built around XUUnity</text>
+    <text x="132" y="328" fill="#DDF1F1" font-family="'Trebuchet MS', sans-serif" font-size="21">XUUnity. Setup. Visuals. Templates.</text>
+
+    <rect x="132" y="382" width="182" height="46" rx="23" fill="rgba(255,249,243,0.13)"/>
+    <rect x="330" y="382" width="206" height="46" rx="23" fill="rgba(255,249,243,0.13)"/>
+    <rect x="132" y="446" width="156" height="46" rx="23" fill="rgba(255,249,243,0.13)"/>
+    <rect x="304" y="446" width="232" height="46" rx="23" fill="rgba(255,249,243,0.13)"/>
+    <text x="163" y="412" fill="#FFF9F3" font-family="'Trebuchet MS', sans-serif" font-size="20">Public-safe</text>
+    <text x="365" y="412" fill="#FFF9F3" font-family="'Trebuchet MS', sans-serif" font-size="20">Routerless by design</text>
+    <text x="168" y="476" fill="#FFF9F3" font-family="'Trebuchet MS', sans-serif" font-size="20">Reusable</text>
+    <text x="336" y="476" fill="#FFF9F3" font-family="'Trebuchet MS', sans-serif" font-size="20">Mounts into real host repos</text>
+
+    <rect x="722" y="118" width="470" height="180" rx="28" fill="url(#accent)"/>
+    <text x="760" y="170" fill="#FFF7F1" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="700">Proven use cases</text>
+    <text x="760" y="214" fill="#FFF2EC" font-family="'Trebuchet MS', sans-serif" font-size="18">Consent / ATT bridge hardening</text>
+    <text x="760" y="248" fill="#FFF2EC" font-family="'Trebuchet MS', sans-serif" font-size="18">Native callback threading review</text>
+    <text x="760" y="282" fill="#FFF2EC" font-family="'Trebuchet MS', sans-serif" font-size="18">Optimistic UI race-state fixes</text>
+
+    <rect x="722" y="326" width="470" height="170" rx="28" fill="url(#olive)"/>
+    <text x="760" y="378" fill="#FAFCF7" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="700">Source of truth model</text>
+    <text x="760" y="422" fill="#F0F5E8" font-family="'Trebuchet MS', sans-serif" font-size="20">AIRoot = public core</text>
+    <text x="760" y="456" fill="#F0F5E8" font-family="'Trebuchet MS', sans-serif" font-size="20">Host repo = routing and state</text>
+    <text x="760" y="490" fill="#F0F5E8" font-family="'Trebuchet MS', sans-serif" font-size="20">Projects = durable truth</text>
+  </g>
+</svg>

@@ -15,14 +15,15 @@
     content="Public protocol architecture for engineering repositories: XUUnity, setup contracts, visuals, templates, and integration docs."
   >
   <meta property="og:type" content="website">
-  <meta property="og:image" content="./assets/airroot-social-preview.png">
+  <meta property="og:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
+  <meta property="og:url" content="https://foxsterdev.github.io/ai-research-hub/">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AIRoot | Public AI Operating Layer">
   <meta
     name="twitter:description"
     content="Public protocol architecture for engineering repositories, built around XUUnity."
   >
-  <meta name="twitter:image" content="./assets/airroot-social-preview.png">
+  <meta name="twitter:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
   <style>
     :root {
       --paper: #f6f0e7;
@@ -263,6 +264,31 @@
       color: var(--ink-soft);
     }
 
+    .benefit-strip {
+      display: grid;
+      gap: 12px;
+      margin-top: 22px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .benefit-pill {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 250, 243, 0.78);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .benefit-pill strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.96rem;
+    }
+
+    .benefit-pill span {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+
     .hero-panel {
       position: relative;
       background: linear-gradient(180deg, rgba(255, 250, 243, 0.94), rgba(255, 245, 235, 0.88));
@@ -427,6 +453,56 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .use-case-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .use-case {
+      padding: 22px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 243, 0.82);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+    }
+
+    .use-case strong {
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(47, 124, 132, 0.1);
+      color: var(--teal);
+      font-size: 0.88rem;
+    }
+
+    .use-case h3 {
+      margin: 0 0 10px;
+      font-size: 1.3rem;
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .use-case p {
+      margin: 0 0 12px;
+      color: var(--ink-soft);
+    }
+
+    .use-case code {
+      font-size: 0.9rem;
+      color: var(--accent-deep);
+    }
+
+    .derived-note {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: var(--radius-md);
+      background: rgba(47, 124, 132, 0.08);
+      border: 1px solid rgba(47, 124, 132, 0.14);
+      color: var(--ink-soft);
+    }
+
     .step {
       position: relative;
       padding: 22px;
@@ -521,6 +597,8 @@
       .grid.cards-4,
       .grid.cards-3,
       .steps,
+      .use-case-grid,
+      .benefit-strip,
       .panel-note {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -544,6 +622,8 @@
       .grid.cards-4,
       .grid.cards-3,
       .steps,
+      .use-case-grid,
+      .benefit-strip,
       .panel-note {
         display: grid;
         grid-template-columns: 1fr;
@@ -580,6 +660,7 @@
       <nav class="topnav" aria-label="Primary">
         <a href="#start">Start Here</a>
         <a href="#architecture">Architecture</a>
+        <a href="#use-cases">Use Cases</a>
         <a href="#paths">Adoption Paths</a>
         <a href="https://github.com/FoxsterDev/ai-research-hub" target="_blank" rel="noreferrer">GitHub Repo</a>
       </nav>
@@ -591,22 +672,35 @@
       <div class="shell hero-grid">
         <div class="hero-copy">
           <div class="eyebrow">Public-safe reusable layer for repo-attached AI workflows</div>
-          <h1>Public protocol architecture for real engineering repositories.</h1>
+          <h1>Ship mobile Unity work with stronger reviews, safer native integrations, and faster product answers.</h1>
           <p>
-            AIRoot packages the public execution core, setup guidance, visuals, templates,
-            and design docs for engineering-focused AI workflows. It gives a host repo a
-            strong shared base while keeping routing, mutable state, and project truth in the
-            layers that should actually own them.
+            AIRoot is a reusable protocol layer built around `xuunity`. It helps Unity teams
+            review risky code, harden startup and native flows, explain product impact in plain
+            language, and turn real implementation work into reusable engineering guidance.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Open Protocol Handbook</a>
-            <a class="button secondary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">See Integration Contract</a>
+            <a class="button primary" href="./handbook.html">Open Protocol Handbook</a>
+            <a class="button secondary" href="./integration.html">See Integration Contract</a>
           </div>
           <div class="hero-meta" aria-label="AIRoot qualities">
             <div class="chip">Reusable</div>
             <div class="chip">Public-safe</div>
             <div class="chip">Routerless by design</div>
             <div class="chip">Built around XUUnity</div>
+          </div>
+          <div class="benefit-strip">
+            <div class="benefit-pill">
+              <strong>For Unity developers</strong>
+              <span>Review tricky async, SDK, native, and lifecycle code with stronger guardrails.</span>
+            </div>
+            <div class="benefit-pill">
+              <strong>For technical leads</strong>
+              <span>Turn repeated review patterns into reusable protocol rules instead of tribal knowledge.</span>
+            </div>
+            <div class="benefit-pill">
+              <strong>For founders and CEOs</strong>
+              <span>Get clearer answers about startup risk, rollout impact, and product-facing behavior changes.</span>
+            </div>
           </div>
         </div>
 
@@ -635,46 +729,47 @@
         <div class="section-title">
           <h2>Start here if you are new</h2>
           <p>
-            The goal is fast orientation. Do not start by reading everything. Start with the
-            public protocol surface, then the visual model, then the host integration contract.
+            If you are evaluating the repo, start with what it helps teams do. Then open the
+            handbook for command surface, the visual map for system shape, and integration only
+            when you want to mount it into a real repo.
           </p>
         </div>
 
         <div class="grid cards-4">
           <article class="card">
-            <h3>1. Learn the command surface</h3>
+            <h3>1. See what teams actually use it for</h3>
             <p>
-              The public handbook is the fastest way to understand what `xuunity` is for,
-              which commands exist, and where the protocol is intentionally opinionated.
+              The handbook shows the highest-value workflows first: bug fixing, code review,
+              risky SDK changes, feature delivery, rollout risk, and product-facing explainers.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Open handbook</a>
+            <a href="./handbook.html">Open handbook</a>
           </article>
 
           <article class="card">
-            <h3>2. See the architecture</h3>
+            <h3>2. Understand the shape once</h3>
             <p>
-              Use the visual map when you need the load-bearing mental model: public core,
-              optional host overlays, and project-local memory stacked in the intended order.
+              The visual map explains the one core idea behind the system: reusable public core,
+              optional host overlays, and project-local truth each live in different layers.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Visuals/AI_PROTOCOL_VISUAL_MAP.md" target="_blank" rel="noreferrer">Open visual map</a>
+            <a href="./visual-map.html">Open visual map</a>
           </article>
 
           <article class="card">
-            <h3>3. Attach it to a real repo</h3>
+            <h3>3. Decide whether it fits your host repo</h3>
             <p>
-              AIRoot is designed to be mounted into a host repository. The integration guide
-              defines which responsibilities stay in the host and which remain public and reusable.
+              AIRoot is designed to mount into a real engineering repo, not replace it. The
+              integration guide shows what stays public and what the host still needs to own.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">Open integration guide</a>
+            <a href="./integration.html">Open integration guide</a>
           </article>
 
           <article class="card">
-            <h3>4. Bootstrap the setup</h3>
+            <h3>4. Bootstrap only when the structure is clear</h3>
             <p>
-              Use the setup index when you are ready to initialize a host repo or add a new
-              project with the expected topology, bootstrap flow, and safety rules.
+              Once the model makes sense, the setup index gives the actual repo and project
+              bootstrap flow with the expected topology and safety rules.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/SETUP_INDEX.md" target="_blank" rel="noreferrer">Open setup index</a>
+            <a href="./setup-index.html">Open setup index</a>
           </article>
         </div>
       </div>
@@ -783,6 +878,69 @@
       </div>
     </section>
 
+    <section id="use-cases">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Best use cases already proven in work</h2>
+          <p>
+            Real use cases, generalized for public docs.
+          </p>
+        </div>
+
+        <div class="use-case-grid">
+          <article class="use-case">
+            <strong>Native + startup</strong>
+            <h3>Hardening a permission bridge during startup</h3>
+            <p>
+              Review and refactor a native iOS permission bridge so requests wait for active app
+              state, duplicate prompt calls collapse into single-flight behavior, and unrelated
+              attribution or plist ownership stays out of the bridge package.
+            </p>
+            <code>xuunity native review this iOS bridge</code>
+          </article>
+
+          <article class="use-case">
+            <strong>Plugin + package audit</strong>
+            <h3>Reviewing and extending a third-party Unity native plugin</h3>
+            <p>
+              Take a Unity package or Asset Store plugin that touches native networking, listeners,
+              or lifecycle hooks, audit its thread model and failure behavior, then shape safe
+              follow-up work for production use instead of integrating it blindly.
+            </p>
+            <code>xuunity review this Unity native plugin package</code>
+          </article>
+
+          <article class="use-case">
+            <strong>Bug fixing + refactor</strong>
+            <h3>Fixing optimistic UI that races against delayed server truth</h3>
+            <p>
+              Repair a stale-state bug where UI actions move ahead of fresh server snapshots,
+              narrow interaction blocking to the affected scope, and ensure full-snapshot
+              reconciliation prunes missing local entities instead of reviving stale UI.
+            </p>
+            <code>xuunity fix this stale-state race</code>
+          </article>
+
+          <article class="use-case">
+            <strong>Product + rollout</strong>
+            <h3>Explaining startup or monetization risk in product terms</h3>
+            <p>
+              Translate risky technical changes into product and business language: what can break,
+              what needs validation, what should block release, and how startup, SDK, consent, or
+              monetization changes affect rollout confidence.
+            </p>
+            <code>xuunity product impact this startup change</code>
+          </article>
+        </div>
+
+        <div class="derived-note">
+          The live site is intended to stay in sync with the public markdown sources. Rendered
+          pages such as the handbook, visual map, integration guide, and setup index can be
+          refreshed into `docs/` with `bash scripts/refresh_public_site.sh`.
+        </div>
+      </div>
+    </section>
+
     <section id="paths">
       <div class="shell">
         <div class="section-title">
@@ -830,7 +988,7 @@
               repo and project topology without turning AIRoot into a fake runtime root.
             </p>
           </div>
-          <a class="button secondary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/SETUP_INDEX.md" target="_blank" rel="noreferrer">Open setup flow</a>
+          <a class="button secondary" href="./setup-index.html">Open setup flow</a>
         </div>
       </div>
     </section>
@@ -844,9 +1002,9 @@
       </p>
       <div class="footer-links">
         <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/README.md" target="_blank" rel="noreferrer">README</a>
-        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Handbook</a>
-        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Visuals/AI_PROTOCOL_VISUAL_MAP.md" target="_blank" rel="noreferrer">Visual Map</a>
-        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">Integration</a>
+        <a href="./handbook.html">Handbook</a>
+        <a href="./visual-map.html">Visual Map</a>
+        <a href="./integration.html">Integration</a>
       </div>
     </div>
   </footer>

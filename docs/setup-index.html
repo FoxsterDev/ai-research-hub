@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Setup Index</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AI Setup Index</h1>
+      <p class="lead">Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>SETUP_INDEX.md</code></span>
+        <span class="pill">Generated: 2026-04-26 00:36:26 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./SETUP_INDEX.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#start-here">Start Here</a>
+        <a href="#repo-level-setup">Repo-Level Setup</a>
+        <a href="#project-level-setup">Project-Level Setup</a>
+        <a href="#codex-slack-mcp">Codex Slack MCP</a>
+        <a href="#existing-router-safety-rules">Existing Router Safety Rules</a>
+        <a href="#monorepo-alias-wiring">Monorepo Alias Wiring</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<p>Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
+<h2 id="start-here">Start Here</h2>
+<ul>
+<li>Main setup guide: <code>AI_SETUP.md</code></li>
+<li>Host/module integration guide: <code>../INTEGRATION.md</code></li>
+</ul>
+<h2 id="repo-level-setup">Repo-Level Setup</h2>
+<p>Use this when the host repo itself does not have an AI router yet.</p>
+<h3 id="preview-target">Preview target</h3>
+<p>Single-project repo:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
+</code></pre>
+<p>Monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo --dry-run
+</code></pre>
+<h3 id="apply-target">Apply target</h3>
+<p>Single-project repo:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project
+</code></pre>
+<p>Monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo
+</code></pre>
+<h3 id="script">Script</h3>
+<ul>
+<li><code>AIRoot/scripts/init_ai_repo.sh</code></li>
+</ul>
+<h3 id="template">Template</h3>
+<ul>
+<li><code>../Templates/REPO_AGENTS_ROUTER_TEMPLATE.md</code></li>
+</ul>
+<h2 id="project-level-setup">Project-Level Setup</h2>
+<p>Use this when the repo already has a root router and the agent is adding a new Unity project.</p>
+<h3 id="preview-target-2">Preview target</h3>
+<p>Single-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project --dry-run
+</code></pre>
+<p>Monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo --dry-run
+</code></pre>
+<h3 id="apply-target-2">Apply target</h3>
+<p>Single-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project
+</code></pre>
+<p>Monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo
+</code></pre>
+<h3 id="script-2">Script</h3>
+<ul>
+<li><code>AIRoot/scripts/init_ai_project.sh</code></li>
+</ul>
+<h3 id="template-2">Template</h3>
+<ul>
+<li><code>../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md</code></li>
+</ul>
+<h2 id="codex-slack-mcp">Codex Slack MCP</h2>
+<p>Use this when a teammate needs Slack MCP in Codex clients that do not expose
+the Slack connector UI.</p>
+<h3 id="preview-target-3">Preview target</h3>
+<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
+</code></pre>
+<h3 id="apply-target-3">Apply target</h3>
+<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
+</code></pre>
+<h3 id="script-3">Script</h3>
+<ul>
+<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
+</ul>
+<h3 id="guide">Guide</h3>
+<ul>
+<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
+</ul>
+<h3 id="prompt-templates">Prompt Templates</h3>
+<ul>
+<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
+</ul>
+<h2 id="existing-router-safety-rules">Existing Router Safety Rules</h2>
+<ul>
+<li>Existing repo <code>Agents.md</code> is not rewritten silently.</li>
+<li>Existing project <code>Agents.md</code> is not rewritten silently.</li>
+<li>Use <code>--refresh-managed-router</code> only for a managed router you intentionally want to refresh.</li>
+<li>Use <code>--adopt-existing-router</code> only after explicitly deciding to replace an unmanaged router.</li>
+</ul>
+<h2 id="monorepo-alias-wiring">Monorepo Alias Wiring</h2>
+<p>Use this only for multi-project hosts that already have a prepared repo router and maintain host-specific alias-refresh tooling outside <code>AIRoot</code>.</p>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+</body>
+</html>

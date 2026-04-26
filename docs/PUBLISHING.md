@@ -8,7 +8,9 @@ This folder is prepared for a GitHub Pages entry site for the `FoxsterDev/ai-res
   Public landing page for newcomers.
 - `docs/assets/airroot-architecture.svg`
   Source infographic used by the landing page.
-- `docs/assets/airroot-social-preview.png`
+- `docs/assets/airroot-social-card.svg`
+  Source social preview card in the correct wide format.
+- `docs/assets/airroot-social-card.jpg`
   Ready-to-upload repository social preview image.
 - `docs/.nojekyll`
   Disables Jekyll processing so Pages serves the static files as-is.
@@ -73,7 +75,30 @@ In:
 - `Settings -> General` or repo `About` media controls, depending on GitHub UI version
 
 Upload:
-- `docs/assets/airroot-social-preview.png`
+- `docs/assets/airroot-social-card.jpg`
+
+### Refreshing Derived Docs
+
+Do not maintain the site HTML by hand when the public markdown source changes.
+
+Use:
+
+```bash
+bash scripts/refresh_public_site.sh
+```
+
+This refreshes:
+
+- `docs/visual-map.html` from `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
+- `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
+- `docs/setup-index.html` from `Operations/SETUP_INDEX.md`
+- `docs/integration.html` from `INTEGRATION.md`
+- social preview derivatives from `docs/assets/airroot-social-card.svg` when local tools are available
+
+Recommended rule:
+- markdown in `Visuals/`, `Operations/`, and repo root stays source of truth
+- `docs/*.html` stays derived output for the public site
+- no separate protocol family is needed for this; a small public operation is enough
 
 ## Suggested Topics
 
