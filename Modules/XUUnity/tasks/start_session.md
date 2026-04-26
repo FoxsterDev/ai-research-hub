@@ -455,6 +455,7 @@ Prefer these skill families when triggered by the task:
 - `skills/optimization/` for allocations, loading, startup, ANR prevention, and microfreeze reduction
 - `skills/profiling/` for profiler evidence, instrumentation, and regression analysis
 - `skills/tests/` for unit, integration, playmode, smoke, and release-critical validation
+- when the task explicitly involves Unity Test Runner operation, batchmode `-runTests`, project-lock diagnosis, `EditMode` versus `PlayMode` selection, or turning rough timings into trustworthy perf evidence, also load `skills/tests/unity_test_runner_workflow.md`
 - `skills/architecture/` for subsystem boundaries, state ownership, and event-driven flows
 - `skills/refactoring/` for behavior-preserving cleanup, extraction, decoupling, and staged migration
 - `skills/mobile/` for startup, resume, thermal, battery, and critical mobile runtime posture
