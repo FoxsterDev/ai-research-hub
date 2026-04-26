@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Setup Index</title>
+  <title>AI Product Owner Quickstart</title>
   <style>
 :root {
   --bg: #efe5d7;
@@ -313,112 +313,144 @@ h1 {
   <div class="page">
     <section class="hero">
       <p class="eyebrow">Codex Markdown View</p>
-      <h1>AI Setup Index</h1>
-      <p class="lead">Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
+      <h1>AI Product Owner Quickstart</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
-        <span class="pill">Source: <code>SETUP_INDEX.md</code></span>
+        <span class="pill">Source: <code>AI_PRODUCT_OWNER_QUICKSTART.md</code></span>
         <span class="pill">Generated: 2026-04-26 00:46:53 UTC</span>
       </div>
       <div class="hero-links">
-        <a href="./SETUP_INDEX.md">Open Markdown Source</a>
+        <a href="./AI_PRODUCT_OWNER_QUICKSTART.md">Open Markdown Source</a>
       </div>
 
       <div class="hero-nav">
-        <a href="#start-here">Start Here</a>
-        <a href="#repo-level-setup">Repo-Level Setup</a>
-        <a href="#project-level-setup">Project-Level Setup</a>
-        <a href="#codex-slack-mcp">Codex Slack MCP</a>
-        <a href="#existing-router-safety-rules">Existing Router Safety Rules</a>
-        <a href="#monorepo-alias-wiring">Monorepo Alias Wiring</a>
+        <a href="#what-to-open">What To Open</a>
+        <a href="#infrastructure-sensitive-project-rule">Infrastructure-Sensitive Project Rule</a>
+        <a href="#paste-this-first">Paste This First</a>
+        <a href="#main-commands">Main Commands</a>
+        <a href="#how-to-read-the-answer">How To Read The Answer</a>
+        <a href="#if-the-answer-is-too-technical">If The Answer Is Too Technical</a>
+        <a href="#if-the-answer-is-not-verified-enough">If The Answer Is Not Verified Enough</a>
       </div>
     </section>
 
     <main class="content">
       <article>
-<p>Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
-<h2 id="start-here">Start Here</h2>
+<h2 id="what-to-open">What To Open</h2>
+<p>Open one of these:</p>
 <ul>
-<li>Main setup guide: <code>AI_SETUP.md</code></li>
-<li>Host/module integration guide: <code>../INTEGRATION.md</code></li>
+<li>a local AI app such as Claude desktop or Codex</li>
+<li>VS Code with the repo or project folder open</li>
+<li>terminal or CLI assistant from the repo root or project root</li>
 </ul>
-<h2 id="repo-level-setup">Repo-Level Setup</h2>
-<p>Use this when the host repo itself does not have an AI router yet.</p>
-<h3 id="preview-target">Preview target</h3>
-<p>Single-project repo:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
-</code></pre>
-<p>Monorepo / multi-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo --dry-run
-</code></pre>
-<h3 id="apply-target">Apply target</h3>
-<p>Single-project repo:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project
-</code></pre>
-<p>Monorepo / multi-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo
-</code></pre>
-<h3 id="script">Script</h3>
+<p>Best:</p>
 <ul>
-<li><code>AIRoot/scripts/init_ai_repo.sh</code></li>
+<li>open the repo root</li>
 </ul>
-<h3 id="template">Template</h3>
+<p>Good enough:</p>
 <ul>
-<li><code>../Templates/REPO_AGENTS_ROUTER_TEMPLATE.md</code></li>
+<li>open one project root such as <code>&lt;ProjectName&gt;/</code></li>
 </ul>
-<h2 id="project-level-setup">Project-Level Setup</h2>
-<p>Use this when the repo already has a root router and the agent is adding a new Unity project.</p>
-<h3 id="preview-target-2">Preview target</h3>
-<p>Single-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project --dry-run
+<p>Do not open:</p>
+<ul>
+<li><code>Assets/</code></li>
+<li><code>Assets/Scripts/</code></li>
+<li>random nested folders</li>
+</ul>
+<h2 id="infrastructure-sensitive-project-rule">Infrastructure-Sensitive Project Rule</h2>
+<p>For projects with startup-, SDK-, manifest-, plist-, entitlement-, or compliance-sensitive infrastructure:</p>
+<ul>
+<li>treat those answers as code-first</li>
+<li>use project memory for navigation and scoping, not as final current-truth proof</li>
+<li>when project memory and code disagree, code wins</li>
+</ul>
+<h2 id="paste-this-first">Paste This First</h2>
+<pre><code class="language-text">We are working in this Unity repo.
+Read Agents.md first.
+Use XUUnity product protocols.
+Answer for a non-technical product owner.
+Verify current behavior against source code before answering.
+If project memory and code disagree, code wins.
+Use verification status in the answer.
+For infrastructure, SDK, startup, manifest, plist, entitlement, or compliance-sensitive questions, use code-first verification.
 </code></pre>
-<p>Monorepo / multi-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo --dry-run
+<h2 id="main-commands">Main Commands</h2>
+<h3 id="explain-a-feature">Explain a feature</h3>
+<pre><code class="language-text">xuunity product explain this feature
+Project: &lt;ProjectName&gt;
+Feature: rewarded continue after fail
 </code></pre>
-<h3 id="apply-target-2">Apply target</h3>
-<p>Single-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode single-project
+<h3 id="explain-implementation">Explain implementation</h3>
+<pre><code class="language-text">xuunity product brief this system
+Project: &lt;ProjectName&gt;
+System: daily reward popup
 </code></pre>
-<p>Monorepo / multi-project host:</p>
-<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode monorepo
+<h3 id="understand-change-impact">Understand change impact</h3>
+<pre><code class="language-text">xuunity product impact this flow change
+Project: &lt;ProjectName&gt;
+Change: show interstitial before reward popup
 </code></pre>
-<h3 id="script-2">Script</h3>
-<ul>
-<li><code>AIRoot/scripts/init_ai_project.sh</code></li>
-</ul>
-<h3 id="template-2">Template</h3>
-<ul>
-<li><code>../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md</code></li>
-</ul>
-<h2 id="codex-slack-mcp">Codex Slack MCP</h2>
-<p>Use this when a teammate needs Slack MCP in Codex clients that do not expose
-the Slack connector UI.</p>
-<h3 id="preview-target-3">Preview target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
+<h3 id="understand-dependencies">Understand dependencies</h3>
+<pre><code class="language-text">xuunity product deps this popup
+Project: &lt;ProjectName&gt;
+Popup: level fail popup
 </code></pre>
-<h3 id="apply-target-3">Apply target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
+<h3 id="check-rollout-readiness">Check rollout readiness</h3>
+<pre><code class="language-text">xuunity product rollout this feature
+Project: &lt;ProjectName&gt;
+Feature: new offer wall entry point
 </code></pre>
-<h3 id="script-3">Script</h3>
+<h3 id="understand-bug-impact">Understand bug impact</h3>
+<pre><code class="language-text">xuunity product bug this issue
+Project: &lt;ProjectName&gt;
+Issue: rewarded ad sometimes does not grant reward after resume
+</code></pre>
+<h3 id="get-product-owner-evaluation">Get product-owner evaluation</h3>
+<pre><code class="language-text">xuunity po evaluate this feature
+Project: &lt;ProjectName&gt;
+Feature: delayed welcome offer after first session
+</code></pre>
+<h3 id="check-project-health">Check project health</h3>
+<pre><code class="language-text">xuunity product health this project
+Project: &lt;ProjectName&gt;
+</code></pre>
+<h3 id="check-project-memory-freshness">Check project memory freshness</h3>
+<pre><code class="language-text">xuunity project memory freshness this project
+Project: &lt;ProjectName&gt;
+</code></pre>
+<h2 id="how-to-read-the-answer">How To Read The Answer</h2>
+<h3 id="verification-status">Verification status</h3>
 <ul>
-<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
+<li><code>verified in source code</code><ul>
+<li>best answer quality</li>
 </ul>
-<h3 id="guide">Guide</h3>
+</li>
+<li><code>based on project memory</code><ul>
+<li>useful, but may be outdated</li>
+</ul>
+</li>
+<li><code>partially inferred</code><ul>
+<li>directional only, ask for verification</li>
+</ul>
+</li>
+</ul>
+<h3 id="most-important-sections">Most Important Sections</h3>
 <ul>
-<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
+<li><code>What it does</code></li>
+<li><code>What can break</code></li>
+<li><code>What to validate</code></li>
+<li><code>Rollout risk</code></li>
+<li><code>Recommended next step</code></li>
 </ul>
-<h3 id="prompt-templates">Prompt Templates</h3>
-<ul>
-<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
-</ul>
-<h2 id="existing-router-safety-rules">Existing Router Safety Rules</h2>
-<ul>
-<li>Existing repo <code>Agents.md</code> is not rewritten silently.</li>
-<li>Existing project <code>Agents.md</code> is not rewritten silently.</li>
-<li>Use <code>--refresh-managed-router</code> only for a managed router you intentionally want to refresh.</li>
-<li>Use <code>--adopt-existing-router</code> only after explicitly deciding to replace an unmanaged router.</li>
-</ul>
-<h2 id="monorepo-alias-wiring">Monorepo Alias Wiring</h2>
-<p>Use this only for multi-project hosts that already have a prepared repo router and maintain host-specific alias-refresh tooling outside <code>AIRoot</code>.</p>
+<h2 id="if-the-answer-is-too-technical">If The Answer Is Too Technical</h2>
+<pre><code class="language-text">Re-answer for a non-technical product owner.
+Keep code details minimal.
+Keep product risks, dependencies, and rollout implications.
+</code></pre>
+<h2 id="if-the-answer-is-not-verified-enough">If The Answer Is Not Verified Enough</h2>
+<pre><code class="language-text">Do a quick source-code verification pass.
+If project memory is outdated, say so clearly and answer based on code.
+</code></pre>
 
       </article>
     </main>
