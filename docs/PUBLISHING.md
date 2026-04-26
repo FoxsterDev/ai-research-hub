@@ -185,6 +185,7 @@ This refreshes:
 - `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
 - `docs/setup-index.html` from `Operations/SETUP_INDEX.md`
 - `docs/integration.html` from `INTEGRATION.md`
+- `docs/consulting.html` from `Operations/AI_PREMIUM_CONSULTING_OFFER_PAGE.html`
 - social preview derivatives from `docs/assets/airroot-social-card.svg` when local tools are available
 
 Recommended rule:

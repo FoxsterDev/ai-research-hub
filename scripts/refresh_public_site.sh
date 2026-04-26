@@ -33,6 +33,9 @@ render_page "Operations/SETUP_INDEX.md" "docs/setup-index.html"
 render_page "INTEGRATION.md" "docs/integration.html"
 render_page "Operations/AI_PRODUCT_OWNER_QUICKSTART.md" "docs/product-owner-quickstart.html"
 
+echo "Refreshing premium consulting page..."
+cp "$AIR_ROOT/Operations/AI_PREMIUM_CONSULTING_OFFER_PAGE.html" "$AIR_ROOT/docs/consulting.html"
+
 if command -v sips >/dev/null 2>&1; then
   SOCIAL_SVG="$ASSETS_DIR/airroot-social-card.svg"
   SOCIAL_PNG="$ASSETS_DIR/airroot-social-card.png"
@@ -53,6 +56,7 @@ echo "  - docs/handbook.html"
 echo "  - docs/setup-index.html"
 echo "  - docs/integration.html"
 echo "  - docs/product-owner-quickstart.html"
+echo "  - docs/consulting.html"
 echo
 echo "If the social card SVG changed, refreshed assets are:"
 echo "  - docs/assets/airroot-social-card.png"
