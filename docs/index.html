@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIRoot | Public AI Operating Layer</title>
+  <meta
+    name="description"
+    content="AIRoot is a public reusable AI operating layer for engineering repositories, with XUUnity as its main public execution core."
+  >
+  <meta name="theme-color" content="#152531">
+  <meta property="og:title" content="AIRoot | Public AI Operating Layer">
+  <meta
+    property="og:description"
+    content="Public protocol architecture for engineering repositories: XUUnity, setup contracts, visuals, templates, and integration docs."
+  >
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="./assets/airroot-social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AIRoot | Public AI Operating Layer">
+  <meta
+    name="twitter:description"
+    content="Public protocol architecture for engineering repositories, built around XUUnity."
+  >
+  <meta name="twitter:image" content="./assets/airroot-social-preview.png">
+  <style>
+    :root {
+      --paper: #f6f0e7;
+      --paper-strong: #fffaf3;
+      --ink: #152531;
+      --ink-soft: #415462;
+      --line: rgba(21, 37, 49, 0.14);
+      --accent: #ca5538;
+      --accent-deep: #97371d;
+      --accent-soft: #f0c4ae;
+      --teal: #2f7c84;
+      --teal-soft: #d8eeef;
+      --olive: #71855f;
+      --shadow: 0 24px 60px rgba(31, 42, 52, 0.12);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --site-width: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(202, 85, 56, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(47, 124, 132, 0.14), transparent 24%),
+        linear-gradient(180deg, #fcf7f0 0%, #f4ede3 100%);
+      font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .shell {
+      width: min(var(--site-width), calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(16px);
+      background: rgba(246, 240, 231, 0.82);
+      border-bottom: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 14px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: var(--paper-strong);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--teal) 100%);
+      box-shadow: 0 12px 28px rgba(47, 124, 132, 0.24);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-copy strong,
+    .hero-copy h1,
+    .section-title h2,
+    .card h3,
+    .step h3,
+    .rule h3 {
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-copy {
+      line-height: 1.1;
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-size: 1.08rem;
+    }
+
+    .brand-copy span {
+      display: block;
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
+    .topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .topnav a,
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      text-decoration: none;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .topnav a:hover,
+    .button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(21, 37, 49, 0.22);
+    }
+
+    .button.primary {
+      color: var(--paper-strong);
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+      box-shadow: 0 16px 36px rgba(151, 55, 29, 0.2);
+    }
+
+    .button.secondary {
+      background: rgba(255, 250, 243, 0.84);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 58px 0 34px;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(1px);
+      opacity: 0.9;
+      animation: drift 10s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .hero::before {
+      width: 320px;
+      height: 320px;
+      top: -120px;
+      right: -60px;
+      background: radial-gradient(circle, rgba(202, 85, 56, 0.26), transparent 64%);
+    }
+
+    .hero::after {
+      width: 280px;
+      height: 280px;
+      left: -90px;
+      bottom: 20px;
+      background: radial-gradient(circle, rgba(47, 124, 132, 0.24), transparent 66%);
+      animation-delay: -3s;
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 28px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 250, 243, 0.86);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+
+    .hero-copy h1 {
+      margin: 16px 0 14px;
+      font-size: clamp(2.8rem, 5vw, 5.4rem);
+      line-height: 0.94;
+    }
+
+    .hero-copy p {
+      max-width: 62ch;
+      margin: 0 0 22px;
+      font-size: 1.08rem;
+      color: var(--ink-soft);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .chip {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      background: rgba(255, 250, 243, 0.74);
+      font-size: 0.94rem;
+      color: var(--ink-soft);
+    }
+
+    .hero-panel {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 250, 243, 0.94), rgba(255, 245, 235, 0.88));
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      border-radius: var(--radius-xl);
+      padding: 22px;
+      box-shadow: var(--shadow);
+      animation: rise 680ms ease both;
+    }
+
+    .panel-note {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel-pill {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(246, 240, 231, 0.72);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .panel-pill strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.92rem;
+    }
+
+    .panel-pill span {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+
+    main section {
+      padding: 28px 0 18px;
+    }
+
+    .section-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .section-title h2 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      line-height: 0.96;
+    }
+
+    .section-title p {
+      max-width: 58ch;
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid.cards-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .grid.cards-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      min-height: 220px;
+      padding: 22px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 243, 0.82);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+      animation: rise 780ms ease both;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: auto -28px -28px auto;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(202, 85, 56, 0.14), transparent 68%);
+      pointer-events: none;
+    }
+
+    .card h3,
+    .step h3,
+    .rule h3 {
+      margin: 0 0 10px;
+      font-size: 1.34rem;
+    }
+
+    .card p,
+    .step p,
+    .rule p,
+    .architecture-copy p,
+    .banner p,
+    footer p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .card a {
+      display: inline-flex;
+      margin-top: 16px;
+      align-items: center;
+      gap: 10px;
+      color: var(--accent-deep);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+      align-items: center;
+    }
+
+    .architecture-visual,
+    .architecture-copy,
+    .banner {
+      padding: 22px;
+      border-radius: var(--radius-xl);
+      background: rgba(255, 250, 243, 0.84);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .stack-list {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .rule {
+      padding: 16px 18px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, rgba(246, 240, 231, 0.86), rgba(255, 250, 243, 0.8));
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .rule h3 {
+      font-size: 1.08rem;
+      margin-bottom: 6px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .step {
+      position: relative;
+      padding: 22px;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 243, 0.78);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .step-number {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+      border-radius: 50%;
+      color: var(--paper-strong);
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--teal) 0%, var(--olive) 100%);
+      box-shadow: 0 12px 24px rgba(47, 124, 132, 0.22);
+    }
+
+    .banner {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      margin-top: 24px;
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.96), rgba(47, 124, 132, 0.94)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+      color: var(--paper-strong);
+    }
+
+    .banner p {
+      color: rgba(255, 250, 243, 0.82);
+    }
+
+    .banner .button.secondary {
+      background: rgba(255, 250, 243, 0.12);
+      border-color: rgba(255, 250, 243, 0.2);
+      color: var(--paper-strong);
+    }
+
+    footer {
+      padding: 22px 0 46px;
+    }
+
+    footer .shell {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .footer-links a {
+      color: var(--ink-soft);
+      text-decoration: none;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes drift {
+      0%, 100% {
+        transform: translate3d(0, 0, 0);
+      }
+      50% {
+        transform: translate3d(10px, 14px, 0);
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .hero-grid,
+      .architecture,
+      .grid.cards-4,
+      .grid.cards-3,
+      .steps,
+      .panel-note {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero-grid > :first-child,
+      .architecture > :first-child,
+      .banner > :first-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar-inner,
+      .banner {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar-inner,
+      .hero-grid,
+      .architecture,
+      .grid.cards-4,
+      .grid.cards-3,
+      .steps,
+      .panel-note {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .topnav {
+        gap: 8px;
+      }
+
+      .hero {
+        padding-top: 34px;
+      }
+
+      .hero-copy h1 {
+        font-size: clamp(2.4rem, 11vw, 4rem);
+      }
+
+      .section-title h2 {
+        font-size: clamp(1.8rem, 9vw, 2.7rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="#top">
+        <div class="brand-mark">AI</div>
+        <div class="brand-copy">
+          <strong>AIRoot</strong>
+          <span>Public AI operating layer</span>
+        </div>
+      </a>
+      <nav class="topnav" aria-label="Primary">
+        <a href="#start">Start Here</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#paths">Adoption Paths</a>
+        <a href="https://github.com/FoxsterDev/ai-research-hub" target="_blank" rel="noreferrer">GitHub Repo</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <div class="eyebrow">Public-safe reusable layer for repo-attached AI workflows</div>
+          <h1>Public protocol architecture for real engineering repositories.</h1>
+          <p>
+            AIRoot packages the public execution core, setup guidance, visuals, templates,
+            and design docs for engineering-focused AI workflows. It gives a host repo a
+            strong shared base while keeping routing, mutable state, and project truth in the
+            layers that should actually own them.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Open Protocol Handbook</a>
+            <a class="button secondary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">See Integration Contract</a>
+          </div>
+          <div class="hero-meta" aria-label="AIRoot qualities">
+            <div class="chip">Reusable</div>
+            <div class="chip">Public-safe</div>
+            <div class="chip">Routerless by design</div>
+            <div class="chip">Built around XUUnity</div>
+          </div>
+        </div>
+
+        <aside class="hero-panel">
+          <img src="./assets/airroot-architecture.svg" alt="AIRoot public core feeding a host runtime and project-local truth">
+          <div class="panel-note">
+            <div class="panel-pill">
+              <strong>Public Core</strong>
+              <span>Protocols, setup docs, visuals, templates, design.</span>
+            </div>
+            <div class="panel-pill">
+              <strong>Host Runtime</strong>
+              <span>Repo router, private overlays, AIOutput, operations.</span>
+            </div>
+            <div class="panel-pill">
+              <strong>Project Truth</strong>
+              <span>Project routers, memory, outputs, local overrides.</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="start">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Start here if you are new</h2>
+          <p>
+            The goal is fast orientation. Do not start by reading everything. Start with the
+            public protocol surface, then the visual model, then the host integration contract.
+          </p>
+        </div>
+
+        <div class="grid cards-4">
+          <article class="card">
+            <h3>1. Learn the command surface</h3>
+            <p>
+              The public handbook is the fastest way to understand what `xuunity` is for,
+              which commands exist, and where the protocol is intentionally opinionated.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Open handbook</a>
+          </article>
+
+          <article class="card">
+            <h3>2. See the architecture</h3>
+            <p>
+              Use the visual map when you need the load-bearing mental model: public core,
+              optional host overlays, and project-local memory stacked in the intended order.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Visuals/AI_PROTOCOL_VISUAL_MAP.md" target="_blank" rel="noreferrer">Open visual map</a>
+          </article>
+
+          <article class="card">
+            <h3>3. Attach it to a real repo</h3>
+            <p>
+              AIRoot is designed to be mounted into a host repository. The integration guide
+              defines which responsibilities stay in the host and which remain public and reusable.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">Open integration guide</a>
+          </article>
+
+          <article class="card">
+            <h3>4. Bootstrap the setup</h3>
+            <p>
+              Use the setup index when you are ready to initialize a host repo or add a new
+              project with the expected topology, bootstrap flow, and safety rules.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/SETUP_INDEX.md" target="_blank" rel="noreferrer">Open setup index</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Architecture without hidden layers</h2>
+          <p>
+            AIRoot stays intentionally routerless. That is a feature, not a limitation.
+            It keeps reusable public logic separate from host-specific routing and project truth.
+          </p>
+        </div>
+
+        <div class="architecture">
+          <div class="architecture-visual">
+            <img src="./assets/airroot-architecture.svg" alt="Diagram showing AIRoot feeding host runtime and project-local truth">
+          </div>
+
+          <div class="architecture-copy">
+            <p>
+              The public layer gives you shared protocols such as `xuunity`, reusable setup
+              docs, templates, and design artifacts. A real host repo then adds runtime routing,
+              private overlays, mutable operations state, and project-local memory.
+            </p>
+
+            <div class="stack-list">
+              <div class="rule">
+                <h3>Keep public-safe logic in AIRoot</h3>
+                <p>
+                  Shared execution modules, reusable setup, generic operations docs, and
+                  architecture visuals belong here.
+                </p>
+              </div>
+
+              <div class="rule">
+                <h3>Keep host-private routing outside AIRoot</h3>
+                <p>
+                  Repo routers, private protocol families, mutable operations state, and
+                  internal overlays should stay in the host repository.
+                </p>
+              </div>
+
+              <div class="rule">
+                <h3>Keep project truth local to projects</h3>
+                <p>
+                  Project routers, project memory, and generated outputs remain the durable
+                  source of truth for real implementation work.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell">
+        <div class="section-title">
+          <h2>What ships inside</h2>
+          <p>
+            AIRoot is not just one README. It is a curated public operating layer with a clear
+            split between execution modules, operations, visuals, and adoption helpers.
+          </p>
+        </div>
+
+        <div class="grid cards-4">
+          <article class="card">
+            <h3>XUUnity</h3>
+            <p>
+              The main public protocol family for Unity engineering, code review, SDK work,
+              native boundaries, performance, product-facing implementation questions, and
+              system maintenance.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Modules/XUUnity/README.md" target="_blank" rel="noreferrer">Explore module</a>
+          </article>
+
+          <article class="card">
+            <h3>Operations</h3>
+            <p>
+              Public setup guidance, handbooks, exporter workflows, and reusable operational
+              entrypoints for real repo adoption.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Operations" target="_blank" rel="noreferrer">Open operations</a>
+          </article>
+
+          <article class="card">
+            <h3>Visuals</h3>
+            <p>
+              Architecture maps and protocol diagrams that make the layering model legible to
+              someone seeing the system for the first time.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Visuals" target="_blank" rel="noreferrer">Open visuals</a>
+          </article>
+
+          <article class="card">
+            <h3>Templates and scripts</h3>
+            <p>
+              Repo and project bootstrap helpers, plus reusable templates for routers and
+              operational flows.
+            </p>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Templates" target="_blank" rel="noreferrer">Open templates</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="paths">
+      <div class="shell">
+        <div class="section-title">
+          <h2>Three practical adoption paths</h2>
+          <p>
+            Different visitors need different entrypoints. AIRoot should explain itself to all
+            three without mixing public docs with private runtime assumptions.
+          </p>
+        </div>
+
+        <div class="steps">
+          <article class="step">
+            <div class="step-number">01</div>
+            <h3>I am evaluating the repo</h3>
+            <p>
+              Read the handbook, read the visual map, and decide whether the public module
+              boundaries match the engineering workflows you want to support.
+            </p>
+          </article>
+
+          <article class="step">
+            <div class="step-number">02</div>
+            <h3>I want to mount it into a host</h3>
+            <p>
+              Use the integration guide and setup index. AIRoot gives you the reusable core.
+              Your host repo still owns runtime routing, private overlays, and mutable state.
+            </p>
+          </article>
+
+          <article class="step">
+            <div class="step-number">03</div>
+            <h3>I want to extend the protocol system</h3>
+            <p>
+              Add public-safe reusable behavior to AIRoot. Add host-private families and
+              internal overlays only in the host repository that consumes it.
+            </p>
+          </article>
+        </div>
+
+        <div class="banner">
+          <div>
+            <h2 style="margin: 0 0 8px; font-size: clamp(1.6rem, 3vw, 2.4rem);">Ready to wire it into a real repo?</h2>
+            <p>
+              Start with the host integration contract, then use the setup index to bootstrap
+              repo and project topology without turning AIRoot into a fake runtime root.
+            </p>
+          </div>
+          <a class="button secondary" href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/SETUP_INDEX.md" target="_blank" rel="noreferrer">Open setup flow</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <p>
+        AIRoot is a public reusable layer. Runtime truth still belongs to the host repo and
+        its projects.
+      </p>
+      <div class="footer-links">
+        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/README.md" target="_blank" rel="noreferrer">README</a>
+        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Operations/AI_PROTOCOL_HANDBOOK.md" target="_blank" rel="noreferrer">Handbook</a>
+        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Visuals/AI_PROTOCOL_VISUAL_MAP.md" target="_blank" rel="noreferrer">Visual Map</a>
+        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/INTEGRATION.md" target="_blank" rel="noreferrer">Integration</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

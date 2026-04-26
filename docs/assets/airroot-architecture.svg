@@ -1,0 +1,80 @@
+<svg width="1280" height="880" viewBox="0 0 1280 880" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="104" y1="72" x2="1174" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7EE"/>
+      <stop offset="1" stop-color="#F1E8DB"/>
+    </linearGradient>
+    <linearGradient id="publicFill" x1="124" y1="120" x2="514" y2="348" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C95538"/>
+      <stop offset="1" stop-color="#E98662"/>
+    </linearGradient>
+    <linearGradient id="hostFill" x1="550" y1="190" x2="930" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#215C68"/>
+      <stop offset="1" stop-color="#378996"/>
+    </linearGradient>
+    <linearGradient id="projectFill" x1="250" y1="520" x2="990" y2="766" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#536742"/>
+      <stop offset="1" stop-color="#8E9D72"/>
+    </linearGradient>
+    <filter id="shadow" x="82" y="66" width="1116" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="21"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0823529 0 0 0 0 0.145098 0 0 0 0 0.192157 0 0 0 0.12 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1280" height="880" rx="36" fill="url(#bg)"/>
+  <circle cx="1118" cy="120" r="138" fill="#F5D7C6" fill-opacity="0.72"/>
+  <circle cx="166" cy="744" r="118" fill="#D6E8E7" fill-opacity="0.88"/>
+
+  <g filter="url(#shadow)">
+    <rect x="124" y="108" width="408" height="244" rx="28" fill="url(#publicFill)"/>
+    <text x="160" y="170" fill="#FFF9F4" font-family="Georgia, 'Times New Roman', serif" font-size="44" font-weight="700">AIRoot</text>
+    <text x="160" y="212" fill="#FFF2EA" font-family="'Trebuchet MS', sans-serif" font-size="24">Public reusable layer</text>
+    <rect x="160" y="244" width="152" height="42" rx="21" fill="rgba(255,249,244,0.24)"/>
+    <rect x="328" y="244" width="164" height="42" rx="21" fill="rgba(255,249,244,0.24)"/>
+    <rect x="160" y="302" width="124" height="42" rx="21" fill="rgba(255,249,244,0.24)"/>
+    <rect x="300" y="302" width="192" height="42" rx="21" fill="rgba(255,249,244,0.24)"/>
+    <text x="188" y="271" fill="#FFF9F4" font-family="'Trebuchet MS', sans-serif" font-size="18">Modules</text>
+    <text x="360" y="271" fill="#FFF9F4" font-family="'Trebuchet MS', sans-serif" font-size="18">Operations</text>
+    <text x="188" y="329" fill="#FFF9F4" font-family="'Trebuchet MS', sans-serif" font-size="18">Visuals</text>
+    <text x="332" y="329" fill="#FFF9F4" font-family="'Trebuchet MS', sans-serif" font-size="18">Templates + Scripts</text>
+
+    <rect x="548" y="184" width="408" height="272" rx="28" fill="url(#hostFill)"/>
+    <text x="584" y="246" fill="#F5FCFC" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700">Host Runtime</text>
+    <text x="584" y="288" fill="#E8F8F9" font-family="'Trebuchet MS', sans-serif" font-size="24">Where real routing and mutable state live</text>
+    <rect x="584" y="326" width="148" height="40" rx="20" fill="rgba(245,252,252,0.18)"/>
+    <rect x="748" y="326" width="170" height="40" rx="20" fill="rgba(245,252,252,0.18)"/>
+    <rect x="584" y="382" width="136" height="40" rx="20" fill="rgba(245,252,252,0.18)"/>
+    <rect x="736" y="382" width="182" height="40" rx="20" fill="rgba(245,252,252,0.18)"/>
+    <text x="616" y="352" fill="#F5FCFC" font-family="'Trebuchet MS', sans-serif" font-size="18">Agents.md</text>
+    <text x="776" y="352" fill="#F5FCFC" font-family="'Trebuchet MS', sans-serif" font-size="18">AIModules</text>
+    <text x="616" y="408" fill="#F5FCFC" font-family="'Trebuchet MS', sans-serif" font-size="18">AIOutput</text>
+    <text x="760" y="408" fill="#F5FCFC" font-family="'Trebuchet MS', sans-serif" font-size="18">Internal overlays</text>
+
+    <rect x="252" y="510" width="664" height="216" rx="28" fill="url(#projectFill)"/>
+    <text x="288" y="574" fill="#F8FBF4" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700">Project Truth</text>
+    <text x="288" y="616" fill="#F1F7E9" font-family="'Trebuchet MS', sans-serif" font-size="24">Durable local context for real implementation work</text>
+    <rect x="288" y="652" width="172" height="40" rx="20" fill="rgba(248,251,244,0.18)"/>
+    <rect x="476" y="652" width="226" height="40" rx="20" fill="rgba(248,251,244,0.18)"/>
+    <rect x="718" y="652" width="162" height="40" rx="20" fill="rgba(248,251,244,0.18)"/>
+    <text x="322" y="678" fill="#F8FBF4" font-family="'Trebuchet MS', sans-serif" font-size="18">Project router</text>
+    <text x="504" y="678" fill="#F8FBF4" font-family="'Trebuchet MS', sans-serif" font-size="18">ProjectMemory</text>
+    <text x="756" y="678" fill="#F8FBF4" font-family="'Trebuchet MS', sans-serif" font-size="18">AI outputs</text>
+  </g>
+
+  <path d="M532 230C552 230 552 230 572 230" stroke="#C95538" stroke-width="8" stroke-linecap="round"/>
+  <path d="M558 214L584 230L558 246" stroke="#C95538" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M752 456C752 484 752 492 752 510" stroke="#2F7C84" stroke-width="8" stroke-linecap="round"/>
+  <path d="M736 484L752 510L768 484" stroke="#2F7C84" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="980" y="242" fill="#415462" font-family="'Trebuchet MS', sans-serif" font-size="22">AIRoot stays routerless</text>
+  <text x="980" y="274" fill="#415462" font-family="'Trebuchet MS', sans-serif" font-size="22">and mounts into a host.</text>
+  <text x="980" y="600" fill="#415462" font-family="'Trebuchet MS', sans-serif" font-size="22">Project-local truth remains</text>
+  <text x="980" y="632" fill="#415462" font-family="'Trebuchet MS', sans-serif" font-size="22">the durable source of context.</text>
+</svg>
