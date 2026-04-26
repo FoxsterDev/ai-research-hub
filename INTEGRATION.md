@@ -57,6 +57,33 @@ HostRepo/
 
 When an automation layer attaches `AIRoot` to a host repo for the first time, it should bootstrap the repo-level router first:
 
+Recommended agent-facing entrypoint:
+
+Command phrase:
+- `airoot setup`
+
+Treat this as a repo-local setup phrase resolved through `AIRoot/AIROOT_SETUP.md`, not as a required installed command.
+The agent should ask for missing setup details, resolve the real host root, preview the topology bootstrap, and apply changes only after explicit confirmation.
+
+Recommended topology-first entrypoint:
+
+```bash
+bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --dry-run
+```
+
+or, for a monorepo / multi-project host:
+
+```bash
+bash AIRoot/scripts/init_ai_topology.sh --profile monorepo_overlay_default --dry-run
+```
+
+This path also writes:
+- `AIOutput/Registry/host_topology.yaml`
+- `AIOutput/Registry/setup_status.yaml`
+- extraction evidence slots under `AIOutput/Reports/System/`
+
+For compatibility, the lower-level repo bootstrap remains available:
+
 ```bash
 bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
 ```
@@ -103,6 +130,7 @@ This creates or refreshes:
 - `Agents.md` for the project
 - `Agents.repo.md` as the local repo-router alias
 - `Assets/AIOutput/ProjectMemory/` as the project memory root
+- baseline project-memory files when they are missing
 
 If the host repo has `AIModules/`, the script also creates:
 - `AIModules` as the local host-module alias
