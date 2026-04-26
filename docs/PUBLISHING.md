@@ -57,6 +57,28 @@ Use:
 Result:
 - the landing page will publish from `docs/index.html`
 
+### GitHub Pages Launch Checklist
+
+Use this exact sequence:
+
+1. Push the latest `docs/` changes to the default branch.
+2. Open `Settings -> Pages`.
+3. Set:
+   - `Source`: `Deploy from a branch`
+   - `Branch`: default branch
+   - `Folder`: `/docs`
+4. Wait for the first successful Pages deploy.
+5. Open the published site:
+   - `https://foxsterdev.github.io/ai-research-hub/`
+6. Confirm that these files load publicly:
+   - `/`
+   - `/robots.txt`
+   - `/sitemap.xml`
+7. Set the repo `Website` field to:
+   - `https://foxsterdev.github.io/ai-research-hub/`
+8. Upload the social preview image:
+   - `docs/assets/airroot-social-card.jpg`
+
 ### About Section
 
 In:
@@ -76,6 +98,76 @@ In:
 
 Upload:
 - `docs/assets/airroot-social-card.jpg`
+
+## Search Console Launch Checklist
+
+For GitHub Pages on a project URL, use a `URL-prefix property`, not a domain property.
+
+Recommended property:
+
+- `https://foxsterdev.github.io/ai-research-hub/`
+
+Why:
+
+- a domain property requires DNS verification
+- this site lives on a GitHub-owned host under a path
+- the exact Pages URL is the cleanest property boundary
+
+### Add and verify the property
+
+1. Open Search Console:
+   - `https://search.google.com/search-console`
+2. Add a new property.
+3. Choose `URL-prefix`.
+4. Enter:
+   - `https://foxsterdev.github.io/ai-research-hub/`
+5. Choose one verification method:
+   - `HTML file upload`
+   - or `HTML tag`
+
+Practical recommendation for this repo:
+
+- prefer `HTML file upload` if Google gives you a downloadable verification file
+- commit that file into `docs/` so it is served at the required Pages URL
+- if you use the `HTML tag` method instead, paste the verification meta tag into `docs/index.html`
+
+### After verification
+
+1. Open `Sitemaps` in Search Console.
+2. Submit:
+   - `https://foxsterdev.github.io/ai-research-hub/sitemap.xml`
+3. Use `URL Inspection` for:
+   - `https://foxsterdev.github.io/ai-research-hub/`
+4. Run `Test Live URL`.
+5. If the page is accessible, click `Request indexing`.
+
+### First checks after launch
+
+Within the first few days, check:
+
+- `Page indexing`
+- `Sitemaps`
+- `Enhancements` or structured data status when available
+- `Performance` after data starts appearing
+
+### What should already be in the site
+
+These are now present in `docs/`:
+
+- canonical URL in `index.html`
+- crawlable internal links
+- `robots.txt`
+- `sitemap.xml`
+- JSON-LD structured data
+- social preview metadata
+
+### Common mistakes to avoid
+
+- verifying `https://foxsterdev.github.io/` instead of the full project-site path
+- forgetting to push `robots.txt` or `sitemap.xml`
+- changing the Pages URL and leaving the canonical URL stale
+- publishing the page but not submitting the sitemap
+- using vague or generic page titles after launch
 
 ### Refreshing Derived Docs
 
@@ -116,12 +208,13 @@ These improve discoverability without changing system behavior:
 1. Keep `README.md` as the code-tab technical entrypoint.
 2. Use GitHub Pages as the visual onboarding surface.
 3. Point the repo `Website` field to the Pages URL.
-4. Use the PNG asset as the social preview card.
+4. Use the JPG social card asset as the repository preview image.
 
 ## Notes
 
 - `AIRoot` stays routerless. Pages should explain the architecture, not become a runtime layer.
 - Keep host-private protocol families and mutable host state out of the public landing page.
+- If Search Console verification uses an HTML file, keep that file in `docs/` and do not rename it.
 - If the page evolves, keep links pointed at public-safe docs:
   - `Operations/AI_PROTOCOL_HANDBOOK.md`
   - `Visuals/AI_PROTOCOL_VISUAL_MAP.md`

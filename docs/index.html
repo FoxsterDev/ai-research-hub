@@ -3,27 +3,101 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AIRoot | Public AI Operating Layer</title>
+  <title>AIRoot | Unity AI Workflow, Code Review, Startup Optimization</title>
   <meta
     name="description"
-    content="AIRoot is a public reusable AI operating layer for engineering repositories, with XUUnity as its main public execution core."
+    content="AIRoot is a Unity AI workflow for code review, startup optimization, SDK and plugin audits, product-impact analysis, and consulting from a principal mobile architect."
   >
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
   <meta name="theme-color" content="#152531">
-  <meta property="og:title" content="AIRoot | Public AI Operating Layer">
+  <link rel="canonical" href="https://foxsterdev.github.io/ai-research-hub/">
+  <meta property="og:title" content="AIRoot | Unity AI Workflow, Code Review, Startup Optimization">
   <meta
     property="og:description"
-    content="Public protocol architecture for engineering repositories: XUUnity, setup contracts, visuals, templates, and integration docs."
+    content="Unity AI workflow for code review, startup optimization, SDK and plugin audits, product-impact analysis, and principal-level consulting."
   >
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AIRoot">
   <meta property="og:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
   <meta property="og:url" content="https://foxsterdev.github.io/ai-research-hub/">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="AIRoot | Public AI Operating Layer">
+  <meta name="twitter:title" content="AIRoot | Unity AI Workflow, Code Review, Startup Optimization">
   <meta
     name="twitter:description"
-    content="Public protocol architecture for engineering repositories, built around XUUnity."
+    content="Unity AI workflow for code review, startup optimization, SDK and plugin audits, product-impact analysis, and principal-level consulting."
   >
   <meta name="twitter:image" content="https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://foxsterdev.github.io/ai-research-hub/#website",
+          "url": "https://foxsterdev.github.io/ai-research-hub/",
+          "name": "AIRoot",
+          "description": "Public AI workflow layer for Unity mobile engineering, code review, startup optimization, SDK audits, and consulting.",
+          "inLanguage": "en",
+          "publisher": {
+            "@id": "https://foxsterdev.github.io/ai-research-hub/#organization"
+          }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://foxsterdev.github.io/ai-research-hub/#organization",
+          "name": "FoxsterDev",
+          "url": "https://foxsterdev.github.io/ai-research-hub/",
+          "sameAs": [
+            "https://github.com/FoxsterDev",
+            "https://foxsterdev.medium.com/",
+            "https://www.linkedin.com/in/khalandachou/"
+          ]
+        },
+        {
+          "@type": "Person",
+          "@id": "https://foxsterdev.github.io/ai-research-hub/#author",
+          "name": "FoxsterDev",
+          "url": "https://foxsterdev.github.io/ai-research-hub/",
+          "jobTitle": "Unity Principal Engineer, Technical Leader, and Architect",
+          "description": "Unity mobile engineering specialist focused on AI-assisted delivery, code review, startup optimization, SDK integrations, and principal-level consulting.",
+          "sameAs": [
+            "https://github.com/FoxsterDev",
+            "https://foxsterdev.medium.com/",
+            "https://www.linkedin.com/in/khalandachou/",
+            "https://t.me/FoxsterDev"
+          ],
+          "knowsAbout": [
+            "Unity mobile development",
+            "AI code review",
+            "startup optimization",
+            "SDK integration review",
+            "native plugin audits",
+            "mobile game monetization"
+          ]
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://foxsterdev.github.io/ai-research-hub/#webpage",
+          "url": "https://foxsterdev.github.io/ai-research-hub/",
+          "name": "AIRoot | Unity AI Workflow, Code Review, Startup Optimization",
+          "description": "AIRoot is a Unity AI workflow for code review, startup optimization, SDK and plugin audits, product-impact analysis, and consulting from a principal mobile architect.",
+          "isPartOf": {
+            "@id": "https://foxsterdev.github.io/ai-research-hub/#website"
+          },
+          "about": [
+            {
+              "@id": "https://foxsterdev.github.io/ai-research-hub/#organization"
+            },
+            {
+              "@id": "https://foxsterdev.github.io/ai-research-hub/#author"
+            }
+          ],
+          "primaryImageOfPage": "https://foxsterdev.github.io/ai-research-hub/assets/airroot-social-card.jpg",
+          "inLanguage": "en"
+        }
+      ]
+    }
+  </script>
   <style>
     :root {
       --paper: #f6f0e7;
@@ -37,6 +111,8 @@
       --teal: #2f7c84;
       --teal-soft: #d8eeef;
       --olive: #71855f;
+      --gold: #d9b561;
+      --gold-soft: #f4e2aa;
       --shadow: 0 24px 60px rgba(31, 42, 52, 0.12);
       --radius-xl: 28px;
       --radius-lg: 22px;
@@ -56,11 +132,25 @@
       margin: 0;
       color: var(--ink);
       background:
+        linear-gradient(120deg, rgba(217, 181, 97, 0.07), transparent 24%),
         radial-gradient(circle at top left, rgba(202, 85, 56, 0.16), transparent 28%),
         radial-gradient(circle at top right, rgba(47, 124, 132, 0.14), transparent 24%),
         linear-gradient(180deg, #fcf7f0 0%, #f4ede3 100%);
       font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
       line-height: 1.5;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(21, 37, 49, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(21, 37, 49, 0.015) 1px, transparent 1px);
+      background-size: 26px 26px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 70%);
+      opacity: 0.3;
     }
 
     a {
@@ -70,6 +160,15 @@
     img {
       display: block;
       max-width: 100%;
+    }
+
+    code {
+      padding: 0.14em 0.42em;
+      border-radius: 0.5em;
+      background: rgba(21, 37, 49, 0.06);
+      color: var(--accent-deep);
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+      font-size: 0.92em;
     }
 
     .shell {
@@ -84,33 +183,35 @@
       backdrop-filter: blur(16px);
       background: rgba(246, 240, 231, 0.82);
       border-bottom: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: inset 0 1px 0 rgba(255, 250, 243, 0.62);
     }
 
     .topbar-inner {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
-      padding: 14px 0;
+      gap: 14px;
+      padding: 7px 0;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       text-decoration: none;
     }
 
     .brand-mark {
-      width: 42px;
-      height: 42px;
+      width: 30px;
+      height: 30px;
       display: grid;
       place-items: center;
-      border-radius: 14px;
+      border-radius: 10px;
       color: var(--paper-strong);
       background: linear-gradient(135deg, var(--accent) 0%, var(--teal) 100%);
       box-shadow: 0 12px 28px rgba(47, 124, 132, 0.24);
       font-weight: 700;
+      font-size: 0.82rem;
       letter-spacing: 0.04em;
     }
 
@@ -130,19 +231,19 @@
 
     .brand-copy strong {
       display: block;
-      font-size: 1.08rem;
+      font-size: 0.96rem;
     }
 
     .brand-copy span {
       display: block;
       color: var(--ink-soft);
-      font-size: 0.92rem;
+      font-size: 0.78rem;
     }
 
     .topnav {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
     }
 
     .topnav a,
@@ -165,6 +266,13 @@
       border-color: rgba(21, 37, 49, 0.22);
     }
 
+    .topnav a {
+      min-height: 28px;
+      padding: 0 11px;
+      font-size: 0.84rem;
+      background: rgba(255, 250, 243, 0.72);
+    }
+
     .button.primary {
       color: var(--paper-strong);
       border-color: transparent;
@@ -179,7 +287,7 @@
     .hero {
       position: relative;
       overflow: hidden;
-      padding: 58px 0 34px;
+      padding: 28px 0 18px;
     }
 
     .hero::before,
@@ -214,31 +322,19 @@
       display: grid;
       gap: 28px;
       grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
-      align-items: center;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(255, 250, 243, 0.86);
-      border: 1px solid rgba(21, 37, 49, 0.08);
-      color: var(--ink-soft);
-      font-size: 0.9rem;
+      align-items: start;
     }
 
     .hero-copy h1 {
-      margin: 16px 0 14px;
-      font-size: clamp(2.8rem, 5vw, 5.4rem);
-      line-height: 0.94;
+      margin: 0 0 12px;
+      font-size: clamp(2.3rem, 4vw, 4rem);
+      line-height: 0.9;
     }
 
     .hero-copy p {
       max-width: 62ch;
-      margin: 0 0 22px;
-      font-size: 1.08rem;
+      margin: 0 0 16px;
+      font-size: 1rem;
       color: var(--ink-soft);
     }
 
@@ -248,55 +344,247 @@
       gap: 12px;
     }
 
-    .hero-meta {
+    .signature-strip {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-top: 18px;
+      margin: 14px 0 0;
     }
 
-    .chip {
-      padding: 10px 14px;
+    .signature-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
       border-radius: 999px;
-      border: 1px solid rgba(21, 37, 49, 0.08);
-      background: rgba(255, 250, 243, 0.74);
-      font-size: 0.94rem;
-      color: var(--ink-soft);
+      background: rgba(255, 250, 243, 0.82);
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      color: var(--ink);
+      font-size: 0.84rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
     }
 
-    .benefit-strip {
+    .hero-author .signature-strip {
+      margin-top: 12px;
+    }
+
+    .hero-author .signature-pill {
+      min-height: 30px;
+      background: rgba(255, 250, 243, 0.1);
+      border-color: rgba(255, 225, 141, 0.16);
+      color: rgba(255, 242, 212, 0.88);
+      font-size: 0.78rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-summary-grid {
       display: grid;
       gap: 12px;
-      margin-top: 22px;
+      margin-top: 16px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .benefit-pill {
-      padding: 14px 16px;
+    .hero-summary-card {
+      padding: 12px 14px;
       border-radius: 18px;
       background: rgba(255, 250, 243, 0.78);
       border: 1px solid rgba(21, 37, 49, 0.08);
     }
 
-    .benefit-pill strong {
+    .hero-summary-card strong {
       display: block;
-      margin-bottom: 4px;
+      margin-bottom: 5px;
       font-size: 0.96rem;
     }
 
-    .benefit-pill span {
+    .hero-summary-card span {
       color: var(--ink-soft);
       font-size: 0.9rem;
     }
 
     .hero-panel {
       position: relative;
+      display: grid;
+      gap: 14px;
       background: linear-gradient(180deg, rgba(255, 250, 243, 0.94), rgba(255, 245, 235, 0.88));
       border: 1px solid rgba(21, 37, 49, 0.08);
       border-radius: var(--radius-xl);
-      padding: 22px;
+      padding: 18px;
       box-shadow: var(--shadow);
       animation: rise 680ms ease both;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(217, 181, 97, 0.26), rgba(47, 124, 132, 0.18), rgba(21, 37, 49, 0.08));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .hero-author {
+      padding: 16px;
+      border-radius: 22px;
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.98), rgba(47, 124, 132, 0.94)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.14);
+    }
+
+    .author-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(255, 241, 198, 0.2), rgba(255, 250, 243, 0.08));
+      border: 1px solid rgba(255, 225, 141, 0.22);
+      color: rgba(255, 242, 212, 0.96);
+      font-size: 0.86rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .author-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin-top: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 226, 140, 0.26);
+      background:
+        linear-gradient(135deg, rgba(255, 235, 170, 0.18), rgba(255, 250, 243, 0.08)),
+        rgba(255, 250, 243, 0.08);
+      color: rgba(255, 243, 214, 0.96);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 248, 225, 0.18),
+        0 8px 18px rgba(196, 142, 32, 0.08);
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .hero-author h3 {
+      margin: 10px 0 8px;
+      font-size: clamp(1.25rem, 2vw, 1.7rem);
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-author p {
+      margin: 0;
+      color: rgba(255, 250, 243, 0.82);
+      font-size: 0.9rem;
+    }
+
+    .author-proof-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .author-proof {
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 250, 243, 0.14);
+    }
+
+    .author-proof.featured {
+      background:
+        linear-gradient(135deg, rgba(255, 222, 128, 0.34), rgba(232, 178, 58, 0.26)),
+        linear-gradient(180deg, rgba(255, 247, 220, 0.2), rgba(255, 214, 102, 0.12));
+      border-color: rgba(255, 226, 140, 0.34);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 249, 232, 0.28),
+        0 8px 18px rgba(196, 142, 32, 0.16);
+    }
+
+    .author-proof.featured strong,
+    .author-proof.featured span,
+    .author-proof.featured a {
+      color: #fff4d9;
+    }
+
+    .author-proof strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.95rem;
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .author-proof span {
+      color: rgba(255, 250, 243, 0.8);
+      font-size: 0.82rem;
+    }
+
+    .hero-questions {
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(255, 250, 243, 0.9);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .hero-questions h3 {
+      margin: 0 0 10px;
+      font-size: clamp(1.3rem, 2.1vw, 1.7rem);
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-questions .founder-list {
+      gap: 10px;
+    }
+
+    .founder-decision-band {
+      padding-top: 0;
+    }
+
+    .founder-decision-shell {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      align-items: start;
+      padding: 22px;
+      border-radius: var(--radius-xl);
+      background: rgba(255, 250, 243, 0.82);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+    }
+
+    .founder-decision-copy {
+      display: grid;
+      gap: 10px;
+    }
+
+    .founder-decision-copy h2 {
+      margin: 0;
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
+      line-height: 0.98;
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .founder-decision-copy p {
+      margin: 0;
+      color: var(--ink-soft);
+      max-width: 52ch;
+    }
+
+    .author-proof a {
+      color: var(--paper-strong);
+      text-decoration: underline;
+      text-decoration-color: rgba(255, 250, 243, 0.34);
+      text-underline-offset: 0.16em;
     }
 
     .panel-note {
@@ -324,6 +612,76 @@
       font-size: 0.9rem;
     }
 
+    .decision-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .decision-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(202, 85, 56, 0.1);
+      color: var(--accent-deep);
+      font-size: 0.86rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .decision-panel h3 {
+      margin: 0;
+      font-size: clamp(1.55rem, 2.5vw, 2.2rem);
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .decision-panel > p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .decision-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .decision-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      background: linear-gradient(180deg, rgba(255, 250, 243, 0.92), rgba(246, 240, 231, 0.76));
+    }
+
+    .decision-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    .decision-card span {
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
+    .decision-card.risk {
+      background: linear-gradient(180deg, rgba(201, 85, 56, 0.14), rgba(255, 250, 243, 0.9));
+    }
+
+    .decision-card.validation {
+      background: linear-gradient(180deg, rgba(47, 124, 132, 0.14), rgba(255, 250, 243, 0.9));
+    }
+
+    .decision-card.safe {
+      background: linear-gradient(180deg, rgba(113, 133, 95, 0.14), rgba(255, 250, 243, 0.9));
+    }
+
+    .decision-card.gap {
+      background: linear-gradient(180deg, rgba(21, 37, 49, 0.08), rgba(255, 250, 243, 0.9));
+    }
+
     main section {
       padding: 28px 0 18px;
     }
@@ -349,6 +707,108 @@
       color: var(--ink-soft);
     }
 
+    .founder-spotlight {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      align-items: stretch;
+    }
+
+    .founder-main,
+    .founder-side {
+      padding: 24px;
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .founder-main {
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.98), rgba(47, 124, 132, 0.96)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+    }
+
+    .founder-main p {
+      margin: 0;
+      color: rgba(255, 250, 243, 0.82);
+    }
+
+    .founder-main h3,
+    .founder-side h3,
+    .founder-metric strong {
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .founder-main h3,
+    .founder-side h3 {
+      margin: 0 0 12px;
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
+    }
+
+    .founder-main .audience-links {
+      margin-top: 18px;
+    }
+
+    .founder-main .audience-links a {
+      background: rgba(255, 250, 243, 0.12);
+      border-color: rgba(255, 250, 243, 0.22);
+      color: var(--paper-strong);
+    }
+
+    .founder-metrics {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .founder-metric {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 250, 243, 0.14);
+    }
+
+    .founder-metric strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1rem;
+    }
+
+    .founder-metric span {
+      font-size: 0.9rem;
+      color: rgba(255, 250, 243, 0.8);
+    }
+
+    .founder-side {
+      background: rgba(255, 250, 243, 0.88);
+    }
+
+    .founder-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .founder-list-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(246, 240, 231, 0.78);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+    }
+
+    .founder-list-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.96rem;
+    }
+
+    .founder-list-item span {
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
     .grid {
       display: grid;
       gap: 18px;
@@ -356,6 +816,10 @@
 
     .grid.cards-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .grid.cards-3-soft {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     .grid.cards-3 {
@@ -412,6 +876,15 @@
       font-weight: 700;
     }
 
+    .card.compact {
+      min-height: 0;
+      padding: 20px;
+    }
+
+    .card.compact p {
+      max-width: 46ch;
+    }
+
     .architecture {
       display: grid;
       gap: 22px;
@@ -459,40 +932,238 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .audience-grid {
+    .role-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 18px;
+    }
+
+    .role-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      background: rgba(255, 250, 243, 0.88);
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    .role-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(21, 37, 49, 0.22);
+    }
+
+    .role-button[aria-pressed="true"] {
+      color: var(--paper-strong);
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
+      box-shadow: 0 16px 36px rgba(151, 55, 29, 0.16);
+    }
+
+    .role-panel {
+      display: none;
+    }
+
+    .role-panel.active {
+      display: block;
+    }
+
+    .role-lead {
+      margin: 0 0 18px;
+      color: var(--ink-soft);
+      max-width: 64ch;
+    }
+
+    .conversion-grid {
       display: grid;
       gap: 18px;
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .audience-card {
+    .conversion-card {
       padding: 22px;
       border-radius: var(--radius-lg);
       background: rgba(255, 250, 243, 0.86);
       border: 1px solid rgba(21, 37, 49, 0.08);
       box-shadow: 0 18px 36px rgba(31, 42, 52, 0.06);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.62),
+        0 18px 36px rgba(31, 42, 52, 0.06);
     }
 
-    .audience-card strong {
+    .conversion-card strong {
       display: inline-flex;
       margin-bottom: 12px;
       padding: 8px 12px;
       border-radius: 999px;
-      background: rgba(202, 85, 56, 0.1);
-      color: var(--accent-deep);
+      background: rgba(47, 124, 132, 0.1);
+      color: var(--teal);
       font-size: 0.88rem;
     }
 
-    .audience-card h3 {
+    .conversion-card h3 {
       margin: 0 0 10px;
       font-size: 1.34rem;
       font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
       letter-spacing: -0.02em;
     }
 
-    .audience-card p {
+    .conversion-card p {
       margin: 0 0 12px;
       color: var(--ink-soft);
+    }
+
+    .conversion-steps {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
+    .conversion-steps li::before {
+      content: "→ ";
+      color: var(--accent-deep);
+      font-weight: 700;
+    }
+
+    .conversion-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .conversion-actions a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 37, 49, 0.1);
+      background: rgba(255, 250, 243, 0.92);
+      text-decoration: none;
+      font-size: 0.92rem;
+      color: var(--ink);
+    }
+
+    .command-stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .command-stack code {
+      display: inline-flex;
+      width: fit-content;
+      padding: 9px 12px;
+      border-radius: 14px;
+      background: rgba(21, 37, 49, 0.06);
+      color: var(--accent-deep);
+      font-size: 0.88rem;
+    }
+
+    .consulting-grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    }
+
+    .consulting-panel {
+      padding: 22px;
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(21, 37, 49, 0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .consulting-panel.primary {
+      color: var(--paper-strong);
+      background:
+        linear-gradient(135deg, rgba(21, 37, 49, 0.98), rgba(202, 85, 56, 0.92)),
+        linear-gradient(180deg, #13212b, #0f1a22);
+    }
+
+    .consulting-panel.secondary {
+      background: rgba(255, 250, 243, 0.88);
+    }
+
+    .consulting-panel strong {
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 250, 243, 0.12);
+      color: var(--paper-strong);
+      font-size: 0.88rem;
+    }
+
+    .consulting-panel.secondary strong {
+      background: rgba(47, 124, 132, 0.1);
+      color: var(--teal);
+    }
+
+    .consulting-panel h3 {
+      margin: 0 0 10px;
+      font-size: 1.5rem;
+      font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      letter-spacing: -0.02em;
+    }
+
+    .author-method {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      margin: 0 0 12px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 225, 141, 0.18);
+      background: rgba(255, 250, 243, 0.08);
+      color: rgba(255, 242, 212, 0.9);
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .consulting-panel p {
+      margin: 0;
+      color: inherit;
+    }
+
+    .consulting-panel.primary p,
+    .consulting-panel.primary li {
+      color: rgba(255, 250, 243, 0.82);
+    }
+
+    .fit-list {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .fit-list li {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 250, 243, 0.1);
+      border: 1px solid rgba(255, 250, 243, 0.14);
+    }
+
+    .consulting-panel.secondary .fit-list li {
+      background: rgba(246, 240, 231, 0.78);
+      border-color: rgba(21, 37, 49, 0.08);
+      color: var(--ink-soft);
+    }
+
+    .consulting-panel .audience-links {
+      margin-top: 18px;
     }
 
     .audience-links {
@@ -548,15 +1219,6 @@
     .use-case code {
       font-size: 0.9rem;
       color: var(--accent-deep);
-    }
-
-    .derived-note {
-      margin-top: 18px;
-      padding: 16px 18px;
-      border-radius: var(--radius-md);
-      background: rgba(47, 124, 132, 0.08);
-      border: 1px solid rgba(47, 124, 132, 0.14);
-      color: var(--ink-soft);
     }
 
     .step {
@@ -649,13 +1311,20 @@
 
     @media (max-width: 1080px) {
       .hero-grid,
+      .founder-decision-shell,
       .architecture,
+      .founder-spotlight,
       .grid.cards-4,
+      .grid.cards-3-soft,
       .grid.cards-3,
-      .audience-grid,
+      .conversion-grid,
+      .consulting-grid,
       .steps,
       .use-case-grid,
-      .benefit-strip,
+      .hero-summary-grid,
+      .author-proof-grid,
+      .decision-grid,
+      .founder-metrics,
       .panel-note {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -675,13 +1344,20 @@
 
       .topbar-inner,
       .hero-grid,
+      .founder-decision-shell,
       .architecture,
+      .founder-spotlight,
       .grid.cards-4,
+      .grid.cards-3-soft,
       .grid.cards-3,
-      .audience-grid,
+      .conversion-grid,
+      .consulting-grid,
       .steps,
       .use-case-grid,
-      .benefit-strip,
+      .hero-summary-grid,
+      .author-proof-grid,
+      .decision-grid,
+      .founder-metrics,
       .panel-note {
         display: grid;
         grid-template-columns: 1fr;
@@ -712,179 +1388,236 @@
         <div class="brand-mark">AI</div>
         <div class="brand-copy">
           <strong>AIRoot</strong>
-          <span>Public AI operating layer</span>
+          <span>For founders who want big-studio Unity quality without big-studio drag</span>
         </div>
       </a>
       <nav class="topnav" aria-label="Primary">
-        <a href="#start">Start Here</a>
-        <a href="#choose-path">Choose Your Path</a>
-        <a href="#architecture">Architecture</a>
+        <a href="#founder-path">Founder Path</a>
+        <a href="#next-step">Next Step</a>
+        <a href="#consulting">Consulting</a>
         <a href="#use-cases">Use Cases</a>
-        <a href="#paths">Adoption Paths</a>
-        <a href="https://github.com/FoxsterDev/ai-research-hub" target="_blank" rel="noreferrer">GitHub Repo</a>
+        <a href="#paths">Adoption</a>
+        <a href="#contact">Contact</a>
       </nav>
     </div>
   </header>
 
   <main id="top">
-    <section class="hero">
+    <section class="hero" id="founder-path">
       <div class="shell hero-grid">
         <div class="hero-copy">
-          <div class="eyebrow">Public-safe reusable layer for repo-attached AI workflows</div>
-          <h1>Ship mobile Unity work with stronger reviews, safer native integrations, and faster product answers.</h1>
+          <h1>Ship faster, lose fewer users in startup, and raise Unity engineering quality without scaling headcount.</h1>
           <p>
-            AIRoot is a reusable protocol layer built around `xuunity`. It helps Unity teams
-            review risky code, harden startup and native flows, explain product impact in plain
-            language, and turn real implementation work into reusable engineering guidance.
+            AIRoot turns senior-level Unity mobile engineering judgment into an AI workflow your team can use now: code review, startup optimization, SDK and native plugin audits, sharper product answers, and better protection for first-session revenue.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="./handbook.html">Open Protocol Handbook</a>
-            <a class="button secondary" href="./integration.html">See Integration Contract</a>
+            <a class="button primary" href="#contact">Talk to the author</a>
+            <a class="button secondary" href="#use-cases" data-role-target="founder">See founder use cases</a>
           </div>
-          <div class="hero-meta" aria-label="AIRoot qualities">
-            <div class="chip">Reusable</div>
-            <div class="chip">Public-safe</div>
-            <div class="chip">Routerless by design</div>
-            <div class="chip">Built around XUUnity</div>
-          </div>
-          <div class="benefit-strip">
-            <div class="benefit-pill">
-              <strong>For Unity developers</strong>
-              <span>Review tricky async, SDK, native, and lifecycle code with stronger guardrails.</span>
+          <div class="hero-summary-grid">
+            <div class="hero-summary-card">
+              <strong>Delivery speed</strong>
+              <span>Turn feature ideas into implementation-ready work before the team burns a sprint in back-and-forth.</span>
             </div>
-            <div class="benefit-pill">
-              <strong>For technical leads</strong>
-              <span>Turn repeated review patterns into reusable protocol rules instead of tribal knowledge.</span>
+            <div class="hero-summary-card">
+              <strong>Monetization and acquisition</strong>
+              <span>Catch ad, network-quality, and startup issues where traffic quality and first-session revenue are at stake.</span>
             </div>
-            <div class="benefit-pill">
-              <strong>For founders and CEOs</strong>
-              <span>Get clearer answers about startup risk, rollout impact, and product-facing behavior changes.</span>
+            <div class="hero-summary-card">
+              <strong>Retention and conversion</strong>
+              <span>Fix login and loading drop-off so more users reach the lobby instead of disappearing in startup friction.</span>
             </div>
           </div>
         </div>
 
         <aside class="hero-panel">
-          <img src="./assets/airroot-architecture.svg" alt="AIRoot public core feeding a host runtime and project-local truth">
-          <div class="panel-note">
-            <div class="panel-pill">
-              <strong>Public Core</strong>
-              <span>Protocols, setup docs, visuals, templates, design.</span>
+          <div class="hero-author">
+            <div class="author-badge">Author credibility</div>
+            <h3>Built by a Unity principal engineer and technical leader.</h3>
+            <p>
+              15 years in mobile development, 8 years in technical leadership, top Unity mobile
+              projects at Playtika from 2017 to 2025, and current architect-level platform work
+              across GameStory and Apperfun.
+            </p>
+            <div class="author-kicker">Unity AI workflow for mobile teams</div>
+            <div class="author-proof-grid">
+              <div class="author-proof featured">
+                <strong>GameStory / Apperfun now</strong>
+                <span>Current architect-level platform work across live projects including <a href="https://play.google.com/store/apps/details?id=com.apperfun.hub&amp;hl=en" target="_blank" rel="noreferrer">Blingz / Apperfun Hub</a>.</span>
+              </div>
+              <div class="author-proof">
+                <strong>Playtika 2017-2025</strong>
+                <span>Board Kings, Best Fiends, and large-scale Unity mobile delivery.</span>
+              </div>
+              <div class="author-proof">
+                <strong>Public project proof</strong>
+                <span>Current hands-on work is visible through shipped public products, not just through consulting copy.</span>
+              </div>
+              <div class="author-proof">
+                <strong>3 years with AI</strong>
+                <span>Used directly in reviews, audits, fixes, and production-facing delivery work.</span>
+              </div>
             </div>
-            <div class="panel-pill">
-              <strong>Host Runtime</strong>
-              <span>Repo router, private overlays, AIOutput, operations.</span>
-            </div>
-            <div class="panel-pill">
-              <strong>Project Truth</strong>
-              <span>Project routers, memory, outputs, local overrides.</span>
+            <div class="signature-strip" aria-label="Author system traits">
+              <span class="signature-pill">Author-built operating method</span>
+              <span class="signature-pill">Shaped in real Unity production</span>
+              <span class="signature-pill">Not a white-label AI wrapper</span>
             </div>
           </div>
         </aside>
       </div>
     </section>
 
-    <section id="start">
+    <section class="founder-decision-band">
+      <div class="shell founder-decision-shell">
+        <div class="founder-decision-copy">
+          <div class="decision-kicker">Founder decision view</div>
+          <h2>Questions worth answering before you scale process or headcount</h2>
+          <p>
+            This is where the system is most useful for a founder: finding the expensive friction,
+            revenue leakage, and weak delivery standards that already sit inside one live product.
+          </p>
+        </div>
+        <div class="founder-list">
+          <div class="founder-list-item">
+            <strong>Where are users dropping before they reach the product?</strong>
+            <span>Find startup, login, consent, and loading friction before users ever reach the lobby.</span>
+          </div>
+          <div class="founder-list-item">
+            <strong>Are we losing money in the first session?</strong>
+            <span>Check whether ad startup, consent timing, or monetization sequencing is quietly hurting revenue.</span>
+          </div>
+          <div class="founder-list-item">
+            <strong>Are our traffic-quality checks helping growth or hurting it?</strong>
+            <span>Review network-quality and device checks to see whether they protect acquisition quality or block good users by mistake.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="next-step">
       <div class="shell">
         <div class="section-title">
-          <h2>Start here if you are new</h2>
+          <h2>Choose the fastest entry point</h2>
           <p>
-            If you are evaluating the repo, start with what it helps teams do. Then open the
-            handbook for command surface, the visual map for system shape, and integration only
-            when you want to mount it into a real repo.
+            Pick one concrete entry point: a founder conversation, a product pilot, or a real
+            Unity engineering review inside one mobile game repo.
           </p>
         </div>
 
-        <div class="grid cards-4">
-          <article class="card">
-            <h3>1. See what teams actually use it for</h3>
+        <div class="conversion-grid">
+          <article class="conversion-card">
+            <strong>Founder / CEO</strong>
+            <h3>Start with a scoped consulting conversation</h3>
             <p>
-              The handbook shows the highest-value workflows first: bug fixing, code review,
-              risky SDK changes, feature delivery, rollout risk, and product-facing explainers.
+              Use this if you want to raise engineering quality fast, review risky Unity delivery
+              surfaces, or decide how AI should fit into your studio workflow.
             </p>
-            <a href="./handbook.html">Open handbook</a>
+            <ul class="conversion-steps">
+              <li>Review the founder path and use cases</li>
+              <li>Pick one risky workflow or delivery surface</li>
+              <li>Start the conversation with a concrete business problem</li>
+            </ul>
+            <div class="conversion-actions">
+              <a href="#founder-path">Founder view</a>
+              <a href="#consulting">See consulting fit</a>
+            </div>
           </article>
 
-          <article class="card">
-            <h3>2. Understand the shape once</h3>
+          <article class="conversion-card">
+            <strong>Product owner</strong>
+            <h3>Run a 1-project pilot without starting with code</h3>
             <p>
-              The visual map explains the one core idea behind the system: reusable public core,
-              optional host overlays, and project-local truth each live in different layers.
+              Use this if you need clearer rollout, dependency, and bug-impact answers from a
+              real Unity project before asking the company to adopt anything bigger.
             </p>
-            <a href="./visual-map.html">Open visual map</a>
+            <ul class="conversion-steps">
+              <li>Choose one project and one risky feature or release flow</li>
+              <li>Ask product-impact and rollout questions first</li>
+              <li>Use the answers to frame a small internal pilot</li>
+            </ul>
+            <div class="command-stack">
+              <code>xuunity product rollout this feature</code>
+              <code>xuunity product impact this flow change</code>
+            </div>
+            <div class="conversion-actions">
+              <a href="./product-owner-quickstart.html">Open PO quickstart</a>
+              <a href="#use-cases" data-role-target="product">See product examples</a>
+            </div>
           </article>
 
-          <article class="card">
-            <h3>3. Decide whether it fits your host repo</h3>
+          <article class="conversion-card">
+            <strong>Unity developer</strong>
+            <h3>Try it in one Unity repo this week</h3>
             <p>
-              AIRoot is designed to mount into a real engineering repo, not replace it. The
-              integration guide shows what stays public and what the host still needs to own.
+              Use this if you want to test it on real Unity work now: a startup issue, AI code review,
+              SDK integration review, plugin audit, native bridge, or one bug that actually matters.
             </p>
-            <a href="./integration.html">Open integration guide</a>
-          </article>
-
-          <article class="card">
-            <h3>4. Bootstrap only when the structure is clear</h3>
-            <p>
-              Once the model makes sense, the setup index gives the actual repo and project
-              bootstrap flow with the expected topology and safety rules.
-            </p>
-            <a href="./setup-index.html">Open setup index</a>
+            <ul class="conversion-steps">
+              <li>Mount AIRoot into one Unity repo</li>
+              <li>Open one risky file, SDK, plugin, or startup path</li>
+              <li>Run one review or one real fix flow instead of a toy prompt</li>
+            </ul>
+            <div class="command-stack">
+              <code>xuunity review this sdk integration</code>
+              <code>xuunity fix this startup bug</code>
+            </div>
+            <div class="conversion-actions">
+              <a href="./handbook.html">Open handbook</a>
+              <a href="#use-cases" data-role-target="developer">See engineering examples</a>
+            </div>
           </article>
         </div>
       </div>
     </section>
 
-    <section id="choose-path">
+    <section id="consulting">
       <div class="shell">
         <div class="section-title">
-          <h2>Choose your path</h2>
+          <h2>Work with the author, not just the repo</h2>
           <p>
-            Start with the shared overview above. Then take the route that matches what you need
-            right now: business clarity, product guidance, or engineering depth.
+            The repo shows the model. A scoped engagement applies it to one real team, one real
+            Unity repo, and one delivery problem that already costs time, quality, or revenue.
           </p>
         </div>
 
-        <div class="audience-grid">
-          <article class="audience-card">
-            <strong>CEO / founder</strong>
-            <h3>See delivery risk and business impact fast</h3>
+        <div class="consulting-grid">
+          <article class="consulting-panel primary">
+            <strong>Consulting fit</strong>
+            <h3>For mobile game teams that want AI inside real delivery work</h3>
+            <div class="author-method">Author system, not a generic AI agency layer</div>
             <p>
-              Use the site as a fast translation layer from technical change to business risk:
-              what can break, what needs validation, what should block release, and where startup
-              or monetization changes affect confidence.
+              Strongest when the work is already painful: Unity startup sequencing, SDK changes,
+              native bridge boundaries, plugin audits, stale-state bugs, rollout risk, or AI
+              workflow design for the engineering team.
             </p>
+            <p style="margin-top: 12px;">
+              Everything shown here reflects the author's own working approach: large-scale mobile
+              game delivery, technical leadership, mentoring, and AI-assisted execution used under
+              real production constraints rather than sandbox examples.
+            </p>
+            <ul class="fit-list">
+              <li>Define the first useful AI workflow for one Unity repo or one delivery surface.</li>
+              <li>Review startup, SDK, plugin, native, or monetization risks before rollout.</li>
+              <li>Turn one-off review work into reusable guidance the team can keep using.</li>
+            </ul>
             <div class="audience-links">
-              <a href="#use-cases">See proven use cases</a>
-              <a href="./product-owner-quickstart.html">Open non-technical quickstart</a>
+              <a href="https://www.linkedin.com/in/khalandachou/" target="_blank" rel="noreferrer">Start on LinkedIn</a>
+              <a href="mailto:contact.foxsterdev@gmail.com">Email the author</a>
+              <a href="https://t.me/FoxsterDev" target="_blank" rel="noreferrer">Message in Telegram</a>
+              <a href="#use-cases" data-role-target="founder">Review use cases first</a>
             </div>
           </article>
 
-          <article class="audience-card">
-            <strong>Product owner</strong>
-            <h3>Ask better product questions without reading code</h3>
-            <p>
-              Get a practical route for feature explainers, change-impact questions, rollout
-              readiness, dependency mapping, bug impact, and project-health checks with
-              source-backed verification when it matters.
-            </p>
-            <div class="audience-links">
-              <a href="./product-owner-quickstart.html">Open product owner quickstart</a>
-              <a href="#use-cases">See product-facing examples</a>
-            </div>
-          </article>
-
-          <article class="audience-card">
-            <strong>New Unity developer</strong>
-            <h3>Understand the workflows before touching the code</h3>
-            <p>
-              Start from the public command surface, inspect the system shape once, then use
-              concrete examples for bug fixing, native bridges, plugin audits, and risky SDK or
-              startup flows.
-            </p>
-            <div class="audience-links">
-              <a href="./handbook.html">Open developer handbook</a>
-              <a href="./visual-map.html">Open visual map</a>
-            </div>
+          <article class="consulting-panel secondary">
+            <strong>What you get</strong>
+            <h3>What a first conversation or pilot can produce</h3>
+            <ul class="fit-list">
+              <li>A tight pilot scope: one project, one feature area, one risky surface to review.</li>
+              <li>A clean split between public reusable layers and company-private workflow logic.</li>
+              <li>A shortlist of commands and review surfaces that fit the team you have now.</li>
+              <li>A real answer to whether this belongs in your company, not just in a demo repo.</li>
+            </ul>
           </article>
         </div>
       </div>
@@ -893,51 +1626,41 @@
     <section id="architecture">
       <div class="shell">
         <div class="section-title">
-          <h2>Architecture without hidden layers</h2>
+          <h2>Why this does not turn into repo chaos</h2>
           <p>
-            AIRoot stays intentionally routerless. That is a feature, not a limitation.
-            It keeps reusable public logic separate from host-specific routing and project truth.
+            The model stays clean if three boundaries stay clean: shared AI workflow, company-private
+            operations, and project-owned truth.
           </p>
         </div>
 
-        <div class="architecture">
-          <div class="architecture-visual">
-            <img src="./assets/airroot-architecture.svg" alt="Diagram showing AIRoot feeding host runtime and project-local truth">
-          </div>
-
-          <div class="architecture-copy">
+        <div class="grid cards-3-soft">
+          <article class="card compact">
+            <h3>Shared layer stays shared</h3>
             <p>
-              The public layer gives you shared protocols such as `xuunity`, reusable setup
-              docs, templates, and design artifacts. A real host repo then adds runtime routing,
-              private overlays, mutable operations state, and project-local memory.
+              AIRoot keeps the reusable AI workflow, setup docs, and templates in one public layer
+              instead of scattering them across projects.
             </p>
+          </article>
 
-            <div class="stack-list">
-              <div class="rule">
-                <h3>Keep public-safe logic in AIRoot</h3>
-                <p>
-                  Shared execution modules, reusable setup, generic operations docs, and
-                  architecture visuals belong here.
-                </p>
-              </div>
+          <article class="card compact">
+            <h3>Private company logic stays private</h3>
+            <p>
+              Internal routing, mutable operations, and studio-specific workflows stay outside the
+              public layer, where they belong.
+            </p>
+          </article>
 
-              <div class="rule">
-                <h3>Keep host-private routing outside AIRoot</h3>
-                <p>
-                  Repo routers, private protocol families, mutable operations state, and
-                  internal overlays should stay in the host repository.
-                </p>
-              </div>
+          <article class="card compact">
+            <h3>Each project keeps its own truth</h3>
+            <p>
+              Project memory, outputs, and code-specific context stay with the product that owns
+              the code, so the system helps delivery instead of blurring ownership.
+            </p>
+          </article>
+        </div>
 
-              <div class="rule">
-                <h3>Keep project truth local to projects</h3>
-                <p>
-                  Project routers, project memory, and generated outputs remain the durable
-                  source of truth for real implementation work.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div class="audience-links" style="margin-top: 18px;">
+          <a href="./visual-map.html">Open the full architecture map</a>
         </div>
       </div>
     </section>
@@ -945,49 +1668,38 @@
     <section>
       <div class="shell">
         <div class="section-title">
-          <h2>What ships inside</h2>
+          <h2>What you can explore next</h2>
           <p>
-            AIRoot is not just one README. It is a curated public operating layer with a clear
-            split between execution modules, operations, visuals, and adoption helpers.
+            If the model makes sense, these are the three places worth opening first.
           </p>
         </div>
 
-        <div class="grid cards-4">
-          <article class="card">
-            <h3>XUUnity</h3>
+        <div class="grid cards-3-soft">
+          <article class="card compact">
+            <h3>Start with XUUnity</h3>
             <p>
-              The main public protocol family for Unity engineering, code review, SDK work,
-              native boundaries, performance, product-facing implementation questions, and
-              system maintenance.
+              The main execution layer for Unity code review, bug fixing, feature work, startup analysis,
+              SDK integration review, native code, and product-facing questions.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Modules/XUUnity/README.md" target="_blank" rel="noreferrer">Explore module</a>
+            <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/Modules/XUUnity/README.md" target="_blank" rel="noreferrer">Open the Unity workflow module</a>
           </article>
 
-          <article class="card">
-            <h3>Operations</h3>
+          <article class="card compact">
+            <h3>Use the setup and handbook docs</h3>
             <p>
-              Public setup guidance, handbooks, exporter workflows, and reusable operational
-              entrypoints for real repo adoption.
+              This is the fastest way to understand how to mount AIRoot into a Unity repo and start
+              with a real AI pilot instead of a toy prompt.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Operations" target="_blank" rel="noreferrer">Open operations</a>
+            <a href="./handbook.html">Read the Unity AI handbook</a>
           </article>
 
-          <article class="card">
-            <h3>Visuals</h3>
+          <article class="card compact">
+            <h3>Use the visual map when you need the full picture</h3>
             <p>
-              Architecture maps and protocol diagrams that make the layering model legible to
-              someone seeing the system for the first time.
+              Open the architecture view only after the value proposition is clear and you want the
+              full layering model.
             </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Visuals" target="_blank" rel="noreferrer">Open visuals</a>
-          </article>
-
-          <article class="card">
-            <h3>Templates and scripts</h3>
-            <p>
-              Repo and project bootstrap helpers, plus reusable templates for routers and
-              operational flows.
-            </p>
-            <a href="https://github.com/FoxsterDev/ai-research-hub/tree/master/Templates" target="_blank" rel="noreferrer">Open templates</a>
+            <a href="./visual-map.html">Open the architecture map</a>
           </article>
         </div>
       </div>
@@ -998,99 +1710,167 @@
         <div class="section-title">
           <h2>Best use cases already proven in work</h2>
           <p>
-            Real use cases, generalized for public docs.
+            Different people need different proof.
           </p>
         </div>
 
-        <div class="use-case-grid">
-          <article class="use-case">
-            <strong>Native + startup</strong>
-            <h3>Hardening a permission bridge during startup</h3>
-            <p>
-              Review and refactor a native iOS permission bridge so requests wait for active app
-              state, duplicate prompt calls collapse into single-flight behavior, and unrelated
-              attribution or plist ownership stays out of the bridge package.
-            </p>
-            <code>xuunity native review this iOS bridge</code>
-          </article>
-
-          <article class="use-case">
-            <strong>Plugin + package audit</strong>
-            <h3>Reviewing and extending a third-party Unity native plugin</h3>
-            <p>
-              Take a Unity package or Asset Store plugin that touches native networking, listeners,
-              or lifecycle hooks, audit its thread model and failure behavior, then shape safe
-              follow-up work for production use instead of integrating it blindly.
-            </p>
-            <code>xuunity review this Unity native plugin package</code>
-          </article>
-
-          <article class="use-case">
-            <strong>Bug fixing + refactor</strong>
-            <h3>Fixing optimistic UI that races against delayed server truth</h3>
-            <p>
-              Repair a stale-state bug where UI actions move ahead of fresh server snapshots,
-              narrow interaction blocking to the affected scope, and ensure full-snapshot
-              reconciliation prunes missing local entities instead of reviving stale UI.
-            </p>
-            <code>xuunity fix this stale-state race</code>
-          </article>
-
-          <article class="use-case">
-            <strong>Product + rollout</strong>
-            <h3>Explaining startup or monetization risk in product terms</h3>
-            <p>
-              Translate risky technical changes into product and business language: what can break,
-              what needs validation, what should block release, and how startup, SDK, consent, or
-              monetization changes affect rollout confidence.
-            </p>
-            <code>xuunity product impact this startup change</code>
-          </article>
+        <div class="role-picker" role="tablist" aria-label="Use case audience">
+          <button class="role-button" type="button" role="tab" aria-pressed="true" data-role="founder">Founder / CEO</button>
+          <button class="role-button" type="button" role="tab" aria-pressed="false" data-role="product">Product owner</button>
+          <button class="role-button" type="button" role="tab" aria-pressed="false" data-role="developer">Unity developer</button>
         </div>
 
-        <div class="derived-note">
-          The live site is intended to stay in sync with the public markdown sources. Rendered
-          pages such as the handbook, visual map, integration guide, and setup index can be
-          refreshed into `docs/` with `bash scripts/refresh_public_site.sh`.
+        <div class="role-panel active" data-role-panel="founder">
+          <p class="role-lead">
+            Founders care about three things here: can the team ship faster, can it avoid expensive release mistakes, and can AI raise quality without adding heavy process or early headcount.
+          </p>
+          <div class="use-case-grid">
+            <article class="use-case">
+              <strong>Delivery speed</strong>
+              <h3>Turning a feature request into an implementation-ready package before the team burns a sprint</h3>
+              <p>
+                Take one feature or flow and move it through request intake, design framing,
+                rollout thinking, and risk review much faster than the usual long back-and-forth
+                between product and engineering.
+              </p>
+              <code>Outcome: faster feature scoping with less product-engineering churn</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Monetization and acquisition</strong>
+              <h3>Improving ads, network-quality checks, and startup readiness where marketing money and revenue are on the line</h3>
+              <p>
+                Review ad-loading paths, startup monetization readiness, network-quality handling,
+                and traffic-quality checks so the product does not waste paid users,
+                weaken first-session revenue, or block the wrong audience for the wrong reason.
+              </p>
+              <code>Outcome: less wasted traffic and stronger first-session revenue</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Retention and conversion</strong>
+              <h3>Fixing login and loading flows so fewer users fall out before reaching the core product</h3>
+              <p>
+                Audit the startup path from app open to first interactive screen, then tighten the
+                flow around login failures, offline handling, consent prompts, and loading-state
+                confusion so more users actually reach the lobby instead of dropping in the funnel.
+              </p>
+              <code>Outcome: more users reach the lobby instead of dropping during startup</code>
+            </article>
+          </div>
         </div>
+
+        <div class="role-panel" data-role-panel="product">
+          <p class="role-lead">
+            Product owners need proof for launch decisions, bug triage, and pilot framing.
+          </p>
+          <div class="use-case-grid">
+            <article class="use-case">
+              <strong>Rollout planning</strong>
+              <h3>Checking whether a feature flow is ready to release</h3>
+              <p>
+                Map what needs validation, what dependencies exist, and which technical conditions
+                should block or narrow rollout before launch.
+              </p>
+              <code>xuunity product rollout this feature</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Bug impact</strong>
+              <h3>Explaining a complex issue without starting from code</h3>
+              <p>
+                Take a stale-state or flow-break bug and translate it into customer impact,
+                affected screens, rollout risk, and the practical scope of the fix.
+              </p>
+              <code>xuunity product bug this issue</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Pilot framing</strong>
+              <h3>Running a 1-project pilot around one risky flow</h3>
+              <p>
+                Start with one live feature, one startup path, or one monetization surface to see
+                whether it improves product clarity enough to justify broader adoption.
+              </p>
+              <code>xuunity po evaluate this feature</code>
+            </article>
+          </div>
+        </div>
+
+        <div class="role-panel" data-role-panel="developer">
+          <p class="role-lead">
+            Developers need proof that this catches real engineering problems and speeds up real work.
+          </p>
+          <div class="use-case-grid">
+            <article class="use-case">
+              <strong>Native + startup</strong>
+              <h3>Hardening a permission bridge during startup</h3>
+              <p>
+                Review and refactor a native iOS permission bridge so requests wait for active app
+                state, duplicate prompt calls collapse into single-flight behavior, and unrelated
+                attribution or plist ownership stays out of the bridge package.
+              </p>
+              <code>xuunity native review this iOS bridge</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Plugin + package audit</strong>
+              <h3>Reviewing and extending a third-party Unity native plugin</h3>
+              <p>
+                Take a Unity package or Asset Store plugin that touches native networking, listeners,
+                or lifecycle hooks, audit its thread model and failure behavior, then shape safe
+                follow-up work for production use instead of integrating it blindly.
+              </p>
+              <code>xuunity review this Unity native plugin package</code>
+            </article>
+
+            <article class="use-case">
+              <strong>Bug fixing + refactor</strong>
+              <h3>Fixing optimistic UI that races against delayed server truth</h3>
+              <p>
+                Repair a stale-state bug where UI actions move ahead of fresh server snapshots,
+                narrow interaction blocking to the affected scope, and ensure full-snapshot
+                reconciliation prunes missing local entities instead of reviving stale UI.
+              </p>
+              <code>xuunity fix this stale-state race</code>
+            </article>
+          </div>
+        </div>
+
       </div>
     </section>
 
     <section id="paths">
       <div class="shell">
         <div class="section-title">
-          <h2>How teams usually adopt it</h2>
+          <h2>How to start</h2>
           <p>
-            After choosing your role-specific path, this is the common adoption sequence teams
-            usually follow: evaluate, mount into a host repo, then extend only when needed.
+            Most teams start the same way: evaluate the model, mount it into one repo, then extend it only after it proves useful.
           </p>
         </div>
 
         <div class="steps">
           <article class="step">
             <div class="step-number">01</div>
-            <h3>I am evaluating the repo</h3>
+            <h3>Evaluate the model</h3>
             <p>
-              Read the handbook, read the visual map, and decide whether the public module
-              boundaries match the engineering workflows you want to support.
+              Read the handbook and visual map. Decide whether the boundaries match the workflows you want.
             </p>
           </article>
 
           <article class="step">
             <div class="step-number">02</div>
-            <h3>I want to mount it into a host</h3>
+            <h3>Mount it into one repo</h3>
             <p>
-              Use the integration guide and setup index. AIRoot gives you the reusable core.
-              Your host repo still owns runtime routing, private overlays, and mutable state.
+              Use the integration guide and setup index. AIRoot gives you the reusable layer; the host still owns routing and mutable state.
             </p>
           </article>
 
           <article class="step">
             <div class="step-number">03</div>
-            <h3>I want to extend the protocol system</h3>
+            <h3>Extend only what proves useful</h3>
             <p>
-              Add public-safe reusable behavior to AIRoot. Add host-private families and
-              internal overlays only in the host repository that consumes it.
+              Add public-safe behavior to AIRoot. Keep host-private workflows and overlays in the repo that uses it.
             </p>
           </article>
         </div>
@@ -1099,11 +1879,28 @@
           <div>
             <h2 style="margin: 0 0 8px; font-size: clamp(1.6rem, 3vw, 2.4rem);">Ready to wire it into a real repo?</h2>
             <p>
-              Start with the host integration contract, then use the setup index to bootstrap
-              repo and project topology without turning AIRoot into a fake runtime root.
+              Start with the integration contract, then bootstrap repo and project topology without turning AIRoot into a fake runtime root.
             </p>
           </div>
-          <a class="button secondary" href="./setup-index.html">Open setup flow</a>
+          <a class="button secondary" href="./setup-index.html">Open the Unity AI setup flow</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <div class="shell">
+        <div class="banner">
+          <div>
+            <h2 style="margin: 0 0 8px; font-size: clamp(1.6rem, 3vw, 2.4rem);">Talk to the author about your team, repo, or pilot.</h2>
+            <p>
+              Best fit if you want one useful AI workflow, one risky delivery surface reviewed, or a cleaner AI operating model for a Unity team.
+            </p>
+          </div>
+          <div class="audience-links">
+            <a href="https://www.linkedin.com/in/khalandachou/" target="_blank" rel="noreferrer">LinkedIn</a>
+            <a href="mailto:contact.foxsterdev@gmail.com">Email</a>
+            <a href="https://t.me/FoxsterDev" target="_blank" rel="noreferrer">Telegram</a>
+          </div>
         </div>
       </div>
     </section>
@@ -1112,16 +1909,64 @@
   <footer>
     <div class="shell">
       <p>
-        AIRoot is a public reusable layer. Runtime truth still belongs to the host repo and
-        its projects.
+        AIRoot is the reusable layer. Runtime truth stays with the host repo and its projects.
       </p>
       <div class="footer-links">
-        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/README.md" target="_blank" rel="noreferrer">README</a>
-        <a href="./handbook.html">Handbook</a>
-        <a href="./visual-map.html">Visual Map</a>
-        <a href="./integration.html">Integration</a>
+        <a href="https://github.com/FoxsterDev/ai-research-hub/blob/master/README.md" target="_blank" rel="noreferrer">AIRoot README</a>
+        <a href="https://foxsterdev.medium.com/" target="_blank" rel="noreferrer">More writing on Medium</a>
+        <a href="./handbook.html">Unity AI handbook</a>
+        <a href="./visual-map.html">Architecture visual map</a>
+        <a href="./integration.html">Integration guide</a>
       </div>
     </div>
   </footer>
+  <script>
+    (() => {
+      const roleButtons = Array.from(document.querySelectorAll("[data-role]"));
+      const rolePanels = Array.from(document.querySelectorAll("[data-role-panel]"));
+      const roleLinks = Array.from(document.querySelectorAll("[data-role-target]"));
+
+      if (!roleButtons.length || !rolePanels.length) {
+        return;
+      }
+
+      const setRole = (role) => {
+        roleButtons.forEach((button) => {
+          const isActive = button.dataset.role === role;
+          button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+
+        rolePanels.forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.rolePanel === role);
+        });
+
+        try {
+          localStorage.setItem("airroot-role", role);
+        } catch (error) {
+        }
+      };
+
+      roleButtons.forEach((button) => {
+        button.addEventListener("click", () => setRole(button.dataset.role));
+      });
+
+      roleLinks.forEach((link) => {
+        link.addEventListener("click", () => setRole(link.dataset.roleTarget));
+      });
+
+      let initialRole = "founder";
+
+      try {
+        initialRole = localStorage.getItem("airroot-role") || initialRole;
+      } catch (error) {
+      }
+
+      if (!rolePanels.some((panel) => panel.dataset.rolePanel === initialRole)) {
+        initialRole = "founder";
+      }
+
+      setRole(initialRole);
+    })();
+  </script>
 </body>
 </html>
