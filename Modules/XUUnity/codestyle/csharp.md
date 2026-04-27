@@ -9,6 +9,7 @@
 - Use English for identifiers, logs, and documentation.
 - Do not add inline comments in C# unless the project explicitly requires them.
 - Public APIs may use XML docs when the contract is not obvious.
+- Do not introduce reflection into production code without explicit user approval. Prefer explicit contracts, factories, registries, or typed seams.
 - Prefer explicit naming over clever abstractions.
 - Prefer small focused types over broad mixed-responsibility classes.
 - Do not call virtual members from constructors. If controlled overrides are needed, move bridge or service setup into an explicit initialization step.
