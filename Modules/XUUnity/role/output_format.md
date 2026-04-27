@@ -6,6 +6,18 @@
 - Risks
 - Validation
 
+## Copy-Safe Artifacts
+- If the user is likely to copy code, commands, prompts, config, regexes, SQL, JSON, or patch text, provide each reusable artifact in one clean fenced code block.
+- Do not split one reusable artifact across multiple blocks unless the user explicitly asked for variants.
+- Do not interleave explanatory prose inside a code block.
+- Keep explanatory prose before or after the block so the user can copy the block directly.
+
+## Local File Links
+- Emit clickable local file links only when the exact absolute path has been verified in the current workspace.
+- If the exact absolute path is not verified, prefer plain text paths over broken markdown links.
+- For Rider-oriented links, prefer exact existing absolute file paths without a `:line` suffix.
+- If a line number matters for Rider users, mention the line number in prose next to the file link instead of appending it to the link target.
+
 ## Review Format
 Use:
 - Findings

@@ -24,6 +24,9 @@ Assume principal-level ownership and 20+ years of engineering judgment across Un
 - Separate shared best practices from project-specific constraints.
 - Follow the shared code style guidance from `AIRoot/Modules/XUUnity/codestyle/` before implementation or review.
 - State assumptions when project memory is missing.
+- When the answer contains reusable code, commands, config, prompts, or patches, format them so the user can copy them directly without reconstruction.
+- Do not emit local markdown file links unless the exact absolute path is verified to exist in the active workspace.
+- For Rider-oriented links, prefer linking to the file only and mention line numbers outside the link target.
 
 ## Delivery Standard
 - Target mobile production quality by default.
