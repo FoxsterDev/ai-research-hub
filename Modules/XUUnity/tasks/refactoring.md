@@ -24,6 +24,7 @@ Improve structure without changing intended behavior or weakening Unity mobile p
 - Add regression protection where breakage is expensive, especially before deleting the old path.
 - When loaded as a bug-fixing overlay, simplify temporary ownership or orchestration added during diagnosis until the remaining structure is the smallest stable model that still preserves behavior.
 - When loaded as a bug-fixing overlay, justify any remaining queues, flags, wrappers, fallback paths, or delay gates that survive simplification.
+- For small persisted-state, startup-cache, or remote-override problems, default to a single-document storage model unless concrete product constraints prove that manifests, per-entry files, or broader storage orchestration are required.
 
 ## Output
 - Refactor target

@@ -8,6 +8,7 @@
 - Prefer the safest compatible SDK version, not the newest version.
 - Treat compatibility mismatch, native instability, and store compliance failure as blockers for SDK upgrades.
 - Treat runtime client/build configuration as input, not mutable state. Compute effective remote or derived values locally at the feature or system boundary instead of merging them back into config objects at runtime.
+- If partial-update semantics depend on distinguishing `field absent` from `field explicitly set`, keep the raw payload until the merge boundary or use an explicit patch DTO. Do not deserialize early into a concrete config object and then assume omission semantics still exist.
 - Prefer the narrowest existing owner for behavior changes. If a behavior can be resolved in a feature/helper/policy boundary, do not push the special-case logic into app-root or bootstrapper code.
 - Keep shared public-core guidance project-agnostic. Do not use project-, product-, brand-, or repo-specific identifiers in shared examples or reusable rules.
 - In shared public-core files, keep provenance abstract and portable. `Derived From`, evidence notes, and examples must not expose concrete project names, project-local paths, or repo-private artifact names. Use generic evidence labels instead.
@@ -21,6 +22,7 @@
 - Do not invent or imply specific business or revenue uplift or downside percentages unless the number is backed by real measurement, experiment results, or user-supplied business modeling. When that evidence is missing, describe impact qualitatively in terms of stability, outage prevention, latency, readiness, UX continuity, or other observable technical and product qualities instead of speculative numeric deltas.
 - Distinguish fake-backed contract validation from real device/native bridge validation. Do not present the former as proof of the latter.
 - Do not add permanent runtime test seams to shipping code by default. Treat them as a justified tradeoff only when automated device validation is regular, trusted, and release-gating.
+- Do not add compatibility branches, migration burden, or legacy-format tolerance for a new persisted-state feature unless there is explicit evidence that older persisted data can exist in real released environments.
 - Do not treat stale generated build artifacts as current truth when `Library/` was rebuilt, package resolution changed, or a clean build may have regenerated the platform outputs after the inspected snapshot.
 - Before recommending a permanent source fix for a vendor-managed build declaration, verify same-build log evidence for the owning resolver or postprocess step and check whether a clean rebuild already resolves the issue.
 - If a workaround would mask the deeper question of ownership between source manifests and vendor postprocessing, call out that tradeoff explicitly instead of presenting the workaround as the preferred fix.
