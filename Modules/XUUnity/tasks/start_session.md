@@ -39,6 +39,14 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 17. Load historical reports from `Assets/AIOutput/` only when the task is investigating behavior drift, reconstructing legacy intent, or researching old bug root causes.
 18. If historical reports are loaded, keep them lower-priority than current-truth memory and current source code.
 19. Identify whether the task touches shared state, async flows, native boundaries, startup, UI, rendering, loading, monetization, or other critical project flows.
+19a. If the task touches cache design, persistence shape, startup override, fallback state, or remote-config application, derive the minimal product contract before implementation:
+  - source count
+  - persistence unit
+  - merge boundary
+  - partial-update semantics
+  - compatibility envelope
+  - platform storage backend
+19b. For cache, persistence, startup override, or remote-config tasks, prefer the smallest architecture that satisfies the derived product contract and restate that contract before broader implementation if redesign churn appears.
 20. Decide the safest implementation shape before writing code.
 20a. Before implementation, review, or planning output is finalized, derive a compact execution contract for the session.
 20b. Minimum execution-contract fields:

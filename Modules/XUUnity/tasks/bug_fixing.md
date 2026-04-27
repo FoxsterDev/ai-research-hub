@@ -31,6 +31,13 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 
 ## Complexity Budget
 - If the planned or implemented fix introduces new flags, queues, flush triggers, cache-backed fallbacks, helper wrappers, delay gates, or duplicate trigger paths, do not treat that as neutral implementation detail.
+- If the task enters repeated redesign loops, stop and restate the minimal product invariants before continuing. At minimum restate:
+  - actual source count
+  - persistence unit
+  - merge boundary
+  - partial-update semantics
+  - compatibility envelope
+  - required platform backends
 - Before claiming closure on such a fix, state:
   - why the added complexity is necessary
   - which simpler alternatives were rejected
