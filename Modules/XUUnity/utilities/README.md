@@ -18,8 +18,9 @@ Use when the user wants one command that evaluates a source artifact and decides
 
 Flow:
 1. `knowledge_extraction_triage.md`
-2. review package for user approval
-3. `knowledge_integration.md` only after explicit approval
+2. post-extraction retrospective when the source is a development or review session
+3. review package for user approval
+4. `knowledge_integration.md` only after explicit approval
 
 Short commands:
 - `xuunity extract knowledge`
@@ -191,13 +192,13 @@ Short commands:
 - `implementation_pattern_extract.md`
   - compare two or more concrete implementations and extract the reusable development pattern, not just generic durable rules
 - `knowledge_extraction_triage.md`
-  - read one source and propose the right split across review artifacts, skills, shared knowledge, and project-only outputs
+  - read one source, run a retrospective when the source is a development or review session, and propose the right split across review artifacts, skills, shared knowledge, and project-only outputs
 - `review_artifact_extract.md`
   - turn long engineering chats or discussions into reusable `Engineering Review Artifact` documents
 - `review_artifact_merge.md`
   - merge multiple `Engineering Review Artifact` documents into one stronger canonical artifact
 - `knowledge_ingest_from_chat.md`
-  - ingest knowledge from chat
+  - ingest knowledge from chat and run a retrospective pass when the chat exposes reusable process or protocol lessons
 - `knowledge_ingest_from_link.md`
   - ingest knowledge from external references
 - `knowledge_ingest_from_book.md`
