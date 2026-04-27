@@ -461,6 +461,9 @@ For product-facing questions:
 Prefer these skill families when triggered by the task:
 - `skills/async/` for `async`, `await`, `UniTask`, `Awaitable`, `.NET Task`, cancellation, and thread affinity
 - `skills/ui/` for screens, popups, layout, canvases, and UI navigation
+- when the task is about adaptive grids, inventories, stores, galleries, scrollable card collections, `GridLayoutGroup`, or mobile cell-sizing tradeoffs, also load `skills/ui/adaptive_grids.md`
+- when the task is about safe areas, cutouts, touch-target sizing, larger text, localization, RTL, readability, or mobile UX bug prevention, also load `skills/ui/mobile_ux_quality.md`
+- when the task is about large `ScrollRect` lists or grids, infinite scroll, virtualization, pooled cells, viewport-window math, or recycle-and-rebind behavior, also load `skills/ui/virtualized_scrollrect.md`
 - `skills/editor/` for inspectors, importers, validation tools, and internal workflows
 - `skills/audio/` for sounds, music, mixer, snapshots, and clip loading
 - `skills/fx/` for particles, VFX lifecycle, spawn budgets, and overdraw-sensitive effects
