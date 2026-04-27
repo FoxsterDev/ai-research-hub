@@ -54,10 +54,15 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 20d. If investigation changes the inferred stack, risk class, or validation obligations, update the execution contract before proposing a patch or final recommendation.
 20e. For `tasks/bug_fixing.md`, treat `required_validation` as provisional until patch-shape classification is known, then derive it from patch shape and bug family instead of leaving it at generic wording such as `validate fix`.
 20f. If investigation reveals queues, flush paths, cache fallbacks, delay gates, helper wrappers, or other orchestration ballast, add those signals to `trigger_reasons` and make `required_self_review` explicitly cover simplification and complexity-budget review.
+20g. If the user is likely to copy code, commands, config, prompts, or patch text from the answer, add a copy-safety check to `required_self_review` and plan the final answer around clean fenced blocks.
 21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
 22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
 23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
 24. If a host-local or project-local rule requires Unity validation to go through MCP or another repo-specific integration, treat that as a hard must-not for direct shell-launched Unity and do not fall back to the CLI.
+25. Before emitting a clickable local file link, verify the exact absolute path that exists in the active workspace.
+26. If the exact absolute path is not verified, prefer plain text paths over markdown file links.
+27. For Rider-oriented links, only emit markdown file links when the file exists at the emitted absolute path.
+28. For Rider-oriented links, prefer linking to the file path without a `:line` suffix and mention the line number separately in prose when needed.
 
 Default storage references in this file assume the standard project-local layout.
 If the active repo router, project router, or project registry declares a different storage mode, follow that host-local contract first and translate legacy `Assets/AIOutput/...` paths accordingly before loading project memory, skill overrides, or prior outputs.
