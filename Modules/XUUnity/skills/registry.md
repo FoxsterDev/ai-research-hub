@@ -67,6 +67,25 @@ Triggers:
 - popup
 - canvas
 - layout
+- grid
+- adaptive grid
+- safe area
+- cutout
+- notch
+- touch target
+- rtl
+- localization
+- font scale
+- accessibility
+- infinite scroll
+- virtualized list
+- virtualized grid
+- pooling
+- inventory
+- store
+- gallery
+- collection
+- scrollrect
 - button
 - navigation
 - textmeshpro
@@ -77,8 +96,15 @@ Use for:
 - popup work
 - layout-heavy UI
 - input and navigation behavior
+- adaptive grid and collection layout work
+- mobile UX quality and readability review
 Project override:
 - `Assets/AIOutput/ProjectMemory/SkillOverrides/ui.md`
+
+Key files:
+- `ui/adaptive_grids.md`
+- `ui/mobile_ux_quality.md`
+- `ui/virtualized_scrollrect.md`
 
 ## UI Tweens
 Skill family: `ui_tweens/`
