@@ -133,6 +133,14 @@ Raise severity by one level when:
 - the issue is hard to detect without explicit tests or telemetry
 
 ## Required Output
+When the review is output or saved as a report, include review metadata at the top:
+- `Date`
+- `Repo`
+- `Target project`
+- `Branch`
+- `Commit`
+- `Review type`
+
 For each finding:
 - Title
 - Impacted API and file paths

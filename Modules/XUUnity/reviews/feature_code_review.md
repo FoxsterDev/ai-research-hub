@@ -22,6 +22,14 @@
 - Whether testability was achieved without unnecessary test-only pollution of production APIs
 
 ## Output
+When the review is output or saved as a report, include review metadata at the top:
+- `Date`
+- `Repo`
+- `Target project`
+- `Branch`
+- `Commit`
+- `Review type`
+
 - Findings table:
   - `Category | Issue | Severity | Remediation`
 - Feature and core-flow risk assessment:

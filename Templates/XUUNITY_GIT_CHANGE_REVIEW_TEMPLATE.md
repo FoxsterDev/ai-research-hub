@@ -2,7 +2,10 @@
 
 ## Review Metadata
 - Date:
-- Project:
+- Repo:
+- Target project:
+- Branch:
+- Commit:
 - Review scope:
 - Comparison base:
 - Included local delta:

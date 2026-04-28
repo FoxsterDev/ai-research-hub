@@ -55,6 +55,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `reviews/delivery_risk_review.md`
 - `reviews/feature_code_review.md`
 - `reviews/git_change_review.md`
+- `reviews/full_review.md`
 - `reviews/sdk_code_review.md`
 - `reviews/sdk_breakage_review.md`
 - `reviews/native_plugin_review.md`
@@ -206,6 +207,8 @@ If a skill family is matched, the implementation or review context is incomplete
 Recommended short commands:
 - `xuunity review the git change`
 - `xuunity git change review`
+- `xuunity full review this sdk`
+- `xuunity review all this project`
 - `xuunity feature screen this flow`
 - `xuunity feature popup this flow`
 - `xuunity feature presenter this flow`

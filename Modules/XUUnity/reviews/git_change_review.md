@@ -93,6 +93,14 @@ When this happens:
 7. Candidate test cases when evidence is sufficient.
 8. A release recommendation.
 
+When the review is output or saved as a report, include review metadata at the top:
+- `Date`
+- `Repo`
+- `Target project`
+- `Branch`
+- `Commit`
+- `Review scope`
+
 ## Persistent Review Report
 After running this review for a concrete project, also save a short durable report under the project-local AI output tree:
 - `<Project>/Assets/AIOutput/CodeReviews/`
@@ -117,7 +125,10 @@ Preferred saved report shape:
 
 ## Review Metadata
 - Date:
-- Project:
+- Repo:
+- Target project:
+- Branch:
+- Commit:
 - Review scope:
 - Comparison base:
 - Included local delta:

@@ -205,6 +205,20 @@ Interpret short commands by intent:
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`
 - `xuunity git change review ...` -> `reviews/git_change_review.md`
+- `xuunity full review ...` -> `reviews/full_review.md`
+- `xuunity review all ...` -> `reviews/full_review.md`
+  - classify target kind first:
+    - `current_state_sdk`
+    - `current_state_feature`
+    - `current_state_project`
+    - `change_sdk`
+    - `change_feature`
+    - `change_project`
+  - activate matching policy packs before final bundle assembly:
+    - `reviews/policy_packs/sdk_changes.md`
+    - `reviews/policy_packs/startup_changes.md`
+    - `reviews/policy_packs/manifest_native_changes.md`
+  - prefer one aggregate report with canonical merged findings unless the user explicitly asks for per-protocol reports
 - `xuunity review ...` -> `tasks/code_review.md`
 - `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build or review
 - `xuunity sdk breakage review ...` -> `reviews/sdk_breakage_review.md`
