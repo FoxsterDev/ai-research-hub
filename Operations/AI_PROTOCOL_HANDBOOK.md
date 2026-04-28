@@ -120,6 +120,16 @@ Best for:
 - `xuunity system cleanup ai outputs`
 - `xuunity system archive old reports`
 - `xuunity system evaluate the xuunity protocol structure`
+- `xuunity task registry bootstrap`
+- `xuunity start tracking this task`
+- `xuunity finish the work`
+- `xuunity this works`
+- `xuunity validate task registry`
+- `xuunity task metrics`
+- `xuunity archive task registry`
+
+Task-registry feature report:
+- `AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
 
 ## Role Shortcuts
 Use these when you want a specific angle instead of default routing.
@@ -258,6 +268,18 @@ For extraction-quality regression work, use:
 `xuunity system health review` should also check whether the extraction workflow has current regression evidence.
 If extraction routing changed but the golden pack was not rerun, treat that as a system-health gap rather than a silent assumption.
 Use `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` as the preferred extraction-health evidence only when it is a real evaluation output, not a scaffold slot or placeholder.
+
+### Task Registry
+1. `xuunity task registry bootstrap` when the repo needs the scaffold
+2. `xuunity start tracking this task` when lifecycle timing should begin before closure
+3. `xuunity finish the work` to record engineering closure
+4. `xuunity this works` or `xuunity this has bugs` after human validation
+5. `xuunity validate task registry` before publishing metrics or migration results
+6. `xuunity task metrics` for outcome-based reporting
+7. `xuunity archive task registry` for retention and rollover planning
+
+Reference:
+- `AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
 
 ### System Progress
 1. `xuunity system progress review`

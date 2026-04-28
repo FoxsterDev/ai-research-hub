@@ -141,6 +141,106 @@ Short commands:
 - `xuunity system project registry audit`
 - `xuunity system registry audit`
 
+### Task Registry Bootstrap
+Use when the user wants to enable task-history support in a repo or verify that the required scaffold exists.
+
+Flow:
+1. `task_registry_bootstrap.md`
+2. optional `report_export.md` when the repo needs output-destination confirmation
+
+Short commands:
+- `xuunity task registry bootstrap`
+- `xuunity enable task registry`
+- `xuunity setup task history`
+
+### Task Tracking Start
+Use when the user wants to start durable tracking for a task before implementation is finished.
+
+Flow:
+1. `task_tracking_start.md`
+2. optional `task_registry_bootstrap.md` if the repo has not been provisioned yet
+
+Short commands:
+- `xuunity start tracking this task`
+- `xuunity open task record`
+- `xuunity create task record`
+
+### Task Registry Append
+Use when the user wants to close work from the current session and record a durable task outcome entry.
+
+Flow:
+1. `task_registry_append.md`
+2. optional `report_export.md` for audit-note placement
+3. optional repo-level Slack delivery only if the host repo declares it
+
+Short commands:
+- `xuunity finish the work`
+- `xuunity close this task`
+- `xuunity record this fix`
+- `xuunity post and record this work`
+
+### Task Feedback Capture
+Use when the user wants to record post-delivery feedback such as accepted, reopened, rejected, or runtime-validated.
+
+Flow:
+1. `task_feedback_capture.md`
+2. optional `task_registry_reconcile.md` if the task index is stale or ambiguous
+
+Short commands:
+- `xuunity this works`
+- `xuunity this has bugs`
+- `xuunity reopen this task`
+- `xuunity mark this validated`
+- `xuunity customer says it works`
+
+### Task Registry Reconcile
+Use when the user wants to rebuild or repair the task index from the append-only event history.
+
+Flow:
+1. `task_registry_reconcile.md`
+2. optional `task_metrics_rollup.md` if the rebuilt index should immediately feed metrics
+
+Short commands:
+- `xuunity task registry reconcile`
+- `xuunity rebuild task index`
+- `xuunity sync task snapshots`
+
+### Task Registry Validate
+Use when the user wants to check task events, snapshot consistency, and schema compliance before reporting or migration.
+
+Flow:
+1. `task_registry_validate.md`
+2. optional `task_registry_reconcile.md` when validation finds snapshot drift
+
+Short commands:
+- `xuunity validate task registry`
+- `xuunity check task events`
+- `xuunity task registry lint`
+
+### Task Metrics Rollup
+Use when the user wants business-facing or engineering-facing rollups from task history without rewarding chat volume.
+
+Flow:
+1. `task_metrics_rollup.md`
+2. optional `report_export.md` for derived summary placement
+
+Short commands:
+- `xuunity task metrics`
+- `xuunity task registry metrics`
+- `xuunity ai delivery metrics`
+
+### Task Registry Archive
+Use when the user wants rollover or archive planning for large task registries.
+
+Flow:
+1. `task_registry_archive.md`
+2. optional `system_output_cleanup.md` only when broader report cleanup is also needed
+
+Short commands:
+- `xuunity archive task registry`
+- `xuunity task registry rollover`
+- `xuunity review task registry retention`
+
 ### Internet Research Watch
 Use when the user wants periodic external research focused on improving the current AI system and tools.
 
@@ -223,6 +323,22 @@ Short commands:
   - refresh `AIOutput/Registry/project_registry.yaml` from current repo evidence
 - `system_project_registry_audit.md`
   - audit `AIOutput/Registry/project_registry.yaml` against current repo evidence
+- `task_registry_bootstrap.md`
+  - provision the repo-level scaffold required for task-history workflows
+- `task_tracking_start.md`
+  - append the first lifecycle event for a tracked task
+- `task_registry_append.md`
+  - append a human-triggered task-outcome event and update the task snapshot index
+- `task_feedback_capture.md`
+  - capture human acceptance, reopen, rejection, and runtime-validation feedback as follow-up task events
+- `task_registry_reconcile.md`
+  - rebuild or repair the task snapshot index from append-only task events
+- `task_registry_validate.md`
+  - validate event shape, timeline consistency, and snapshot drift against the public contract
+- `task_metrics_rollup.md`
+  - derive business and engineering metrics from task events instead of prompt volume
+- `task_registry_archive.md`
+  - define archive and rollover handling for large task registries
 - `internet_research_watch.md`
   - periodically research external developments that could improve the current system
 - `system_self_evaluation.md`
@@ -247,6 +363,10 @@ Short commands:
 - Keep project-specific skill-like exceptions in `Assets/AIOutput/ProjectMemory/SkillOverrides/`.
 - Do not merge new knowledge into shared prompts without checking for duplication and conflicts first.
 - Prefer small corrective changes over broad rewrites when auditing the system.
+- Treat task closure and task feedback as human-triggered workflows. Do not auto-log unfinished work mid-session.
+- Treat task start as optional but first-class. Use it when lifecycle timing metrics matter.
+- Keep Slack as an optional downstream transport. It must never become the task-history source of truth.
+- Prefer machine-readable validation for public-core task history when the repo has a schema file.
 - Do not skip strong reusable knowledge only because no existing skill family matches it yet.
 - Never include literal secret values in generated AI outputs. Redact credentials and report only the field name, file path, and presence when sensitive config evidence matters.
 - Do not treat reusable outputs as automatically public-safe. Public core and internal shared are separate routing decisions.

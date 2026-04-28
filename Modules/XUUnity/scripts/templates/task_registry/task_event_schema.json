@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.dev/schemas/task-event.schema.json",
+  "title": "XUUnity Task Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timestamp",
+    "task_id",
+    "project_id",
+    "repo_id",
+    "origin_type",
+    "origin_ref",
+    "event_type",
+    "actor",
+    "task_kind",
+    "severity",
+    "platform",
+    "summary",
+    "engineering_state",
+    "validation_state",
+    "acceptance_state",
+    "protocols_used",
+    "skills_used",
+    "linked_audit_path"
+  ],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "repo_id": { "type": "string", "minLength": 1 },
+    "origin_type": { "type": "string", "enum": ["jira", "chat", "manual"] },
+    "origin_ref": { "type": "string", "minLength": 1 },
+    "parent_task_id": { "type": ["string", "null"] },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "task_started",
+        "work_finished",
+        "audit_saved",
+        "slack_reported",
+        "build_validated",
+        "runtime_validated",
+        "production_validated",
+        "human_accepted",
+        "human_reopened",
+        "human_rejected",
+        "followup_created"
+      ]
+    },
+    "actor": { "type": "string", "enum": ["ai", "human", "system"] },
+    "task_kind": {
+      "type": "string",
+      "enum": ["bug", "refactor", "feature", "review", "incident", "research"]
+    },
+    "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+    "platform": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string", "minLength": 1 },
+    "engineering_state": {
+      "type": "string",
+      "enum": ["proposed", "in_progress", "work_finished", "blocked", "superseded"]
+    },
+    "validation_state": {
+      "type": "string",
+      "enum": ["not_validated", "build_validated", "runtime_validated", "production_validated"]
+    },
+    "acceptance_state": {
+      "type": "string",
+      "enum": ["pending_human_feedback", "accepted", "reopened", "rejected"]
+    },
+    "protocols_used": { "type": "array", "items": { "type": "string" } },
+    "skills_used": { "type": "array", "items": { "type": "string" } },
+    "linked_audit_path": { "type": ["string", "null"] }
+  }
+}
