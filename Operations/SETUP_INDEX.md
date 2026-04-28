@@ -155,6 +155,14 @@ bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
 
 - `AIRoot/Templates/CodexSlackMcp/README.md`
 
+## XUUnity Task Registry
+
+Use this when a teammate wants a public-safe overview of the `xuunity` task-registry feature set, lifecycle model, CLI surface, and supported use cases.
+
+### Report
+
+- `AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
+
 ## Existing Router Safety Rules
 
 - Existing repo `Agents.md` is not rewritten silently.

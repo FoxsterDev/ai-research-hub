@@ -201,6 +201,14 @@ Interpret short commands by intent:
 - `xuunity implementation plan ...` or `xuunity feature plan ...` -> `tasks/implementation_plan.md`
 - `xuunity validation plan ...` or `xuunity feature validation ...` -> `tasks/validation_plan.md`
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` -> `tasks/rollout_plan.md`
+- `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
+- `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
+- `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
+- `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
+- `xuunity task registry reconcile ...` or `xuunity rebuild task index ...` -> `utilities/task_registry_reconcile.md`
+- `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
+- `xuunity task metrics ...` or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
+- `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity delivery risk ...` or `xuunity feature risk review ...` -> `reviews/delivery_risk_review.md`
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`
@@ -246,6 +254,14 @@ Interpret short commands by intent:
 - `xuunity system refresh project registry ...` -> `utilities/system_registry_refresh.md`
 - `xuunity system project registry audit ...` -> `utilities/system_project_registry_audit.md`
 - `xuunity system registry audit ...` -> `utilities/system_project_registry_audit.md`
+- `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
+- `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
+- `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
+- `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
+- `xuunity task registry reconcile ...`, `xuunity rebuild task index ...`, or `xuunity sync task snapshots ...` -> `utilities/task_registry_reconcile.md`
+- `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
+- `xuunity task metrics ...`, `xuunity task registry metrics ...`, or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
+- `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity system research watch ...` -> `utilities/internet_research_watch.md`
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
 - `xuunity system evaluate ...` -> `utilities/system_self_evaluation.md`
@@ -528,6 +544,14 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/knowledge_intake_review.md` when the user wants a full review report before any integration happens
 - `utilities/knowledge_integration.md` only after explicit user approval of a reviewed knowledge package
 - `utilities/system_progress_review.md` when the user wants to know current roadmap progress, current bottlenecks, and the next milestone
+- `utilities/task_registry_bootstrap.md` when the user wants to enable or verify the repo-level task-history scaffold
+- `utilities/task_tracking_start.md` when the user wants lifecycle timing to begin before closure
+- `utilities/task_registry_append.md` when the user wants to close work and record a durable task-outcome event
+- `utilities/task_feedback_capture.md` when the user wants to record acceptance, reopen, rejection, or validation feedback
+- `utilities/task_registry_reconcile.md` when the user wants to rebuild current task snapshots from append-only events
+- `utilities/task_registry_validate.md` when the user wants to verify event shape, snapshot consistency, or public-contract compliance
+- `utilities/task_metrics_rollup.md` when the user wants delivery metrics or repeated task-pattern summaries
+- `utilities/task_registry_archive.md` when the user wants retention or rollover planning for the task-history surface
 - `utilities/internet_research_watch.md` when the user wants periodic external research focused on improving the current AI system and tooling
 - `utilities/system_self_evaluation.md` when auditing the structure, routing quality, or LLM efficiency of the prompt system
 - `utilities/system_health_review.md` when focusing on conflicts, redundancy, dead paths, and cleanup priorities

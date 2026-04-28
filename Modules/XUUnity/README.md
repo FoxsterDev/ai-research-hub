@@ -83,6 +83,14 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/system_progress_review.md`
 - `utilities/system_registry_refresh.md`
 - `utilities/system_project_registry_audit.md`
+- `utilities/task_registry_bootstrap.md`
+- `utilities/task_tracking_start.md`
+- `utilities/task_registry_append.md`
+- `utilities/task_feedback_capture.md`
+- `utilities/task_registry_reconcile.md`
+- `utilities/task_registry_validate.md`
+- `utilities/task_metrics_rollup.md`
+- `utilities/task_registry_archive.md`
 - `utilities/internet_research_watch.md`
 - `utilities/system_self_evaluation.md`
 - `utilities/system_health_review.md`
@@ -234,6 +242,18 @@ Recommended short commands:
 - `xuunity system progress review`
 - `xuunity system registry refresh`
 - `xuunity system project registry audit`
+- `xuunity task registry bootstrap`
+- `xuunity start tracking this task`
+- `xuunity finish the work`
+- `xuunity close this task`
+- `xuunity record this fix`
+- `xuunity this works`
+- `xuunity this has bugs`
+- `xuunity reopen this task`
+- `xuunity mark this validated`
+- `xuunity validate task registry`
+- `xuunity task metrics`
+- `xuunity archive task registry`
 - `xuunity system research watch`
 - `xuunity system health review`
 - `xuunity system cleanup`
