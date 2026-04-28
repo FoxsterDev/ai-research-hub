@@ -201,6 +201,7 @@ Interpret short commands by intent:
 - `xuunity implementation plan ...` or `xuunity feature plan ...` -> `tasks/implementation_plan.md`
 - `xuunity validation plan ...` or `xuunity feature validation ...` -> `tasks/validation_plan.md`
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` -> `tasks/rollout_plan.md`
+- `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` -> `tasks/change_delivery.md`
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
 - `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
@@ -298,6 +299,7 @@ Interpret short commands by intent:
 - `xuunity architecture plan ...` or `xuunity arch plan ...` should prefer `tasks/architecture_plan.md` plus `role/architect.md` and `skills/architecture/`
 - `xuunity validation plan ...` should prefer `tasks/validation_plan.md` when the user is asking how the feature should be validated before or during implementation
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` should prefer `tasks/rollout_plan.md` when the user is asking how the feature should be exposed, monitored, or rolled back rather than whether it is already ready to ship
+- `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` should prefer `tasks/change_delivery.md` when the user wants commit hygiene, commit naming, or push sequencing rather than implementation changes
 
 Role selectors are also valid.
 Examples:
@@ -534,6 +536,7 @@ Use this planning split:
 - `tasks/architecture_plan.md` for target-shape and ownership decisions
 - `tasks/refactoring.md` plus `skills/refactoring/` for safe migration on live code
 - `tasks/implementation_plan.md` for execution sequencing after the target shape is accepted
+- `tasks/change_delivery.md` for commit splitting, commit-message quality, and push sequencing after the code is ready to publish
 
 ## System Utility Hints
 Use these utilities when the task is about the protocol system itself:
