@@ -47,6 +47,14 @@ Review planned feature delivery risk before coding or rollout decisions so break
    - stop and request clarification if ownership, validation, or dependency assumptions are still too weak
 
 ## Output
+When the review is output or saved as a report, include review metadata at the top:
+- `Date`
+- `Repo`
+- `Target project`
+- `Branch`
+- `Commit`
+- `Review type`
+
 - Delivery target summary
 - Delivery risk class
 - Critical flows at risk

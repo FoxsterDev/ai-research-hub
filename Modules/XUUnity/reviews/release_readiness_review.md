@@ -20,6 +20,14 @@
 - Load `knowledge/severity_matrix.md` when release findings need explicit shared severity or release-blocker framing.
 
 ## Output
+When the review is output or saved as a report, include review metadata at the top:
+- `Date`
+- `Repo`
+- `Target project`
+- `Branch`
+- `Commit`
+- `Review type`
+
 - Findings table:
   - `Category | Issue | Severity | Remediation`
 - Feature and core-flow risk assessment
