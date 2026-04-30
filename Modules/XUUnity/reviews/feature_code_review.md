@@ -20,6 +20,7 @@
 - Whether `Application.lowMemory` handling is bounded and idempotent enough for repeated pressure
 - Whether `DontDestroyOnLoad` runtime-service integration tests were placed in PlayMode rather than forced into EditMode
 - Whether testability was achieved without unnecessary test-only pollution of production APIs
+- For Unity-facing realtime transports or callback pipelines that can burst or fan out heavily, whether heavy ingress work stays off the main thread and whether backlog is bounded and budgeted instead of being drained unbounded on one frame
 
 ## Output
 When the review is output or saved as a report, include review metadata at the top:
