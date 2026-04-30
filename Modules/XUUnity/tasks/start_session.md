@@ -205,6 +205,7 @@ Interpret short commands by intent:
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
 - `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
+- `xuunity publish the work ...` -> `tasks/change_delivery.md` first, then any host-declared closeout or reporting route from the repo router
 - `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
 - `xuunity task registry reconcile ...` or `xuunity rebuild task index ...` -> `utilities/task_registry_reconcile.md`
 - `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
@@ -258,6 +259,7 @@ Interpret short commands by intent:
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
 - `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
+- `xuunity publish the work ...` -> `tasks/change_delivery.md` first, then any host-declared closeout or reporting route from the repo router
 - `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
 - `xuunity task registry reconcile ...`, `xuunity rebuild task index ...`, or `xuunity sync task snapshots ...` -> `utilities/task_registry_reconcile.md`
 - `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
@@ -299,7 +301,7 @@ Interpret short commands by intent:
 - `xuunity architecture plan ...` or `xuunity arch plan ...` should prefer `tasks/architecture_plan.md` plus `role/architect.md` and `skills/architecture/`
 - `xuunity validation plan ...` should prefer `tasks/validation_plan.md` when the user is asking how the feature should be validated before or during implementation
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` should prefer `tasks/rollout_plan.md` when the user is asking how the feature should be exposed, monitored, or rolled back rather than whether it is already ready to ship
-- `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` should prefer `tasks/change_delivery.md` when the user wants commit hygiene, commit naming, or push sequencing rather than implementation changes
+- `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, `xuunity publish the work ...`, or `xuunity split these changes into commits ...` should prefer `tasks/change_delivery.md` when the user wants commit hygiene, commit naming, or push sequencing rather than implementation changes
 
 Role selectors are also valid.
 Examples:
