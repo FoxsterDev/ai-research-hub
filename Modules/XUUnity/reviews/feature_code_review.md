@@ -21,6 +21,8 @@
 - Whether `DontDestroyOnLoad` runtime-service integration tests were placed in PlayMode rather than forced into EditMode
 - Whether testability was achieved without unnecessary test-only pollution of production APIs
 - For Unity-facing realtime transports or callback pipelines that can burst or fan out heavily, whether heavy ingress work stays off the main thread and whether backlog is bounded and budgeted instead of being drained unbounded on one frame
+- For open-if-installed or install-if-missing flows, whether installed-app identity is modeled separately from store-destination identity instead of one overloaded field being used for both
+- For SDK-driven external-open flows, whether fallback order preserves both UX quality and attribution opportunity instead of jumping straight to a blunt direct-store fallback
 
 ## Output
 When the review is output or saved as a report, include review metadata at the top:
