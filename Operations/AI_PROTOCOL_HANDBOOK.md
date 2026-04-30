@@ -123,6 +123,7 @@ Best for:
 - `xuunity task registry bootstrap`
 - `xuunity start tracking this task`
 - `xuunity finish the work`
+- `xuunity publish the work`
 - `xuunity this works`
 - `xuunity validate task registry`
 - `xuunity task metrics`

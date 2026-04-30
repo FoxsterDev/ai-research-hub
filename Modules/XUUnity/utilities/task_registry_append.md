@@ -5,6 +5,7 @@ Record a human-triggered task outcome as append-only task events plus a low-risk
 
 ## Use For
 - `finish the work`
+- `publish the work` when the host repo treats it as a closeout command
 - `close this task`
 - `record this fix`
 - `post and record this work`
@@ -76,6 +77,7 @@ Record a human-triggered task outcome as append-only task events plus a low-risk
    - `linked_audit_path`
 5. Append a `work_finished` event to `AIOutput/Registry/task_events.jsonl`.
 6. If the user explicitly asked for Slack posting and the host repo declares a Slack delivery route, record a separate `slack_reported` event after the post succeeds.
+   - Explicit Slack posting includes direct Slack commands and any host-declared closeout trigger such as `finish the work` or `publish the work` when the repo router defines those commands as Slack-delivery triggers.
 7. Update only low-risk current fields in `AIOutput/Registry/task_index.yaml`:
    - latest timestamp
    - latest event type
@@ -98,5 +100,6 @@ Record a human-triggered task outcome as append-only task events plus a low-risk
 - This workflow is human-triggered. Do not append task-history events automatically during ordinary implementation chatter.
 - Keep the event store append-only.
 - Keep Slack optional and downstream.
+- If the host repo defines specific closeout commands as Slack-delivery triggers, honor that routing when deciding whether `slack_reported` should be appended.
 - Keep business rollups derived from events, not from raw chat volume.
 - Treat task audit notes as repo-level portfolio artifacts that summarize task history. Do not treat them as project-local `Assets/AIOutput/` delivery history.
