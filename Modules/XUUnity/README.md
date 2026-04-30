@@ -219,6 +219,7 @@ Recommended short commands:
 - `xuunity commit this work`
 - `xuunity commit all changes`
 - `xuunity publish local changes`
+- `xuunity publish the work`
 - `xuunity push all changes`
 - `xuunity full review this sdk`
 - `xuunity review all this project`
@@ -250,6 +251,7 @@ Recommended short commands:
 - `xuunity task registry bootstrap`
 - `xuunity start tracking this task`
 - `xuunity finish the work`
+- `xuunity publish the work`
 - `xuunity close this task`
 - `xuunity record this fix`
 - `xuunity this works`

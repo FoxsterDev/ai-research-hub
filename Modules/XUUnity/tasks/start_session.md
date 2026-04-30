@@ -281,7 +281,7 @@ Interpret short commands by intent:
 - `xuunity system archive old reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system audit ai clutter ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system evaluation cadence ...` -> `utilities/system_evaluation_cadence.md`
-- `xuunity slack summary ...`, `xuunity post this work to slack`, or `xuunity report this work to slack` -> use the repo-level Slack delivery route and load the host-local Slack work-summary utility when the repo router declares one
+- `xuunity slack summary ...`, `xuunity post this work to slack`, `xuunity report this work to slack`, `xuunity finish the work ...`, or `xuunity publish the work ...` -> use the repo-level Slack delivery route and load the host-local Slack work-summary utility when the repo router declares one
 - `xuunity product explain ...` or `xuunity product feature ...` -> `product/protocols/feature_explainer.md`
   - if the queried feature is represented by a project-local class that inherits from or delegates into a shared runtime layer, inspect that shared layer before answering
   - for gameplay projects that use a project-local gameplay bridge, flow-style explain requests should inspect the host-declared bridge entry artifact under `Assets/AIOutput/` first unless the current project router or project memory explicitly opts out of that path
