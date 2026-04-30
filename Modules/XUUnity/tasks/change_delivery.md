@@ -50,6 +50,7 @@ Use these commands with distinct semantics:
 If the command says `commit`, do not silently upgrade it to `push`.
 If the command says `push`, do not silently create missing commits.
 If the command says `publish`, it explicitly means commit plus push.
+If the command specifically says `publish the work`, treat change delivery as the git portion of a broader closeout command and defer any host-declared reporting or handoff actions back to the repo router after change delivery is complete.
 
 ## Process
 1. Discover the commit surfaces:
