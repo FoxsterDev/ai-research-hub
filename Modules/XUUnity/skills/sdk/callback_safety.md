@@ -14,6 +14,8 @@
   - facade owns ingress normalization
   - one dispatching layer owns egress normalization
 - When a strategy or orchestration layer exists, let it own public callback adaptation. Platform adapters should report sync failure or native completion, not directly own user callback policy.
+- If an SDK asynchronously generates or returns a destination URL for an external launch, let the adapter request or report that destination, but keep navigation policy, validation, and fallback ownership at a higher orchestration layer.
+- Do not bury external-open policy inside the raw SDK callback when the caller needs product control over fallback order, attribution preservation, or installed-versus-store routing.
 - If ingress normalization already exists above the platform adapter, prefer deleting redundant platform-thread posting rather than keeping a second hidden normalization layer.
 - Keep monetization and attribution callbacks crash-safe and idempotent.
 - If callback thread origin is not guaranteed, explicitly return to the Unity main thread before touching Unity APIs, Unity objects, or Unity-bound SDK flows.
