@@ -27,6 +27,10 @@ Reusable guidance for install-if-missing and cross-promo store-open flows in Uni
   3. direct App Store fallback
 - Treat direct `itms-apps://...` or equivalent direct-store URLs as the safety net, not the first recovery step after in-app store presentation fails.
 - When an attributed URL exists, preserve its chance to carry attribution before dropping to a direct store URL that may lose campaign context.
+- Do not assume a generic attributed link is a valid alternative-store destination on Android.
+  - on `Huawei`, `Amazon`, or `Galaxy`, a generic OneLink or similar attributed URL does not by itself prove that the user will land in the correct store
+  - if the flow must guarantee a valid destination for the current store, prefer a store-specific direct link or a local store-aware fallback path
+  - preserve attribution only when the destination policy is already trusted for that platform/store combination
 - Keep fallback logs branch-specific and operational.
   - log whether StoreKit, attributed URL, or direct store URL actually ran
   - log URL scheme when deciding whether attribution ping or web-style validation is meaningful
