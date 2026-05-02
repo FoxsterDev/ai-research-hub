@@ -3,6 +3,8 @@
 ## Goal
 Review code for production risk in Unity and native integration paths.
 
+If the primary review target is the quality of tests themselves rather than the runtime code they accompany, route to `reviews/test_quality_review.md` instead of staying on this generic review task.
+
 ## Focus
 - Bugs and regressions first
 - Threading and ownership risk

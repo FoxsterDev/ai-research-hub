@@ -214,6 +214,7 @@ If a skill family is matched, the implementation or review context is incomplete
 `XUUnity` may also be used to evolve and audit its own protocol system.
 
 Recommended short commands:
+- `xuunity review tests this package`
 - `xuunity review the git change`
 - `xuunity git change review`
 - `xuunity commit this work`

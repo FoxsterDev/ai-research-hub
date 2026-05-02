@@ -215,6 +215,9 @@ Interpret short commands by intent:
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`
 - `xuunity git change review ...` -> `reviews/git_change_review.md`
+- `xuunity review tests ...` -> `reviews/test_quality_review.md`
+- `xuunity tests review ...` -> `reviews/test_quality_review.md`
+- `xuunity review test quality ...` -> `reviews/test_quality_review.md`
 - `xuunity full review ...` -> `reviews/full_review.md`
 - `xuunity review all ...` -> `reviews/full_review.md`
   - classify target kind first:
