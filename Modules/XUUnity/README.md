@@ -203,6 +203,7 @@ First-class skill families include:
 
 Skill packs should be loaded by shorthand intent, code signals, and project context, then narrowed by project memory and `SkillOverrides/` when present.
 If a skill family is matched, the implementation or review context is incomplete without that skill layer.
+For implementation tasks such as `xuunity fix ...`, `xuunity refactor ...`, and `xuunity feature ...`, the testing baseline from `skills/tests/testing_doctrine.md` is part of the default working context even when the user did not ask for a standalone test review.
 
 ## Shared Layer Contract
 - `AIRoot/Modules/XUUnity/` is the public-safe reusable core.

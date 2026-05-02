@@ -6,6 +6,17 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 ## Focus
 - Narrow the defect to ownership, threading, lifecycle, marshaling, state, or initialization order.
 - Prefer low-risk fixes before structural redesign.
+- Treat `skills/tests/testing_doctrine.md` as a default constraint for this task, not an optional add-on.
+- Do not default to writing tests immediately while the fix shape is still moving.
+  - Prefer adding or finalizing tests near the end of the fix once the owned runtime behavior and seams are stable enough to validate cleanly.
+  - If tests are optional, ambiguous, or expensive relative to the task, ask the user whether they want tests instead of spending token budget automatically.
+  - If regression risk, bug family, or an explicit user request clearly requires tests, say so briefly and proceed.
+- If new tests are authored, run a quick self-review against the testing doctrine before closure.
+  - Check at minimum:
+    - real owned code versus fake-heavy coverage
+    - seam cleanliness
+    - readability
+    - whether any newly added test should be simplified, replaced, or deleted
 - Keep the fix task primary, but if investigation or the patch plan shows that the fix changes ownership boundaries, state orchestration, startup sequencing, SDK wrapper responsibilities, queue or flush logic, cache behavior, or cross-layer placement, also load `tasks/refactoring.md` as a behavior-preserving overlay.
 - Check project memory before changing platform or SDK behavior.
 - For Android manifest, Gradle, resolver, or SDK-startup defects, verify that the inspected generated artifacts come from the same fresh build being diagnosed.
