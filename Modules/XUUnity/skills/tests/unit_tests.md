@@ -6,7 +6,9 @@
 - utility and service behavior
 
 ## Rules
+- Follow `testing_doctrine.md` as the baseline testing policy.
 - Unit test logic with stable inputs and outputs.
+- Keep as much owned production logic real as practical, even in unit-level coverage.
 - Do not fake confidence by unit testing trivial wrappers only.
 - Prioritize logic that protects progression, economy, state transitions, and error handling.
 - Keep tests deterministic and fast enough for regular execution.

@@ -6,6 +6,7 @@
 - black-box SDK integration boundaries
 
 ## Rules
+- For testability constraints on wrapper code, follow `skills/tests/testing_doctrine.md` as the baseline policy.
 - Treat third-party SDKs as zero-trust boundaries.
 - Do not trade stable product behavior or public wrapper contract semantics for internal cleanup.
 - Keep the public wrapper facade thin: explicit contract checks, required ingress normalization, and delegation only. Do early synchronous validation only when it does not violate the documented public thread contract. Put orchestration below the facade.
@@ -29,7 +30,7 @@
 - Keep canonical mirrored state in one owner only. If platform or vendor mirroring fails, preserve the previous canonical value instead of partially applying the mutation.
 - When launch behavior materially differs across modes such as native vs browser, prefer strategy split over a broad capability-probing interface with methods that some implementations should never use.
 - Keep editor helpers, test hooks, and platform-specific support classes out of the main production wrapper folder when they are not part of the runtime contract.
-- Do not add permanent runtime test seams to shipping wrapper code unless automated device validation is regular, trusted, and release-gating.
+- Treat broad test-only seams in shipping wrapper code as rejected by default unless the seam improves the runtime design independently of tests or automated device validation is regular, trusted, and release-gating.
 - Contain malformed data, nulls, parsing failures, and vendor exceptions inside the wrapper layer.
 - Keep SDK-specific assumptions and vendor quirks out of core gameplay, UI, and business logic.
 - Name wrapper variants after the narrow guarantee they actually provide. Do not advertise full thread-safety when the implementation still depends on Unity-owned or thread-affine interop surfaces.

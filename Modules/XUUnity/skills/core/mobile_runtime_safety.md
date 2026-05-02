@@ -13,6 +13,8 @@
 - Separate raw Unity lifecycle signals from derived consumer-facing app state when wrapping focus, pause, resume, and background behavior.
 - Keep the high-level lifecycle model product-meaningful. If most consumers only need foreground versus background, expose one clear background state instead of multiple raw callback-order combinations.
 - Keep mobile save heuristics behind the lifecycle boundary rather than scattering iOS and Android persistence branches across feature consumers.
+- When editor runtime behavior must override platform-target behavior, remember that `UNITY_EDITOR` can coexist with active build-target symbols such as `UNITY_ANDROID` or `UNITY_IOS`; order preprocessor branches so the editor contract wins explicitly.
+- For editor validation of mobile runtime helpers, keep editor on the same main fetch/cache/orchestration path as production where practical and express editor behavior as a small policy delta rather than a separate control flow.
 - Treat `Application.lowMemory` as a bounded pressure signal, not as an instruction to run unbounded repeated heavy persistence.
 - Gate low-memory-driven persistence through dirty state, cooldown, or recent-save suppression where appropriate.
 
