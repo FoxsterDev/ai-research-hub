@@ -5,6 +5,8 @@ Use this file as the canonical testing doctrine for `xuunity`.
 
 Tests should maximize confidence in real production behavior without polluting public API shape, degrading component design, or normalizing fake-heavy coverage of owned runtime code.
 
+For `xuunity`, this doctrine is a default development constraint for implementation work, not only a review-time reference. When new tests are written, they should be authored with this doctrine loaded rather than retrofitted later.
+
 One of the primary missions of tests is to help find production UX bugs early by closing rare but critical logical branches in real runtime code before users discover them in live flows.
 
 Another mission of tests is to avoid increasing the cognitive complexity of the project. Tests should remain elegant, readable, and understandable to humans rather than becoming a second hard-to-reason system around the product code.
@@ -30,6 +32,7 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 - Tests should exercise as much real production runtime code as practical.
 - Prefer real production behavior over tests that mostly validate mocks, mirrored fakes, or duplicated test logic.
 - Do not fake confidence by proving only scaffolding, trivial forwarding wrappers, or test-only control surfaces.
+- When deciding whether to add a test at all, prefer fewer strong doctrine-aligned tests over many shallow or low-value tests.
 
 ### 2. Boundary-Only Mocking
 - Mocks, fakes, and test doubles are acceptable at true external boundaries:
@@ -80,6 +83,12 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 - Do not build a second orchestration layer, fake state machine, or mini-framework in the test suite when a narrower seam or more direct assertion would do.
 - Prefer test setups and helpers that a human can understand quickly from local context.
 - Reject test shapes that preserve runtime purity at the cost of making the tests themselves obscure, over-abstract, or difficult to debug.
+
+### 5b. Test Authoring Timing Rule
+- Do not default to writing tests too early while the production shape is still moving.
+- Prefer writing or finalizing tests near the end of the implementation after the owned runtime behavior and seams have stabilized enough to validate cleanly.
+- If the need for tests is optional, ambiguous, or expensive relative to task scope, ask the user whether they want tests instead of spending token budget automatically.
+- If the task is explicitly high-risk, regression-prone, or the user clearly asked for tests, state that and proceed without waiting.
 
 ### 6. Anti-Mirror Rule
 - A test subclass, wrapper, fake, or helper is invalid by design if it duplicates production branching, fallback selection, cache policy, sequencing, or recovery logic.
@@ -258,4 +267,13 @@ From best to worst:
 - owned code versus boundary separation
 - reflection usage on live code
 - production test-hook pressure
+
+## Default XUUnity Authoring Behavior
+- For implementation tasks, treat this doctrine as loaded by default.
+- If new tests are authored, run a quick self-review against this doctrine before closing the task.
+- That self-review may be lightweight, but it must at least check:
+  - real owned code versus fake-heavy coverage
+  - seam cleanliness
+  - readability
+  - whether any newly added test should instead be deleted, simplified, or replaced with a stronger real-path test
 - mobile validation ladder completeness

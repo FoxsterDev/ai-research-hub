@@ -22,6 +22,14 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 6. Select one or more relevant files from `codestyle/`.
 7. Load baseline safety skills from `skills/core/`.
 8. Infer and load only the relevant task-specific skill packs from `skills/`.
+8a. For any implementation task such as bug fixing, refactoring, feature development, SDK work, or native-plugin work, always load the testing baseline:
+  - `skills/tests/testing_doctrine.md`
+  - the narrowest additional files from `skills/tests/` only when the task or planned validation actually needs them
+8b. Treat the testing doctrine as a default development constraint, not only as a review-time reference. Any new tests authored during the session must follow it.
+8c. Do not assume that tests must always be written.
+  - Prefer writing tests near the end of the implementation after the production shape is stable enough to test.
+  - If test writing is optional or materially expensive relative to the task, ask the user whether they want tests instead of spending large token budget by default.
+  - If tests are clearly required by risk, regression surface, or an explicit user request, state that briefly and proceed.
 9. Select one task file.
 10. Add only the review, utility, and platform files required.
 10a. Add root-level `knowledge/` files only when a concrete routing hint or the selected task or review requires them.
@@ -63,6 +71,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 20e. For `tasks/bug_fixing.md`, treat `required_validation` as provisional until patch-shape classification is known, then derive it from patch shape and bug family instead of leaving it at generic wording such as `validate fix`.
 20f. If investigation reveals queues, flush paths, cache fallbacks, delay gates, helper wrappers, or other orchestration ballast, add those signals to `trigger_reasons` and make `required_self_review` explicitly cover simplification and complexity-budget review.
 20g. If the user is likely to copy code, commands, config, prompts, or patch text from the answer, add a copy-safety check to `required_self_review` and plan the final answer around clean fenced blocks.
+20h. If new tests are authored, extend `required_self_review` to include a quick test-quality pass against `skills/tests/testing_doctrine.md` and `reviews/test_quality_review.md`.
 21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
 22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
 23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
@@ -190,6 +199,7 @@ Interpret short commands by intent:
 - `xuunity refactor ...` -> `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity extract service ...`, `xuunity split class ...`, `xuunity split presenter ...`, `xuunity decouple ...`, `xuunity untangle ...`, or `xuunity migrate ...` should also prefer `tasks/refactoring.md` plus `skills/refactoring/`
 - `xuunity fix ...` -> `tasks/bug_fixing.md`
+  - always include the testing baseline from `skills/tests/testing_doctrine.md`
   - when the request also carries SDK, startup, consent, attribution, identity, ad revenue, or third-party wrapper signals, keep `tasks/bug_fixing.md` as the task file but also load the matched SDK-sensitive and startup-sensitive stack instead of staying on a narrow local fix route
   - when investigation or the patch plan shows that the fix changes ownership boundaries or adds non-trivial orchestration or state handling, also load `tasks/refactoring.md` as a cleanup and behavior-preservation overlay
 - `xuunity feature request ...` or `xuunity intake feature ...` -> `tasks/feature_request_intake.md`
@@ -213,6 +223,7 @@ Interpret short commands by intent:
 - `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity delivery risk ...` or `xuunity feature risk review ...` -> `reviews/delivery_risk_review.md`
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
+  - always include the testing baseline from `skills/tests/testing_doctrine.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`
 - `xuunity git change review ...` -> `reviews/git_change_review.md`
 - `xuunity review tests ...` -> `reviews/test_quality_review.md`

@@ -12,6 +12,7 @@ It is about whether the tests create real production confidence without pollutin
 - scoring the quality of a feature, package, or project test suite
 - identifying fake-heavy, empty, brittle, stale, or low-value tests
 - finding worked-example candidates for the doctrine after a real review
+- quick self-review of newly authored tests near the end of an implementation session
 
 ## Load First
 - `skills/tests/testing_doctrine.md`
@@ -149,6 +150,7 @@ Rules:
    - strengthen branch coverage for UX-critical paths
    - add missing runtime validation where doctrine requires it
 8. Identify strong tests that may become doctrine worked examples after cleanup.
+9. When the review target is newly authored tests from the current session, keep the review concise but still score the tests honestly and call out deletions or simplifications if needed.
 
 ## Output
 When the review is output or saved as a report, include review metadata at the top:
@@ -161,6 +163,8 @@ When the review is output or saved as a report, include review metadata at the t
 - `Target scope`
 - `Dominant test surface`
 - `Dominant risk`
+
+If the review is saved as an artifact, store it as a project-local `xuunity` report in Markdown format under the project's normal AI output report area, using the standard project report style rather than an ad hoc note format.
 
 Then include:
 
@@ -197,3 +201,4 @@ Rules:
 - prefer calling out misleading confidence over celebrating high test counts
 - prefer deleting low-value tests over preserving them for coverage optics
 - prefer runtime confidence, readability, and design cleanliness over theoretical branch count
+- for newly written tests, do not default to rubber-stamping. If a fresh test is weak, say so and recommend improving, replacing, or deleting it before closure.
