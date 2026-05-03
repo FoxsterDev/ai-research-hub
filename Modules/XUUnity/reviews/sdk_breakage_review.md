@@ -62,6 +62,8 @@ Reject shallow review behavior:
 - identify lifecycle-sensitive APIs
 - identify threading and async assumptions
 - identify scene, reload, and persistence-sensitive integration points
+- identify opt-in capability markers, specialized interfaces, or extension base classes
+- identify compatibility or fallback paths for non-migrated consumers
 
 For each public entry point, record:
 - thread affinity:
@@ -77,6 +79,7 @@ For each public entry point, record:
   - exception / result / callback error / silent failure risk
 - stripping or AOT sensitivity
 - allocation or hot-path risk if the entry point is high-frequency
+- whether behavior differs between optimized and compatibility branches
 
 ### Breakage Categories
 - input and argument misuse
@@ -88,6 +91,7 @@ For each public entry point, record:
 - build and stripping risk
 - mobile runtime constraints
 - malicious or abuse-oriented misuse
+- opt-in migration and fallback drift
 
 Minimum scenario coverage:
 - at least one lifecycle misuse scenario
@@ -115,6 +119,7 @@ Minimum scenario coverage:
 - findings involving IL2CPP, stripping, R8, JNI, or `__Internal` must include build-context-aware test or validation notes
 - findings involving lifecycle, pause/resume, reload, or destroy behavior must include integration or playmode-style test guidance
 - findings involving API spam, retry loops, polling, or callback storms must include stress or soak-style test guidance
+- findings involving optimized versus fallback public paths must include tests for both branches and must verify shared base fields or contract members, not only specialized fields
 - if no meaningful test shape is proposed, the finding is incomplete
 
 ## Severity Rules
@@ -171,6 +176,7 @@ The review is incomplete unless it includes:
 - callback or async-threading coverage when callbacks, events, or async APIs exist
 - native-boundary coverage when JNI, Objective-C, or native bridges exist
 - concrete test additions for the highest-value breakage paths
+- compatibility coverage when the public API now has both optimized and fallback behavior
 
 The review should block release-readiness confidence when:
 - critical API contracts are undocumented or unverifiable

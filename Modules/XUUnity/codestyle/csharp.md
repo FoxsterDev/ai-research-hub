@@ -13,6 +13,10 @@
 - Prefer explicit naming over clever abstractions.
 - Prefer small focused types over broad mixed-responsibility classes.
 - Do not call virtual members from constructors. If controlled overrides are needed, move bridge or service setup into an explicit initialization step.
+- When evolving a public SDK surface, prefer additive opt-in capabilities over widening the baseline contract for all existing consumers.
+- Keep the baseline public data type or extension type simple; move specialized performance or serialization machinery into a separate optimized path owner.
+- Prefer a narrow consumer hook for customization over forcing consumers to reimplement the full payload or operation contract.
+- Prefer a safe consumer-facing base class as the primary extension point when a raw low-level interface would be too easy to misuse directly.
 
 ## Naming
 - Types, methods, properties, and public members use `PascalCase`.
@@ -79,3 +83,7 @@
 - format consistency
 - declaration and structure consistency
 - constructor and override safety
+- public API evolution safety:
+  - additive migration path
+  - compatibility fallback
+  - clean default consumer path
