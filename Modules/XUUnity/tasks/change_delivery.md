@@ -72,6 +72,7 @@ If the command specifically says `publish the work`, treat change delivery as th
    - load `reviews/git_change_review.md` when the diff is risky, broad, or still not trusted
 4. Apply the commit quality bar:
    - one commit, one dominant intent
+   - write commit subjects and bodies in English unless the user explicitly asks for another language
    - prefer `<type>(<scope>): <concrete outcome>` when a real scope exists
    - otherwise use `<type>: <concrete outcome>`
    - choose the strongest type that matches the change:
@@ -86,6 +87,7 @@ If the command specifically says `publish the work`, treat change delivery as th
    - keep the subject concrete, imperative, and scan-friendly
    - ban filler subjects such as `update stuff`, `misc fixes`, `changes`, or `wip`
 5. Write the commit body from evidence, not memory:
+   - use a commit body for non-trivial changes by default
    - `Why:` what problem, risk, or repo need drove the change
    - `What:` the main technical deltas
    - `Validation:` what was checked, or the explicit validation gap
@@ -180,6 +182,7 @@ Use these rules when a cascade cannot finish cleanly:
 
 ### Subject
 - Use imperative voice.
+- Write it in English unless the user explicitly asked for another language.
 - Name the user-visible or maintainer-visible outcome, not only the file touched.
 - Prefer the narrowest real scope instead of a broad bucket.
 - Keep the wording stable enough that someone can scan `git log --oneline` and understand the release story.
@@ -202,6 +205,10 @@ What:
 Validation:
 - tests, manual checks, or explicit gap
 ```
+
+For non-trivial changes, include a body by default even when the user did not explicitly ask for one.
+Keep the body in English unless the user explicitly asked for another language.
+Use the body to record behavior changes, validation evidence, and any validation gap that still matters to release confidence.
 
 Add `Depends on:` only when a root repo commit points at a nested repo commit that must already be present on the remote.
 
