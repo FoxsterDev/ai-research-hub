@@ -156,22 +156,17 @@ Rules:
 8. Identify strong tests that may become doctrine worked examples after cleanup.
 9. When the review target is newly authored tests from the current session, keep the review concise but still score the tests honestly and call out deletions or simplifications if needed.
 10. If the review recommends edits to shared setup, teardown, or file-level harness helpers, do not treat the review as closed until execution evidence covers at least one narrow target and the full file or closest shared harness slice.
-11. When the user asked for `xuunity review tests` and the review produced findings or a cleanup plan, save the review artifact before switching into implementation or test-fix work. Do not rely on the chat response alone as the durable review record.
+11. Follow the review-artifact contract when the review reaches findings, a cleanup plan, or a score.
+
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`, plus:
 - `Target scope`
 - `Dominant test surface`
 - `Dominant risk`
-
-If the review is saved as an artifact, store it as a project-local `xuunity` report in Markdown format under the project's normal AI output report area, using the standard project report style rather than an ad hoc note format.
-If the session later moves from review into fixes, keep the saved review artifact as the pre-fix record and create a separate validation or follow-up artifact instead of silently replacing the original review.
 
 Then include:
 

@@ -48,13 +48,7 @@ Review planned feature delivery risk before coding or rollout decisions so break
    - stop and request clarification if ownership, validation, or dependency assumptions are still too weak
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 - Delivery target summary
 - Delivery risk class
@@ -64,6 +58,10 @@ When the review is output or saved as a report, include review metadata at the t
 - Mandatory controls and validation gates
 - Recommended next protocol step
 - Quality score section using `knowledge/review_quality_scoring.md`
+
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
 
 ## Rules
 - Do not flatten uncertain or mixed evidence into `low` risk.

@@ -22,13 +22,7 @@
 - Load `knowledge/severity_matrix.md` when release findings need explicit shared severity or release-blocker framing.
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 - Findings table:
   - `Category | Issue | Severity | Remediation`
@@ -36,3 +30,7 @@ When the review is output or saved as a report, include review metadata at the t
 - QA manual validation recommendations
 - Candidate release-validation test cases when evidence is sufficient
 - Quality score section using `knowledge/review_quality_scoring.md`
+
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.

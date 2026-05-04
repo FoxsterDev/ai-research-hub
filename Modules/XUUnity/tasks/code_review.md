@@ -46,6 +46,5 @@ Load `knowledge/review_quality_scoring.md` for any review that reaches a concret
 - Residual risk
 
 ## Review Artifact Rule
-- When `xuunity` review work produces concrete findings for a real project, save a project-local Markdown review artifact under that project's normal AI output area before switching into implementation or fix work.
-- Do not treat the chat response alone as the durable review record when the session has already reached a concrete review verdict.
-- If the session later moves from review into fixes, keep the saved review artifact as the pre-fix record and create a separate validation or follow-up artifact instead of silently replacing the original review.
+- Follow `reviews/review_artifact_contract.md` for the default save-by-default behavior.
+- Use `utilities/report_export.md` for the default review-type destination mapping instead of picking an ad hoc folder.

@@ -6,6 +6,7 @@ Route generated outputs into the correct project or host-repo destination.
 ## Rules
 - Durable project-local rules -> `Assets/AIOutput/ProjectMemory/`
 - Audits -> `Assets/AIOutput/Audits/`
+- Code reviews, feature reviews, native reviews, git-change reviews, and test-quality reviews -> `Assets/AIOutput/CodeReviews/`
 - Architecture notes -> `Assets/AIOutput/Architecture/`
 - SDK reviews -> `Assets/AIOutput/SDKReviews/`
 - Early-stage knowledge -> `Assets/AIOutput/KnowledgeDrafts/`
@@ -18,6 +19,29 @@ Route generated outputs into the correct project or host-repo destination.
 - Host-level task event store, task snapshot index, task metrics, and lessons learned -> `AIOutput/Registry/`
 - Before saving any generated output, redact literal secret values. Do not export API keys, tokens, client tokens, passwords, private keys, certificates, signing material, or credential-bearing URLs into any artifact destination.
 - If sensitive config evidence is needed in the artifact, keep only the field name, file path, and presence status, with the value replaced by `[REDACTED]`.
+
+## Default Review Destination Map
+- `reviews/feature_code_review.md` -> `Assets/AIOutput/CodeReviews/`
+- `reviews/git_change_review.md` -> `Assets/AIOutput/CodeReviews/`
+- `reviews/native_plugin_review.md` -> `Assets/AIOutput/CodeReviews/`
+- `reviews/test_quality_review.md` -> `Assets/AIOutput/CodeReviews/`
+- `reviews/sdk_code_review.md` -> `Assets/AIOutput/SDKReviews/`
+- `reviews/sdk_breakage_review.md` -> `Assets/AIOutput/SDKReviews/`
+- `reviews/architecture_review.md` -> `Assets/AIOutput/Architecture/`
+- `reviews/delivery_risk_review.md` -> `Assets/AIOutput/Audits/`
+- `reviews/release_readiness_review.md` -> `Assets/AIOutput/Audits/`
+- `reviews/full_review.md` -> `Assets/AIOutput/Audits/`
+
+## Example Destination And Naming Combos
+- `Assets/AIOutput/CodeReviews/2026-05-04_ProjectAlpha_Identity_TestQualityReview.md`
+- `Assets/AIOutput/SDKReviews/2026-05-04_ProjectAlpha_Analytics_SDKReview.md`
+- `Assets/AIOutput/Architecture/2026-05-04_ProjectAlpha_Startup_ArchitectureReview.md`
+- `Assets/AIOutput/Audits/2026-05-04_ProjectAlpha_Auth_FullReview.md`
+
+## Review Persistence Rule
+- Follow `reviews/review_artifact_contract.md` for the canonical save-by-default behavior.
+- This file is the source of truth for the default review destination map.
+- Use the map above unless the active project router defines a narrower local destination.
 
 ## Boundary
 - Use project `Assets/AIOutput/` when the output belongs to one project's runtime truth or delivery history.

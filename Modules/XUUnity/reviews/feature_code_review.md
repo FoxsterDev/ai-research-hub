@@ -36,13 +36,7 @@
 - For SDK-driven external-open flows, whether fallback order preserves both UX quality and attribution opportunity instead of jumping straight to a blunt direct-store fallback
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 - Findings table:
   - `Category | Issue | Severity | Remediation`
@@ -52,7 +46,6 @@ When the review is output or saved as a report, include review metadata at the t
 - Candidate test cases when evidence is sufficient
 - Quality score section using `knowledge/review_quality_scoring.md`
 
-## Persistent Review Record
-- For project-scoped feature reviews that produce concrete findings, save a concise project-local review artifact in the normal AI output area before moving into fix work.
-- Treat that artifact as the pre-fix review record.
-- If the same session later implements fixes, capture validation or follow-up results in a separate artifact rather than overwriting the original review.
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
