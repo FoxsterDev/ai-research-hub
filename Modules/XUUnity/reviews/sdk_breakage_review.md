@@ -122,6 +122,10 @@ Minimum scenario coverage:
 - findings involving optimized versus fallback public paths must include tests for both branches and must verify shared base fields or contract members, not only specialized fields
 - if no meaningful test shape is proposed, the finding is incomplete
 
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
+
 ## Severity Rules
 - `Critical`
   - native crash, ANR, irreversible corruption, security-sensitive abuse, or broad release-blocking breakage
@@ -138,13 +142,7 @@ Raise severity by one level when:
 - the issue is hard to detect without explicit tests or telemetry
 
 ## Required Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 For each finding:
 - Title
