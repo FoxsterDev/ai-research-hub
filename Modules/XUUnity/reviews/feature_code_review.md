@@ -47,3 +47,8 @@ When the review is output or saved as a report, include review metadata at the t
   - `Flow | Breakage Probability | Risk Class | Why It Can Break | User Impact`
 - QA manual validation recommendations
 - Candidate test cases when evidence is sufficient
+
+## Persistent Review Record
+- For project-scoped feature reviews that produce concrete findings, save a concise project-local review artifact in the normal AI output area before moving into fix work.
+- Treat that artifact as the pre-fix review record.
+- If the same session later implements fixes, capture validation or follow-up results in a separate artifact rather than overwriting the original review.
