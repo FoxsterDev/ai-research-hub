@@ -94,19 +94,14 @@ When this happens:
 7. Candidate test cases when evidence is sufficient.
 8. A release recommendation.
 
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`, plus:
 - `Review scope`
 
-## Persistent Review Report
-After running this review for a concrete project, also save a short durable report under the project-local AI output tree:
-- `<Project>/Assets/AIOutput/CodeReviews/`
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
 
-The saved report should be concise and PR-friendly:
+The saved review artifact should be concise and PR-friendly:
 - review scope
 - comparison base
 - included local delta, if any
@@ -119,7 +114,7 @@ The saved report should be concise and PR-friendly:
 Use the canonical short template:
 - `AIRoot/Templates/XUUNITY_GIT_CHANGE_REVIEW_TEMPLATE.md`
 
-Preferred saved report shape:
+Preferred saved review artifact shape:
 
 ```md
 # XUUnity Git Change Review Report

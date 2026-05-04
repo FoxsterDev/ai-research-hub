@@ -35,6 +35,11 @@ Use this utility when the user wants:
 - reusable reviewer insights
 - suggested follow-up destination if the artifact should later influence `skills/`, `knowledge/`, or project memory
 
+When saving a project-scoped review artifact:
+- use `reviews/review_artifact_metadata.md` for the base metadata block
+- use `reviews/review_artifact_naming.md` for the default filename shape
+- use `utilities/report_export.md` for the destination map
+
 Use this exact section shape:
 - `# Engineering Review Artifact`
 - `## 1. Problem and Context`

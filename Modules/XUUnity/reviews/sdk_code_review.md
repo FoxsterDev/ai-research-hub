@@ -43,13 +43,7 @@
 - seams that keep device-risky paths testable without shipping fake execution branches
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 - Findings table:
   - `Category | Issue | Severity | Remediation`
@@ -57,6 +51,10 @@ When the review is output or saved as a report, include review metadata at the t
 - QA manual validation recommendations
 - Candidate manual or automation test cases when evidence is sufficient
 - Quality score section using `knowledge/review_quality_scoring.md`
+
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
 
 ## Escalate To
 If the integration is high-risk or breakage-prone, also load:

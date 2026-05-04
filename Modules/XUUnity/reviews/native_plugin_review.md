@@ -25,13 +25,7 @@ Review expectations for these checks:
 - If the bridge already has an async native event path, the initial snapshot path should not hide avoidable synchronous native work on the Unity main thread during startup unless the product flow explicitly requires that blocking read.
 
 ## Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`.
 
 - Findings table:
   - `Category | Issue | Severity | Remediation`
@@ -39,3 +33,7 @@ When the review is output or saved as a report, include review metadata at the t
 - QA manual validation recommendations
 - Candidate device or integration test cases when evidence is sufficient
 - Quality score section using `knowledge/review_quality_scoring.md`
+
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
