@@ -228,6 +228,10 @@ Rules:
 8. Normalize all findings into one canonical issue list
 9. Produce one stability-first synthesis and release verdict
 
+## Review Artifact Contract
+- Follow `reviews/review_artifact_contract.md`.
+- Use `utilities/report_export.md` for the destination map.
+
 ## Bundle Rationale Contract
 The full review must leave behind a clear audit trail for why each protocol was or was not run.
 
@@ -317,13 +321,7 @@ Inside each group, sort by:
 Never bury a confirmed production bug below a cleaner but less dangerous architecture observation.
 
 ## Required Output
-When the review is output or saved as a report, include review metadata at the top:
-- `Date`
-- `Repo`
-- `Target project`
-- `Branch`
-- `Commit`
-- `Review type`
+For any saved review artifact, include the base metadata from `reviews/review_artifact_metadata.md`, plus:
 - `Review scope`
 - `Target kind`
 - `Active risk families`

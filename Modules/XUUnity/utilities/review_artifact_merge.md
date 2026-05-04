@@ -30,6 +30,11 @@ Use this utility when the user wants to:
 - unresolved tensions or open questions
 - suggested follow-up destination if the artifact should later influence `skills/`, `knowledge/`, or project memory
 
+When saving a project-scoped merged review artifact:
+- use `reviews/review_artifact_metadata.md` for the base metadata block
+- use `reviews/review_artifact_naming.md` for the default filename shape
+- use `utilities/report_export.md` for the destination map
+
 Preferred section shape:
 - `# Consolidated Engineering Review Artifact`
 - `## 1. Problem and Scope`
