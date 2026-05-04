@@ -84,6 +84,13 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 - Prefer test setups and helpers that a human can understand quickly from local context.
 - Reject test shapes that preserve runtime purity at the cost of making the tests themselves obscure, over-abstract, or difficult to debug.
 
+### 5c. Shared Harness State Rule
+- Treat shared test setup, teardown, static reset helpers, and file-level harness code as production-critical test infrastructure.
+- When a suite depends on static state, singleton state, engine-global callbacks, or persisted local artifacts, make reset ownership explicit and deterministic.
+- If a test helper replaces a broad reflection reset with a real cleanup path, verify that repeated cleanup still restores every state bit the suite relies on.
+- Do not assume `Dispose()` alone proves equivalent test isolation when repeated disposal can short-circuit or preserve flags from earlier tests.
+- Prefer a narrow production-valid reset seam for test isolation over reflection-heavy mutation of unrelated private state.
+
 ### 5b. Test Authoring Timing Rule
 - Do not default to writing tests too early while the production shape is still moving.
 - Prefer writing or finalizing tests near the end of the implementation after the owned runtime behavior and seams have stabilized enough to validate cleanly.
@@ -107,6 +114,8 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
   - stable diagnostic marker
   - contract-level side effect
 - Do not rely on hidden internal branching alone for confidence in recovery or production-critical paths.
+- Distinguish between different observability channels before choosing assertions. A Unity console message, a Unity callback, and a logger target capture are not automatically the same runtime contract.
+- Do not swap one observation channel for another during cleanup or review work without revalidating what the production path actually emits.
 
 ### 7. Reflection Restriction
 - Reflection against private state or private method flow in tests for live production code requires explicit human approval.
@@ -247,6 +256,11 @@ This ladder is mandatory for mobile-sensitive production changes.
 - If a change falls into a mobile-sensitive validation bucket and the required ladder level was not executed, closure must explicitly report that validation gap.
 - Do not present fake-backed success, compile success, or partial branch proof as evidence of full runtime correctness when higher validation levels are still outstanding.
 - A task is not fully validated merely because the easiest available test layer passed.
+- If test work changes shared setup, teardown, static reset helpers, or file-level harness behavior, do not close on a single passing test alone. Run at least:
+  - the narrow failing test
+  - the closely related cluster
+  - the full test file or equivalent suite slice that shares the harness
+- For stateful Unity test files, a targeted green result is insufficient when order-dependent behavior remains plausible.
 
 ## Preferred Seam Ladder
 

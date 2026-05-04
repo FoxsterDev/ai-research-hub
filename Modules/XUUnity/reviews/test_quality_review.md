@@ -64,6 +64,8 @@ State the chosen classifications in the report.
 - Do the tests assert observable contract outcomes instead of weak surrogate signals?
 - Could the tests keep passing after a meaningful runtime regression?
 - Are there tests that mostly validate mocks, fake environments, or test scaffolding instead of product behavior?
+- Do the assertions observe the correct runtime channel, or are they accidentally checking a nearby but different signal such as Unity console output versus captured target output?
+- If the file relies on shared setup, teardown, static resets, or global callbacks, would the reviewed tests still behave the same when run in a larger file-order context?
 
 ### Mobile Validation Fit
 - Does the suite satisfy the mobile validation ladder appropriate for the changed risk?
@@ -141,6 +143,7 @@ Rules:
    - identify any design pollution added for the test
    - identify whether the assertions are contract-level or surrogate-level
    - identify whether the test would likely survive a meaningful runtime regression
+   - identify whether the test depends on shared harness state, repeated disposal, static flags, global log handlers, or persisted local state between sibling tests
 5. Score the test or cluster.
 6. Assign the decision ladder outcome.
 7. Build cleanup themes across the reviewed set:
@@ -151,6 +154,8 @@ Rules:
    - add missing runtime validation where doctrine requires it
 8. Identify strong tests that may become doctrine worked examples after cleanup.
 9. When the review target is newly authored tests from the current session, keep the review concise but still score the tests honestly and call out deletions or simplifications if needed.
+10. If the review recommends edits to shared setup, teardown, or file-level harness helpers, do not treat the review as closed until execution evidence covers at least one narrow target and the full file or closest shared harness slice.
+11. When the user asked for `xuunity review tests` and the review produced findings or a cleanup plan, save the review artifact before switching into implementation or test-fix work. Do not rely on the chat response alone as the durable review record.
 
 ## Output
 When the review is output or saved as a report, include review metadata at the top:
@@ -165,6 +170,7 @@ When the review is output or saved as a report, include review metadata at the t
 - `Dominant risk`
 
 If the review is saved as an artifact, store it as a project-local `xuunity` report in Markdown format under the project's normal AI output report area, using the standard project report style rather than an ad hoc note format.
+If the session later moves from review into fixes, keep the saved review artifact as the pre-fix record and create a separate validation or follow-up artifact instead of silently replacing the original review.
 
 Then include:
 

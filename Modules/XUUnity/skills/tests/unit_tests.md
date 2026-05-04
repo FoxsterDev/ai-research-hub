@@ -12,6 +12,8 @@
 - Do not fake confidence by unit testing trivial wrappers only.
 - Prioritize logic that protects progression, economy, state transitions, and error handling.
 - Keep tests deterministic and fast enough for regular execution.
+- In Unity test environments that do not reliably support `async Task` methods under plain `[Test]`, do not rely on async NUnit helpers such as `Assert.DoesNotThrowAsync(...)`.
+- If the target runner reports `Method has non-void return value, but no result is expected`, rewrite the test to a synchronous `[Test]` and wait explicitly with `GetAwaiter().GetResult()` when the contract being checked is still synchronous from the caller point of view.
 - Do not use reflection against project-owned code in tests when an explicit seam, test double, or accessible contract type can express the scenario directly.
 - Reflection in tests is acceptable only when the touched API surface belongs to Unity, a precompiled third-party SDK, or another closed module that the project does not control.
 - Do not add `#if UNITY_INCLUDE_TESTS` branches to shipping code by default just to satisfy tests.
