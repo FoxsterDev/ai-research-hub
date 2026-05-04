@@ -1,5 +1,8 @@
 # XUUnity Review: SDK Integration
 
+## Load First
+- `knowledge/review_quality_scoring.md`
+
 ## Check
 - Initialization order
 - Threading model
@@ -53,6 +56,7 @@ When the review is output or saved as a report, include review metadata at the t
 - Feature and core-flow risk assessment
 - QA manual validation recommendations
 - Candidate manual or automation test cases when evidence is sufficient
+- Quality score section using `knowledge/review_quality_scoring.md`
 
 ## Escalate To
 If the integration is high-risk or breakage-prone, also load:

@@ -15,6 +15,7 @@ It is about whether the tests create real production confidence without pollutin
 - quick self-review of newly authored tests near the end of an implementation session
 
 ## Load First
+- `knowledge/review_quality_scoring.md`
 - `skills/tests/testing_doctrine.md`
 - relevant `skills/tests/` files for the test types involved
 - relevant project memory
@@ -176,6 +177,7 @@ Then include:
 
 ### 1. Suite Verdict
 - overall score
+- distance from top tier
 - biggest strengths
 - biggest weaknesses
 - immediate cleanup recommendation

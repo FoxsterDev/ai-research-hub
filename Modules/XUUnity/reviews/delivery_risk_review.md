@@ -15,6 +15,7 @@ Review planned feature delivery risk before coding or rollout decisions so break
 - validation plan
 - project memory and project-specific constraints
 - source code when ownership, dependency, or current-flow assumptions need verification
+- `knowledge/review_quality_scoring.md`
 
 ## Process
 1. Restate the delivery target:
@@ -62,6 +63,7 @@ When the review is output or saved as a report, include review metadata at the t
 - Blockers
 - Mandatory controls and validation gates
 - Recommended next protocol step
+- Quality score section using `knowledge/review_quality_scoring.md`
 
 ## Rules
 - Do not flatten uncertain or mixed evidence into `low` risk.

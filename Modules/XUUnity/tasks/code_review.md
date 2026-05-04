@@ -5,6 +5,8 @@ Review code for production risk in Unity and native integration paths.
 
 If the primary review target is the quality of tests themselves rather than the runtime code they accompany, route to `reviews/test_quality_review.md` instead of staying on this generic review task.
 
+Load `knowledge/review_quality_scoring.md` for any review that reaches a concrete verdict.
+
 ## Focus
 - Bugs and regressions first
 - Threading and ownership risk
@@ -37,6 +39,7 @@ If the primary review target is the quality of tests themselves rather than the 
 ## Output
 - Findings ordered by severity
 - Open questions
+- Quality score summary using `knowledge/review_quality_scoring.md`
 - Feature and core-flow risk assessment with breakage probability
 - QA manual validation recommendations
 - Candidate test cases when the reviewer has enough evidence

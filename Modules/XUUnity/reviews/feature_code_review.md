@@ -1,5 +1,8 @@
 # XUUnity Review: Feature Code
 
+## Load First
+- `knowledge/review_quality_scoring.md`
+
 ## Check
 - Behavior regressions
 - Incorrect assumptions
@@ -47,6 +50,7 @@ When the review is output or saved as a report, include review metadata at the t
   - `Flow | Breakage Probability | Risk Class | Why It Can Break | User Impact`
 - QA manual validation recommendations
 - Candidate test cases when evidence is sufficient
+- Quality score section using `knowledge/review_quality_scoring.md`
 
 ## Persistent Review Record
 - For project-scoped feature reviews that produce concrete findings, save a concise project-local review artifact in the normal AI output area before moving into fix work.
