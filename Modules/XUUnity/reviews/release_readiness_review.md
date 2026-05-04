@@ -15,6 +15,7 @@
 - feature and core-flow breakage probability
 - whether any issue is already a confirmed bug
 - manual QA scope required before release confidence is credible
+- for package or SDK repos with tracked sample or consumer workspaces, whether sample assembly wiring and compile health are still green enough to count as release-ready integration evidence
 
 ## Additional Context
 - Load `knowledge/severity_matrix.md` when release findings need explicit shared severity or release-blocker framing.
