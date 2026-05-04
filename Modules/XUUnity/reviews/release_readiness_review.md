@@ -18,6 +18,7 @@
 - for package or SDK repos with tracked sample or consumer workspaces, whether sample assembly wiring and compile health are still green enough to count as release-ready integration evidence
 
 ## Additional Context
+- Load `knowledge/review_quality_scoring.md` for the final score section.
 - Load `knowledge/severity_matrix.md` when release findings need explicit shared severity or release-blocker framing.
 
 ## Output
@@ -34,3 +35,4 @@ When the review is output or saved as a report, include review metadata at the t
 - Feature and core-flow risk assessment
 - QA manual validation recommendations
 - Candidate release-validation test cases when evidence is sufficient
+- Quality score section using `knowledge/review_quality_scoring.md`

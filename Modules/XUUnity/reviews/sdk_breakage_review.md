@@ -26,6 +26,7 @@ Treat Unity lifecycle, scene/reload behavior, and async/threading assumptions as
 
 Also load:
 - `knowledge/sdk_stability_scoring.md` when the review compares upgrade candidates, connector tracks, or bundled native version lines
+- `knowledge/review_quality_scoring.md` for the final score section
 - `knowledge/severity_matrix.md` when the breakage review needs shared severity framing
 
 ## Review Angle
@@ -192,3 +193,4 @@ The review should block release-readiness confidence when:
 - lifecycle and reload contract risks
 - build-context-sensitive breakage risks
 - release-blocking unknowns
+- quality score section using `knowledge/review_quality_scoring.md`

@@ -96,6 +96,13 @@ Short commands:
 - `xuunity system merge these review artifacts`
 - `xuunity system integrate review artifacts`
 
+### Review Scoring Output
+Use when a review needs a consistent executive-readable score section after findings.
+
+Files:
+- `knowledge/review_quality_scoring.md`
+- `utilities/review_scoring_output_template.md`
+
 ### Knowledge Intake Review
 Use when the user wants one command that evaluates whether new knowledge is worth integrating at all.
 

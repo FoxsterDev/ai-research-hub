@@ -34,6 +34,7 @@ Prefer critical review over approval-seeking summary.
 
 ## Load First
 - `tasks/code_review.md`
+- `knowledge/review_quality_scoring.md`
 - `reviews/feature_code_review.md`
 - `reviews/architecture_review.md` when boundaries or ownership changed materially
 - `reviews/release_readiness_review.md` when rollout or production safety is in question
@@ -112,7 +113,7 @@ The saved report should be concise and PR-friendly:
 - top findings
 - feature and core-flow risk summary
 - QA validation summary
-- scorecard
+- quality score section using `knowledge/review_quality_scoring.md`
 - release recommendation
 
 Use the canonical short template:
@@ -175,17 +176,34 @@ Do not overwrite an earlier review report from the same day.
 Each run should produce its own timestamped file so the project keeps a review trail for later PR work.
 
 ## Scorecard
-Score each area from `0` to `100`:
-- `risk`
-- `architecture`
-- `quality`
-- `code_style`
-- `project_fit`
-- `release_readiness`
+Use `knowledge/review_quality_scoring.md` as the canonical scorecard model.
+
+For git change reviews:
+
+- score the reviewed change surface if landed, not the whole repository
+- state that scope explicitly
+- use reweighting when some dimensions are clearly out of scope
+- include:
+  - overall score
+  - distance from top tier
+  - scoring confidence
+  - dimension breakdown
+  - short product-owner interpretation
+
+## Supplementary Change-Review Lenses
+After the canonical score, also include this git-change-specific supplementary view.
+
+These are not a replacement for the shared scoring model.
+They are additional reviewer lenses that are especially useful for diffs.
+
+Score each supplementary area from `0` to `100`:
+
 - `core_flow_safety`
+- `project_fit`
 - `qa_readiness`
 
 Interpretation:
+
 - `90-100`
   - strong
 - `75-89`
@@ -195,23 +213,19 @@ Interpretation:
 - `<60`
   - not production-ready
 
-Scoring anchors:
-- `risk`
-  - lower when crash, ANR, lifecycle, rollback, or critical-flow exposure is visible
-- `architecture`
-  - lower when ownership, dependency direction, or subsystem boundaries degrade
-- `quality`
-  - lower when correctness, invariants, or validation quality degrade
-- `code_style`
-  - lower when readability, consistency, or maintainability regress materially
-- `project_fit`
-  - lower when the change conflicts with established project patterns, memory, or protocol expectations
-- `release_readiness`
-  - lower when tests, observability, rollout safety, or production confidence are insufficient
+Anchors:
+
 - `core_flow_safety`
   - lower when the diff touches startup, monetization, save/load, ad flow, IAP, auth, notifications, deep links, scene transitions, reward paths, or other core flows with visible breakage risk
+- `project_fit`
+  - lower when the change conflicts with established project patterns, memory, or protocol expectations
 - `qa_readiness`
   - lower when the review cannot map clear manual validation scenarios, or when risky scenarios are visible but not yet covered by tests or explicit QA checks
+
+Output rule:
+
+- present these three scores after the canonical quality score
+- if one of the three is not meaningfully applicable, say why instead of faking a number
 
 ## Feature And Core-Flow Risk Scoring
 For each changed feature or core flow, include:

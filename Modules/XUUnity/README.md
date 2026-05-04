@@ -130,6 +130,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/risk_classification.md`
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
+- `knowledge/review_quality_scoring.md`
 - `knowledge/severity_matrix.md`
 
 Some reusable SDK version-comparison methodology is intentionally stored in `knowledge/` instead of `skills/` because it is decision support, not direct implementation behavior.

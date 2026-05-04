@@ -1,5 +1,8 @@
 # XUUnity Review: Architecture
 
+## Load First
+- `knowledge/review_quality_scoring.md`
+
 ## Check
 - Clear subsystem boundaries
 - platform abstraction quality
@@ -17,3 +20,5 @@ When the review is output or saved as a report, include review metadata at the t
 - `Review type`
 
 `Category | Issue | Severity | Remediation`
+
+Also include a quality score section using `knowledge/review_quality_scoring.md`.

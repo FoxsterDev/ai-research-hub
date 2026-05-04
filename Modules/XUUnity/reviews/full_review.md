@@ -16,6 +16,7 @@ It assembles them, reuses shared evidence, deduplicates overlapping findings, an
 - branch or package state reviews where the user wants the broadest credible review surface in one pass
 
 ## Load First
+- `knowledge/review_quality_scoring.md`
 - `knowledge/severity_matrix.md`
 - `knowledge/risk_classification.md`
 - relevant project memory
@@ -226,7 +227,7 @@ Rules:
    - tests and validation surface
 7. Run the selected sub-review passes
 8. Normalize all findings into one canonical issue list
-9. Produce one stability-first synthesis and release verdict
+9. Produce one stability-first synthesis, release verdict, and overall quality score using `knowledge/review_quality_scoring.md`
 
 ## Bundle Rationale Contract
 The full review must leave behind a clear audit trail for why each protocol was or was not run.
