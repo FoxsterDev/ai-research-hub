@@ -37,17 +37,21 @@ Define the validation package for a planned feature before or alongside implemen
    - unit-level logic checks
    - integration checks
    - smoke or regression checks
-5. Identify validation blockers:
+5. Choose the primary validation lane and any justified secondary lane:
+   - `interactive_mcp` for live editor-state, console, scene, Game View, play mode, or integrated tool evidence
+   - `batch_compile` for non-interactive compile, define-matrix, build-target, or deterministic narrow test evidence when direct shell automation is allowed
+   - `scenario` for ordered runtime steps, waits, play mode transitions, screenshots, or project-defined hooks
+6. Identify validation blockers:
    - missing observability
    - unclear acceptance criteria
    - unavailable test hooks
    - unclear environment or device coverage
-6. Define release-sensitive checks when relevant:
+7. Define release-sensitive checks when relevant:
    - monetization or reward integrity
    - save/load correctness
    - startup or initialization order
    - manifest, SDK, or platform constraints
-7. Decide the next protocol step:
+8. Decide the next protocol step:
    - `delivery_risk_review.md` if the validation plan shows material rollout or breakage risk
    - `feature_development.md` if implementation can proceed with a clear validation package
    - stop and request clarification if acceptance criteria or validation surfaces are still too unclear
@@ -59,6 +63,9 @@ Define the validation package for a planned feature before or alongside implemen
 - Lifecycle and async checks
 - Platform-specific checks
 - Candidate automated checks
+- Primary validation lane
+- Secondary validation lane
+- Lane selection reason
 - Validation blockers
 - Recommended next protocol step
 
@@ -67,3 +74,5 @@ Define the validation package for a planned feature before or alongside implemen
 - Keep validation proportional to risk, but never hide critical-flow checks.
 - If current observability or test hooks are too weak, call that out as a blocker instead of pretending validation is complete.
 - Distinguish required validation from optional nice-to-have coverage.
+- Do not use `batch_compile` as proof for claims that require play mode, Game View, scene-state, or other interactive editor evidence.
+- If repo or project rules require integrated validation, reflect that in the lane choice instead of planning a shell fallback.
