@@ -267,15 +267,19 @@ Recommended short commands:
 - `xuunity archive task registry`
 - `xuunity system research watch`
 - `xuunity system health review`
+- `xuunity system output cleanup`
 - `xuunity system cleanup`
 - `xuunity system cleanup projects`
 - `xuunity system cleanup reports`
 - `xuunity system cleanup all`
+- `xuunity system cleanup aggressive`
+- `xuunity system cleanup all aggressive`
 - `xuunity system cleanup apply`
 - `xuunity system apply cleanup`
 - `xuunity system cleanup stale reports`
 - `xuunity system cleanup ai outputs`
 - `xuunity system archive old reports`
+- `xuunity system prune old archives`
 - `xuunity system evaluation cadence`
 - `xuunity product explain this feature`
 - `xuunity product brief this system`

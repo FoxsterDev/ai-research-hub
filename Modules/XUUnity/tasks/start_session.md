@@ -283,18 +283,32 @@ Interpret short commands by intent:
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
 - `xuunity system evaluate ...` -> `utilities/system_self_evaluation.md`
 - `xuunity system health review ...` -> `utilities/system_health_review.md`
+- `xuunity system output cleanup ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup projects ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup all ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup aggressive ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup all aggressive ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup apply ...` -> `utilities/system_output_cleanup_apply.md`
 - `xuunity system apply cleanup ...` -> `utilities/system_output_cleanup_apply.md`
 - `xuunity system apply approved cleanup ...` -> `utilities/system_output_cleanup_apply.md`
 - `xuunity system cleanup stale reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup ai outputs ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system archive old reports ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system prune old archives ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system audit ai clutter ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system evaluation cadence ...` -> `utilities/system_evaluation_cadence.md`
+
+### Cleanup Routing Notes
+- Treat legacy shorthand `xuunity system output cleanup ...` as an exact alias for `xuunity system cleanup ...`.
+- Treat `xuunity system cleanup aggressive ...`, `xuunity system cleanup all aggressive ...`, and user phrasing such as `hard cleanup`, `prune old archives`, `stop keeping so much history`, or `project changes every week` as explicit volatile-project-mode triggers for `utilities/system_output_cleanup.md`.
+- When those triggers are present, the cleanup execution contract should explicitly include:
+  - `cleanup_mode: aggressive`
+  - `volatile_project_mode: yes`
+  - `reference_rewrites_required: yes|no`
+  - `archive_recheck_required: yes`
+- For aggressive cleanup routing, do not default to project-only scope unless the user explicitly narrows it.
 - `xuunity slack summary ...`, `xuunity post this work to slack`, `xuunity report this work to slack`, `xuunity finish the work ...`, or `xuunity publish the work ...` -> use the repo-level Slack delivery route and load the host-local Slack work-summary utility when the repo router declares one
 - `xuunity product explain ...` or `xuunity product feature ...` -> `product/protocols/feature_explainer.md`
   - if the queried feature is represented by a project-local class that inherits from or delegates into a shared runtime layer, inspect that shared layer before answering
