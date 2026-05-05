@@ -14,35 +14,71 @@ namespace XUUnity.LightMcp.Editor.Bridge
 
             var inbox = new DirectoryInfo(XUUnityLightMcpFileIpcPaths.InboxDirectory);
             var files = inbox.GetFiles("*.json");
-            XUUnityLightMcpBridgeRuntimeState.MarkPumpTick(files.Length);
+            var pendingLoopbackRequests = XUUnityLightMcpBridgeTransportRuntime.GetPendingRequestCount();
+            XUUnityLightMcpBridgeRuntimeState.MarkPumpTick(files.Length + pendingLoopbackRequests);
 
             for (var index = 0; index < files.Length; index++)
             {
                 ProcessRequest(files[index], Math.Max(0, files.Length - index - 1));
             }
+
+            while (XUUnityLightMcpBridgeTransportRuntime.TryDequeueRequest(out var request, out var remainingLoopbackRequests))
+            {
+                ProcessDecodedRequest(request, remainingLoopbackRequests);
+            }
         }
 
         static void ProcessRequest(FileInfo file, int remainingPendingRequests)
         {
-            XUUnityLightMcpRequest request = null;
-            string requestId = "";
-            string operationName = "";
-            string operationStatus = "error";
-            string startedAtUtc = "";
-
             try
             {
                 var json = File.ReadAllText(file.FullName);
-                request = JsonUtility.FromJson<XUUnityLightMcpRequest>(json);
+                var request = JsonUtility.FromJson<XUUnityLightMcpRequest>(json);
                 if (request == null || string.IsNullOrWhiteSpace(request.request_id))
                 {
                     throw new InvalidOperationException("Request payload is empty or missing request_id.");
                 }
+                ProcessDecodedRequest(request, remainingPendingRequests);
+            }
+            catch (Exception ex)
+            {
+                var requestId = Path.GetFileNameWithoutExtension(file.Name);
+                if (string.IsNullOrWhiteSpace(requestId))
+                {
+                    requestId = "";
+                }
+                XUUnityLightMcpResponseWriter.Write(
+                    XUUnityLightMcpResponseWriter.Error(requestId, "bridge_request_failed", ex.Message)
+                );
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                try
+                {
+                    file.Delete();
+                }
+                catch
+                {
+                }
+            }
+        }
 
+        static void ProcessDecodedRequest(XUUnityLightMcpRequest request, int remainingPendingRequests)
+        {
+            string requestId = "";
+            string operationName = "";
+            string operationStatus = "error";
+            string startedAtUtc = "";
+            bool deferredCompletion = false;
+
+            try
+            {
                 requestId = request.request_id;
                 operationName = request.operation ?? "";
                 startedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 XUUnityLightMcpBridgeRuntimeState.MarkRequestStarted(requestId, operationName, remainingPendingRequests + 1);
+                XUUnityLightMcpRequestJournal.WriteRequestStarted(requestId, operationName, startedAtUtc, remainingPendingRequests + 1);
 
                 if (!XUUnityLightMcpOperationRegistry.TryGet(request.operation, out var operation))
                 {
@@ -76,15 +112,16 @@ namespace XUUnity.LightMcp.Editor.Bridge
                         XUUnityLightMcpResponseWriter.Write(response);
                         operationStatus = response.status ?? "ok";
                     }
+                    else
+                    {
+                        deferredCompletion = true;
+                        operationStatus = "async_pending";
+                    }
                 }
             }
             catch (Exception ex)
             {
-                requestId = request?.request_id;
-                if (string.IsNullOrWhiteSpace(requestId))
-                {
-                    requestId = Path.GetFileNameWithoutExtension(file.Name);
-                }
+                requestId = request?.request_id ?? "";
                 XUUnityLightMcpResponseWriter.Write(
                     XUUnityLightMcpResponseWriter.Error(requestId, "bridge_request_failed", ex.Message)
                 );
@@ -93,23 +130,36 @@ namespace XUUnity.LightMcp.Editor.Bridge
             }
             finally
             {
-                XUUnityLightMcpBridgeRuntimeState.MarkRequestProcessed(
-                    requestId,
-                    operationName,
-                    operationStatus,
-                    startedAtUtc,
-                    remainingPendingRequests);
+                var completedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                if (deferredCompletion)
+                {
+                    XUUnityLightMcpBridgeRuntimeState.MarkAsyncRequestPending(remainingPendingRequests);
+                }
+                else
+                {
+                    XUUnityLightMcpBridgeRuntimeState.MarkRequestProcessed(
+                        requestId,
+                        operationName,
+                        operationStatus,
+                        startedAtUtc,
+                        remainingPendingRequests);
+                    try
+                    {
+                        XUUnityLightMcpRequestJournal.WriteRequestCompleted(
+                            requestId,
+                            operationName,
+                            operationStatus,
+                            startedAtUtc,
+                            completedAtUtc,
+                            remainingPendingRequests);
+                    }
+                    catch
+                    {
+                    }
+                }
                 try
                 {
                     XUUnityLightMcpBridgeStateWriter.WriteHeartbeat();
-                }
-                catch
-                {
-                }
-
-                try
-                {
-                    file.Delete();
                 }
                 catch
                 {

@@ -1,6 +1,7 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 using XUUnity.LightMcp.Editor.Helpers;
 
@@ -23,6 +24,8 @@ namespace XUUnity.LightMcp.Editor.Operations
                     "unity.playmode.set requires action: enter, exit, pause, or resume.");
             }
 
+            var targetState = ResolveTargetState(action);
+            XUUnityLightMcpBridgeRuntimeState.BeginPlayModeTransitionTracking(request.request_id, action, targetState);
             string outcome;
             try
             {
@@ -38,15 +41,21 @@ namespace XUUnity.LightMcp.Editor.Operations
             }
             catch (Exception ex)
             {
+                XUUnityLightMcpBridgeRuntimeState.CancelPlayModeTransitionTracking();
                 return XUUnityLightMcpResponseWriter.Error(request.request_id, "playmode_action_failed", ex.Message);
             }
 
+            var requestCompletedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             var state = XUUnityLightMcpPlayModeStateOperation.BuildPayload();
             var payload = new XUUnityLightMcpPlayModeSetPayload
             {
                 project_root = XUUnityLightMcpFileIpcPaths.ProjectRootPath,
                 requested_action = action,
                 outcome = outcome,
+                request_completed_at_utc = requestCompletedAtUtc,
+                settle_request_id = request.request_id,
+                settle_phase = XUUnityLightMcpBridgeRuntimeState.PlayModeTransitionPhase,
+                settle_target_state = targetState,
                 is_playing = state.is_playing,
                 is_paused = state.is_paused,
                 is_playing_or_will_change_playmode = state.is_playing_or_will_change_playmode,
@@ -125,6 +134,18 @@ namespace XUUnity.LightMcp.Editor.Operations
 
             EditorApplication.isPaused = false;
             return "resume_requested";
+        }
+
+        static string ResolveTargetState(string action)
+        {
+            return action switch
+            {
+                "enter" => "playing",
+                "exit" => "edit",
+                "pause" => "paused",
+                "resume" => "playing",
+                _ => ""
+            };
         }
     }
 }

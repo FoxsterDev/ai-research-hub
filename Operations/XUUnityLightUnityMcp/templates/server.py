@@ -3,6 +3,7 @@ import argparse
 import calendar
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -13,7 +14,7 @@ from typing import Any
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.3.3",
+    "version": "0.3.8",
 }
 
 STARTUP_POLICIES = {
@@ -22,17 +23,40 @@ STARTUP_POLICIES = {
     "fail_fast_on_interactive_compile_block",
 }
 
+DEFAULT_BRIDGE_TRANSPORT = "file_ipc"
+TCP_LOOPBACK_BRIDGE_TRANSPORT = "tcp_loopback"
+SUPPORTED_BRIDGE_TRANSPORTS = {
+    DEFAULT_BRIDGE_TRANSPORT,
+    TCP_LOOPBACK_BRIDGE_TRANSPORT,
+}
+
 ACTIVATION_DELAY_SECONDS = 0.35
 DEFAULT_HEARTBEAT_MAX_AGE_SECONDS = 10
 DEFAULT_IDLE_STABLE_CYCLES = 2
 SCENARIO_TERMINAL_STATUSES = {"passed", "failed"}
 
 OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
+    "unity.status": {
+        "retry_on_lifecycle_reset": True,
+    },
+    "unity.capabilities.get": {
+        "retry_on_lifecycle_reset": True,
+    },
+    "unity.health.probe": {
+        "retry_on_lifecycle_reset": True,
+    },
     "unity.project.refresh": {
         "activate_unity": True,
         "wait_for_idle_before": True,
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
+        "retry_on_lifecycle_reset": True,
+    },
+    "unity.scene.snapshot": {
+        "retry_on_lifecycle_reset": True,
+    },
+    "unity.scenario.validate": {
+        "retry_on_lifecycle_reset": True,
     },
     "unity.compile.player_scripts": {
         "activate_unity": True,
@@ -521,10 +545,101 @@ def print_json(data: Any) -> None:
 
 
 class ToolInvocationError(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
+        self.details = details or {}
+
+
+def request_journal_dir(project_root: Path) -> Path:
+    return bridge_root(project_root) / "journal" / "requests"
+
+
+def bridge_identity_from_state(state: dict[str, Any] | None) -> tuple[int, str]:
+    if not state:
+        return 0, ""
+
+    generation = int(state.get("bridge_generation") or 0)
+    session_id = str(state.get("bridge_session_id") or "")
+    return generation, session_id
+
+
+def bridge_identity_changed(
+    initial_generation: int,
+    initial_session_id: str,
+    state: dict[str, Any] | None,
+) -> bool:
+    current_generation, current_session_id = bridge_identity_from_state(state)
+    if current_generation <= 0 and not current_session_id:
+        return False
+
+    if initial_generation > 0 and current_generation != initial_generation:
+        return True
+
+    if initial_session_id and current_session_id and current_session_id != initial_session_id:
+        return True
+
+    return False
+
+
+def write_host_request_journal_event(
+    project_root: Path,
+    event_type: str,
+    payload: dict[str, Any],
+) -> Path:
+    journal_dir = request_journal_dir(project_root)
+    journal_dir.mkdir(parents=True, exist_ok=True)
+    compact_utc = time.strftime("%Y%m%dT%H%M%S", time.gmtime()) + f"{int((time.time() % 1) * 1000):03d}Z"
+    event_id = f"{compact_utc}_{uuid.uuid4().hex}_{event_type}"
+    path = journal_dir / f"{event_id}.json"
+    data = dict(payload)
+    data.setdefault("event_id", event_id)
+    data.setdefault("event_type", event_type)
+    data.setdefault("event_source", "host_wrapper")
+    data.setdefault("event_at_utc", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+    data.setdefault("project_root", str(project_root))
+    write_json(path, data)
+    return path
+
+
+def maybe_record_settle_lifecycle_transition(
+    project_root: Path,
+    operation: str,
+    request_id: str,
+    before_state: dict[str, Any] | None,
+    after_state: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    initial_generation, initial_session_id = bridge_identity_from_state(before_state)
+    current_generation, current_session_id = bridge_identity_from_state(after_state)
+    if not bridge_identity_changed(initial_generation, initial_session_id, after_state):
+        return None
+
+    journal_path = write_host_request_journal_event(
+        project_root,
+        "request_reclassified",
+        {
+            "request_id": request_id,
+            "operation": operation,
+            "reason": "bridge_generation_changed_during_post_request_settle",
+            "retryable": False,
+            "reclassified_status": "settled_after_lifecycle_reset",
+            "previous_bridge_generation": initial_generation,
+            "previous_bridge_session_id": initial_session_id,
+            "bridge_generation": current_generation,
+            "bridge_session_id": current_session_id,
+        },
+    )
+    return {
+        "request_id": request_id,
+        "operation": operation,
+        "previous_bridge_generation": initial_generation,
+        "previous_bridge_session_id": initial_session_id,
+        "current_bridge_generation": current_generation,
+        "current_bridge_session_id": current_session_id,
+        "journal_event_path": str(journal_path),
+        "reclassified_status": "settled_after_lifecycle_reset",
+    }
 
 
 def bridge_enabled(project_root: Path) -> bool:
@@ -540,12 +655,449 @@ def bridge_enabled(project_root: Path) -> bool:
     return bool(data.get("enabled"))
 
 
+def try_read_bridge_config(project_root: Path) -> dict[str, Any] | None:
+    config_path = bridge_config_path(project_root)
+    if not config_path.is_file():
+        return None
+
+    try:
+        data = read_json(config_path)
+    except Exception:
+        return None
+
+    return data if isinstance(data, dict) else None
+
+
+def read_best_effort_bridge_state(project_root: Path) -> dict[str, Any] | None:
+    return try_read_live_editor_state(project_root) or try_read_bridge_state(project_root)
+
+
+class BridgeTransportAdapter:
+    name = "unknown"
+
+    def metadata(self, project_root: Path) -> dict[str, Any]:
+        return {
+            "name": self.name,
+        }
+
+    def invoke(
+        self,
+        project_root: Path,
+        operation: str,
+        args: dict[str, Any],
+        timeout_ms: int,
+    ) -> tuple[dict[str, Any], str, float]:
+        raise NotImplementedError
+
+
+class FileIpcBridgeTransport(BridgeTransportAdapter):
+    name = DEFAULT_BRIDGE_TRANSPORT
+
+    def metadata(self, project_root: Path) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "state_path": str(bridge_state_path(project_root)),
+            "request_directory": str(inbox_dir(project_root)),
+            "response_directory": str(outbox_dir(project_root)),
+            "journal_directory": str(request_journal_dir(project_root)),
+        }
+
+    def invoke(
+        self,
+        project_root: Path,
+        operation: str,
+        args: dict[str, Any],
+        timeout_ms: int,
+    ) -> tuple[dict[str, Any], str, float]:
+        state_path = bridge_state_path(project_root)
+        if not state_path.is_file():
+            raise ToolInvocationError("editor_not_running", f"Bridge state file not found: {state_path}")
+
+        in_dir = inbox_dir(project_root)
+        out_dir = outbox_dir(project_root)
+        in_dir.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        request_id = str(uuid.uuid4())
+        request_path = in_dir / f"{request_id}.json"
+        response_path = out_dir / f"{request_id}.json"
+        request_started_at = time.time()
+        initial_state = read_best_effort_bridge_state(project_root)
+        initial_generation, initial_session_id = bridge_identity_from_state(initial_state)
+        observed_reset_state: dict[str, Any] | None = None
+
+        request = {
+            "request_id": request_id,
+            "operation": operation,
+            "project_root": str(project_root),
+            "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "timeout_ms": timeout_ms,
+            "args_json": json.dumps(args, ensure_ascii=True, separators=(",", ":")),
+        }
+
+        write_json(request_path, request)
+
+        deadline = time.time() + (timeout_ms / 1000.0)
+        while time.time() < deadline:
+            if response_path.is_file():
+                try:
+                    response = read_json(response_path)
+                finally:
+                    try:
+                        response_path.unlink()
+                    except OSError:
+                        pass
+                return response, request_id, request_started_at
+
+            current_state = read_best_effort_bridge_state(project_root)
+            if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
+                observed_reset_state = current_state
+
+            time.sleep(0.2)
+
+        state = read_best_effort_bridge_state(project_root)
+        if observed_reset_state is not None:
+            state = state or observed_reset_state
+            current_generation, current_session_id = bridge_identity_from_state(state)
+            processed = str((state or {}).get("last_processed_request_id") or "") == request_id
+            retryable = not processed
+            journal_path = write_host_request_journal_event(
+                project_root,
+                "request_reclassified",
+                {
+                    "request_id": request_id,
+                    "operation": operation,
+                    "reason": "bridge_generation_changed_before_response",
+                    "retryable": retryable,
+                    "reclassified_status": (
+                        "retryable_after_lifecycle_reset"
+                        if retryable
+                        else "response_missing_after_lifecycle_reset"
+                    ),
+                    "previous_bridge_generation": initial_generation,
+                    "previous_bridge_session_id": initial_session_id,
+                    "bridge_generation": current_generation,
+                    "bridge_session_id": current_session_id,
+                },
+            )
+            try:
+                if request_path.exists():
+                    request_path.unlink()
+            except OSError:
+                pass
+            details = {
+                "request_id": request_id,
+                "operation": operation,
+                "transport": self.name,
+                "initial_bridge_generation": initial_generation,
+                "initial_bridge_session_id": initial_session_id,
+                "current_bridge_generation": current_generation,
+                "current_bridge_session_id": current_session_id,
+                "retryable": retryable,
+                "request_processed": processed,
+                "journal_event_path": str(journal_path),
+            }
+            if retryable:
+                raise ToolInvocationError(
+                    "request_lifecycle_reset",
+                    (
+                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
+                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
+                        f"transport={self.name}. journal_event={journal_path}."
+                    ),
+                    details,
+                )
+
+            raise ToolInvocationError(
+                "response_missing_after_lifecycle_reset",
+                (
+                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
+                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
+                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
+                ),
+                details,
+            )
+
+        raise ToolInvocationError(
+            "operation_timeout",
+            f"Timed out waiting for {response_path}. transport={self.name}. {summarize_state_for_error(state)}",
+        )
+
+
+class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
+    name = TCP_LOOPBACK_BRIDGE_TRANSPORT
+
+    def metadata(self, project_root: Path) -> dict[str, Any]:
+        state = read_best_effort_bridge_state(project_root) or {}
+        return {
+            "name": self.name,
+            "requested_transport": str(state.get("transport_requested") or self.name),
+            "listener_state": str(state.get("transport_listener_state") or ""),
+            "host": str(state.get("transport_host") or "127.0.0.1"),
+            "port": int(state.get("transport_port") or 0),
+            "state_path": str(bridge_state_path(project_root)),
+            "journal_directory": str(request_journal_dir(project_root)),
+        }
+
+    def invoke(
+        self,
+        project_root: Path,
+        operation: str,
+        args: dict[str, Any],
+        timeout_ms: int,
+    ) -> tuple[dict[str, Any], str, float]:
+        state = read_best_effort_bridge_state(project_root)
+        host = str((state or {}).get("transport_host") or "127.0.0.1")
+        port = int((state or {}).get("transport_port") or 0)
+        listener_state = str((state or {}).get("transport_listener_state") or "")
+        if port <= 0:
+            raise ToolInvocationError(
+                "transport_not_ready",
+                (
+                    f"TCP loopback transport is not ready. "
+                    f"listener_state={listener_state or 'unknown'} host={host} port={port}."
+                ),
+            )
+
+        request_id = str(uuid.uuid4())
+        request_started_at = time.time()
+        initial_state = state
+        initial_generation, initial_session_id = bridge_identity_from_state(initial_state)
+        observed_reset_state: dict[str, Any] | None = None
+        request = {
+            "request_id": request_id,
+            "operation": operation,
+            "project_root": str(project_root),
+            "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "timeout_ms": timeout_ms,
+            "args_json": json.dumps(args, ensure_ascii=True, separators=(",", ":")),
+        }
+        payload = (json.dumps(request, ensure_ascii=True, separators=(",", ":")) + "\n").encode("utf-8")
+        deadline = time.time() + (timeout_ms / 1000.0)
+        chunks: list[bytes] = []
+
+        try:
+            connect_timeout = max(1.0, min(5.0, timeout_ms / 1000.0))
+            with socket.create_connection((host, port), timeout=connect_timeout) as sock:
+                sock.settimeout(0.2)
+                sock.sendall(payload)
+                try:
+                    sock.shutdown(socket.SHUT_WR)
+                except OSError:
+                    pass
+
+                while time.time() < deadline:
+                    try:
+                        chunk = sock.recv(65536)
+                        if chunk:
+                            chunks.append(chunk)
+                            continue
+                        break
+                    except socket.timeout:
+                        current_state = read_best_effort_bridge_state(project_root)
+                        if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
+                            observed_reset_state = current_state
+                        continue
+                    except OSError as exc:
+                        current_state = read_best_effort_bridge_state(project_root)
+                        if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
+                            observed_reset_state = current_state
+                            break
+                        raise ToolInvocationError(
+                            "transport_io_failed",
+                            (
+                                f"TCP loopback transport failed for {operation}: {exc}. "
+                                f"host={host} port={port}."
+                            ),
+                            {
+                                "request_id": request_id,
+                                "operation": operation,
+                                "transport": self.name,
+                                "host": host,
+                                "port": port,
+                            },
+                        ) from exc
+        except ToolInvocationError:
+            raise
+        except OSError as exc:
+            raise ToolInvocationError(
+                "transport_connect_failed",
+                (
+                    f"Failed to connect to TCP loopback transport for {operation}: {exc}. "
+                    f"host={host} port={port} listener_state={listener_state or 'unknown'}."
+                ),
+                {
+                    "request_id": request_id,
+                    "operation": operation,
+                    "transport": self.name,
+                    "host": host,
+                    "port": port,
+                    "listener_state": listener_state,
+                },
+            ) from exc
+
+        if chunks:
+            try:
+                response = json.loads(b"".join(chunks).decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise ToolInvocationError(
+                    "transport_response_invalid",
+                    f"TCP loopback transport returned invalid JSON for {operation}: {exc}.",
+                    {
+                        "request_id": request_id,
+                        "operation": operation,
+                        "transport": self.name,
+                        "host": host,
+                        "port": port,
+                    },
+                ) from exc
+            if response.get("status") == "error":
+                error = response.get("error") or {}
+                error_code = str(error.get("code") or "")
+                if error_code == "transport_restarting":
+                    current_state = read_best_effort_bridge_state(project_root)
+                    current_generation, current_session_id = bridge_identity_from_state(current_state)
+                    raise ToolInvocationError(
+                        "request_lifecycle_reset",
+                        (
+                            f"Request {request_id} for {operation} crossed a TCP transport restart before a response was committed. "
+                            f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
+                            f"transport={self.name} host={host} port={port}."
+                        ),
+                        {
+                            "request_id": request_id,
+                            "operation": operation,
+                            "transport": self.name,
+                            "host": host,
+                            "port": port,
+                            "initial_bridge_generation": initial_generation,
+                            "initial_bridge_session_id": initial_session_id,
+                            "current_bridge_generation": current_generation,
+                            "current_bridge_session_id": current_session_id,
+                            "retryable": True,
+                            "error_code": error_code,
+                        },
+                    )
+            return response, request_id, request_started_at
+
+        state = read_best_effort_bridge_state(project_root)
+        if observed_reset_state is not None:
+            state = state or observed_reset_state
+            current_generation, current_session_id = bridge_identity_from_state(state)
+            processed = str((state or {}).get("last_processed_request_id") or "") == request_id
+            retryable = not processed
+            journal_path = write_host_request_journal_event(
+                project_root,
+                "request_reclassified",
+                {
+                    "request_id": request_id,
+                    "operation": operation,
+                    "reason": "bridge_generation_changed_before_response",
+                    "retryable": retryable,
+                    "reclassified_status": (
+                        "retryable_after_lifecycle_reset"
+                        if retryable
+                        else "response_missing_after_lifecycle_reset"
+                    ),
+                    "previous_bridge_generation": initial_generation,
+                    "previous_bridge_session_id": initial_session_id,
+                    "bridge_generation": current_generation,
+                    "bridge_session_id": current_session_id,
+                },
+            )
+            details = {
+                "request_id": request_id,
+                "operation": operation,
+                "transport": self.name,
+                "host": host,
+                "port": port,
+                "initial_bridge_generation": initial_generation,
+                "initial_bridge_session_id": initial_session_id,
+                "current_bridge_generation": current_generation,
+                "current_bridge_session_id": current_session_id,
+                "retryable": retryable,
+                "request_processed": processed,
+                "journal_event_path": str(journal_path),
+            }
+            if retryable:
+                raise ToolInvocationError(
+                    "request_lifecycle_reset",
+                    (
+                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
+                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
+                        f"transport={self.name}. journal_event={journal_path}."
+                    ),
+                    details,
+                )
+
+            raise ToolInvocationError(
+                "response_missing_after_lifecycle_reset",
+                (
+                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
+                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
+                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
+                ),
+                details,
+            )
+
+        raise ToolInvocationError(
+            "transport_response_missing",
+            (
+                f"TCP loopback transport closed without a response for {operation}. "
+                f"host={host} port={port}. {summarize_state_for_error(state)}"
+            ),
+            {
+                "request_id": request_id,
+                "operation": operation,
+                "transport": self.name,
+                "host": host,
+                "port": port,
+            },
+        )
+
+
+def resolve_bridge_transport(project_root: Path) -> BridgeTransportAdapter:
+    config = try_read_bridge_config(project_root) or {}
+    state = read_best_effort_bridge_state(project_root) or {}
+    state_transport = str(state.get("transport") or "").strip().lower()
+    if state_transport:
+        configured_transport = state_transport
+    else:
+        bridge_version = int(state.get("bridge_version") or 0)
+        configured_transport = (
+            DEFAULT_BRIDGE_TRANSPORT
+            if bridge_version > 0
+            else str(
+                config.get("transport")
+                or config.get("bridge_transport")
+                or DEFAULT_BRIDGE_TRANSPORT
+            ).strip().lower()
+        )
+    if not configured_transport:
+        configured_transport = DEFAULT_BRIDGE_TRANSPORT
+
+    if configured_transport == DEFAULT_BRIDGE_TRANSPORT:
+        return FileIpcBridgeTransport()
+
+    if configured_transport == TCP_LOOPBACK_BRIDGE_TRANSPORT:
+        return TcpLoopbackBridgeTransport()
+
+    supported = ", ".join(sorted(SUPPORTED_BRIDGE_TRANSPORTS))
+    raise ToolInvocationError(
+        "unsupported_bridge_transport",
+        (
+            f"Unsupported bridge transport '{configured_transport}'. "
+            f"Supported transports: {supported}."
+        ),
+    )
+
+
 def invoke_bridge_transport(
     project_root: Path,
     operation: str,
     args: dict[str, Any],
     timeout_ms: int,
-) -> tuple[dict[str, Any], str, float]:
+) -> tuple[dict[str, Any], str, float, dict[str, Any]]:
     if not bridge_enabled(project_root):
         raise ToolInvocationError(
             "bridge_disabled",
@@ -556,45 +1108,9 @@ def invoke_bridge_transport(
             ),
         )
 
-    state_path = bridge_state_path(project_root)
-    if not state_path.is_file():
-        raise ToolInvocationError("editor_not_running", f"Bridge state file not found: {state_path}")
-
-    in_dir = inbox_dir(project_root)
-    out_dir = outbox_dir(project_root)
-    in_dir.mkdir(parents=True, exist_ok=True)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    request_id = str(uuid.uuid4())
-    request_path = in_dir / f"{request_id}.json"
-    response_path = out_dir / f"{request_id}.json"
-    request_started_at = time.time()
-
-    request = {
-        "request_id": request_id,
-        "operation": operation,
-        "project_root": str(project_root),
-        "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "timeout_ms": timeout_ms,
-        "args_json": json.dumps(args, ensure_ascii=True, separators=(",", ":")),
-    }
-
-    write_json(request_path, request)
-
-    deadline = time.time() + (timeout_ms / 1000.0)
-    while time.time() < deadline:
-        if response_path.is_file():
-            try:
-                response = read_json(response_path)
-            finally:
-                try:
-                    response_path.unlink()
-                except OSError:
-                    pass
-            return response, request_id, request_started_at
-        time.sleep(0.2)
-
-    raise ToolInvocationError("operation_timeout", f"Timed out waiting for {response_path}")
+    transport = resolve_bridge_transport(project_root)
+    response, request_id, request_started_at = transport.invoke(project_root, operation, args, timeout_ms)
+    return response, request_id, request_started_at, transport.metadata(project_root)
 
 
 def try_read_bridge_state(project_root: Path) -> dict[str, Any] | None:
@@ -644,7 +1160,14 @@ def parse_utc_timestamp(value: Any) -> float | None:
 
 def state_is_idle(state: dict[str, Any]) -> bool:
     return (
-        not bool(state.get("is_compiling"))
+        not bool(state.get("domain_reload_in_progress"))
+        and not bool(state.get("package_operation_in_progress"))
+        and not bool(state.get("script_reload_pending"))
+        and not bool(state.get("asset_import_in_progress"))
+        and not bool(state.get("refresh_settle_pending"))
+        and not bool(state.get("compile_settle_pending"))
+        and not bool(state.get("playmode_transition_pending"))
+        and not bool(state.get("is_compiling"))
         and not bool(state.get("is_updating"))
         and not bool(state.get("active_operation"))
         and (bool(state.get("is_playing")) or not bool(state.get("is_playing_or_will_change_playmode")))
@@ -659,8 +1182,29 @@ def derive_busy_reason(state: dict[str, Any] | None) -> str:
     if isinstance(busy_reason, str) and busy_reason:
         return busy_reason
 
+    if bool(state.get("domain_reload_in_progress")):
+        return "domain_reload"
+
+    if bool(state.get("package_operation_in_progress")):
+        return "package_operation"
+
+    if bool(state.get("refresh_settle_pending")):
+        return "refresh_settle"
+
+    if bool(state.get("compile_settle_pending")):
+        return "compile_settle"
+
+    if bool(state.get("playmode_transition_pending")):
+        return "playmode_settle"
+
     if bool(state.get("is_compiling")):
         return "compiling"
+
+    if bool(state.get("script_reload_pending")):
+        return "script_reload_pending"
+
+    if bool(state.get("asset_import_in_progress")):
+        return "asset_import"
 
     if bool(state.get("is_updating")):
         return "updating"
@@ -687,8 +1231,25 @@ def summarize_state_for_error(state: dict[str, Any] | None) -> str:
         heartbeat_summary = f"{round(heartbeat_age, 3)}s"
 
     return (
+        f"bridge_version={state.get('bridge_version') or 'unknown'}, "
+        f"bridge_generation={state.get('bridge_generation') or 'unknown'}, "
+        f"bridge_session_id={state.get('bridge_session_id') or ''}, "
         f"busy_reason={derive_busy_reason(state)}, "
         f"heartbeat_age={heartbeat_summary}, "
+        f"domain_reload_in_progress={bool(state.get('domain_reload_in_progress'))}, "
+        f"package_operation_in_progress={bool(state.get('package_operation_in_progress'))}, "
+        f"package_operation_name={state.get('package_operation_name') or ''}, "
+        f"package_operation_phase={state.get('package_operation_phase') or ''}, "
+        f"refresh_settle_pending={bool(state.get('refresh_settle_pending'))}, "
+        f"refresh_settle_phase={state.get('refresh_settle_phase') or ''}, "
+        f"compile_settle_pending={bool(state.get('compile_settle_pending'))}, "
+        f"compile_settle_phase={state.get('compile_settle_phase') or ''}, "
+        f"compile_settle_operation={state.get('compile_settle_operation') or ''}, "
+        f"playmode_transition_pending={bool(state.get('playmode_transition_pending'))}, "
+        f"playmode_transition_phase={state.get('playmode_transition_phase') or ''}, "
+        f"playmode_transition_target_state={state.get('playmode_transition_target_state') or ''}, "
+        f"script_reload_pending={bool(state.get('script_reload_pending'))}, "
+        f"asset_import_in_progress={bool(state.get('asset_import_in_progress'))}, "
         f"is_compiling={bool(state.get('is_compiling'))}, "
         f"is_updating={bool(state.get('is_updating'))}, "
         f"is_playing={bool(state.get('is_playing'))}, "
@@ -697,6 +1258,7 @@ def summarize_state_for_error(state: dict[str, Any] | None) -> str:
         f"active_operation={state.get('active_operation') or ''}, "
         f"busy_reason_detail={state.get('busy_reason_detail') or ''}, "
         f"last_processed_request_id={state.get('last_processed_request_id') or ''}, "
+        f"request_journal_head={state.get('request_journal_head') or ''}, "
         f"pending_request_count={int(state.get('pending_request_count') or 0)}"
     )
 
@@ -979,8 +1541,12 @@ def wait_for_playmode_state(
                 )
             )
             playmode_state = str(state.get("playmode_state") or "")
+            transition_request_id = str(state.get("playmode_transition_request_id") or "")
+            transition_phase = str(state.get("playmode_transition_phase") or "")
+            transition_contract_applies = after_request_id is not None and transition_request_id == after_request_id
+            transition_settled = (not transition_contract_applies) or transition_phase == "settled"
 
-            if heartbeat_is_fresh and request_match and playmode_state == expected_state:
+            if heartbeat_is_fresh and request_match and playmode_state == expected_state and transition_settled:
                 stable_matches += 1
                 if stable_matches >= max(1, stable_cycles):
                     result = dict(state)
@@ -1101,10 +1667,81 @@ def normalize_refresh_payload_from_lifecycle(payload: dict[str, Any], lifecycle:
         else "refresh_completed"
     )
     normalized["settled_at_utc"] = settled_at_utc
-    normalized["completion_basis"] = "host_waited_for_editor_idle"
+    if (
+        str(idle_wait_after.get("refresh_settle_phase") or "") == "settled"
+        and str(idle_wait_after.get("refresh_settle_request_id") or "") == str(normalized.get("settle_request_id") or "")
+    ):
+        normalized["completion_basis"] = "unity_refresh_settle_watcher"
+        normalized["settled_at_utc"] = str(idle_wait_after.get("refresh_settle_completed_utc") or settled_at_utc)
+        normalized["settle_phase"] = "settled"
+        normalized["settle_request_id"] = str(idle_wait_after.get("refresh_settle_request_id") or normalized.get("settle_request_id") or "")
+    else:
+        normalized["completion_basis"] = "host_waited_for_editor_idle"
     normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
     normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
     normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
+    return normalized
+
+
+def normalize_compile_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    idle_wait_after = lifecycle.get("idle_wait_after")
+    if not isinstance(idle_wait_after, dict):
+        return normalized
+
+    settled_at_utc = str(idle_wait_after.get("heartbeat_utc") or "")
+    request_id = str(normalized.get("settle_request_id") or "")
+    if (
+        str(idle_wait_after.get("compile_settle_phase") or "") == "settled"
+        and str(idle_wait_after.get("compile_settle_request_id") or "") == request_id
+    ):
+        normalized["completion_basis"] = "unity_compile_settle_watcher"
+        normalized["settled_at_utc"] = str(idle_wait_after.get("compile_settle_completed_utc") or settled_at_utc)
+        normalized["settle_phase"] = "settled"
+        normalized["settle_request_id"] = str(idle_wait_after.get("compile_settle_request_id") or request_id)
+    else:
+        normalized["completion_basis"] = "host_waited_for_editor_idle"
+        normalized["settled_at_utc"] = settled_at_utc
+
+    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
+    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
+    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
+    return normalized
+
+
+def normalize_playmode_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    settled_state = lifecycle.get("playmode_wait_after")
+    if not isinstance(settled_state, dict):
+        return normalized
+
+    settled_at_utc = str(settled_state.get("heartbeat_utc") or "")
+    request_id = str(normalized.get("settle_request_id") or "")
+    if (
+        str(settled_state.get("playmode_transition_phase") or "") == "settled"
+        and str(settled_state.get("playmode_transition_request_id") or "") == request_id
+    ):
+        normalized["completion_basis"] = "unity_playmode_transition_watcher"
+        normalized["settled_at_utc"] = str(settled_state.get("playmode_transition_completed_utc") or settled_at_utc)
+        normalized["settle_phase"] = "settled"
+    else:
+        normalized["completion_basis"] = "host_waited_for_playmode_state"
+        normalized["settled_at_utc"] = settled_at_utc
+
+    normalized["settle_target_state"] = str(
+        settled_state.get("playmode_transition_target_state")
+        or normalized.get("settle_target_state")
+        or settled_state.get("playmode_state")
+        or ""
+    )
+    normalized["settle_request_id"] = str(
+        settled_state.get("playmode_transition_request_id")
+        or request_id
+    )
+    normalized["is_playing"] = bool(settled_state.get("is_playing"))
+    normalized["is_paused"] = bool(settled_state.get("is_paused"))
+    normalized["is_playing_or_will_change_playmode"] = bool(settled_state.get("is_playing_or_will_change_playmode"))
+    normalized["playmode_state"] = str(settled_state.get("playmode_state") or normalized.get("playmode_state") or "")
     return normalized
 
 
@@ -1126,12 +1763,11 @@ def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycl
     payload_type = str(response.get("payload_type") or "")
 
     if operation == "unity.playmode.set" and isinstance(settled_state, dict):
-        payload["is_playing"] = bool(settled_state.get("is_playing"))
-        payload["is_paused"] = bool(settled_state.get("is_paused"))
-        payload["is_playing_or_will_change_playmode"] = bool(settled_state.get("is_playing_or_will_change_playmode"))
-        payload["playmode_state"] = str(settled_state.get("playmode_state") or payload.get("playmode_state") or "")
+        payload = normalize_playmode_payload_from_lifecycle(payload, lifecycle)
     elif operation == "unity.project.refresh":
         payload = normalize_refresh_payload_from_lifecycle(payload, lifecycle)
+    elif operation in {"unity.compile.player_scripts", "unity.compile.matrix"}:
+        payload = normalize_compile_payload_from_lifecycle(payload, lifecycle)
 
     if payload_type in {"unity.scenario.run", "unity.scenario.result"}:
         payload = normalize_scenario_payload(payload)
@@ -1147,6 +1783,7 @@ def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
         "wait_for_idle_before": False,
         "wait_for_idle_after": False,
         "idle_stable_cycles_after": DEFAULT_IDLE_STABLE_CYCLES,
+        "retry_on_lifecycle_reset": False,
     }
     policy.update(OPERATION_LIFECYCLE_POLICIES.get(operation, {}))
     return policy
@@ -1155,67 +1792,103 @@ def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
 def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
     project_root = ensure_project_root(project_root_value)
     policy = resolve_operation_lifecycle_policy(operation)
-    lifecycle: dict[str, Any] = {
-        "operation": operation,
-        "activation_requested": False,
-        "idle_wait_before": None,
-        "idle_wait_after": None,
-    }
+    max_attempts = 2 if bool(policy.get("retry_on_lifecycle_reset")) else 1
 
-    if policy["activate_unity"]:
-        lifecycle["activation_requested"] = True
-        lifecycle["activation"] = activate_unity_editor(project_root)
+    for attempt_index in range(max_attempts):
+        pre_request_state = try_read_live_editor_state(project_root) or try_read_bridge_state(project_root)
+        lifecycle: dict[str, Any] = {
+            "operation": operation,
+            "attempt_index": attempt_index,
+            "max_attempts": max_attempts,
+            "activation_requested": False,
+            "idle_wait_before": None,
+            "idle_wait_after": None,
+            "transport": None,
+            "bridge_identity_before_request": {
+                "bridge_generation": bridge_identity_from_state(pre_request_state)[0],
+                "bridge_session_id": bridge_identity_from_state(pre_request_state)[1],
+            },
+        }
 
-    if policy["wait_for_idle_before"]:
-        lifecycle["idle_wait_before"] = wait_for_editor_idle(
-            project_root,
-            timeout_ms,
-            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-            f"before {operation}",
-            stable_cycles=1,
-        )
+        try:
+            if policy["activate_unity"]:
+                lifecycle["activation_requested"] = True
+                lifecycle["activation"] = activate_unity_editor(project_root)
 
-    response, request_id, request_started_at = invoke_bridge_transport(project_root, operation, args, timeout_ms)
+            if policy["wait_for_idle_before"]:
+                lifecycle["idle_wait_before"] = wait_for_editor_idle(
+                    project_root,
+                    timeout_ms,
+                    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                    f"before {operation}",
+                    stable_cycles=1,
+                )
 
-    if operation == "unity.playmode.set":
-        expected_playmode_state = expected_playmode_state_for_action(str(args.get("action") or ""))
-        if expected_playmode_state:
-            lifecycle["playmode_wait_after"] = wait_for_playmode_state(
-                project_root,
-                timeout_ms,
-                DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                expected_playmode_state,
-                f"after {operation}",
-                after_request_id=request_id,
-                not_before_unix=request_started_at,
-                stable_cycles=int(policy["idle_stable_cycles_after"]),
+            response, request_id, request_started_at, transport_metadata = invoke_bridge_transport(project_root, operation, args, timeout_ms)
+            lifecycle["transport"] = transport_metadata
+
+            if operation == "unity.playmode.set":
+                expected_playmode_state = expected_playmode_state_for_action(str(args.get("action") or ""))
+                if expected_playmode_state:
+                    lifecycle["playmode_wait_after"] = wait_for_playmode_state(
+                        project_root,
+                        timeout_ms,
+                        DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        expected_playmode_state,
+                        f"after {operation}",
+                        after_request_id=request_id,
+                        not_before_unix=request_started_at,
+                        stable_cycles=int(policy["idle_stable_cycles_after"]),
+                    )
+                elif policy["wait_for_idle_after"]:
+                    lifecycle["idle_wait_after"] = wait_for_editor_idle(
+                        project_root,
+                        timeout_ms,
+                        DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        f"after {operation}",
+                        after_request_id=request_id,
+                        not_before_unix=request_started_at,
+                        stable_cycles=int(policy["idle_stable_cycles_after"]),
+                    )
+            elif policy["wait_for_idle_after"]:
+                lifecycle["idle_wait_after"] = wait_for_editor_idle(
+                    project_root,
+                    timeout_ms,
+                    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                    f"after {operation}",
+                    after_request_id=request_id,
+                    not_before_unix=request_started_at,
+                    stable_cycles=int(policy["idle_stable_cycles_after"]),
+                )
+
+            settled_state = (
+                lifecycle.get("playmode_wait_after")
+                if isinstance(lifecycle.get("playmode_wait_after"), dict)
+                else lifecycle.get("idle_wait_after")
             )
-        elif policy["wait_for_idle_after"]:
-            lifecycle["idle_wait_after"] = wait_for_editor_idle(
-                project_root,
-                timeout_ms,
-                DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                f"after {operation}",
-                after_request_id=request_id,
-                not_before_unix=request_started_at,
-                stable_cycles=int(policy["idle_stable_cycles_after"]),
-            )
-    elif policy["wait_for_idle_after"]:
-        lifecycle["idle_wait_after"] = wait_for_editor_idle(
-            project_root,
-            timeout_ms,
-            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-            f"after {operation}",
-            after_request_id=request_id,
-            not_before_unix=request_started_at,
-            stable_cycles=int(policy["idle_stable_cycles_after"]),
-        )
+            if isinstance(settled_state, dict):
+                transition = maybe_record_settle_lifecycle_transition(
+                    project_root,
+                    operation,
+                    request_id,
+                    pre_request_state,
+                    settled_state,
+                )
+                if transition:
+                    lifecycle["bridge_identity_transition"] = transition
 
-    if response.get("status") == "ok":
-        response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
-        response["_xuunity_lifecycle"] = lifecycle
+            if response.get("status") == "ok":
+                response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
+                response["_xuunity_lifecycle"] = lifecycle
 
-    return response
+            return response
+        except ToolInvocationError as exc:
+            if exc.code == "request_lifecycle_reset" and attempt_index + 1 < max_attempts:
+                lifecycle["lifecycle_reset_retry"] = exc.details
+                continue
+            raise
+
+    raise ToolInvocationError("unreachable", f"Unexpected lifecycle retry state for {operation}.")
 
 
 def wait_for_ready(
@@ -1815,6 +2488,21 @@ def cmd_request_status(args):
     print_json(response)
 
 
+def cmd_request_playmode_state(args):
+    response = invoke_bridge(args.project_root, "unity.playmode.state", {}, args.timeout_ms)
+    print_json(response)
+
+
+def cmd_request_playmode_set(args):
+    response = invoke_bridge(
+        args.project_root,
+        "unity.playmode.set",
+        {"action": args.action},
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_request_capabilities(args):
     response = invoke_bridge(args.project_root, "unity.capabilities.get", {}, args.timeout_ms)
     print_json(response)
@@ -2011,6 +2699,17 @@ def build_parser():
     status_cmd.add_argument("--project-root", required=True)
     status_cmd.add_argument("--timeout-ms", type=int, default=5000)
     status_cmd.set_defaults(func=cmd_request_status)
+
+    playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct file-IPC unity.playmode.state request.")
+    playmode_state_cmd.add_argument("--project-root", required=True)
+    playmode_state_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    playmode_state_cmd.set_defaults(func=cmd_request_playmode_state)
+
+    playmode_set_cmd = sub.add_parser("request-playmode-set", help="Send a direct file-IPC unity.playmode.set request.")
+    playmode_set_cmd.add_argument("--project-root", required=True)
+    playmode_set_cmd.add_argument("--action", required=True, choices=["enter", "exit", "pause", "resume"])
+    playmode_set_cmd.add_argument("--timeout-ms", type=int, default=45000)
+    playmode_set_cmd.set_defaults(func=cmd_request_playmode_set)
 
     capabilities_cmd = sub.add_parser("request-capabilities", help="Send a direct file-IPC unity.capabilities.get request.")
     capabilities_cmd.add_argument("--project-root", required=True)
