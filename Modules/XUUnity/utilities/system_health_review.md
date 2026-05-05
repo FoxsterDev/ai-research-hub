@@ -18,6 +18,14 @@ Review the health of the prompt system itself, not only the product code.
 - Prefer a machine-readable extraction regression summary when available.
 - Prefer the canonical latest authoritative summary over ad hoc run files.
 - If extraction routing changed recently and no regression evidence exists, flag that gap explicitly.
+- When the active system exposes a Unity MCP operational layer, check whether it also exposes a checked-in smoke route.
+- Prefer checked-in smoke routes over ad hoc manual command lists when verifying MCP operational health.
+- If a checked-in smoke route exists and the current session can access the required project/editor state, run the narrowest representative smoke route and include the result in the review.
+- If MCP exists but no checked-in smoke route exists, flag that as a system-health gap.
+- Distinguish:
+  - public reusable smoke contracts in `AIRoot`
+  - host-local operational wrappers in `AIOutput/Operations/`
+  - project-local smoke expectations in project memory or project-specific internal knowledge
 - Audit shared knowledge reachability:
     - identify shared `knowledge/` or internal overlay knowledge files that have no explicit routing, trigger hints, utility references, or load path
     - treat knowledge with no realistic selection path as dead ballast
@@ -37,7 +45,38 @@ Review the health of the prompt system itself, not only the product code.
 - Redundant files or sections
 - Missing files or weak layers
 - Knowledge extraction regression status
+- MCP smoke regression status
 - Knowledge reachability status
 - Public core versus internal overlay boundary status
 - Storage consistency status
 - Recommended cleanup order
+
+### MCP Smoke Regression Status Template
+
+When Unity MCP operational health is in scope, include a dedicated subsection in
+the report using this exact shape:
+
+```md
+**MCP Smoke Regression Status**
+- `smoke_route`: `<path or none>`
+- `scope`: `public_core` | `host_local` | `project_local`
+- `run_status`: `passed` | `failed` | `not_run`
+- `evidence_date`: `YYYY-MM-DD` or `none`
+- `covered_checks`:
+  - `<check name>`
+  - `<check name>`
+- `result_summary`: `<short factual summary>`
+- `gaps`:
+  - `<gap or none>`
+  - `<gap or none>`
+```
+
+Use:
+- `run_status: not_run` when the route exists but was not executed in the current review
+- `smoke_route: none` when MCP exists but the system has no checked-in smoke route
+- `scope: public_core` for reusable `AIRoot` smoke contracts
+- `scope: host_local` for `AIOutput/Operations/` wrappers
+- `scope: project_local` for project-specific validation runners or project-memory-declared smoke paths
+
+Keep `result_summary` short and evidence-based. Do not collapse missing-route,
+not-run, and failed-run cases into the same wording.

@@ -19,6 +19,7 @@ namespace XUUnity.LightMcp.Editor.Operations
 
             try
             {
+                var requestCompletedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 if (args.forceAssetRefresh)
                 {
                     AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
@@ -42,9 +43,13 @@ namespace XUUnity.LightMcp.Editor.Operations
                 {
                     project_root = XUUnityLightMcpFileIpcPaths.ProjectRootPath,
                     outcome = args.resolvePackages ? "refresh_and_resolve_requested" : "refresh_requested",
+                    request_completed_at_utc = requestCompletedAtUtc,
                     asset_database_refreshed = true,
                     package_resolve_requested = args.resolvePackages,
                     capabilities_report_refreshed = args.rerunHealthProbe,
+                    editor_is_compiling_after_request = EditorApplication.isCompiling,
+                    editor_is_updating_after_request = EditorApplication.isUpdating,
+                    playmode_state_after_request = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState(),
                 };
 
                 return XUUnityLightMcpResponseWriter.Success(

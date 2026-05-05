@@ -1,0 +1,54 @@
+{
+  "name": "interactive_acceptance_smoke",
+  "description": "Generic interactive acceptance smoke for XUUnity Light Unity MCP.",
+  "stopOnFirstFailure": true,
+  "steps": [
+    {
+      "stepId": "status",
+      "kind": "status"
+    },
+    {
+      "stepId": "health",
+      "kind": "health_probe"
+    },
+    {
+      "stepId": "refresh",
+      "kind": "project_refresh",
+      "timeoutSeconds": 45.0
+    },
+    {
+      "stepId": "enter_play",
+      "kind": "playmode_set",
+      "action": "enter",
+      "timeoutSeconds": 45.0
+    },
+    {
+      "stepId": "wait_play",
+      "kind": "wait_for_playmode_state",
+      "expectedPlaymodeState": "playing",
+      "timeoutSeconds": 45.0
+    },
+    {
+      "stepId": "assert_play",
+      "kind": "assert_playmode_state",
+      "expectedPlaymodeState": "playing"
+    },
+    {
+      "stepId": "exit_play",
+      "kind": "playmode_set",
+      "action": "exit",
+      "timeoutSeconds": 45.0
+    },
+    {
+      "stepId": "wait_edit",
+      "kind": "wait_for_playmode_state",
+      "expectedPlaymodeState": "edit",
+      "timeoutSeconds": 45.0
+    },
+    {
+      "stepId": "assert_edit",
+      "kind": "assert_playmode_state",
+      "expectedPlaymodeState": "edit"
+    }
+  ]
+}

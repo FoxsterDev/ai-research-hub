@@ -22,6 +22,7 @@ Related public docs:
 - `COMPARISON.md`
 - `ROADMAP.md`
 - `AI_INTEGRATION.md`
+- `SMOKE_TESTS.md`
 - `LICENSE.md`
 - `Reports/`
 
@@ -91,8 +92,10 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 
 - `init_xuunity_light_unity_mcp.sh`
 - `xuunity_light_unity_mcp.sh`
+- `SMOKE_TESTS.md`
 - `templates/run.sh`
 - `templates/server.py`
+- `templates/scenarios/`
 - `templates/clients/`
 - `templates/unity-package/`
 - `Reports/`
@@ -256,6 +259,36 @@ What this does:
 - inspects `Editor.log` while waiting
 - stops early on package-resolution failures or interactive compile blockers instead of hanging forever
 
+## Stability Contract
+
+The host-side wrapper now treats some operations as lifecycle-sensitive instead of fire-and-forget.
+
+Current behavior:
+- `unity.project.refresh`
+- `unity.compile.player_scripts`
+- `unity.compile.matrix`
+- `unity.tests.run_editmode`
+- `unity.playmode.set`
+- `unity.game_view.configure`
+- `unity.game_view.screenshot`
+- `unity.scenario.run`
+
+For those operations the wrapper may:
+- activate Unity before sending the request
+- wait for editor idle before sending work
+- wait for a post-request settled idle state before claiming success for synchronous operations
+
+Bridge state now exposes additional lifecycle fields under `bridge-state` and `unity.status`:
+- `is_updating`
+- `is_playing_or_will_change_playmode`
+- `playmode_state`
+- `last_pump_utc`
+- `last_processed_request_id`
+- `pending_request_count`
+- `busy_reason`
+
+This is intended to reduce false-success responses where Unity accepted a request but had not yet settled refresh, compile, or playmode work.
+
 Read the heartbeat state:
 
 ```bash
@@ -328,7 +361,21 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
   request-scenario-run \
   --project-root /path/to/UnityProject \
   --scenario-file /path/to/scenario.json
+
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-scenario-run-and-wait \
+  --project-root /path/to/UnityProject \
+  --scenario-file /path/to/scenario.json
 ```
+
+## Public Smoke Contract
+
+See `SMOKE_TESTS.md` for the public reusable MCP smoke baseline.
+
+Generic example scenario templates are provided under:
+
+- `templates/scenarios/interactive_acceptance_smoke.json`
+- `templates/scenarios/refresh_contract_smoke.json`
 
 ## Client Templates
 
