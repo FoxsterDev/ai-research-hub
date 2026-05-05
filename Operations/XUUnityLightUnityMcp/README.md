@@ -96,6 +96,7 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 - `templates/run.sh`
 - `templates/server.py`
 - `templates/scenarios/`
+- `templates/smoke/`
 - `templates/clients/`
 - `templates/unity-package/`
 - `Reports/`
