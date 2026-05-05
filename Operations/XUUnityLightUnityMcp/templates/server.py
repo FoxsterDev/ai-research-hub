@@ -1326,6 +1326,23 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
     return matches
 
 
+def list_live_project_editor_pids(project_root: Path) -> list[int]:
+    pids: set[int] = set()
+
+    bridge_state = try_read_live_editor_state(project_root)
+    if bridge_state is not None:
+        bridge_pid = int(bridge_state.get("editor_pid") or 0)
+        if bridge_pid > 0 and pid_is_alive(bridge_pid):
+            pids.add(bridge_pid)
+
+    for editor in find_running_unity_editors_for_project(project_root):
+        pid = int(editor.get("pid") or 0)
+        if pid > 0 and pid_is_alive(pid):
+            pids.add(pid)
+
+    return sorted(pids)
+
+
 def project_lock_path(project_root: Path) -> Path:
     return project_root / "Temp" / "UnityLockfile"
 
@@ -1848,11 +1865,12 @@ def restore_host_opened_editor_state(project_root: Path, timeout_ms: int) -> dic
 
     if live_state is not None:
         current_pid = int(live_state.get("editor_pid") or 0)
-        if tracked_pid <= 0 or current_pid == tracked_pid:
+        if current_pid > 0 and (tracked_pid <= 0 or current_pid == tracked_pid):
             request_editor_quit(str(project_root), timeout_ms)
             deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
             while time.time() < deadline:
-                if not pid_is_alive(current_pid):
+                live_project_pids = list_live_project_editor_pids(project_root)
+                if not pid_is_alive(current_pid) and current_pid not in live_project_pids:
                     clear_host_editor_session_state(project_root)
                     restoration["restored"] = True
                     restoration["reason"] = "host_opened_editor_closed"
@@ -1863,21 +1881,30 @@ def restore_host_opened_editor_state(project_root: Path, timeout_ms: int) -> dic
                 time.sleep(0.2)
 
     if tracked_pid > 0 and terminate_editor_pid(tracked_pid, timeout_ms):
-        clear_host_editor_session_state(project_root)
-        restoration["restored"] = True
-        restoration["reason"] = "host_opened_editor_closed"
-        restoration["close_path"] = "host_sigterm"
-        restoration["closed_editor_pid"] = tracked_pid
-        clear_stale_project_lock(project_root)
-        return restoration
+        live_project_pids = list_live_project_editor_pids(project_root)
+        if tracked_pid not in live_project_pids:
+            clear_host_editor_session_state(project_root)
+            restoration["restored"] = True
+            restoration["reason"] = "host_opened_editor_closed"
+            restoration["close_path"] = "host_sigterm"
+            restoration["closed_editor_pid"] = tracked_pid
+            clear_stale_project_lock(project_root)
+            return restoration
 
     if tracked_pid > 0 and not pid_is_alive(tracked_pid):
-        clear_host_editor_session_state(project_root)
-        restoration["restored"] = False
-        restoration["reason"] = "tracked_editor_already_closed"
+        live_project_pids = list_live_project_editor_pids(project_root)
+        if not live_project_pids:
+            clear_host_editor_session_state(project_root)
+            restoration["restored"] = False
+            restoration["reason"] = "tracked_editor_already_closed"
+            return restoration
+
+        restoration["reason"] = "project_editor_still_running_untracked"
+        restoration["live_project_editor_pids"] = live_project_pids
         return restoration
 
     restoration["reason"] = "tracked_editor_still_running"
+    restoration["live_project_editor_pids"] = list_live_project_editor_pids(project_root)
     return restoration
 
 
