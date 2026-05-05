@@ -2,6 +2,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 using XUUnity.LightMcp.Editor.Core;
+using XUUnity.LightMcp.Editor.Helpers;
 
 namespace XUUnity.LightMcp.Editor.Operations
 {
@@ -69,6 +70,14 @@ namespace XUUnity.LightMcp.Editor.Operations
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 return "already_transitioning";
+            }
+
+            try
+            {
+                XUUnityLightMcpGameViewUtility.EnsureGameView();
+            }
+            catch
+            {
             }
 
             EditorApplication.isPlaying = true;

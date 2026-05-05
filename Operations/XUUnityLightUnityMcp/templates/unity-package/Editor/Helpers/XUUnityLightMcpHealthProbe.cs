@@ -160,8 +160,12 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 operations = new List<string>
                 {
                     "unity.status",
+                    "unity.project.refresh",
                     "unity.console.tail",
-                    "unity.scene.snapshot"
+                    "unity.scene.snapshot",
+                    "unity.scenario.validate",
+                    "unity.scenario.run",
+                    "unity.scenario.result"
                 }
             };
         }

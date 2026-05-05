@@ -16,12 +16,14 @@ namespace XUUnity.LightMcp.Editor.Core
         {
             "unity.status",
             "unity.capabilities.get",
-            "unity.health.probe"
+            "unity.health.probe",
+            "unity.project.refresh"
         };
 
         static readonly Dictionary<string, string> OperationCapabilities = new(StringComparer.Ordinal)
         {
             { "unity.status", CoreCapability },
+            { "unity.project.refresh", CoreCapability },
             { "unity.console.tail", CoreCapability },
             { "unity.scene.snapshot", CoreCapability },
             { "unity.scenario.validate", CoreCapability },

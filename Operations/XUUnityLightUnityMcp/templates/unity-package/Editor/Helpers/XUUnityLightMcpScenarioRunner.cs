@@ -226,6 +226,8 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     return ProcessNestedOperationStep("unity.health.probe", "{}", stepResult);
                 case "scene_snapshot":
                     return ProcessNestedOperationStep("unity.scene.snapshot", "{}", stepResult);
+                case "project_refresh":
+                    return ProcessProjectRefreshStep(step, stepResult);
                 case "console_tail":
                     return ProcessConsoleTailStep(step, stepResult);
                 case "playmode_set":
@@ -880,6 +882,18 @@ namespace XUUnity.LightMcp.Editor.Helpers
             }
         }
 
+        static bool ProcessProjectRefreshStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
+        {
+            var args = new XUUnityLightMcpProjectRefreshArgs
+            {
+                forceAssetRefresh = step.forceAssetRefresh,
+                resolvePackages = step.resolvePackages,
+                rerunHealthProbe = step.rerunHealthProbe,
+            };
+
+            return ProcessNestedOperationStep("unity.project.refresh", JsonUtility.ToJson(args), stepResult);
+        }
+
         static string BuildResultPath(string runId, string scenarioName)
         {
             var timestamp = DateTime.UtcNow.ToString("yyyyMMddTHHmmssZ");
@@ -985,6 +999,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 case "status":
                 case "health_probe":
                 case "scene_snapshot":
+                case "project_refresh":
                     break;
                 case "console_tail":
                     if (step.limit <= 0)

@@ -275,6 +275,26 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpProjectRefreshArgs
+    {
+        public bool forceAssetRefresh = true;
+        public bool resolvePackages = true;
+        public bool rerunHealthProbe = true;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpProjectRefreshPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string outcome = "";
+        public bool asset_database_refreshed;
+        public bool package_resolve_requested;
+        public bool capabilities_report_refreshed;
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpCompilePlayerScriptsArgs
     {
         public string name = "";
@@ -374,6 +394,9 @@ namespace XUUnity.LightMcp.Editor.Core
         public string group = "";
         public string label = "";
         public bool allowCreateCustomSize;
+        public bool forceAssetRefresh = true;
+        public bool resolvePackages = true;
+        public bool rerunHealthProbe = true;
         public string hookName = "";
         public string hookPayloadJson = "";
     }
