@@ -25,6 +25,19 @@ Transport between them:
 
 No runtime/player package is part of the base service.
 
+## Lifecycle Contract
+
+The wrapper is responsible for the host-local lifecycle gaps that the Unity package alone cannot close.
+
+Current design intent:
+- use `bridge-state` and `unity.status` as readiness evidence, not only request transport
+- surface editor busy reasons explicitly
+- activate Unity before focus-sensitive interactive operations
+- wait for editor idle before and after lifecycle-sensitive synchronous operations
+- distinguish request acceptance from settled editor completion
+
+This keeps the lightweight lane closer to Rider-style behavior without depending on Rider runtime internals.
+
 ## Stable Surface
 
 Core validation operations:

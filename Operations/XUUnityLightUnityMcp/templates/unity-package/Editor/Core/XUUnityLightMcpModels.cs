@@ -15,13 +15,28 @@ namespace XUUnity.LightMcp.Editor.Core
     [Serializable]
     internal sealed class XUUnityLightMcpBridgeState
     {
-        public int bridge_version = 1;
+        public int bridge_version = 3;
         public string project_root = "";
         public int editor_pid;
         public string unity_version = "";
         public bool is_compiling;
         public bool is_playing;
+        public bool is_paused;
+        public bool is_updating;
+        public bool is_playing_or_will_change_playmode;
+        public string playmode_state = "edit";
         public string heartbeat_utc = "";
+        public string last_pump_utc = "";
+        public string last_processed_request_id = "";
+        public int pending_request_count;
+        public string busy_reason = "";
+        public string busy_reason_detail = "";
+        public string active_request_id = "";
+        public string active_operation = "";
+        public string active_operation_started_utc = "";
+        public string last_completed_operation = "";
+        public string last_completed_operation_status = "";
+        public double last_completed_operation_duration_seconds;
         public string last_error = "";
         public string health_status = "";
         public int supported_operation_count;
@@ -68,8 +83,20 @@ namespace XUUnity.LightMcp.Editor.Core
         public bool is_compiling;
         public bool is_playing;
         public bool is_paused;
+        public bool is_updating;
         public bool is_playing_or_will_change_playmode;
         public string playmode_state = "edit";
+        public string last_pump_utc = "";
+        public string last_processed_request_id = "";
+        public int pending_request_count;
+        public string busy_reason = "";
+        public string busy_reason_detail = "";
+        public string active_request_id = "";
+        public string active_operation = "";
+        public string active_operation_started_utc = "";
+        public string last_completed_operation = "";
+        public string last_completed_operation_status = "";
+        public double last_completed_operation_duration_seconds;
         public string transport = "file_ipc";
         public string health_status = "";
         public List<string> supported_operations = new();
@@ -288,9 +315,19 @@ namespace XUUnity.LightMcp.Editor.Core
         public string backend_id = "xuunity.light_unity_mcp";
         public string project_root = "";
         public string outcome = "";
+        public string requested_outcome = "";
+        public string request_completed_at_utc = "";
+        public string settled_at_utc = "";
+        public string completion_basis = "";
         public bool asset_database_refreshed;
         public bool package_resolve_requested;
         public bool capabilities_report_refreshed;
+        public bool editor_is_compiling_after_request;
+        public bool editor_is_updating_after_request;
+        public string playmode_state_after_request = "edit";
+        public bool editor_is_compiling_after_settle;
+        public bool editor_is_updating_after_settle;
+        public string playmode_state_after_settle = "edit";
         public string validation_evidence = "unity_mcp";
     }
 
@@ -473,6 +510,9 @@ namespace XUUnity.LightMcp.Editor.Core
         public string run_id = "";
         public string scenario_name = "";
         public string status = "queued";
+        public bool terminal;
+        public bool succeeded;
+        public string terminal_status = "";
         public string started_at_utc = "";
         public string updated_at_utc = "";
         public string completed_at_utc = "";
@@ -502,6 +542,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public string pendingNestedRequestId = "";
         public string pendingNestedOperation = "";
         public string pendingNestedStartedAtUtc = "";
+        public int pendingNestedStableTickCount;
         public List<XUUnityLightMcpScenarioStepResult> steps = new();
     }
 }

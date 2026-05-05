@@ -1,0 +1,16 @@
+{
+  "name": "refresh_contract_smoke",
+  "description": "Generic contract smoke for settled refresh semantics.",
+  "stopOnFirstFailure": true,
+  "steps": [
+    {
+      "stepId": "status",
+      "kind": "status"
+    },
+    {
+      "stepId": "refresh",
+      "kind": "project_refresh",
+      "timeoutSeconds": 45.0
+    }
+  ]
+}

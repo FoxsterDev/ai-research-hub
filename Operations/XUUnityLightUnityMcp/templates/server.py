@@ -13,13 +13,69 @@ from typing import Any
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.3.1",
+    "version": "0.3.3",
 }
 
 STARTUP_POLICIES = {
     "auto_enter_safe_mode_preferred",
     "batch_compile_lane",
     "fail_fast_on_interactive_compile_block",
+}
+
+ACTIVATION_DELAY_SECONDS = 0.35
+DEFAULT_HEARTBEAT_MAX_AGE_SECONDS = 10
+DEFAULT_IDLE_STABLE_CYCLES = 2
+SCENARIO_TERMINAL_STATUSES = {"passed", "failed"}
+
+OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
+    "unity.project.refresh": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.compile.player_scripts": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.compile.matrix": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.tests.run_editmode": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.playmode.set": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.game_view.configure": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+    },
+    "unity.game_view.screenshot": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": False,
+        "idle_stable_cycles_after": 1,
+    },
+    "unity.scenario.run": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": False,
+        "idle_stable_cycles_after": 1,
+    },
 }
 
 SCENARIO_STEP_SCHEMA: dict[str, Any] = {
@@ -160,7 +216,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "forceAssetRefresh": {"type": "boolean", "default": True},
                 "resolvePackages": {"type": "boolean", "default": True},
                 "rerunHealthProbe": {"type": "boolean", "default": True},
-                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 30000, "minimum": 1000}
             },
             "required": ["projectRoot"]
         }
@@ -230,7 +286,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "type": "string",
                     "enum": ["enter", "exit", "pause", "resume"]
                 },
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
             },
             "required": ["projectRoot", "action"]
         }
@@ -251,7 +307,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "default": False,
                     "description": "When false, fail if the requested size is not already available in Unity Game View."
                 },
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 10000, "minimum": 1000}
             },
             "required": ["projectRoot", "width", "height"]
         }
@@ -396,6 +452,19 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
             "required": ["projectRoot"],
         },
+    },
+    "unity_scenario_run_and_wait": {
+        "description": "Start a Unity automation scenario and wait until it reaches a terminal state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "scenario": SCENARIO_DEFINITION_SCHEMA,
+                "timeoutMs": {"type": "integer", "default": 120000, "minimum": 1000},
+                "pollIntervalMs": {"type": "integer", "default": 1000, "minimum": 100},
+            },
+            "required": ["projectRoot", "scenario"],
+        },
     }
 }
 
@@ -471,8 +540,12 @@ def bridge_enabled(project_root: Path) -> bool:
     return bool(data.get("enabled"))
 
 
-def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
-    project_root = ensure_project_root(project_root_value)
+def invoke_bridge_transport(
+    project_root: Path,
+    operation: str,
+    args: dict[str, Any],
+    timeout_ms: int,
+) -> tuple[dict[str, Any], str, float]:
     if not bridge_enabled(project_root):
         raise ToolInvocationError(
             "bridge_disabled",
@@ -495,6 +568,7 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
     request_id = str(uuid.uuid4())
     request_path = in_dir / f"{request_id}.json"
     response_path = out_dir / f"{request_id}.json"
+    request_started_at = time.time()
 
     request = {
         "request_id": request_id,
@@ -517,7 +591,7 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
                     response_path.unlink()
                 except OSError:
                     pass
-            return response
+            return response, request_id, request_started_at
         time.sleep(0.2)
 
     raise ToolInvocationError("operation_timeout", f"Timed out waiting for {response_path}")
@@ -556,6 +630,85 @@ def heartbeat_age_seconds(state: dict[str, Any]) -> float | None:
         return None
 
     return max(0.0, time.time() - heartbeat_unix)
+
+
+def parse_utc_timestamp(value: Any) -> float | None:
+    if not isinstance(value, str) or not value:
+        return None
+
+    try:
+        return float(calendar.timegm(time.strptime(value, "%Y-%m-%dT%H:%M:%SZ")))
+    except ValueError:
+        return None
+
+
+def state_is_idle(state: dict[str, Any]) -> bool:
+    return (
+        not bool(state.get("is_compiling"))
+        and not bool(state.get("is_updating"))
+        and not bool(state.get("active_operation"))
+        and (bool(state.get("is_playing")) or not bool(state.get("is_playing_or_will_change_playmode")))
+    )
+
+
+def derive_busy_reason(state: dict[str, Any] | None) -> str:
+    if not state:
+        return "bridge_state_missing"
+
+    busy_reason = state.get("busy_reason")
+    if isinstance(busy_reason, str) and busy_reason:
+        return busy_reason
+
+    if bool(state.get("is_compiling")):
+        return "compiling"
+
+    if bool(state.get("is_updating")):
+        return "updating"
+
+    if state.get("active_operation"):
+        return "processing_request"
+
+    if not bool(state.get("is_playing")) and bool(state.get("is_playing_or_will_change_playmode")):
+        return "playmode_transition"
+
+    if int(state.get("pending_request_count") or 0) > 0:
+        return "request_queue_pending"
+
+    return "idle"
+
+
+def summarize_state_for_error(state: dict[str, Any] | None) -> str:
+    if not state:
+        return "No live bridge state was available."
+
+    heartbeat_age = heartbeat_age_seconds(state)
+    heartbeat_summary = "unknown"
+    if heartbeat_age is not None:
+        heartbeat_summary = f"{round(heartbeat_age, 3)}s"
+
+    return (
+        f"busy_reason={derive_busy_reason(state)}, "
+        f"heartbeat_age={heartbeat_summary}, "
+        f"is_compiling={bool(state.get('is_compiling'))}, "
+        f"is_updating={bool(state.get('is_updating'))}, "
+        f"is_playing={bool(state.get('is_playing'))}, "
+        f"is_playing_or_will_change_playmode={bool(state.get('is_playing_or_will_change_playmode'))}, "
+        f"health_status={state.get('health_status') or 'unknown'}, "
+        f"active_operation={state.get('active_operation') or ''}, "
+        f"busy_reason_detail={state.get('busy_reason_detail') or ''}, "
+        f"last_processed_request_id={state.get('last_processed_request_id') or ''}, "
+        f"pending_request_count={int(state.get('pending_request_count') or 0)}"
+    )
+
+
+def activate_unity_editor(project_root: Path, explicit_unity_app: Path | None = None) -> dict[str, Any]:
+    unity_app = explicit_unity_app or detect_unity_app_path_for_project(project_root, None)
+    subprocess.run(["open", "-a", str(unity_app)], check=True)
+    time.sleep(ACTIVATION_DELAY_SECONDS)
+    return {
+        "unity_app": str(unity_app),
+        "activation_delay_seconds": ACTIVATION_DELAY_SECONDS,
+    }
 
 
 def classify_editor_log(log_text: str, startup_policy: str) -> tuple[str, str] | None:
@@ -732,6 +885,337 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
         "editor_log_path": str(log_path),
         "background_open": background_open,
     }
+
+
+def wait_for_editor_idle(
+    project_root: Path,
+    timeout_ms: int,
+    heartbeat_max_age_seconds: int,
+    reason: str,
+    *,
+    after_request_id: str | None = None,
+    not_before_unix: float | None = None,
+    require_healthy_bridge: bool = True,
+    stable_cycles: int = DEFAULT_IDLE_STABLE_CYCLES,
+) -> dict[str, Any]:
+    started_at = time.time()
+    deadline = started_at + (timeout_ms / 1000.0)
+    stable_matches = 0
+    last_state: dict[str, Any] | None = None
+
+    while time.time() < deadline:
+        state = try_read_live_editor_state(project_root)
+        if state:
+            last_state = state
+            age_seconds = heartbeat_age_seconds(state)
+            heartbeat_is_fresh = age_seconds is not None and age_seconds <= heartbeat_max_age_seconds
+            bridge_is_healthy = not require_healthy_bridge or state.get("health_status") == "healthy"
+            last_processed_request_id = str(state.get("last_processed_request_id") or "")
+            last_pump_unix = parse_utc_timestamp(state.get("last_pump_utc"))
+            request_match = (
+                after_request_id is None
+                or last_processed_request_id == after_request_id
+                or (not_before_unix is not None and last_pump_unix is not None and last_pump_unix >= not_before_unix)
+            )
+            editor_is_idle = state_is_idle(state)
+
+            if heartbeat_is_fresh and bridge_is_healthy and request_match and editor_is_idle:
+                stable_matches += 1
+                if stable_matches >= max(1, stable_cycles):
+                    result = dict(state)
+                    result["heartbeat_age_seconds"] = round(age_seconds or 0.0, 3)
+                    result["idle_wait_reason"] = reason
+                    result["idle_wait_duration_seconds"] = round(time.time() - started_at, 3)
+                    return result
+            else:
+                stable_matches = 0
+        else:
+            stable_matches = 0
+
+        time.sleep(0.5)
+
+    request_summary = ""
+    if after_request_id:
+        request_summary = f" request_id={after_request_id}."
+
+    raise ToolInvocationError(
+        "editor_idle_timeout",
+        (
+            f"Timed out waiting for Unity editor idle ({reason})."
+            f"{request_summary} {summarize_state_for_error(last_state)}"
+        ),
+    )
+
+
+def wait_for_playmode_state(
+    project_root: Path,
+    timeout_ms: int,
+    heartbeat_max_age_seconds: int,
+    expected_state: str,
+    reason: str,
+    *,
+    after_request_id: str | None = None,
+    not_before_unix: float | None = None,
+    stable_cycles: int = DEFAULT_IDLE_STABLE_CYCLES,
+) -> dict[str, Any]:
+    started_at = time.time()
+    deadline = started_at + (timeout_ms / 1000.0)
+    stable_matches = 0
+    last_state: dict[str, Any] | None = None
+
+    while time.time() < deadline:
+        state = try_read_live_editor_state(project_root)
+        if state:
+            last_state = state
+            age_seconds = heartbeat_age_seconds(state)
+            heartbeat_is_fresh = age_seconds is not None and age_seconds <= heartbeat_max_age_seconds
+            request_match = (
+                after_request_id is None
+                or str(state.get("last_processed_request_id") or "") == after_request_id
+                or (
+                    not_before_unix is not None
+                    and parse_utc_timestamp(state.get("last_pump_utc")) is not None
+                    and parse_utc_timestamp(state.get("last_pump_utc")) >= not_before_unix
+                )
+            )
+            playmode_state = str(state.get("playmode_state") or "")
+
+            if heartbeat_is_fresh and request_match and playmode_state == expected_state:
+                stable_matches += 1
+                if stable_matches >= max(1, stable_cycles):
+                    result = dict(state)
+                    result["heartbeat_age_seconds"] = round(age_seconds or 0.0, 3)
+                    result["playmode_wait_reason"] = reason
+                    result["playmode_wait_duration_seconds"] = round(time.time() - started_at, 3)
+                    return result
+            else:
+                stable_matches = 0
+        else:
+            stable_matches = 0
+
+        time.sleep(0.5)
+
+    request_summary = ""
+    if after_request_id:
+        request_summary = f" request_id={after_request_id}."
+
+    raise ToolInvocationError(
+        "playmode_state_timeout",
+        (
+            f"Timed out waiting for play mode state '{expected_state}' ({reason})."
+            f"{request_summary} {summarize_state_for_error(last_state)}"
+        ),
+    )
+
+
+def wait_for_scenario_result(
+    project_root: Path,
+    run_id: str,
+    scenario_name: str,
+    timeout_ms: int,
+    poll_interval_ms: int,
+) -> dict[str, Any]:
+    started_at = time.time()
+    deadline = started_at + (timeout_ms / 1000.0)
+    effective_poll_interval = max(0.1, poll_interval_ms / 1000.0)
+    last_payload: dict[str, Any] | None = None
+
+    while time.time() < deadline:
+        remaining_ms = max(1000, min(5000, int((deadline - time.time()) * 1000)))
+        bridge_args: dict[str, Any] = {}
+        if run_id:
+            bridge_args["runId"] = run_id
+        if scenario_name:
+            bridge_args["scenarioName"] = scenario_name
+
+        response = invoke_bridge(str(project_root), "unity.scenario.result", bridge_args, remaining_ms)
+        tool_result = bridge_response_to_tool_result(response)
+        if tool_result.get("isError"):
+            structured = tool_result.get("structuredContent") or {}
+            error = structured.get("error") or {}
+            raise ToolInvocationError(
+                str(error.get("code") or "scenario_result_failed"),
+                str(error.get("message") or "Scenario result polling failed."),
+            )
+
+        payload = tool_result.get("structuredContent") or {}
+        if isinstance(payload, dict):
+            payload = normalize_scenario_payload(payload)
+        last_payload = payload
+
+        if is_terminal_scenario_status(payload.get("status")):
+            payload["waited_for_terminal_state"] = True
+            payload["wait_duration_seconds"] = round(time.time() - started_at, 3)
+            return payload
+
+        time.sleep(effective_poll_interval)
+
+    scenario_label = scenario_name or run_id or "unknown"
+    suffix = ""
+    if last_payload:
+        suffix = f" Last observed status: {last_payload.get('status') or 'unknown'}."
+    raise ToolInvocationError(
+        "scenario_wait_timeout",
+        f"Timed out waiting for scenario '{scenario_label}' to reach a terminal state.{suffix}",
+    )
+
+
+def expected_playmode_state_for_action(action: str) -> str | None:
+    normalized = (action or "").strip().lower()
+    mapping = {
+        "enter": "playing",
+        "exit": "edit",
+        "pause": "paused",
+        "resume": "playing",
+    }
+    return mapping.get(normalized)
+
+
+def is_terminal_scenario_status(status: Any) -> bool:
+    return isinstance(status, str) and status in SCENARIO_TERMINAL_STATUSES
+
+
+def normalize_scenario_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    status = str(normalized.get("status") or "")
+    terminal = is_terminal_scenario_status(status)
+    normalized["terminal"] = terminal
+    normalized["succeeded"] = status == "passed"
+    normalized["terminal_status"] = status if terminal else ""
+    normalized["terminal_statuses"] = sorted(SCENARIO_TERMINAL_STATUSES)
+    return normalized
+
+
+def normalize_refresh_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    requested_outcome = str(normalized.get("outcome") or "")
+    idle_wait_after = lifecycle.get("idle_wait_after")
+    if not isinstance(idle_wait_after, dict):
+        return normalized
+
+    settled_at_utc = str(idle_wait_after.get("heartbeat_utc") or "")
+    normalized["requested_outcome"] = requested_outcome
+    normalized["outcome"] = (
+        "refresh_and_resolve_completed"
+        if bool(normalized.get("package_resolve_requested"))
+        else "refresh_completed"
+    )
+    normalized["settled_at_utc"] = settled_at_utc
+    normalized["completion_basis"] = "host_waited_for_editor_idle"
+    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
+    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
+    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
+    return normalized
+
+
+def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    if response.get("status") != "ok":
+        return response
+
+    settled_state = lifecycle.get("playmode_wait_after")
+    payload_json = response.get("payload_json")
+    if not isinstance(payload_json, str) or not payload_json:
+        return response
+
+    try:
+        payload = json.loads(payload_json)
+    except json.JSONDecodeError:
+        return response
+
+    operation = str(lifecycle.get("operation") or "")
+    payload_type = str(response.get("payload_type") or "")
+
+    if operation == "unity.playmode.set" and isinstance(settled_state, dict):
+        payload["is_playing"] = bool(settled_state.get("is_playing"))
+        payload["is_paused"] = bool(settled_state.get("is_paused"))
+        payload["is_playing_or_will_change_playmode"] = bool(settled_state.get("is_playing_or_will_change_playmode"))
+        payload["playmode_state"] = str(settled_state.get("playmode_state") or payload.get("playmode_state") or "")
+    elif operation == "unity.project.refresh":
+        payload = normalize_refresh_payload_from_lifecycle(payload, lifecycle)
+
+    if payload_type in {"unity.scenario.run", "unity.scenario.result"}:
+        payload = normalize_scenario_payload(payload)
+
+    normalized = dict(response)
+    normalized["payload_json"] = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+    return normalized
+
+
+def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
+    policy = {
+        "activate_unity": False,
+        "wait_for_idle_before": False,
+        "wait_for_idle_after": False,
+        "idle_stable_cycles_after": DEFAULT_IDLE_STABLE_CYCLES,
+    }
+    policy.update(OPERATION_LIFECYCLE_POLICIES.get(operation, {}))
+    return policy
+
+
+def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
+    project_root = ensure_project_root(project_root_value)
+    policy = resolve_operation_lifecycle_policy(operation)
+    lifecycle: dict[str, Any] = {
+        "operation": operation,
+        "activation_requested": False,
+        "idle_wait_before": None,
+        "idle_wait_after": None,
+    }
+
+    if policy["activate_unity"]:
+        lifecycle["activation_requested"] = True
+        lifecycle["activation"] = activate_unity_editor(project_root)
+
+    if policy["wait_for_idle_before"]:
+        lifecycle["idle_wait_before"] = wait_for_editor_idle(
+            project_root,
+            timeout_ms,
+            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+            f"before {operation}",
+            stable_cycles=1,
+        )
+
+    response, request_id, request_started_at = invoke_bridge_transport(project_root, operation, args, timeout_ms)
+
+    if operation == "unity.playmode.set":
+        expected_playmode_state = expected_playmode_state_for_action(str(args.get("action") or ""))
+        if expected_playmode_state:
+            lifecycle["playmode_wait_after"] = wait_for_playmode_state(
+                project_root,
+                timeout_ms,
+                DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                expected_playmode_state,
+                f"after {operation}",
+                after_request_id=request_id,
+                not_before_unix=request_started_at,
+                stable_cycles=int(policy["idle_stable_cycles_after"]),
+            )
+        elif policy["wait_for_idle_after"]:
+            lifecycle["idle_wait_after"] = wait_for_editor_idle(
+                project_root,
+                timeout_ms,
+                DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                f"after {operation}",
+                after_request_id=request_id,
+                not_before_unix=request_started_at,
+                stable_cycles=int(policy["idle_stable_cycles_after"]),
+            )
+    elif policy["wait_for_idle_after"]:
+        lifecycle["idle_wait_after"] = wait_for_editor_idle(
+            project_root,
+            timeout_ms,
+            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+            f"after {operation}",
+            after_request_id=request_id,
+            not_before_unix=request_started_at,
+            stable_cycles=int(policy["idle_stable_cycles_after"]),
+        )
+
+    if response.get("status") == "ok":
+        response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
+        response["_xuunity_lifecycle"] = lifecycle
+
+    return response
 
 
 def wait_for_ready(
@@ -953,10 +1437,17 @@ def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
     if response.get("status") == "ok":
         payload = {}
         payload_json = response.get("payload_json") or "{}"
+        payload_type = str(response.get("payload_type") or "")
         try:
             payload = json.loads(payload_json)
         except json.JSONDecodeError:
             payload = {"raw_payload_json": payload_json}
+
+        lifecycle = response.get("_xuunity_lifecycle")
+        if isinstance(lifecycle, dict) and lifecycle:
+            payload["_xuunity_lifecycle"] = lifecycle
+        elif payload_type in {"unity.scenario.run", "unity.scenario.result"} and isinstance(payload, dict):
+            payload = normalize_scenario_payload(payload)
 
         return {
             "content": [
@@ -1060,6 +1551,70 @@ def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> di
     return tool_result
 
 
+def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    project_root = ensure_project_root(project_root_value)
+    scenario = arguments.get("scenario")
+    if not isinstance(scenario, dict):
+        raise JsonRpcError(-32602, "scenario must be an object.")
+
+    timeout_ms = arguments.get("timeoutMs", 120000)
+    if not isinstance(timeout_ms, int):
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+
+    poll_interval_ms = arguments.get("pollIntervalMs", 1000)
+    if not isinstance(poll_interval_ms, int):
+        raise JsonRpcError(-32602, "pollIntervalMs must be an integer.")
+
+    try:
+        run_response = invoke_bridge(
+            str(project_root),
+            "unity.scenario.run",
+            {"scenario": scenario},
+            max(5000, min(timeout_ms, 15000)),
+        )
+        run_tool_result = bridge_response_to_tool_result(run_response)
+        if run_tool_result.get("isError"):
+            return run_tool_result
+
+        run_payload = run_tool_result.get("structuredContent") or {}
+        run_id = str(run_payload.get("run_id") or "")
+        scenario_name = str(run_payload.get("scenario_name") or scenario.get("name") or "")
+        result_payload = wait_for_scenario_result(
+            project_root=project_root,
+            run_id=run_id,
+            scenario_name=scenario_name,
+            timeout_ms=timeout_ms,
+            poll_interval_ms=poll_interval_ms,
+        )
+    except ToolInvocationError as exc:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                }
+            ],
+            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "isError": True
+        }
+
+    result_payload["run_start"] = run_payload
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(result_payload, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": result_payload,
+        "isError": False
+    }
+
+
 def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     if name not in TOOLS:
         raise JsonRpcError(-32601, f"Unknown tool: {name}")
@@ -1067,6 +1622,8 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     args = arguments or {}
     if name == "unity_compile_build_config_matrix":
         return call_unity_compile_build_config_matrix_tool(args)
+    if name == "unity_scenario_run_and_wait":
+        return call_unity_scenario_run_and_wait_tool(args)
 
     tool = TOOLS[name]
     project_root = args.get("projectRoot")
@@ -1373,6 +1930,19 @@ def cmd_request_scenario_run(args):
     print_json(response)
 
 
+def cmd_request_scenario_run_and_wait(args):
+    scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
+    result = call_unity_scenario_run_and_wait_tool(
+        {
+            "projectRoot": args.project_root,
+            "scenario": scenario,
+            "timeoutMs": args.timeout_ms,
+            "pollIntervalMs": args.poll_interval_ms,
+        }
+    )
+    print_json(result.get("structuredContent") or {})
+
+
 def cmd_request_scenario_result(args):
     bridge_args: dict[str, Any] = {}
     if args.run_id:
@@ -1498,6 +2068,13 @@ def build_parser():
     scenario_run_cmd.add_argument("--scenario-file", required=True)
     scenario_run_cmd.add_argument("--timeout-ms", type=int, default=5000)
     scenario_run_cmd.set_defaults(func=cmd_request_scenario_run)
+
+    scenario_run_wait_cmd = sub.add_parser("request-scenario-run-and-wait", help="Start a Unity scenario JSON file and wait until it reaches a terminal state.")
+    scenario_run_wait_cmd.add_argument("--project-root", required=True)
+    scenario_run_wait_cmd.add_argument("--scenario-file", required=True)
+    scenario_run_wait_cmd.add_argument("--timeout-ms", type=int, default=120000)
+    scenario_run_wait_cmd.add_argument("--poll-interval-ms", type=int, default=1000)
+    scenario_run_wait_cmd.set_defaults(func=cmd_request_scenario_run_and_wait)
 
     scenario_result_cmd = sub.add_parser("request-scenario-result", help="Read the current or completed result of a Unity scenario run.")
     scenario_result_cmd.add_argument("--project-root", required=True)
