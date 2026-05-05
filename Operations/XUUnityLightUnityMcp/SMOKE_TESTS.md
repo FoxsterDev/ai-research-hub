@@ -99,5 +99,29 @@ Generic example scenario JSON templates live under:
 - `templates/scenarios/interactive_acceptance_smoke.json`
 - `templates/scenarios/refresh_contract_smoke.json`
 - `templates/scenarios/compile_contract_smoke.json`
+- `templates/smoke/run_post_change_validation.sh`
+- `templates/smoke/run_smoke_suite.sh`
 
 Projects may copy and extend them in host-local operational layers.
+
+## Public Runner Contract
+
+The public shell runners are baseline templates, not project routers.
+
+Required caller-supplied inputs:
+
+- `--project-root`
+- `--acceptance-scenario`
+- `--contract-scenario`
+
+Current generic compile modes:
+
+- `build-config-matrix`
+- `none`
+
+Lifecycle contract:
+
+- if the host opens Unity for the run, the runner should restore the original
+  closed state on exit
+- project-specific wrappers may opt out only when they intentionally want to
+  preserve the interactive editor session for follow-up inspection

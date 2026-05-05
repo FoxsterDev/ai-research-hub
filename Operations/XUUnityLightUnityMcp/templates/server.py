@@ -2044,6 +2044,12 @@ def wait_for_scenario_result(
     deadline = started_at + (timeout_ms / 1000.0)
     effective_poll_interval = max(0.1, poll_interval_ms / 1000.0)
     last_payload: dict[str, Any] | None = None
+    transient_poll_error_codes = {
+        "transport_not_ready",
+        "transport_response_missing",
+        "request_lifecycle_reset",
+        "response_missing_after_lifecycle_reset",
+    }
 
     while time.time() < deadline:
         live_state = try_read_live_editor_state(project_root)
@@ -2063,7 +2069,14 @@ def wait_for_scenario_result(
         if scenario_name:
             bridge_args["scenarioName"] = scenario_name
 
-        response = invoke_bridge(str(project_root), "unity.scenario.result", bridge_args, remaining_ms)
+        try:
+            response = invoke_bridge(str(project_root), "unity.scenario.result", bridge_args, remaining_ms)
+        except ToolInvocationError as exc:
+            if exc.code in transient_poll_error_codes and time.time() + effective_poll_interval < deadline:
+                time.sleep(effective_poll_interval)
+                continue
+            raise
+
         tool_result = bridge_response_to_tool_result(response)
         if tool_result.get("isError"):
             structured = tool_result.get("structuredContent") or {}
