@@ -1,0 +1,33 @@
+using System.IO;
+using UnityEngine;
+
+namespace XUUnity.LightMcp.Editor.Core
+{
+    internal static class XUUnityLightMcpFileIpcPaths
+    {
+        public static string ProjectRootPath =>
+            Directory.GetParent(Application.dataPath)?.FullName
+            ?? throw new DirectoryNotFoundException("Unable to resolve Unity project root from Application.dataPath.");
+
+        public static string RootPath => Path.Combine(ProjectRootPath, "Library", "XUUnityLightMcp");
+        public static string ConfigDirectory => Path.Combine(RootPath, "config");
+        public static string StateDirectory => Path.Combine(RootPath, "state");
+        public static string InboxDirectory => Path.Combine(RootPath, "inbox");
+        public static string OutboxDirectory => Path.Combine(RootPath, "outbox");
+        public static string LogsDirectory => Path.Combine(RootPath, "logs");
+        public static string CapturesDirectory => Path.Combine(RootPath, "captures");
+        public static string BridgeConfigPath => Path.Combine(ConfigDirectory, "bridge_config.json");
+        public static string BridgeStatePath => Path.Combine(StateDirectory, "bridge_state.json");
+        public static string CapabilitiesReportPath => Path.Combine(StateDirectory, "capabilities_report.json");
+
+        public static void EnsureDirectories()
+        {
+            Directory.CreateDirectory(ConfigDirectory);
+            Directory.CreateDirectory(StateDirectory);
+            Directory.CreateDirectory(InboxDirectory);
+            Directory.CreateDirectory(OutboxDirectory);
+            Directory.CreateDirectory(LogsDirectory);
+            Directory.CreateDirectory(CapturesDirectory);
+        }
+    }
+}

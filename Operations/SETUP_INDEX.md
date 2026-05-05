@@ -155,6 +155,38 @@ bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
 
 - `AIRoot/Templates/CodexSlackMcp/README.md`
 
+## XUUnity Light Unity MCP
+
+Use this when a teammate wants the lightweight `xuunity`-oriented Unity MCP service instead of the heavier community packages.
+
+### Preview target
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
+  --project-root /path/to/UnityProject \
+  --dry-run
+```
+
+### Apply target
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
+  --project-root /path/to/UnityProject
+```
+
+### Script
+
+- `AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh`
+
+### Guide
+
+- `AIRoot/Operations/XUUnityLightUnityMcp/README.md`
+
+### Status
+
+- minimal stdio MCP service and editor-only Unity bridge are implemented
+- still early-stage and not yet production-hardened
+
 ## XUUnity Task Registry
 
 Use this when a teammate wants a public-safe overview of the `xuunity` task-registry feature set, lifecycle model, CLI surface, and supported use cases.

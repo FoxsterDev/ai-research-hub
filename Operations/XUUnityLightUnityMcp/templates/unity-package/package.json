@@ -1,0 +1,13 @@
+{
+  "name": "com.xuunity.light-mcp",
+  "displayName": "XUUnity Light MCP",
+  "version": "0.1.0",
+  "unity": "6000.0",
+  "description": "Editor-only lightweight Unity bridge scaffold for XUUnity MCP.",
+  "dependencies": {
+    "com.unity.test-framework": "1.5.1"
+  },
+  "author": {
+    "name": "XUUnity"
+  }
+}

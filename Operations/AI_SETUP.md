@@ -218,6 +218,25 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode <sing
 - Use `--refresh-managed-router` only for a managed router you intentionally want to refresh.
 - Use `--adopt-existing-router` only after explicitly deciding to replace an unmanaged router.
 
+## XUUnity Light Unity MCP
+
+When the host wants a smaller Unity MCP path than the current heavyweight community packages, use:
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh --project-root /path/to/UnityProject --dry-run
+```
+
+This route is for a lightweight `xuunity`-oriented design with:
+- editor-only Unity package
+- file IPC under `Library/`
+- no runtime asmdef
+- no NuGet restore path
+
+Important:
+- a minimal stdio MCP layer and editor-only Unity bridge are already implemented
+- this remains an early-stage service and still needs more production hardening
+- it is the correct public-safe place to keep the small `xuunity` Unity MCP path going forward
+
 ## Monorepo Alias Wiring
 
 Use this only when a multi-project host already has a prepared repo router and the host supplies its own alias-refresh tooling outside `AIRoot`.
