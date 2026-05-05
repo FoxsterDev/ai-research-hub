@@ -58,6 +58,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
             if (now - _lastPumpAt >= _pumpIntervalSeconds)
             {
                 XUUnityLightMcpBridgeRequestPump.PumpOnce();
+                XUUnityLightMcpScenarioRunner.Tick();
                 _lastPumpAt = now;
             }
         }

@@ -284,6 +284,8 @@ Next steps:
    python3 $install_dir/server.py bridge-state --project-root /path/to/UnityProject
 3. Smoke-check the direct file IPC status path:
    python3 $install_dir/server.py request-status --project-root /path/to/UnityProject
+4. Preferred interactive startup helper:
+   python3 $install_dir/server.py ensure-ready --project-root /path/to/UnityProject --open-editor --background-open --startup-policy fail_fast_on_interactive_compile_block
 
 Installed files:
 - $install_dir/server.py

@@ -341,4 +341,144 @@ namespace XUUnity.LightMcp.Editor.Core
         public List<XUUnityLightMcpCompileConfigPayload> results = new();
         public string validation_evidence = "unity_mcp";
     }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioDefinition
+    {
+        public string name = "";
+        public string description = "";
+        public bool stopOnFirstFailure = true;
+        public List<XUUnityLightMcpScenarioStepDefinition> steps = new();
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioStepDefinition
+    {
+        public string stepId = "";
+        public string kind = "";
+        public string action = "";
+        public double durationSeconds;
+        public double timeoutSeconds = 10.0d;
+        public string expectedPlaymodeState = "";
+        public int limit = 50;
+        public string[] includeTypes = null;
+        public string fileName = "";
+        public bool includeImage;
+        public int maxResolution = 640;
+        public string target = "";
+        public string[] optionFlags = null;
+        public string[] extraDefines = null;
+        public string name = "";
+        public int width;
+        public int height;
+        public string group = "";
+        public string label = "";
+        public bool allowCreateCustomSize;
+        public string hookName = "";
+        public string hookPayloadJson = "";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioValidateArgs
+    {
+        public XUUnityLightMcpScenarioDefinition scenario = new();
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioRunArgs
+    {
+        public XUUnityLightMcpScenarioDefinition scenario = new();
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioResultArgs
+    {
+        public string runId = "";
+        public string scenarioName = "";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioIssue
+    {
+        public string severity = "error";
+        public string code = "";
+        public string message = "";
+        public string stepId = "";
+        public int stepIndex = -1;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioStepSummary
+    {
+        public string stepId = "";
+        public string kind = "";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioValidatePayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string scenario_name = "";
+        public string status = "invalid";
+        public int total_steps;
+        public int error_count;
+        public int warning_count;
+        public List<XUUnityLightMcpScenarioIssue> issues = new();
+        public List<XUUnityLightMcpScenarioStepSummary> steps = new();
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioStepResult
+    {
+        public string stepId = "";
+        public string kind = "";
+        public string status = "pending";
+        public string outcome = "";
+        public string payload_json = "";
+        public string error_code = "";
+        public string error_message = "";
+        public double duration_seconds;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioRunPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string run_id = "";
+        public string scenario_name = "";
+        public string status = "queued";
+        public string started_at_utc = "";
+        public string updated_at_utc = "";
+        public string completed_at_utc = "";
+        public string result_path = "";
+        public int total_steps;
+        public int passed_steps;
+        public int failed_steps;
+        public int skipped_steps;
+        public int current_step_index = -1;
+        public double duration_seconds;
+        public List<XUUnityLightMcpScenarioStepResult> steps = new();
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpScenarioRunState
+    {
+        public string runId = "";
+        public XUUnityLightMcpScenarioDefinition scenario = new();
+        public string status = "queued";
+        public string startedAtUtc = "";
+        public string updatedAtUtc = "";
+        public string completedAtUtc = "";
+        public string resultPath = "";
+        public int currentStepIndex;
+        public string waitingUntilUtc = "";
+        public string pendingNestedRequestId = "";
+        public string pendingNestedOperation = "";
+        public string pendingNestedStartedAtUtc = "";
+        public List<XUUnityLightMcpScenarioStepResult> steps = new();
+    }
 }
