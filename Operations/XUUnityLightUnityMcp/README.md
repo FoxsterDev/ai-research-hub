@@ -49,6 +49,7 @@ What exists now:
   - `unity.tests.run_editmode`
   - `unity.compile.player_scripts`
   - `unity.compile.matrix`
+  - host-composed build-config compile matrix routing through `unity.compile.matrix`
   - `unity.playmode.state`
   - `unity.playmode.set`
   - `unity.game_view.configure`
@@ -59,6 +60,8 @@ What exists now:
 - MCP `initialize`
 - MCP `tools/list`
 - MCP `tools/call`
+- host wrapper auto-sync of the installed local helper before launch:
+  - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - scenario second-wave steps:
   - `compile_player_scripts`
   - `tests_run_editmode`
@@ -87,6 +90,7 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 ## Files
 
 - `init_xuunity_light_unity_mcp.sh`
+- `xuunity_light_unity_mcp.sh`
 - `templates/run.sh`
 - `templates/server.py`
 - `templates/clients/`
@@ -106,10 +110,21 @@ Short form:
 - no warranty
 - author assumes no liability for repository, project, build, device, or automation outcomes
 
-## GitHub Consumer Install
+## Package Source
+
+For this monorepo and other same-host repos that already have `AIRoot` checked out locally,
+use a direct local file dependency in `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.xuunity.light-mcp": "file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package"
+  }
+}
+```
 
 For another repo that wants to consume the Unity package directly from GitHub,
-add this to the target project's `Packages/manifest.json`:
+use this instead:
 
 ```json
 {
@@ -119,21 +134,8 @@ add this to the target project's `Packages/manifest.json`:
 }
 ```
 
-Use the GitHub route when the consumer should track the upstream package.
-Use the embedded local-package route when the consumer wants to vendor and edit
-the package inside its own repo.
-
-For same-host validation before publishing upstream, Unity also supports a local
-Git URL route. Use the `file` protocol with a pinned full commit hash, for
-example:
-
-```json
-{
-  "dependencies": {
-    "com.xuunity.light-mcp": "git+file:///absolute/path/to/AIRoot?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#<full-commit-hash>"
-  }
-}
-```
+Use the direct local `file:` route when the consumer should always see the latest
+working-tree version from the local `AIRoot`.
 
 ## Scaffold Install
 
@@ -143,7 +145,7 @@ Install the external scaffold only:
 bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh
 ```
 
-Install the external scaffold and copy the Unity package template into a project:
+Install the external scaffold and wire the Unity project to the package in `AIRoot`:
 
 ```bash
 bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
@@ -188,10 +190,14 @@ External scaffold:
 - `~/.codex-tools/xuunity-light-unity-mcp/server.py`
 - `~/.codex-tools/xuunity-light-unity-mcp/run.sh`
 
+Public convenience wrapper:
+- `AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh`
+  - delegates to `AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh` when that host-local wrapper exists
+  - otherwise falls back to the installed helper in `~/.codex-tools/`
+
 Optional Unity project scaffold:
-- `<Project>/Packages/com.xuunity.light-mcp/`
 - manifest entry:
-  - `"com.xuunity.light-mcp": "file:Packages/com.xuunity.light-mcp"`
+  - `"com.xuunity.light-mcp": "file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package"`
 - local activation file only when explicitly enabled:
   - `<Project>/Library/XUUnityLightMcp/config/bridge_config.json`
 - package-declared dependency for the `unity_tests_run_editmode` operation:
@@ -210,6 +216,7 @@ Optional Unity project scaffold:
 - remove path is intentionally simple: no build defines, no package-registry mutation, no player/runtime asmdef, no project settings writes
 - `unity_tests_run_editmode` intentionally uses the official Unity Test Framework instead of a custom test runner path
 - `unity_compile_player_scripts` and `unity_compile_matrix` use Unity `PlayerBuildInterface.CompilePlayerScripts` to validate platform-specific compile paths without switching the active build target or mutating project scripting defines
+- `unity_compile_build_config_matrix` resolves build profiles from the project's Unity `*BuildConfiguration.asset` and drives the full target/profile matrix through `unity.compile.matrix`
 - target-specific compile validation still depends on the corresponding Unity platform support module being installed on the host
 - `unity_capabilities` and `unity_health_probe` expose the probe report to MCP clients so they can avoid unsupported operations instead of learning by failure
 - `unity_game_view_configure` uses Unity internal editor reflection and, by default, refuses to create new custom Game View sizes
@@ -230,7 +237,7 @@ After installing the Unity package into a project and opening the project in Uni
 Or let the host-side wrapper open the editor and fail fast on startup blockers:
 
 ```bash
-python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+bash AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
   ensure-ready \
   --project-root /path/to/UnityProject \
   --open-editor \
@@ -252,7 +259,7 @@ What this does:
 Read the heartbeat state:
 
 ```bash
-python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+bash AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
   bridge-state \
   --project-root /path/to/UnityProject
 ```
@@ -290,6 +297,37 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
   --target StandaloneOSX \
   --option-flag DevelopmentBuild \
   --extra-define MY_DEFINE
+```
+
+Send a direct file-IPC compile-matrix request from a JSON config file:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-compile-matrix \
+  --project-root /path/to/UnityProject \
+  --config-file /path/to/compile-matrix.json
+```
+
+Resolve build profiles from the project's Unity build-config asset and run the Android/iOS matrix:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-build-config-compile-matrix \
+  --project-root /path/to/UnityProject
+```
+
+Validate or run a scenario JSON file through the scenario bridge operations:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-scenario-validate \
+  --project-root /path/to/UnityProject \
+  --scenario-file /path/to/scenario.json
+
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-scenario-run \
+  --project-root /path/to/UnityProject \
+  --scenario-file /path/to/scenario.json
 ```
 
 ## Client Templates

@@ -34,6 +34,14 @@ The Unity package is:
 - removable
 - not intended to affect player builds by default
 
+The public convenience CLI entrypoint is:
+
+- `AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh`
+
+When this repo also has a host-local wrapper under `AIOutput/Operations/`, the
+public convenience script delegates to it. Otherwise it falls back to the
+installed helper in `~/.codex-tools/`.
+
 ## Integration Goals
 
 When integrating into a new repo or project, the agent should:
@@ -62,10 +70,21 @@ bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
   --enable-project
 ```
 
-## GitHub Package Install Route
+## Package Install Route
+
+For same-host repos that already have `AIRoot` locally, the manifest entry
+should point directly at the package folder:
+
+```json
+{
+  "dependencies": {
+    "com.xuunity.light-mcp": "file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package"
+  }
+}
+```
 
 For projects that want to consume the Unity package directly from GitHub,
-the manifest entry should use the package subpath:
+use the package subpath route instead:
 
 ```json
 {
@@ -80,14 +99,11 @@ Use this route when:
 - the consumer repo should not vendor the package files locally
 - the team wants a single upstream source of truth
 
-Use the embedded local-package route when:
+Use the direct local `file:` route when:
 
-- the consumer repo wants to modify or pin the package locally
-- the team wants zero dependency on GitHub availability during integration
-
-For unpublished host-local verification, Unity also supports a Git FILE-protocol
-dependency pinned to a full commit hash. Use that route only as a temporary
-same-host fallback when the upstream package source is not published yet.
+- the repo already has `AIRoot` locally
+- the team wants the latest working-tree package version immediately
+- the team does not want commit-pin churn for active MCP iteration
 
 ## What The Agent Should Check After Install
 

@@ -45,7 +45,7 @@ Usage:
   bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh [options]
 
 Options:
-    --project-root <path>     Optional Unity project root for copying the editor-only package scaffold.
+    --project-root <path>     Optional Unity project root for wiring the editor-only package as a direct file dependency from AIRoot.
   --install-codex-config    Also append the early-stage Codex MCP config block.
   --enable-project          Write local bridge config under Library/ so the editor-only bridge is active on next editor load.
   --disable-project         Remove local bridge config and local bridge state under Library/.
@@ -88,27 +88,13 @@ copy_if_needed() {
   local dst="$2"
   local mode="$3"
 
-  if [[ -f "$dst" && $force -ne 1 ]]; then
+  if [[ -f "$dst" && $force -ne 1 ]] && cmp -s "$src" "$dst"; then
     printf 'kept existing %s\n' "$dst"
     return
   fi
 
   run cp "$src" "$dst"
   run chmod "$mode" "$dst"
-  printf 'installed %s\n' "$dst"
-}
-
-copy_dir_if_needed() {
-  local src="$1"
-  local dst="$2"
-
-  if [[ -d "$dst" && $force -ne 1 ]]; then
-    printf 'kept existing %s\n' "$dst"
-    return
-  fi
-
-  run mkdir -p "$dst"
-  run cp -R "$src/." "$dst/"
   printf 'installed %s\n' "$dst"
 }
 
@@ -140,22 +126,27 @@ append_codex_block_if_missing() {
 
 patch_manifest_if_needed() {
   local manifest_path="$1"
+  local package_source_path="$2"
 
   if [[ $dry_run -eq 1 ]]; then
-    printf '[dry-run] patch manifest %s with com.xuunity.light-mcp file dependency\n' "$manifest_path"
+    printf '[dry-run] patch manifest %s with com.xuunity.light-mcp file dependency -> %s\n' "$manifest_path" "$package_source_path"
     return
   fi
 
-  python3 - "$manifest_path" <<'PY'
+  python3 - "$manifest_path" "$package_source_path" <<'PY'
 import json
+import os
 import sys
 
 manifest_path = sys.argv[1]
+package_source_path = sys.argv[2]
 with open(manifest_path, "r", encoding="utf-8") as fh:
     data = json.load(fh)
 
 deps = data.setdefault("dependencies", {})
-value = "file:Packages/com.xuunity.light-mcp"
+manifest_dir = os.path.dirname(manifest_path)
+relative_package_source_path = os.path.relpath(package_source_path, start=manifest_dir).replace(os.sep, "/")
+value = "file:" + relative_package_source_path
 if deps.get("com.xuunity.light-mcp") != value:
     deps["com.xuunity.light-mcp"] = value
     with open(manifest_path, "w", encoding="utf-8") as fh:
@@ -244,6 +235,7 @@ if [[ -n "$project_root" ]]; then
 
   project_package_dir="$project_root/Packages/com.xuunity.light-mcp"
   manifest_path="$project_root/Packages/manifest.json"
+  package_source_path="$(cd "$templates_dir/unity-package" && pwd)"
 
   if [[ $uninstall_project -eq 1 ]]; then
     if [[ $dry_run -eq 1 ]]; then
@@ -257,8 +249,7 @@ if [[ -n "$project_root" ]]; then
   elif [[ $disable_project -eq 1 ]]; then
     remove_bridge_state "$project_root"
   else
-    copy_dir_if_needed "$templates_dir/unity-package" "$project_package_dir"
-    patch_manifest_if_needed "$manifest_path"
+    patch_manifest_if_needed "$manifest_path" "$package_source_path"
 
     if [[ $enable_project -eq 1 ]]; then
       write_bridge_config "$project_root"

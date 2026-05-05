@@ -1,6 +1,8 @@
 .idea
 .DS_Store
 .vscode
+__pycache__/
+*.pyc
 *.sln
 *.swp
 *.sln.DotSettings.user
