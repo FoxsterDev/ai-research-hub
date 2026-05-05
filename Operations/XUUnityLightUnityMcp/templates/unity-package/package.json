@@ -1,13 +1,29 @@
 {
   "name": "com.xuunity.light-mcp",
   "displayName": "XUUnity Light MCP",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "unity": "6000.0",
-  "description": "Editor-only lightweight Unity bridge scaffold for XUUnity MCP.",
+  "description": "Editor-only lightweight Unity bridge for the XUUnity MCP service.",
+  "license": "MIT",
+  "documentationUrl": "https://github.com/FoxsterDev/ai-research-hub/tree/master/Operations/XUUnityLightUnityMcp",
+  "changelogUrl": "https://github.com/FoxsterDev/ai-research-hub/tree/master/Operations/XUUnityLightUnityMcp/Reports",
+  "keywords": [
+    "unity",
+    "mcp",
+    "automation",
+    "xuunity",
+    "ai"
+  ],
   "dependencies": {
     "com.unity.test-framework": "1.5.1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FoxsterDev/ai-research-hub.git",
+    "directory": "Operations/XUUnityLightUnityMcp/templates/unity-package"
+  },
   "author": {
-    "name": "XUUnity"
+    "name": "Siarhei Khalandachou",
+    "url": "https://www.linkedin.com/in/khalandachou/"
   }
 }

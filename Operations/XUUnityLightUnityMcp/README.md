@@ -20,6 +20,14 @@ Related public docs:
 - `DESIGN.md`
 - `CONTINUATION.md`
 - `COMPARISON.md`
+- `ROADMAP.md`
+- `AI_INTEGRATION.md`
+- `LICENSE.md`
+- `Reports/`
+
+Author:
+- Siarhei Khalandachou
+- LinkedIn: `https://www.linkedin.com/in/khalandachou/`
 
 ## Current Status
 
@@ -45,15 +53,25 @@ What exists now:
   - `unity.playmode.set`
   - `unity.game_view.configure`
   - `unity.game_view.screenshot`
+  - `unity.scenario.validate`
+  - `unity.scenario.run`
+  - `unity.scenario.result`
 - MCP `initialize`
 - MCP `tools/list`
 - MCP `tools/call`
+- scenario second-wave steps:
+  - `compile_player_scripts`
+  - `tests_run_editmode`
+  - `game_view_configure`
+  - `project_defined_hook`
 
 What does not exist yet:
 - production-hardening of the stdio server
 - broader real-client validation in Codex and other MCP clients
 - richer second-wave read operations
 - more polished host-local wrappers and repo-aware helpers
+- device/runtime automation layers beyond editor-bound scenario automation
+- shared `xuunity` protocol recipes for scenario-driven workflows
 
 ## Goal
 
@@ -73,6 +91,49 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 - `templates/server.py`
 - `templates/clients/`
 - `templates/unity-package/`
+- `Reports/`
+
+## License
+
+This service is published under the MIT license.
+
+See:
+- `LICENSE.md`
+
+Short form:
+- free to use
+- free to modify
+- no warranty
+- author assumes no liability for repository, project, build, device, or automation outcomes
+
+## GitHub Consumer Install
+
+For another repo that wants to consume the Unity package directly from GitHub,
+add this to the target project's `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#master"
+  }
+}
+```
+
+Use the GitHub route when the consumer should track the upstream package.
+Use the embedded local-package route when the consumer wants to vendor and edit
+the package inside its own repo.
+
+For same-host validation before publishing upstream, Unity also supports a local
+Git URL route. Use the `file` protocol with a pinned full commit hash, for
+example:
+
+```json
+{
+  "dependencies": {
+    "com.xuunity.light-mcp": "git+file:///absolute/path/to/AIRoot?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#<full-commit-hash>"
+  }
+}
+```
 
 ## Scaffold Install
 
@@ -154,10 +215,39 @@ Optional Unity project scaffold:
 - `unity_game_view_configure` uses Unity internal editor reflection and, by default, refuses to create new custom Game View sizes
 - if you opt in with `allowCreateCustomSize=true`, `unity_game_view_configure` may create a matching custom Game View size entry in editor user state
 - `unity_game_view_screenshot` uses the Game View render texture directly and includes a vertical-flip correction on graphics backends where `graphicsUVStartsAtTop` is true
+- `unity.scenario.*` has been live-smoked on a real Unity consumer project with:
+  - a playmode enter/screenshot/exit baseline
+  - second-wave `game_view_configure`
+  - second-wave `compile_player_scripts`
+  - second-wave `tests_run_editmode`
+  - project-defined scenario hook execution
+- scenario `tests_run_editmode` and `compile_player_scripts` steps evaluate product-level payload status, not only transport-level bridge success
 
 ## Local Smoke Route
 
 After installing the Unity package into a project and opening the project in Unity:
+
+Or let the host-side wrapper open the editor and fail fast on startup blockers:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  ensure-ready \
+  --project-root /path/to/UnityProject \
+  --open-editor \
+  --background-open \
+  --startup-policy fail_fast_on_interactive_compile_block
+```
+
+Supported startup policies:
+- `fail_fast_on_interactive_compile_block`
+- `auto_enter_safe_mode_preferred`
+- `batch_compile_lane`
+
+What this does:
+- opens Unity with a deterministic log file path under `Library/XUUnityLightMcp/logs/`
+- waits for a fresh healthy bridge heartbeat
+- inspects `Editor.log` while waiting
+- stops early on package-resolution failures or interactive compile blockers instead of hanging forever
 
 Read the heartbeat state:
 

@@ -20,6 +20,7 @@ Unity bridge:
 - compile validation
 - play mode control
 - Game View configure and screenshot
+- scenario validation, asynchronous scenario runs, and persisted scenario results
 
 ## Important Runtime Files
 
@@ -32,6 +33,8 @@ Inside the target Unity project:
 - `Library/XUUnityLightMcp/outbox/`
 - `Library/XUUnityLightMcp/compile/`
 - `Library/XUUnityLightMcp/captures/`
+- `Library/XUUnityLightMcp/scenarios/active_run.json`
+- `Library/XUUnityLightMcp/scenarios/results/`
 
 ## Key Decisions
 
@@ -58,12 +61,30 @@ Only after that:
 - compile matrix
 - play mode
 - Game View operations
+- scenario runs
+
+## What A New Chat Should Read First
+
+For reusable MCP work:
+
+1. `README.md`
+2. `ROADMAP.md`
+3. `AI_INTEGRATION.md`
+4. `Reports/2026-05-05_progress_status.md`
+5. `Reports/2026-05-05_xuunity_protocol_integration_status.md`
+
+For protocol-integration work:
+
+1. shared `xuunity` protocol guidance
+2. this continuation note
+3. the public integration-status report
 
 ## Expected Next Work
 
-1. onboard the target Unity project in opt-in mode
-2. run `unity.health.probe`
-3. verify `status`, `capabilities`, `console`, `scene`, `tests`, `compile`
-4. measure editor idle overhead
+1. switch consumer projects from embedded copy to GitHub package consumption where appropriate
+2. wire scenario guidance into shared `xuunity` protocols
+3. add richer scenario assertions and scenario result utilities
+4. measure editor idle overhead with scenario layer enabled
 5. decide whether `unity_game_view_cleanup_sizes` is needed
-6. add project-specific operational entrypoints only after the generic package is stable
+6. add device/runtime automation layers on top of scenario control plane
+7. add project-specific operational entrypoints only after the generic package is stable

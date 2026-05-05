@@ -25,7 +25,10 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.game_view.configure", new XUUnityLightMcpGameViewConfigureOperation() },
             { "unity.game_view.screenshot", new XUUnityLightMcpGameViewScreenshotOperation() },
             { "unity.compile.player_scripts", new XUUnityLightMcpCompilePlayerScriptsOperation() },
-            { "unity.compile.matrix", new XUUnityLightMcpCompileMatrixOperation() }
+            { "unity.compile.matrix", new XUUnityLightMcpCompileMatrixOperation() },
+            { "unity.scenario.validate", new XUUnityLightMcpScenarioValidateOperation() },
+            { "unity.scenario.run", new XUUnityLightMcpScenarioRunOperation() },
+            { "unity.scenario.result", new XUUnityLightMcpScenarioResultOperation() }
         };
 
         public static bool TryGet(string operationName, out IXUUnityLightMcpOperation operation)

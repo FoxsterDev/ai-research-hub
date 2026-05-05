@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import calendar
 import json
+import os
+import subprocess
 import sys
 import time
 import uuid
@@ -10,7 +13,92 @@ from typing import Any
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.1.0",
+    "version": "0.3.0",
+}
+
+STARTUP_POLICIES = {
+    "auto_enter_safe_mode_preferred",
+    "batch_compile_lane",
+    "fail_fast_on_interactive_compile_block",
+}
+
+SCENARIO_STEP_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "stepId": {"type": "string"},
+        "kind": {
+            "type": "string",
+            "enum": [
+                "status",
+                "health_probe",
+                "scene_snapshot",
+                "console_tail",
+                "playmode_set",
+                "wait",
+                "wait_for_playmode_state",
+                "assert_playmode_state",
+                "game_view_screenshot",
+                "compile_player_scripts",
+                "tests_run_editmode",
+                "game_view_configure",
+                "project_defined_hook",
+            ],
+        },
+        "action": {
+            "type": "string",
+            "enum": ["enter", "exit", "pause", "resume"],
+        },
+        "durationSeconds": {
+            "type": "number",
+            "minimum": 0.0,
+        },
+        "timeoutSeconds": {
+            "type": "number",
+            "minimum": 0.1,
+        },
+        "expectedPlaymodeState": {
+            "type": "string",
+            "enum": ["edit", "playing", "paused", "transitioning"],
+        },
+        "limit": {
+            "type": "integer",
+            "minimum": 1,
+        },
+        "includeTypes": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "fileName": {"type": "string"},
+        "includeImage": {"type": "boolean"},
+        "maxResolution": {"type": "integer", "minimum": 1},
+        "target": {"type": "string"},
+        "optionFlags": {"type": "array", "items": {"type": "string"}},
+        "extraDefines": {"type": "array", "items": {"type": "string"}},
+        "name": {"type": "string"},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "group": {"type": "string"},
+        "label": {"type": "string"},
+        "allowCreateCustomSize": {"type": "boolean"},
+        "hookName": {"type": "string"},
+        "hookPayloadJson": {"type": "string"},
+    },
+    "required": ["kind"],
+}
+
+SCENARIO_DEFINITION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "stopOnFirstFailure": {"type": "boolean", "default": True},
+        "steps": {
+            "type": "array",
+            "items": SCENARIO_STEP_SCHEMA,
+            "minItems": 1,
+        },
+    },
+    "required": ["name", "steps"],
 }
 
 TOOLS: dict[str, dict[str, Any]] = {
@@ -220,6 +308,46 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
             "required": ["projectRoot", "configurations"]
         }
+    },
+    "unity_scenario_validate": {
+        "bridgeOperation": "unity.scenario.validate",
+        "description": "Validate a scripted Unity automation scenario before execution.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "scenario": SCENARIO_DEFINITION_SCHEMA,
+                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
+            },
+            "required": ["projectRoot", "scenario"],
+        },
+    },
+    "unity_scenario_run": {
+        "bridgeOperation": "unity.scenario.run",
+        "description": "Start a scripted Unity automation scenario. Execution continues asynchronously inside the Unity editor update loop.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "scenario": SCENARIO_DEFINITION_SCHEMA,
+                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
+            },
+            "required": ["projectRoot", "scenario"],
+        },
+    },
+    "unity_scenario_result": {
+        "bridgeOperation": "unity.scenario.result",
+        "description": "Read the current or completed result of a previously started Unity automation scenario.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "runId": {"type": "string"},
+                "scenarioName": {"type": "string"},
+                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
+            },
+            "required": ["projectRoot"],
+        },
     }
 }
 
@@ -249,6 +377,14 @@ def inbox_dir(project_root: Path) -> Path:
 
 def outbox_dir(project_root: Path) -> Path:
     return bridge_root(project_root) / "outbox"
+
+
+def logs_dir(project_root: Path) -> Path:
+    return bridge_root(project_root) / "logs"
+
+
+def default_editor_log_path(project_root: Path) -> Path:
+    return logs_dir(project_root) / "unity_editor.log"
 
 
 def read_json(path: Path) -> Any:
@@ -337,6 +473,203 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
         time.sleep(0.2)
 
     raise ToolInvocationError("operation_timeout", f"Timed out waiting for {response_path}")
+
+
+def try_read_bridge_state(project_root: Path) -> dict[str, Any] | None:
+    path = bridge_state_path(project_root)
+    if not path.is_file():
+        return None
+
+    try:
+        return read_json(path)
+    except Exception:
+        return None
+
+
+def pid_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def heartbeat_age_seconds(state: dict[str, Any]) -> float | None:
+    heartbeat_utc = state.get("heartbeat_utc")
+    if not isinstance(heartbeat_utc, str) or not heartbeat_utc:
+        return None
+
+    try:
+        heartbeat_unix = calendar.timegm(time.strptime(heartbeat_utc, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        return None
+
+    return max(0.0, time.time() - heartbeat_unix)
+
+
+def classify_editor_log(log_text: str, startup_policy: str) -> tuple[str, str] | None:
+    if not log_text:
+        return None
+
+    if "Project has invalid dependencies:" in log_text or "An error occurred while resolving packages:" in log_text:
+        return (
+            "package_resolution_failed",
+            "Unity package resolution failed. Inspect Editor.log for invalid dependencies, git package errors, or registry failures.",
+        )
+
+    if "Could not clone [" in log_text:
+        return (
+            "package_resolution_failed",
+            "Unity could not clone a git package dependency. Inspect Editor.log for the failing dependency URL or commit hash.",
+        )
+
+    if "error CS" in log_text or "AssetDatabase: script compilation time:" in log_text and "error CS" in log_text:
+        if startup_policy == "batch_compile_lane":
+            return (
+                "interactive_compile_block_detected",
+                "Interactive Unity startup is blocked by compilation errors. Use the batch compile lane for compile-only validation or fix the compile errors first.",
+            )
+
+        if startup_policy == "auto_enter_safe_mode_preferred":
+            return (
+                "safe_mode_manual_required",
+                "Compilation errors were detected during startup. This host-side wrapper cannot click the Safe Mode dialog. Prefer auto-enter Safe Mode in Unity preferences or reopen manually into Safe Mode.",
+            )
+
+        return (
+            "interactive_compile_block_detected",
+            "Compilation errors were detected during interactive startup. This wrapper is failing fast instead of waiting for a bridge heartbeat that cannot become healthy.",
+        )
+
+    return None
+
+
+def resolve_editor_log_path(project_root: Path, explicit_path: str | None) -> Path:
+    if explicit_path:
+        return Path(explicit_path).expanduser().resolve()
+    return default_editor_log_path(project_root)
+
+
+def read_recent_editor_log(log_path: Path, command_started_at: float) -> str:
+    if not log_path.is_file():
+        return ""
+
+    try:
+        stat = log_path.stat()
+    except OSError:
+        return ""
+
+    if stat.st_mtime < command_started_at - 1.0:
+        return ""
+
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+    if len(text) > 200000:
+        return text[-200000:]
+    return text
+
+
+def detect_unity_app_path(explicit_path: str | None) -> Path:
+    if explicit_path:
+        path = Path(explicit_path).expanduser().resolve()
+        if not path.is_dir():
+            raise ToolInvocationError("unity_app_not_found", f"Unity app not found: {path}")
+        return path
+
+    candidates = sorted(Path("/Applications/Unity/Hub/Editor").glob("*/Unity.app"))
+    if not candidates:
+        raise ToolInvocationError(
+            "unity_app_not_found",
+            "Could not auto-detect a Unity.app under /Applications/Unity/Hub/Editor. Pass --unity-app explicitly.",
+        )
+    return candidates[-1]
+
+
+def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, background_open: bool) -> dict[str, Any]:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    command = ["open"]
+    if background_open:
+        command.append("-g")
+    command.extend(
+        [
+            "-na",
+            str(unity_app),
+            "--args",
+            "-projectPath",
+            str(project_root),
+            "-logFile",
+            str(log_path),
+        ]
+    )
+
+    subprocess.run(command, check=True)
+    return {
+        "unity_app": str(unity_app),
+        "editor_log_path": str(log_path),
+        "background_open": background_open,
+    }
+
+
+def wait_for_ready(
+    project_root: Path,
+    timeout_ms: int,
+    heartbeat_max_age_seconds: int,
+    startup_policy: str,
+    editor_log_path: Path,
+) -> dict[str, Any]:
+    if startup_policy not in STARTUP_POLICIES:
+        raise ToolInvocationError("invalid_startup_policy", f"Unknown startup policy: {startup_policy}")
+
+    if not bridge_enabled(project_root):
+        raise ToolInvocationError(
+            "bridge_disabled",
+            (
+                "Unity bridge is disabled for this project. "
+                "Enable it with init_xuunity_light_unity_mcp.sh --project-root <path> --enable-project "
+                "and reopen Unity."
+            ),
+        )
+
+    started_at = time.time()
+    deadline = started_at + (timeout_ms / 1000.0)
+    while time.time() < deadline:
+        state = try_read_bridge_state(project_root)
+        if state:
+            pid = int(state.get("editor_pid") or 0)
+            age_seconds = heartbeat_age_seconds(state)
+            if (
+                pid_is_alive(pid)
+                and age_seconds is not None
+                and age_seconds <= heartbeat_max_age_seconds
+                and state.get("health_status") == "healthy"
+                and not bool(state.get("is_compiling"))
+            ):
+                state["startup_policy"] = startup_policy
+                state["editor_log_path"] = str(editor_log_path)
+                state["heartbeat_age_seconds"] = round(age_seconds, 3)
+                return state
+
+        classification = classify_editor_log(read_recent_editor_log(editor_log_path, started_at), startup_policy)
+        if classification:
+            code, message = classification
+            raise ToolInvocationError(code, message)
+
+        time.sleep(1.0)
+
+    raise ToolInvocationError(
+        "editor_ready_timeout",
+        (
+            "Timed out waiting for a healthy Unity bridge heartbeat. "
+            f"Last inspected log: {editor_log_path}"
+        ),
+    )
 
 
 def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
@@ -600,6 +933,40 @@ def cmd_request_compile(args):
     print_json(response)
 
 
+def cmd_open_editor(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path(args.unity_app)
+    log_path = resolve_editor_log_path(project_root, args.editor_log_path)
+    payload = open_unity_editor(project_root, log_path, unity_app, args.background_open)
+    payload["project_root"] = str(project_root)
+    print_json(payload)
+
+
+def cmd_ensure_ready(args):
+    project_root = ensure_project_root(args.project_root)
+    log_path = resolve_editor_log_path(project_root, args.editor_log_path)
+
+    payload: dict[str, Any] = {
+        "project_root": str(project_root),
+        "editor_log_path": str(log_path),
+        "startup_policy": args.startup_policy,
+    }
+
+    if args.open_editor:
+        unity_app = detect_unity_app_path(args.unity_app)
+        payload["launch"] = open_unity_editor(project_root, log_path, unity_app, args.background_open)
+
+    state = wait_for_ready(
+        project_root=project_root,
+        timeout_ms=args.timeout_ms,
+        heartbeat_max_age_seconds=args.heartbeat_max_age_seconds,
+        startup_policy=args.startup_policy,
+        editor_log_path=log_path,
+    )
+    payload["bridge_state"] = state
+    print_json(payload)
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         description=(
@@ -637,6 +1004,31 @@ def build_parser():
     compile_cmd.add_argument("--extra-define", dest="extra_defines", action="append", default=[])
     compile_cmd.add_argument("--timeout-ms", type=int, default=120000)
     compile_cmd.set_defaults(func=cmd_request_compile)
+
+    open_editor_cmd = sub.add_parser("open-editor", help="Open a Unity project with a deterministic log file path for MCP startup diagnostics.")
+    open_editor_cmd.add_argument("--project-root", required=True)
+    open_editor_cmd.add_argument("--unity-app")
+    open_editor_cmd.add_argument("--editor-log-path")
+    open_editor_cmd.add_argument("--background-open", action="store_true")
+    open_editor_cmd.set_defaults(func=cmd_open_editor)
+
+    ensure_ready_cmd = sub.add_parser(
+        "ensure-ready",
+        help="Wait for a healthy Unity bridge heartbeat and fail fast on startup blockers visible in Editor.log.",
+    )
+    ensure_ready_cmd.add_argument("--project-root", required=True)
+    ensure_ready_cmd.add_argument("--open-editor", action="store_true")
+    ensure_ready_cmd.add_argument("--unity-app")
+    ensure_ready_cmd.add_argument("--editor-log-path")
+    ensure_ready_cmd.add_argument("--background-open", action="store_true")
+    ensure_ready_cmd.add_argument("--timeout-ms", type=int, default=120000)
+    ensure_ready_cmd.add_argument("--heartbeat-max-age-seconds", type=int, default=10)
+    ensure_ready_cmd.add_argument(
+        "--startup-policy",
+        default="fail_fast_on_interactive_compile_block",
+        choices=sorted(STARTUP_POLICIES),
+    )
+    ensure_ready_cmd.set_defaults(func=cmd_ensure_ready)
 
     return parser
 
