@@ -6,7 +6,9 @@ Prefer one filled scorecard row per candidate artifact.
 ## Candidate Scorecard
 - Project:
 - File path:
-- Category:
+- Retention family:
+- Branch/feature slice:
+- Display category:
 - Current location:
 - Candidate class:
   - `keep`
@@ -25,6 +27,7 @@ Score each field from `0` to `3`.
 - Superseded by newer artifact:
 - Duplicate/redundant:
 - Root-noise / wrong storage location:
+- Volatility / report churn pressure:
 - Historical value:
 - Current-truth dependency:
 - Runtime or build relevance:
@@ -50,7 +53,7 @@ Score each field from `0` to `3`.
 
 ## Decision Math
 - Cleanup pressure score:
-  - `age + superseded + duplicate + root-noise + structured-folder replacement + junk/orphan`
+  - `age + superseded + duplicate + root-noise + volatility + structured-folder replacement + junk/orphan`
 - Preservation pressure score:
   - `historical value + current-truth dependency + runtime relevance + user-risk`
 - Net cleanup score:
@@ -69,6 +72,7 @@ Score each field from `0` to `3`.
 - `delete_candidate`
   - junk/orphan/placeholder evidence >= `2`
   - or duplicate/redundant >= `3`
+  - or superseded by newer artifact >= `2` and volatility / report churn pressure >= `2`
   - and preservation pressure <= `2`
   - and safe to remove = `yes`
 - `manual_review`
@@ -107,4 +111,5 @@ Use once per cleanup run.
 - Low-confidence decisions:
 - Protected files skipped:
 - Estimated clutter reduction:
+- Reference rewrites required:
 - Estimated risk of false-positive cleanup:

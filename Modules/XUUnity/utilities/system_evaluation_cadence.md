@@ -25,9 +25,22 @@ Run `utilities/system_health_review.md`:
 - when different files seem to disagree
 - when the public core versus internal overlay boundary is unclear
 
+Run `utilities/system_output_cleanup.md`:
+- after archive-heavy prompt or report migrations
+- when archive growth starts outpacing active project memory value
+- after repeated weekly protocol or project-output churn
+- after the second consecutive cleanup pass that archives more than it deletes
+
+Run archive-retention review specifically:
+- every `7` days for volatile or weekly-changing projects
+- every `21` days for normal active projects
+- after a new canonical system-health or system-progress report changes what should stay hot in `AIOutput/Reports/System/`
+
 ## Suggested Short Commands
 - `xuunity system evaluate the protocol structure`
 - `xuunity system health review`
+- `xuunity system cleanup aggressive`
+- `xuunity system prune old archives`
 
 ## Score Actions
 If total score is `18-20`:
@@ -60,4 +73,5 @@ Fix in this order:
 - Trigger reason
 - Current score
 - Whether cleanup is required now
+- Whether archive pruning is required now
 - Recommended next actions

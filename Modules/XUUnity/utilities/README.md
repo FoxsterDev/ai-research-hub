@@ -260,7 +260,7 @@ Short commands:
 - `xuunity system research what is new`
 
 ### System Output Cleanup
-Use when the user wants to reduce AI-generated clutter, archive stale reports, and identify near-zero-value artifacts safely.
+Use when the user wants to reduce AI-generated clutter, archive or delete stale reports more aggressively, and keep archives from turning into long-term storage by default.
 
 Flow:
 1. `system_output_cleanup.md`
@@ -268,16 +268,20 @@ Flow:
 3. `system_output_cleanup_apply.md` only after explicit approval
 
 Short commands:
+- `xuunity system output cleanup`
 - `xuunity system cleanup`
 - `xuunity system cleanup projects`
 - `xuunity system cleanup reports`
 - `xuunity system cleanup all`
+- `xuunity system cleanup aggressive`
+- `xuunity system cleanup all aggressive`
 - `xuunity system cleanup apply`
 - `xuunity system apply cleanup`
 - `xuunity system apply approved cleanup`
 - `xuunity system cleanup stale reports`
 - `xuunity system cleanup ai outputs`
 - `xuunity system archive old reports`
+- `xuunity system prune old archives`
 - `xuunity system audit ai clutter`
 
 ## System Audit
@@ -353,11 +357,11 @@ Short commands:
 - `system_health_review.md`
   - find conflicts, duplicates, and cleanup priorities
 - `system_output_cleanup.md`
-  - classify stale reports and AI-generated clutter into keep, archive, delete-candidate, and manual-review buckets
+  - classify stale reports and AI-generated clutter into keep, archive, delete-candidate, and manual-review buckets, including aggressive archive-pruning, family-level retention decisions, and coupled reference-rewrite cleanup plans
 - `system_output_cleanup_scorecard_template.md`
-  - standard scoring template for cleanup decisions across keep, archive, delete-candidate, and manual-review outcomes
+  - standard scoring template for cleanup decisions across keep, archive, delete-candidate, and manual-review outcomes, including volatility pressure and explicit retention-family tracking
 - `system_output_cleanup_apply.md`
-  - execute only the explicitly approved cleanup actions from a reviewed cleanup plan
+  - execute only the explicitly approved cleanup actions from a reviewed cleanup plan, including approved minimal reference rewrites that unlock safe archive/delete moves
 - `system_evaluation_cadence.md`
   - decide when evaluation should run and how to act on the score
 - `report_export.md`
