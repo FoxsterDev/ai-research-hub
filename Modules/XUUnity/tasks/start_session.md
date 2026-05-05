@@ -76,6 +76,14 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
 23. Before running Unity via shell, batchmode, `-runTests`, `-executeMethod`, or similar editor automation, check host-local overlays, project routers, and project memory for validation-path constraints.
 24. If a host-local or project-local rule requires Unity validation to go through MCP or another repo-specific integration, treat that as a hard must-not for direct shell-launched Unity and do not fall back to the CLI.
+24a. When validation needs live evidence beyond source inspection, choose a primary validation lane before running tools:
+  - `interactive_mcp`
+  - `batch_compile`
+  - `scenario`
+24b. Use `interactive_mcp` for editor-state, console, scene, Game View, play mode, integrated test, or integrated compile evidence.
+24c. Use `batch_compile` for non-interactive compile, define-matrix, build-target, or narrow deterministic test evidence only when repo and project rules allow it.
+24d. Use `scenario` when the proof depends on ordered runtime steps, waits, play mode transitions, screenshots, or project-defined validation hooks.
+24e. If no permitted lane can produce representative evidence for the claim, keep the validation gap explicit instead of silently substituting a weaker lane.
 25. Before emitting a clickable local file link, verify the exact absolute path that exists in the active workspace.
 26. If the exact absolute path is not verified, prefer plain text paths over markdown file links.
 27. For Rider-oriented links, only emit markdown file links when the file exists at the emitted absolute path.
@@ -108,6 +116,7 @@ If the active repo router, project router, or project registry declares a differ
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
+- Load `knowledge/validation_lanes.md` when validation strategy depends on choosing between integrated editor tooling, batch compile automation, or ordered scenario automation.
 - Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
@@ -186,9 +195,11 @@ If the active repo router, project router, or project registry declares a differ
   - `matched_skills`
   - `matched_policy_packs`
   - `trigger_reasons`
+  - `primary_validation_lane`
   - `required_validation`
   - `required_self_review`
 - `required_validation` should name the narrowest representative proof currently required, such as affected assembly compile, representative build target, explicit runtime validation gap, or a review-only limitation.
+- `primary_validation_lane` should name the lane that is expected to produce that proof, such as `interactive_mcp`, `batch_compile`, or `scenario`.
 - For `tasks/bug_fixing.md`, update `required_validation` after patch-shape classification so it reflects patch shape and bug family rather than generic session risk alone.
 - `required_self_review` should say what must still be re-checked before closure, such as hidden behavior drift, queue cleanup, ownership fallout, or contract fallout from moved call paths.
 - When queues, flags, wrappers, flush paths, or cache-backed fallbacks appear during investigation, include them in `trigger_reasons` and require explicit simplification and complexity-budget review before closure.

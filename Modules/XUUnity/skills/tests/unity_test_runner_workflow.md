@@ -6,6 +6,12 @@
 - package-level runtime validation
 - turning rough timing checks into trustworthy performance evidence
 
+## Lane Fit
+- This workflow fits the `batch_compile` lane when the repo allows direct shell-launched Unity automation.
+- If repo or project rules require an integrated Unity bridge, use the same testing intent through that integrated lane instead of falling back to CLI commands.
+- If the required proof depends on play mode sequencing, Game View, screenshots, or project-defined editor hooks around the test run, prefer the `scenario` lane over a plain runner invocation.
+- If the required proof depends on live editor state outside the test result itself, prefer `interactive_mcp` or `scenario` instead of describing batch test success as full evidence.
+
 ## Rules
 - Before launching Unity test automation, verify whether the current repo or project allows direct shell-launched Unity validation.
 - If Unity test execution is blocked because another Unity instance already has the project open, say that explicitly instead of treating the run as an unexplained hang.

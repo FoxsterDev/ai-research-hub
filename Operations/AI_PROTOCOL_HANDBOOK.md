@@ -188,6 +188,10 @@ Examples:
 - Start from the project root or monorepo root, not from nested code folders.
 - Let shorthand commands stay short. Do not manually enumerate the whole prompt stack unless needed.
 - Choose repo topology first: `core-only` for single-project hosts, `core + internal overlay` for true multi-project hosts.
+- Choose a primary validation lane before claiming runtime proof:
+  - `interactive_mcp` for live editor state, console, scene, Game View, play mode, or integrated Unity tooling
+  - `batch_compile` for non-interactive compile, define, target, or narrow test evidence when shell automation is allowed
+  - `scenario` for ordered runtime steps, waits, screenshots, play mode transitions, or project-defined hooks
 - For gameplay projects, keep `Assets/AIOutput/ProjectMemory/` as the default context layer.
 - Treat `Assets/AIOutput/` as historical artifact storage, not default working memory.
 - Load historical artifacts only when investigating behavior drift, reconstructing legacy intent, or researching old bugs.
@@ -248,6 +252,13 @@ Expected saved review contents:
 - release recommendation
 
 Use `100` breakage probability only for deterministic bugs that can be explained from the current code or diff.
+
+### Validation Lane Selection
+1. Prefer `interactive_mcp` when the question is about live Unity editor behavior.
+2. Prefer `batch_compile` when the question is compile health or target or define coverage and direct shell automation is permitted.
+3. Prefer `scenario` when the answer depends on multiple ordered runtime steps rather than one isolated tool call.
+4. If repo or project rules require integrated validation, do not fall back to direct Unity CLI just because the editor binary exists.
+5. If no permitted lane can produce representative proof, keep the validation gap explicit.
 
 ### New Knowledge
 1. `xuunity extract knowledge`
