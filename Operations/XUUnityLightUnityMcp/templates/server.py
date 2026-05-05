@@ -13,7 +13,7 @@ from typing import Any
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.3.0",
+    "version": "0.3.1",
 }
 
 STARTUP_POLICIES = {
@@ -32,6 +32,7 @@ SCENARIO_STEP_SCHEMA: dict[str, Any] = {
                 "status",
                 "health_probe",
                 "scene_snapshot",
+                "project_refresh",
                 "console_tail",
                 "playmode_set",
                 "wait",
@@ -80,6 +81,9 @@ SCENARIO_STEP_SCHEMA: dict[str, Any] = {
         "group": {"type": "string"},
         "label": {"type": "string"},
         "allowCreateCustomSize": {"type": "boolean"},
+        "forceAssetRefresh": {"type": "boolean"},
+        "resolvePackages": {"type": "boolean"},
+        "rerunHealthProbe": {"type": "boolean"},
         "hookName": {"type": "string"},
         "hookPayloadJson": {"type": "string"},
     },
@@ -141,6 +145,21 @@ TOOLS: dict[str, dict[str, Any]] = {
             "type": "object",
             "properties": {
                 "projectRoot": {"type": "string"},
+                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
+            },
+            "required": ["projectRoot"]
+        }
+    },
+    "unity_project_refresh": {
+        "bridgeOperation": "unity.project.refresh",
+        "description": "Refresh AssetDatabase, optionally request package resolve, and optionally persist a fresh capability report.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "forceAssetRefresh": {"type": "boolean", "default": True},
+                "resolvePackages": {"type": "boolean", "default": True},
+                "rerunHealthProbe": {"type": "boolean", "default": True},
                 "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
             },
             "required": ["projectRoot"]
@@ -616,12 +635,81 @@ def detect_unity_app_path(explicit_path: str | None) -> Path:
         raise ToolInvocationError(
             "unity_app_not_found",
             "Could not auto-detect a Unity.app under /Applications/Unity/Hub/Editor. Pass --unity-app explicitly.",
-        )
+    )
     return candidates[-1]
+
+
+def read_project_unity_version(project_root: Path) -> str | None:
+    version_path = project_root / "ProjectSettings" / "ProjectVersion.txt"
+    if not version_path.is_file():
+        return None
+
+    try:
+        for line in version_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if line.startswith("m_EditorVersion:"):
+                version = line.split(":", 1)[1].strip()
+                return version or None
+    except OSError:
+        return None
+
+    return None
+
+
+def detect_unity_app_path_for_project(project_root: Path, explicit_path: str | None) -> Path:
+    if explicit_path:
+        return detect_unity_app_path(explicit_path)
+
+    project_version = read_project_unity_version(project_root)
+    if project_version:
+        exact_match = Path("/Applications/Unity/Hub/Editor") / project_version / "Unity.app"
+        if exact_match.is_dir():
+            return exact_match.resolve()
+
+    return detect_unity_app_path(None)
+
+
+def resolve_unity_app_version(unity_app: Path) -> str:
+    return unity_app.parent.name
+
+
+def try_read_live_editor_state(project_root: Path) -> dict[str, Any] | None:
+    state = try_read_bridge_state(project_root)
+    if not state:
+        return None
+
+    pid = int(state.get("editor_pid") or 0)
+    if not pid_is_alive(pid):
+        return None
+
+    return state
 
 
 def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, background_open: bool) -> dict[str, Any]:
     log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    live_state = try_read_live_editor_state(project_root)
+    if live_state is not None:
+        requested_version = resolve_unity_app_version(unity_app)
+        running_version = str(live_state.get("unity_version") or "")
+        if requested_version and running_version and requested_version != running_version:
+            raise ToolInvocationError(
+                "project_already_open_with_different_unity_version",
+                (
+                    "This project already appears open in Unity "
+                    f"{running_version} (pid {live_state.get('editor_pid')}). "
+                    f"Requested Unity version is {requested_version}. "
+                    "Close the running editor instance for this project before opening a different version."
+                ),
+            )
+
+        return {
+            "unity_app": str(unity_app),
+            "editor_log_path": str(log_path),
+            "background_open": background_open,
+            "reused_existing_editor": True,
+            "editor_pid": live_state.get("editor_pid"),
+            "unity_version": running_version,
+        }
 
     command = ["open"]
     if background_open:
@@ -1180,6 +1268,20 @@ def cmd_request_health_probe(args):
     print_json(response)
 
 
+def cmd_request_project_refresh(args):
+    response = invoke_bridge(
+        args.project_root,
+        "unity.project.refresh",
+        {
+            "forceAssetRefresh": args.force_asset_refresh,
+            "resolvePackages": args.resolve_packages,
+            "rerunHealthProbe": args.rerun_health_probe,
+        },
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_request_compile(args):
     response = invoke_bridge(
         args.project_root,
@@ -1289,7 +1391,7 @@ def cmd_request_scenario_result(args):
 
 def cmd_open_editor(args):
     project_root = ensure_project_root(args.project_root)
-    unity_app = detect_unity_app_path(args.unity_app)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
     log_path = resolve_editor_log_path(project_root, args.editor_log_path)
     payload = open_unity_editor(project_root, log_path, unity_app, args.background_open)
     payload["project_root"] = str(project_root)
@@ -1307,7 +1409,7 @@ def cmd_ensure_ready(args):
     }
 
     if args.open_editor:
-        unity_app = detect_unity_app_path(args.unity_app)
+        unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
         payload["launch"] = open_unity_editor(project_root, log_path, unity_app, args.background_open)
 
     state = wait_for_ready(
@@ -1349,6 +1451,14 @@ def build_parser():
     probe_cmd.add_argument("--project-root", required=True)
     probe_cmd.add_argument("--timeout-ms", type=int, default=15000)
     probe_cmd.set_defaults(func=cmd_request_health_probe)
+
+    project_refresh_cmd = sub.add_parser("request-project-refresh", help="Send a direct file-IPC unity.project.refresh request.")
+    project_refresh_cmd.add_argument("--project-root", required=True)
+    project_refresh_cmd.add_argument("--force-asset-refresh", dest="force_asset_refresh", action=argparse.BooleanOptionalAction, default=True)
+    project_refresh_cmd.add_argument("--resolve-packages", dest="resolve_packages", action=argparse.BooleanOptionalAction, default=True)
+    project_refresh_cmd.add_argument("--rerun-health-probe", dest="rerun_health_probe", action=argparse.BooleanOptionalAction, default=True)
+    project_refresh_cmd.add_argument("--timeout-ms", type=int, default=15000)
+    project_refresh_cmd.set_defaults(func=cmd_request_project_refresh)
 
     compile_cmd = sub.add_parser("request-compile", help="Send a direct file-IPC unity.compile.player_scripts request.")
     compile_cmd.add_argument("--project-root", required=True)
