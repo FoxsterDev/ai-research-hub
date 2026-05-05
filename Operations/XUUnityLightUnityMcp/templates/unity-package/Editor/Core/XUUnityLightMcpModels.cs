@@ -311,6 +311,16 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpEditorQuitPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string outcome = "quit_requested";
+        public string requested_at_utc = "";
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpConsoleTailArgs
     {
         public int limit = 50;

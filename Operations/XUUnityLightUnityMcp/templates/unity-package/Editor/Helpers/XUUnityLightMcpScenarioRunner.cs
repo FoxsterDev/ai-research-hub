@@ -155,6 +155,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
             }
             catch (Exception ex)
             {
+                CleanupScenarioOwnedTransientState(state);
                 state.status = "failed";
                 state.completedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 state.updatedAtUtc = state.completedAtUtc;
@@ -305,6 +306,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 stepResult.status = "failed";
                 stepResult.error_code = "invalid_wait_deadline";
                 stepResult.error_message = "Scenario play mode wait step lost its deadline state.";
+                XUUnityLightMcpBridgeRuntimeState.CancelPlayModeTransitionTracking();
                 return true;
             }
 
@@ -317,6 +319,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
             stepResult.error_code = "playmode_state_timeout";
             stepResult.error_message =
                 $"Timed out waiting for play mode state '{step.expectedPlaymodeState}'. Last observed state: '{currentState}'.";
+            XUUnityLightMcpBridgeRuntimeState.CancelPlayModeTransitionTracking();
             return true;
         }
 
@@ -816,12 +819,43 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static void CompleteRun(XUUnityLightMcpScenarioRunState state, string finalStatus)
         {
+            CleanupScenarioOwnedTransientState(state);
             state.status = finalStatus;
             state.completedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             state.updatedAtUtc = state.completedAtUtc;
             PersistResult(state);
             SaveState(state);
             SafeDeleteActiveState();
+        }
+
+        static void CleanupScenarioOwnedTransientState(XUUnityLightMcpScenarioRunState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            var playModeTransitionRequestId = XUUnityLightMcpBridgeRuntimeState.PlayModeTransitionRequestId;
+            if (XUUnityLightMcpBridgeRuntimeState.PlayModeTransitionPending
+                && IsScenarioOwnedRequestId(playModeTransitionRequestId, state))
+            {
+                XUUnityLightMcpBridgeRuntimeState.CancelPlayModeTransitionTracking();
+            }
+        }
+
+        static bool IsScenarioOwnedRequestId(string requestId, XUUnityLightMcpScenarioRunState state)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+            {
+                return false;
+            }
+
+            if (string.Equals(requestId, state.pendingNestedRequestId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return requestId.StartsWith("scenario_", StringComparison.Ordinal);
         }
 
         static void PersistResult(XUUnityLightMcpScenarioRunState state, string errorCode = "", string errorMessage = "")
@@ -1071,17 +1105,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static bool IsEditorIdleForCompileSettle(XUUnityLightMcpScenarioStepResult stepResult)
         {
-            var expectedRequestId = "";
-            if (stepResult != null && !string.IsNullOrWhiteSpace(stepResult.payload_json))
-            {
-                var payload = JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(stepResult.payload_json);
-                expectedRequestId = payload?.settle_request_id ?? "";
-            }
-
-            return !XUUnityLightMcpBridgeRuntimeState.CompileSettlePending
-                && string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase, "settled", StringComparison.Ordinal)
-                && (string.IsNullOrWhiteSpace(expectedRequestId)
-                    || string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId, expectedRequestId, StringComparison.Ordinal))
+            return TryGetCompileSettleCompletionUtc(stepResult, out _)
                 && !EditorApplication.isCompiling
                 && !EditorApplication.isUpdating
                 && (EditorApplication.isPlaying || !EditorApplication.isPlayingOrWillChangePlaymode);
@@ -1093,17 +1117,30 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 ? new XUUnityLightMcpCompilePlayerScriptsPayload()
                 : JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(stepResult.payload_json) ?? new XUUnityLightMcpCompilePlayerScriptsPayload();
 
-            payload.settled_at_utc = string.IsNullOrWhiteSpace(XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc)
-                ? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-                : XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc;
-            payload.completion_basis = "unity_compile_settle_watcher";
+            var completionBasis = "unity_compile_settle_watcher";
+            if (!TryGetCompileSettleCompletionUtc(stepResult, out var settledAtUtc))
+            {
+                settledAtUtc = string.IsNullOrWhiteSpace(XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc)
+                    ? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    : XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc;
+            }
+            else if (!string.Equals(
+                XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId,
+                payload.settle_request_id ?? "",
+                StringComparison.Ordinal))
+            {
+                completionBasis = "unity_compile_settle_request_history";
+            }
+
+            payload.settled_at_utc = settledAtUtc;
+            payload.completion_basis = completionBasis;
             payload.editor_is_compiling_after_settle = EditorApplication.isCompiling;
             payload.editor_is_updating_after_settle = EditorApplication.isUpdating;
             payload.playmode_state_after_settle = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState();
             payload.settle_request_id = string.IsNullOrWhiteSpace(payload.settle_request_id)
                 ? XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId
                 : payload.settle_request_id;
-            payload.settle_phase = XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase;
+            payload.settle_phase = "settled";
             stepResult.payload_json = JsonUtility.ToJson(payload);
 
             if (payload.result != null && string.Equals(payload.result.status, "passed", StringComparison.OrdinalIgnoreCase))
@@ -1116,6 +1153,36 @@ namespace XUUnity.LightMcp.Editor.Helpers
             stepResult.status = "failed";
             stepResult.error_code = "compile_failed";
             stepResult.error_message = FormatCompileFailureMessage(payload);
+        }
+
+        static bool TryGetCompileSettleCompletionUtc(XUUnityLightMcpScenarioStepResult stepResult, out string completedAtUtc)
+        {
+            var expectedRequestId = "";
+            if (stepResult != null && !string.IsNullOrWhiteSpace(stepResult.payload_json))
+            {
+                var payload = JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(stepResult.payload_json);
+                expectedRequestId = payload?.settle_request_id ?? "";
+            }
+
+            if (!XUUnityLightMcpBridgeRuntimeState.CompileSettlePending
+                && string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase, "settled", StringComparison.Ordinal)
+                && (string.IsNullOrWhiteSpace(expectedRequestId)
+                    || string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId, expectedRequestId, StringComparison.Ordinal)))
+            {
+                completedAtUtc = string.IsNullOrWhiteSpace(XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc)
+                    ? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    : XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc;
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedRequestId)
+                && XUUnityLightMcpBridgeRuntimeState.TryGetCompletedCompileSettleUtc(expectedRequestId, out completedAtUtc))
+            {
+                return true;
+            }
+
+            completedAtUtc = "";
+            return false;
         }
 
         static string BuildResultPath(string runId, string scenarioName)
