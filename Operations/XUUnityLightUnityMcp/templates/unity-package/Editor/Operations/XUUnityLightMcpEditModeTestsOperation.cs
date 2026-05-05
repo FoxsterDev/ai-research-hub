@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 
 namespace XUUnity.LightMcp.Editor.Operations
@@ -133,8 +134,41 @@ namespace XUUnity.LightMcp.Editor.Operations
         {
             lock (Mutex)
             {
+                if (string.IsNullOrWhiteSpace(ActiveRequestId) || !Callbacks.IsActive)
+                {
+                    return;
+                }
+
+                var completedAtUtc = response?.completed_at_utc ?? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                XUUnityLightMcpBridgeRuntimeState.MarkRequestProcessed(
+                    ActiveRequestId,
+                    "unity.tests.run_editmode",
+                    response?.status ?? "ok",
+                    Callbacks.StartedAtUtc,
+                    0);
+                try
+                {
+                    XUUnityLightMcpRequestJournal.WriteRequestCompleted(
+                        ActiveRequestId,
+                        "unity.tests.run_editmode",
+                        response?.status ?? "ok",
+                        Callbacks.StartedAtUtc,
+                        completedAtUtc,
+                        0);
+                }
+                catch
+                {
+                }
                 ActiveRequestId = null;
+                Callbacks.Clear();
                 XUUnityLightMcpResponseWriter.Write(response);
+                try
+                {
+                    XUUnityLightMcpBridgeStateWriter.WriteHeartbeat();
+                }
+                catch
+                {
+                }
             }
         }
     }
@@ -147,10 +181,14 @@ namespace XUUnity.LightMcp.Editor.Operations
         string _requestId = "";
         string _projectRoot = "";
         DateTime _startedAtUtc;
+        bool _active;
         int _total;
         int _passed;
         int _failed;
         int _skipped;
+
+        public bool IsActive => _active;
+        public string StartedAtUtc => _active ? _startedAtUtc.ToString("yyyy-MM-ddTHH:mm:ssZ") : "";
 
         public XUUnityLightMcpEditModeCallbacks(Action<XUUnityLightMcpResponse> onCompleted)
         {
@@ -162,6 +200,20 @@ namespace XUUnity.LightMcp.Editor.Operations
             _requestId = requestId ?? "";
             _projectRoot = projectRoot ?? "";
             _startedAtUtc = DateTime.UtcNow;
+            _active = true;
+            _total = 0;
+            _passed = 0;
+            _failed = 0;
+            _skipped = 0;
+            _failures.Clear();
+        }
+
+        public void Clear()
+        {
+            _active = false;
+            _requestId = "";
+            _projectRoot = "";
+            _startedAtUtc = default;
             _total = 0;
             _passed = 0;
             _failed = 0;

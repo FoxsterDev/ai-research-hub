@@ -199,7 +199,10 @@ write_bridge_config() {
 {
   "enabled": true,
   "heartbeat_interval_ms": 2000,
-  "pump_interval_ms": 500
+  "pump_interval_ms": 500,
+  "transport": "file_ipc",
+  "loopback_host": "127.0.0.1",
+  "loopback_port": 0
 }
 EOF
   printf 'updated %s\n' "$config_path"

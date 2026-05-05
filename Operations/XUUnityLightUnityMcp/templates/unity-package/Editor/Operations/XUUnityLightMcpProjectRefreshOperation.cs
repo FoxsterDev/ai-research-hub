@@ -2,6 +2,7 @@ using System;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 using XUUnity.LightMcp.Editor.Helpers;
 
@@ -20,6 +21,8 @@ namespace XUUnity.LightMcp.Editor.Operations
             try
             {
                 var requestCompletedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                XUUnityLightMcpBridgeRuntimeState.BeginRefreshSettleTracking(request.request_id, args.resolvePackages);
+                XUUnityLightMcpLifecycleMonitor.MarkAssetRefreshRequested();
                 if (args.forceAssetRefresh)
                 {
                     AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
@@ -31,6 +34,7 @@ namespace XUUnity.LightMcp.Editor.Operations
 
                 if (args.resolvePackages)
                 {
+                    XUUnityLightMcpLifecycleMonitor.MarkPackageResolveRequested();
                     Client.Resolve();
                 }
 
@@ -50,6 +54,8 @@ namespace XUUnity.LightMcp.Editor.Operations
                     editor_is_compiling_after_request = EditorApplication.isCompiling,
                     editor_is_updating_after_request = EditorApplication.isUpdating,
                     playmode_state_after_request = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState(),
+                    settle_request_id = request.request_id,
+                    settle_phase = XUUnityLightMcpBridgeRuntimeState.RefreshSettlePhase,
                 };
 
                 return XUUnityLightMcpResponseWriter.Success(

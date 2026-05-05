@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using UnityEditor;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 using XUUnity.LightMcp.Editor.Helpers;
 
@@ -58,11 +60,18 @@ namespace XUUnity.LightMcp.Editor.Operations
                 }
 
                 stopwatch.Stop();
+                var requestCompletedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                XUUnityLightMcpBridgeRuntimeState.BeginCompileSettleTracking(request.request_id, OperationName);
 
                 var payload = new XUUnityLightMcpCompileMatrixPayload
                 {
                     project_root = XUUnityLightMcpFileIpcPaths.ProjectRootPath,
                     status = failed > 0 ? "failed" : "passed",
+                    request_completed_at_utc = requestCompletedAtUtc,
+                    editor_is_compiling_after_request = EditorApplication.isCompiling,
+                    editor_is_updating_after_request = EditorApplication.isUpdating,
+                    settle_request_id = request.request_id,
+                    settle_phase = XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase,
                     stop_on_first_failure = args.stopOnFirstFailure,
                     total = results.Count,
                     passed = passed,

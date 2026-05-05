@@ -86,6 +86,11 @@ Pass criteria:
 
 - no infrastructure failure
 - all required target/profile entries pass for the project contract
+- when Unity-side settle evidence is available, compile payloads should report
+  `completion_basis: unity_compile_settle_watcher`
+- if scenario-driven compile is used, nested `compile_player_scripts` payloads
+  should expose the same compile-settle contract rather than only synchronous
+  API-return timing
 
 ## Public Template Assets
 
@@ -93,5 +98,6 @@ Generic example scenario JSON templates live under:
 
 - `templates/scenarios/interactive_acceptance_smoke.json`
 - `templates/scenarios/refresh_contract_smoke.json`
+- `templates/scenarios/compile_contract_smoke.json`
 
 Projects may copy and extend them in host-local operational layers.

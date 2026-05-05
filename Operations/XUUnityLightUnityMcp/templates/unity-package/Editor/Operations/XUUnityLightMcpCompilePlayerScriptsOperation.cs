@@ -1,5 +1,7 @@
 using System;
+using UnityEditor;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 using XUUnity.LightMcp.Editor.Helpers;
 
@@ -18,9 +20,16 @@ namespace XUUnity.LightMcp.Editor.Operations
             try
             {
                 var result = XUUnityLightMcpCompileUtility.Compile(args);
+                var requestCompletedAtUtc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+                XUUnityLightMcpBridgeRuntimeState.BeginCompileSettleTracking(request.request_id, OperationName);
                 var payload = new XUUnityLightMcpCompilePlayerScriptsPayload
                 {
                     project_root = XUUnityLightMcpFileIpcPaths.ProjectRootPath,
+                    request_completed_at_utc = requestCompletedAtUtc,
+                    editor_is_compiling_after_request = EditorApplication.isCompiling,
+                    editor_is_updating_after_request = EditorApplication.isUpdating,
+                    settle_request_id = request.request_id,
+                    settle_phase = XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase,
                     result = result
                 };
 

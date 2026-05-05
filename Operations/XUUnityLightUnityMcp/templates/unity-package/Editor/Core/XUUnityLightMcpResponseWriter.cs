@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 
 namespace XUUnity.LightMcp.Editor.Core
 {
@@ -38,6 +39,11 @@ namespace XUUnity.LightMcp.Editor.Core
 
         public static void Write(XUUnityLightMcpResponse response)
         {
+            if (XUUnityLightMcpBridgeTransportRuntime.TryWriteResponse(response))
+            {
+                return;
+            }
+
             XUUnityLightMcpFileIpcPaths.EnsureDirectories();
             var path = Path.Combine(XUUnityLightMcpFileIpcPaths.OutboxDirectory, $"{response.request_id}.json");
             File.WriteAllText(path, JsonUtility.ToJson(response, true));

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
 using XUUnity.LightMcp.Editor.Operations;
 using XUUnity.LightMcp.Editor.ScenarioHooks;
@@ -235,7 +236,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 case "game_view_screenshot":
                     return ProcessGameViewScreenshotStep(step, stepResult);
                 case "compile_player_scripts":
-                    return ProcessCompilePlayerScriptsStep(step, stepResult);
+                    return ProcessCompilePlayerScriptsStep(state, step, stepResult);
                 case "tests_run_editmode":
                     return ProcessEditModeTestsStep(state, step, stepResult);
                 case "game_view_configure":
@@ -373,6 +374,11 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static bool ProcessCompilePlayerScriptsStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
         {
+            return ProcessCompilePlayerScriptsStep(null, step, stepResult);
+        }
+
+        static bool ProcessCompilePlayerScriptsStep(XUUnityLightMcpScenarioRunState state, XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
+        {
             var args = new XUUnityLightMcpCompilePlayerScriptsArgs
             {
                 name = step.name,
@@ -381,42 +387,84 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 extraDefines = step.extraDefines,
             };
 
-            var stopwatch = Stopwatch.StartNew();
-            var response = ExecuteNestedOperation("unity.compile.player_scripts", JsonUtility.ToJson(args));
-            stopwatch.Stop();
-
-            stepResult.duration_seconds = Math.Round(stopwatch.Elapsed.TotalSeconds, 6);
-            if (response == null)
+            if (state == null)
             {
-                stepResult.status = "failed";
-                stepResult.error_code = "null_nested_response";
-                stepResult.error_message = "compile_player_scripts returned no response.";
+                return ProcessNestedOperationStep("unity.compile.player_scripts", JsonUtility.ToJson(args), stepResult);
+            }
+
+            if (stepResult.status == "pending")
+            {
+                var request = BuildNestedRequest("unity.compile.player_scripts", JsonUtility.ToJson(args), GetTimeoutMs(step, 90.0d));
+                var stopwatch = Stopwatch.StartNew();
+                var response = ExecuteNestedOperation(request.operation, request.args_json, request);
+                stopwatch.Stop();
+
+                stepResult.duration_seconds = Math.Round(stopwatch.Elapsed.TotalSeconds, 6);
+                if (response == null)
+                {
+                    stepResult.status = "failed";
+                    stepResult.error_code = "null_nested_response";
+                    stepResult.error_message = "compile_player_scripts returned no response.";
+                    return true;
+                }
+
+                stepResult.payload_json = response.payload_json ?? "";
+                if (response.status != "ok")
+                {
+                    stepResult.status = "failed";
+                    stepResult.error_code = response.error?.code ?? "compile_player_scripts_failed";
+                    stepResult.error_message = response.error?.message ?? "compile_player_scripts failed.";
+                    return true;
+                }
+
+                state.pendingNestedRequestId = request.request_id;
+                state.pendingNestedOperation = request.operation;
+                state.pendingNestedStartedAtUtc = request.created_at_utc;
+                state.pendingNestedStableTickCount = 0;
+                state.waitingUntilUtc = DateTime.UtcNow.AddSeconds(GetTimeoutSeconds(step, 90.0d)).ToString("yyyy-MM-ddTHH:mm:ssZ");
+                stepResult.status = "running";
+                stepResult.outcome = "compile_waiting_for_settle";
+                return false;
+            }
+
+            if (stepResult.status != "running")
+            {
                 return true;
             }
 
-            stepResult.payload_json = response.payload_json ?? "";
-            if (response.status != "ok")
+            if (!TryParseUtc(state.waitingUntilUtc, out var deadlineUtc))
             {
                 stepResult.status = "failed";
-                stepResult.error_code = response.error?.code ?? "compile_player_scripts_failed";
-                stepResult.error_message = response.error?.message ?? "compile_player_scripts failed.";
+                stepResult.error_code = "invalid_wait_deadline";
+                stepResult.error_message = "Scenario compile step lost its deadline state.";
+                ClearPendingNestedOperation(state);
                 return true;
             }
 
-            var payload = string.IsNullOrWhiteSpace(response.payload_json)
-                ? null
-                : JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(response.payload_json);
-
-            if (payload?.result != null && string.Equals(payload.result.status, "passed", StringComparison.OrdinalIgnoreCase))
+            if (IsEditorIdleForCompileSettle(stepResult))
             {
-                stepResult.status = "passed";
-                stepResult.outcome = "compile_passed";
-                return true;
+                state.pendingNestedStableTickCount++;
+                if (state.pendingNestedStableTickCount >= 2)
+                {
+                    FinalizeCompilePlayerScriptsStep(stepResult);
+                    ClearPendingNestedOperation(state);
+                    return true;
+                }
+            }
+            else
+            {
+                state.pendingNestedStableTickCount = 0;
+            }
+
+            if (DateTime.UtcNow < deadlineUtc)
+            {
+                return false;
             }
 
             stepResult.status = "failed";
-            stepResult.error_code = "compile_failed";
-            stepResult.error_message = FormatCompileFailureMessage(payload);
+            stepResult.error_code = "compile_player_scripts_timeout";
+            stepResult.error_message = "Timed out waiting for compile_player_scripts to settle.";
+            ClearPendingNestedOperation(state);
             return true;
         }
 
@@ -985,7 +1033,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static bool IsEditorIdleForRefreshSettle()
         {
-            return !EditorApplication.isCompiling
+            return !XUUnityLightMcpBridgeRuntimeState.RefreshSettlePending
+                && string.Equals(XUUnityLightMcpBridgeRuntimeState.RefreshSettlePhase, "settled", StringComparison.Ordinal)
+                && !EditorApplication.isCompiling
                 && !EditorApplication.isUpdating
                 && (EditorApplication.isPlaying || !EditorApplication.isPlayingOrWillChangePlaymode);
         }
@@ -1002,15 +1052,70 @@ namespace XUUnity.LightMcp.Editor.Helpers
             payload.outcome = payload.package_resolve_requested
                 ? "refresh_and_resolve_completed"
                 : "refresh_completed";
-            payload.settled_at_utc = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-            payload.completion_basis = "scenario_runner_waited_for_editor_idle";
+            payload.settled_at_utc = string.IsNullOrWhiteSpace(XUUnityLightMcpBridgeRuntimeState.RefreshSettleCompletedUtc)
+                ? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                : XUUnityLightMcpBridgeRuntimeState.RefreshSettleCompletedUtc;
+            payload.completion_basis = "unity_refresh_settle_watcher";
             payload.editor_is_compiling_after_settle = EditorApplication.isCompiling;
             payload.editor_is_updating_after_settle = EditorApplication.isUpdating;
             payload.playmode_state_after_settle = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState();
+            payload.settle_request_id = string.IsNullOrWhiteSpace(payload.settle_request_id)
+                ? XUUnityLightMcpBridgeRuntimeState.RefreshSettleRequestId
+                : payload.settle_request_id;
+            payload.settle_phase = XUUnityLightMcpBridgeRuntimeState.RefreshSettlePhase;
 
             stepResult.status = "passed";
             stepResult.outcome = payload.outcome;
             stepResult.payload_json = JsonUtility.ToJson(payload);
+        }
+
+        static bool IsEditorIdleForCompileSettle(XUUnityLightMcpScenarioStepResult stepResult)
+        {
+            var expectedRequestId = "";
+            if (stepResult != null && !string.IsNullOrWhiteSpace(stepResult.payload_json))
+            {
+                var payload = JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(stepResult.payload_json);
+                expectedRequestId = payload?.settle_request_id ?? "";
+            }
+
+            return !XUUnityLightMcpBridgeRuntimeState.CompileSettlePending
+                && string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase, "settled", StringComparison.Ordinal)
+                && (string.IsNullOrWhiteSpace(expectedRequestId)
+                    || string.Equals(XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId, expectedRequestId, StringComparison.Ordinal))
+                && !EditorApplication.isCompiling
+                && !EditorApplication.isUpdating
+                && (EditorApplication.isPlaying || !EditorApplication.isPlayingOrWillChangePlaymode);
+        }
+
+        static void FinalizeCompilePlayerScriptsStep(XUUnityLightMcpScenarioStepResult stepResult)
+        {
+            var payload = string.IsNullOrWhiteSpace(stepResult.payload_json)
+                ? new XUUnityLightMcpCompilePlayerScriptsPayload()
+                : JsonUtility.FromJson<XUUnityLightMcpCompilePlayerScriptsPayload>(stepResult.payload_json) ?? new XUUnityLightMcpCompilePlayerScriptsPayload();
+
+            payload.settled_at_utc = string.IsNullOrWhiteSpace(XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc)
+                ? DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                : XUUnityLightMcpBridgeRuntimeState.CompileSettleCompletedUtc;
+            payload.completion_basis = "unity_compile_settle_watcher";
+            payload.editor_is_compiling_after_settle = EditorApplication.isCompiling;
+            payload.editor_is_updating_after_settle = EditorApplication.isUpdating;
+            payload.playmode_state_after_settle = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState();
+            payload.settle_request_id = string.IsNullOrWhiteSpace(payload.settle_request_id)
+                ? XUUnityLightMcpBridgeRuntimeState.CompileSettleRequestId
+                : payload.settle_request_id;
+            payload.settle_phase = XUUnityLightMcpBridgeRuntimeState.CompileSettlePhase;
+            stepResult.payload_json = JsonUtility.ToJson(payload);
+
+            if (payload.result != null && string.Equals(payload.result.status, "passed", StringComparison.OrdinalIgnoreCase))
+            {
+                stepResult.status = "passed";
+                stepResult.outcome = "compile_passed";
+                return;
+            }
+
+            stepResult.status = "failed";
+            stepResult.error_code = "compile_failed";
+            stepResult.error_message = FormatCompileFailureMessage(payload);
         }
 
         static string BuildResultPath(string runId, string scenarioName)

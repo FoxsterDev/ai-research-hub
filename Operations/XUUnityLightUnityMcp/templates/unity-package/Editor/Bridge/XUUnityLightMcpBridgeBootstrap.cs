@@ -23,6 +23,10 @@ namespace XUUnity.LightMcp.Editor.Bridge
             _heartbeatIntervalSeconds = config.heartbeat_interval_ms / 1000.0d;
             _pumpIntervalSeconds = config.pump_interval_ms / 1000.0d;
 
+            XUUnityLightMcpBridgeRuntimeState.InitializeBridgeSession();
+            XUUnityLightMcpBridgeTransportRuntime.Initialize(config);
+            XUUnityLightMcpLifecycleMonitor.InitializeIfNeeded();
+            XUUnityLightMcpRequestJournal.WriteBootstrapAttached();
             XUUnityLightMcpConsoleBuffer.EnsureStarted();
             if (config.auto_probe_on_startup)
             {
@@ -57,6 +61,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
 
             if (now - _lastPumpAt >= _pumpIntervalSeconds)
             {
+                XUUnityLightMcpLifecycleMonitor.Tick();
                 XUUnityLightMcpBridgeRequestPump.PumpOnce();
                 XUUnityLightMcpScenarioRunner.Tick();
                 _lastPumpAt = now;

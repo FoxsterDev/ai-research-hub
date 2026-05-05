@@ -1,0 +1,18 @@
+{
+  "name": "unity_mcp_compile_contract_smoke",
+  "description": "Generic compile contract smoke for native compile settle semantics.",
+  "stopOnFirstFailure": true,
+  "steps": [
+    {
+      "stepId": "status",
+      "kind": "status"
+    },
+    {
+      "stepId": "compile",
+      "kind": "compile_player_scripts",
+      "target": "Android",
+      "name": "compile_contract_smoke",
+      "timeoutSeconds": 120.0
+    }
+  ]
+}
