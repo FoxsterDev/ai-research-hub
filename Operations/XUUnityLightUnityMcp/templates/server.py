@@ -3,6 +3,9 @@ import argparse
 import calendar
 import json
 import os
+import re
+import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -14,8 +17,12 @@ from typing import Any
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.3.8",
+    "version": "0.3.9",
 }
+LIGHTWEIGHT_PACKAGE_NAME = "com.xuunity.light-mcp"
+LIGHTWEIGHT_PACKAGE_TEMPLATE_MARKER = Path(
+    "AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package/package.json"
+)
 
 STARTUP_POLICIES = {
     "auto_enter_safe_mode_preferred",
@@ -500,12 +507,93 @@ def ensure_project_root(project_root: str) -> Path:
     return root
 
 
+def find_repo_local_package_source(project_root: Path) -> Path | None:
+    for candidate_root in (project_root, *project_root.parents):
+        marker = candidate_root / LIGHTWEIGHT_PACKAGE_TEMPLATE_MARKER
+        if marker.is_file():
+            return marker.parent.resolve()
+    return None
+
+
+def inspect_package_dependency_alignment(project_root: Path) -> dict[str, Any]:
+    manifest_path = project_root / "Packages" / "manifest.json"
+    package_source = find_repo_local_package_source(project_root)
+    result: dict[str, Any] = {
+        "package_name": LIGHTWEIGHT_PACKAGE_NAME,
+        "manifest_path": str(manifest_path),
+        "dependency": "",
+        "dependency_mode": "missing",
+        "repo_local_package_source": str(package_source) if package_source else "",
+        "repo_local_package_source_present": package_source is not None,
+        "alignment": "unknown",
+        "warning": "",
+    }
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        result["alignment"] = "manifest_unreadable"
+        result["warning"] = f"Could not inspect manifest dependency: {exc}"
+        return result
+
+    dependencies = manifest.get("dependencies")
+    if not isinstance(dependencies, dict):
+        result["alignment"] = "dependencies_missing"
+        result["warning"] = "Packages/manifest.json does not contain a dependencies object."
+        return result
+
+    dependency_value = dependencies.get(LIGHTWEIGHT_PACKAGE_NAME)
+    if not isinstance(dependency_value, str) or not dependency_value.strip():
+        result["alignment"] = "dependency_missing"
+        result["warning"] = f"{LIGHTWEIGHT_PACKAGE_NAME} is not declared in Packages/manifest.json."
+        return result
+
+    dependency_value = dependency_value.strip()
+    result["dependency"] = dependency_value
+
+    if dependency_value.startswith("file:"):
+        result["dependency_mode"] = "file"
+        dependency_path = (manifest_path.parent / dependency_value[len("file:"):]).resolve()
+        result["resolved_dependency_path"] = str(dependency_path)
+        if package_source is None:
+            result["alignment"] = "file_no_repo_local_reference"
+        elif dependency_path == package_source:
+            result["alignment"] = "aligned"
+        else:
+            result["alignment"] = "file_mismatch"
+            result["warning"] = (
+                "The project uses a file dependency, but it does not point at the repo-local "
+                "AIRoot XUUnityLightUnityMcp template package."
+            )
+        return result
+
+    if dependency_value.startswith(("http://", "https://", "git@", "ssh://")):
+        result["dependency_mode"] = "git_or_remote"
+    else:
+        result["dependency_mode"] = "other"
+
+    if package_source is not None:
+        result["alignment"] = "repo_local_source_not_loaded"
+        result["warning"] = (
+            "A repo-local AIRoot XUUnityLightUnityMcp package source exists, but the project manifest "
+            "does not currently load it through a file dependency."
+        )
+    else:
+        result["alignment"] = "external_only"
+
+    return result
+
+
 def bridge_root(project_root: Path) -> Path:
     return project_root / "Library" / "XUUnityLightMcp"
 
 
 def bridge_state_path(project_root: Path) -> Path:
     return bridge_root(project_root) / "state" / "bridge_state.json"
+
+
+def host_editor_session_state_path(project_root: Path) -> Path:
+    return bridge_root(project_root) / "state" / "host_editor_session.json"
 
 
 def bridge_config_path(project_root: Path) -> Path:
@@ -534,6 +622,7 @@ def read_json(path: Path) -> Any:
 
 
 def write_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
@@ -668,8 +757,46 @@ def try_read_bridge_config(project_root: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def try_read_host_editor_session_state(project_root: Path) -> dict[str, Any] | None:
+    path = host_editor_session_state_path(project_root)
+    if not path.is_file():
+        return None
+
+    try:
+        data = read_json(path)
+    except Exception:
+        return None
+
+    return data if isinstance(data, dict) else None
+
+
+def write_host_editor_session_state(project_root: Path, data: dict[str, Any]) -> None:
+    write_json(host_editor_session_state_path(project_root), data)
+
+
+def clear_host_editor_session_state(project_root: Path) -> None:
+    path = host_editor_session_state_path(project_root)
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
+
+
 def read_best_effort_bridge_state(project_root: Path) -> dict[str, Any] | None:
-    return try_read_live_editor_state(project_root) or try_read_bridge_state(project_root)
+    live_state = try_read_live_editor_state(project_root)
+    if live_state is not None:
+        return live_state
+
+    state = try_read_bridge_state(project_root)
+    if state is None:
+        return None
+
+    pid = int(state.get("editor_pid") or 0)
+    if pid > 0 and not pid_is_alive(pid):
+        return None
+
+    return state
 
 
 class BridgeTransportAdapter:
@@ -1135,6 +1262,163 @@ def pid_is_alive(pid: int) -> bool:
     return True
 
 
+def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str, Any]]:
+    target_path = str(project_root)
+    marker = f"-projectPath {target_path}"
+
+    try:
+        completed = subprocess.run(
+            ["ps", "-axo", "pid=,command="],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return []
+
+    matches: list[dict[str, Any]] = []
+    seen_pids: set[int] = set()
+    for line in completed.stdout.splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+
+        parts = line.lstrip().split(None, 1)
+        if len(parts) != 2:
+            continue
+
+        raw_pid, command = parts
+        try:
+            pid = int(raw_pid)
+        except ValueError:
+            continue
+
+        if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
+            continue
+
+        if "Unity.app/Contents/MacOS/Unity" not in command:
+            continue
+
+        normalized_command = command.replace("\\ ", " ")
+        if marker not in normalized_command and target_path not in normalized_command:
+            continue
+
+        unity_app = ""
+        unity_version = ""
+        app_match = re.search(r"(.+?/Unity\.app)/Contents/MacOS/Unity", normalized_command)
+        if app_match:
+            unity_app = app_match.group(1)
+            try:
+                unity_version = Path(unity_app).parent.name
+            except Exception:
+                unity_version = ""
+
+        matches.append(
+            {
+                "pid": pid,
+                "command": normalized_command,
+                "unity_app": unity_app,
+                "unity_version": unity_version,
+            }
+        )
+        seen_pids.add(pid)
+
+    return matches
+
+
+def project_lock_path(project_root: Path) -> Path:
+    return project_root / "Temp" / "UnityLockfile"
+
+
+def try_list_path_owner_pids(path: Path) -> list[int]:
+    if not path.is_file():
+        return []
+
+    lsof_path = shutil.which("lsof")
+    if not lsof_path:
+        return []
+
+    try:
+        completed = subprocess.run(
+            [lsof_path, "-t", "--", str(path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return []
+
+    owner_pids: list[int] = []
+    for line in completed.stdout.splitlines():
+        raw_value = line.strip()
+        if not raw_value:
+            continue
+        try:
+            pid = int(raw_value)
+        except ValueError:
+            continue
+        if pid > 0 and pid not in owner_pids:
+            owner_pids.append(pid)
+    return owner_pids
+
+
+def inspect_project_lock(project_root: Path) -> dict[str, Any]:
+    lock_path = project_lock_path(project_root)
+    present = lock_path.is_file()
+    owner_pids = try_list_path_owner_pids(lock_path) if present else []
+    live_owner_pids = [pid for pid in owner_pids if pid_is_alive(pid)]
+
+    return {
+        "path": str(lock_path),
+        "present": present,
+        "owner_pids": owner_pids,
+        "live_owner_pids": live_owner_pids,
+    }
+
+
+def clear_stale_project_lock(project_root: Path) -> dict[str, Any]:
+    lock_state = inspect_project_lock(project_root)
+    if not lock_state["present"] or lock_state["live_owner_pids"]:
+        lock_state["removed"] = False
+        return lock_state
+
+    try:
+        Path(lock_state["path"]).unlink()
+        lock_state["removed"] = True
+        lock_state["present"] = False
+    except OSError:
+        lock_state["removed"] = False
+    return lock_state
+
+
+def build_host_editor_session_state(
+    project_root: Path,
+    unity_app: Path,
+    log_path: Path,
+    background_open: bool,
+    editor_pid: int = 0,
+) -> dict[str, Any]:
+    return {
+        "project_root": str(project_root),
+        "unity_app": str(unity_app),
+        "editor_log_path": str(log_path),
+        "background_open": background_open,
+        "opened_by_host": True,
+        "opened_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "editor_pid": max(0, int(editor_pid or 0)),
+    }
+
+
+def update_host_editor_session_pid(project_root: Path, editor_pid: int) -> None:
+    state = try_read_host_editor_session_state(project_root)
+    if not state or not bool(state.get("opened_by_host")):
+        return
+
+    normalized = dict(state)
+    normalized["editor_pid"] = max(0, int(editor_pid or 0))
+    write_host_editor_session_state(project_root, normalized)
+
+
 def heartbeat_age_seconds(state: dict[str, Any]) -> float | None:
     heartbeat_utc = state.get("heartbeat_utc")
     if not isinstance(heartbeat_utc, str) or not heartbeat_utc:
@@ -1426,6 +1710,70 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
             "unity_version": running_version,
         }
 
+    detected_editors = find_running_unity_editors_for_project(project_root)
+    if detected_editors:
+        requested_version = resolve_unity_app_version(unity_app)
+        detected_versions = sorted(
+            {
+                str(editor.get("unity_version") or "").strip()
+                for editor in detected_editors
+                if str(editor.get("unity_version") or "").strip()
+            }
+        )
+        if requested_version and detected_versions and requested_version not in detected_versions:
+            raise ToolInvocationError(
+                "project_already_open_with_different_unity_version",
+                (
+                    "This project already appears open in Unity "
+                    f"{', '.join(detected_versions)} (pid {detected_editors[0]['pid']}). "
+                    f"Requested Unity version is {requested_version}. "
+                    "Close the running editor instance for this project before opening a different version."
+                ),
+            )
+
+        detected_unity_app = str(detected_editors[0].get("unity_app") or unity_app)
+        try:
+            activate_unity_editor(project_root, Path(detected_unity_app))
+        except Exception:
+            pass
+
+        return {
+            "unity_app": detected_unity_app,
+            "editor_log_path": str(log_path),
+            "background_open": background_open,
+            "reused_existing_editor": True,
+            "reused_via": "project_process_detection",
+            "bridge_available": False,
+            "editor_pid": detected_editors[0]["pid"],
+            "unity_version": str(detected_editors[0].get("unity_version") or requested_version or ""),
+            "matching_editor_pids": [int(editor["pid"]) for editor in detected_editors],
+        }
+
+    lock_state = inspect_project_lock(project_root)
+    if lock_state["present"]:
+        live_owner_pids = lock_state["live_owner_pids"]
+        if live_owner_pids:
+            raise ToolInvocationError(
+                "project_already_open_without_bridge",
+                (
+                    "This project already appears open in Unity, but no reusable MCP bridge session is currently "
+                    f"available. Project lock: {lock_state['path']}. "
+                    f"Live lock owner pid(s): {', '.join(str(pid) for pid in live_owner_pids)}. "
+                    "Focus or recover the running editor instead of launching a second instance."
+                ),
+            )
+        cleared_lock_state = clear_stale_project_lock(project_root)
+        if cleared_lock_state.get("present"):
+            raise ToolInvocationError(
+                "project_lock_present_without_bridge",
+                (
+                    "This project has a Unity lock file, but no reusable MCP bridge session is currently available. "
+                    f"Project lock: {lock_state['path']}. "
+                    "Another Unity instance may already own the project, or the editor may have exited uncleanly. "
+                    "Resolve the running editor or clear the stale lock before retrying."
+                ),
+            )
+
     command = ["open"]
     if background_open:
         command.append("-g")
@@ -1442,11 +1790,95 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
     )
 
     subprocess.run(command, check=True)
+    launched_editors = find_running_unity_editors_for_project(project_root)
+    launched_pid = int(launched_editors[0]["pid"]) if launched_editors else 0
+    write_host_editor_session_state(
+        project_root,
+        build_host_editor_session_state(project_root, unity_app, log_path, background_open, launched_pid),
+    )
     return {
         "unity_app": str(unity_app),
         "editor_log_path": str(log_path),
         "background_open": background_open,
+        "opened_by_host": True,
+        "editor_pid": launched_pid,
     }
+
+
+def request_editor_quit(project_root: Path, timeout_ms: int) -> dict[str, Any]:
+    return invoke_bridge(project_root, "unity.editor.quit", {}, timeout_ms)
+
+
+def terminate_editor_pid(pid: int, timeout_ms: int) -> bool:
+    if pid <= 0 or not pid_is_alive(pid):
+        return True
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return not pid_is_alive(pid)
+
+    deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
+    while time.time() < deadline:
+        if not pid_is_alive(pid):
+            return True
+        time.sleep(0.2)
+
+    return not pid_is_alive(pid)
+
+
+def restore_host_opened_editor_state(project_root: Path, timeout_ms: int) -> dict[str, Any]:
+    session = try_read_host_editor_session_state(project_root)
+    if not session or not bool(session.get("opened_by_host")):
+        return {
+            "project_root": str(project_root),
+            "restored": False,
+            "reason": "not_opened_by_host",
+        }
+
+    tracked_pid = int(session.get("editor_pid") or 0)
+    live_state = try_read_live_editor_state(project_root)
+    restoration = {
+        "project_root": str(project_root),
+        "tracked_editor_pid": tracked_pid,
+        "restored": False,
+        "reason": "",
+        "close_path": "",
+    }
+
+    if live_state is not None:
+        current_pid = int(live_state.get("editor_pid") or 0)
+        if tracked_pid <= 0 or current_pid == tracked_pid:
+            request_editor_quit(str(project_root), timeout_ms)
+            deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
+            while time.time() < deadline:
+                if not pid_is_alive(current_pid):
+                    clear_host_editor_session_state(project_root)
+                    restoration["restored"] = True
+                    restoration["reason"] = "host_opened_editor_closed"
+                    restoration["close_path"] = "unity.editor.quit"
+                    restoration["closed_editor_pid"] = current_pid
+                    clear_stale_project_lock(project_root)
+                    return restoration
+                time.sleep(0.2)
+
+    if tracked_pid > 0 and terminate_editor_pid(tracked_pid, timeout_ms):
+        clear_host_editor_session_state(project_root)
+        restoration["restored"] = True
+        restoration["reason"] = "host_opened_editor_closed"
+        restoration["close_path"] = "host_sigterm"
+        restoration["closed_editor_pid"] = tracked_pid
+        clear_stale_project_lock(project_root)
+        return restoration
+
+    if tracked_pid > 0 and not pid_is_alive(tracked_pid):
+        clear_host_editor_session_state(project_root)
+        restoration["restored"] = False
+        restoration["reason"] = "tracked_editor_already_closed"
+        return restoration
+
+    restoration["reason"] = "tracked_editor_still_running"
+    return restoration
 
 
 def wait_for_editor_idle(
@@ -1587,6 +2019,16 @@ def wait_for_scenario_result(
     last_payload: dict[str, Any] | None = None
 
     while time.time() < deadline:
+        live_state = try_read_live_editor_state(project_root)
+        if isinstance(live_state, dict) and bool(live_state.get("playmode_transition_pending")):
+            target_state = str(live_state.get("playmode_transition_target_state") or "")
+            current_state = str(live_state.get("playmode_state") or "")
+            if target_state in {"playing", "paused"} and current_state != target_state:
+                try:
+                    activate_unity_editor(project_root)
+                except ToolInvocationError:
+                    pass
+
         remaining_ms = max(1000, min(5000, int((deadline - time.time()) * 1000)))
         bridge_args: dict[str, Any] = {}
         if run_id:
@@ -2154,6 +2596,28 @@ def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def scenario_failure_tool_result(result_payload: dict[str, Any]) -> dict[str, Any]:
+    scenario_name = str(result_payload.get("scenario_name") or "unknown_scenario")
+    status = str(result_payload.get("status") or result_payload.get("terminal_status") or "failed")
+    structured = {
+        "error": {
+            "code": "scenario_failed",
+            "message": f"Scenario '{scenario_name}' finished with status '{status}'.",
+        },
+        "scenario": result_payload,
+    }
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(structured, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": structured,
+        "isError": True,
+    }
+
+
 def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> dict[str, Any]:
     project_root_value = arguments.get("projectRoot")
     if not isinstance(project_root_value, str) or not project_root_value.strip():
@@ -2276,6 +2740,8 @@ def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str
         }
 
     result_payload["run_start"] = run_payload
+    if not bool(result_payload.get("succeeded")):
+        return scenario_failure_tool_result(result_payload)
     return {
         "content": [
             {
@@ -2513,6 +2979,11 @@ def cmd_request_health_probe(args):
     print_json(response)
 
 
+def cmd_request_editor_quit(args):
+    response = request_editor_quit(args.project_root, args.timeout_ms)
+    print_json(response)
+
+
 def cmd_request_project_refresh(args):
     response = invoke_bridge(
         args.project_root,
@@ -2629,6 +3100,8 @@ def cmd_request_scenario_run_and_wait(args):
         }
     )
     print_json(result.get("structuredContent") or {})
+    if result.get("isError"):
+        raise SystemExit(1)
 
 
 def cmd_request_scenario_result(args):
@@ -2678,6 +3151,15 @@ def cmd_ensure_ready(args):
         editor_log_path=log_path,
     )
     payload["bridge_state"] = state
+    if payload.get("launch") and not bool(payload["launch"].get("reused_existing_editor")):
+        update_host_editor_session_pid(project_root, int(state.get("editor_pid") or 0))
+    payload["package_dependency"] = inspect_package_dependency_alignment(project_root)
+    print_json(payload)
+
+
+def cmd_restore_editor_state(args):
+    project_root = ensure_project_root(args.project_root)
+    payload = restore_host_opened_editor_state(project_root, args.timeout_ms)
     print_json(payload)
 
 
@@ -2720,6 +3202,11 @@ def build_parser():
     probe_cmd.add_argument("--project-root", required=True)
     probe_cmd.add_argument("--timeout-ms", type=int, default=15000)
     probe_cmd.set_defaults(func=cmd_request_health_probe)
+
+    editor_quit_cmd = sub.add_parser("request-editor-quit", help="Send a direct file-IPC unity.editor.quit request.")
+    editor_quit_cmd.add_argument("--project-root", required=True)
+    editor_quit_cmd.add_argument("--timeout-ms", type=int, default=15000)
+    editor_quit_cmd.set_defaults(func=cmd_request_editor_quit)
 
     project_refresh_cmd = sub.add_parser("request-project-refresh", help="Send a direct file-IPC unity.project.refresh request.")
     project_refresh_cmd.add_argument("--project-root", required=True)
@@ -2806,6 +3293,14 @@ def build_parser():
         choices=sorted(STARTUP_POLICIES),
     )
     ensure_ready_cmd.set_defaults(func=cmd_ensure_ready)
+
+    restore_editor_cmd = sub.add_parser(
+        "restore-editor-state",
+        help="Close the Unity editor only when it was previously opened by this MCP host for the target project.",
+    )
+    restore_editor_cmd.add_argument("--project-root", required=True)
+    restore_editor_cmd.add_argument("--timeout-ms", type=int, default=15000)
+    restore_editor_cmd.set_defaults(func=cmd_restore_editor_state)
 
     return parser
 

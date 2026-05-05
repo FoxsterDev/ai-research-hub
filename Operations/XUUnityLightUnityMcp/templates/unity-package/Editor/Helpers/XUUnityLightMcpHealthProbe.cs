@@ -160,6 +160,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 operations = new List<string>
                 {
                     "unity.status",
+                    "unity.editor.quit",
                     "unity.project.refresh",
                     "unity.console.tail",
                     "unity.scene.snapshot",

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -12,8 +13,12 @@ namespace XUUnity.LightMcp.Editor.Bridge
         const double PackageOperationQuietWindowSeconds = 2.0d;
         const int RefreshSettleStableTickTarget = 2;
         const int CompileSettleStableTickTarget = 2;
+        const int CompletedCompileSettleHistoryLimit = 16;
         const int PlayModeTransitionStableTickTarget = 2;
+        const double RestoredPlayModeTransitionExpirySeconds = 30.0d;
         static readonly object Gate = new();
+        static readonly Queue<string> CompletedCompileSettleRequestOrder = new();
+        static readonly Dictionary<string, string> CompletedCompileSettleCompletedUtcByRequestId = new(StringComparer.Ordinal);
         static string _bridgeSessionId = "";
         static int _bridgeGeneration;
         static bool _bridgeBootstrapAttached;
@@ -337,6 +342,21 @@ namespace XUUnity.LightMcp.Editor.Bridge
             }
         }
 
+        public static bool TryGetCompletedCompileSettleUtc(string requestId, out string completedAtUtc)
+        {
+            lock (Gate)
+            {
+                if (!string.IsNullOrWhiteSpace(requestId)
+                    && CompletedCompileSettleCompletedUtcByRequestId.TryGetValue(requestId, out completedAtUtc))
+                {
+                    return true;
+                }
+
+                completedAtUtc = "";
+                return false;
+            }
+        }
+
         public static bool PlayModeTransitionPending
         {
             get
@@ -596,6 +616,8 @@ namespace XUUnity.LightMcp.Editor.Bridge
                 _compileSettlePhase = "";
                 _compileSettleOperation = "";
                 _compileSettleStableTickCount = 0;
+                CompletedCompileSettleRequestOrder.Clear();
+                CompletedCompileSettleCompletedUtcByRequestId.Clear();
                 _playModeTransitionPending = false;
                 _playModeTransitionRequestId = "";
                 _playModeTransitionAction = "";
@@ -723,6 +745,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
         {
             lock (Gate)
             {
+                ForgetCompletedCompileSettleLocked(requestId);
                 _compileSettlePending = true;
                 _compileSettleRequestId = requestId ?? "";
                 _compileSettleStartedUtc = UtcNow();
@@ -858,9 +881,11 @@ namespace XUUnity.LightMcp.Editor.Bridge
                         _compileSettleStableTickCount++;
                         if (_compileSettleStableTickCount >= CompileSettleStableTickTarget)
                         {
+                            var completedAtUtc = UtcNow();
                             _compileSettlePending = false;
-                            _compileSettleCompletedUtc = UtcNow();
+                            _compileSettleCompletedUtc = completedAtUtc;
                             _compileSettlePhase = "settled";
+                            RememberCompletedCompileSettleLocked(_compileSettleRequestId, completedAtUtc);
                         }
                     }
                     else
@@ -983,6 +1008,37 @@ namespace XUUnity.LightMcp.Editor.Bridge
             return DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
         }
 
+        static void RememberCompletedCompileSettleLocked(string requestId, string completedAtUtc)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+            {
+                return;
+            }
+
+            if (!CompletedCompileSettleCompletedUtcByRequestId.ContainsKey(requestId))
+            {
+                CompletedCompileSettleRequestOrder.Enqueue(requestId);
+            }
+
+            CompletedCompileSettleCompletedUtcByRequestId[requestId] = completedAtUtc ?? "";
+
+            while (CompletedCompileSettleRequestOrder.Count > CompletedCompileSettleHistoryLimit)
+            {
+                var evictedRequestId = CompletedCompileSettleRequestOrder.Dequeue();
+                CompletedCompileSettleCompletedUtcByRequestId.Remove(evictedRequestId);
+            }
+        }
+
+        static void ForgetCompletedCompileSettleLocked(string requestId)
+        {
+            if (string.IsNullOrWhiteSpace(requestId))
+            {
+                return;
+            }
+
+            CompletedCompileSettleCompletedUtcByRequestId.Remove(requestId);
+        }
+
         static void PersistPlayModeTransitionState()
         {
             var payload = new XUUnityLightMcpPersistedPlayModeTransitionState
@@ -1028,6 +1084,15 @@ namespace XUUnity.LightMcp.Editor.Bridge
                     return;
                 }
 
+                var currentState = ResolveCurrentPlayModeState();
+                if (HasUtcAgeExceeded(payload.started_at_utc, RestoredPlayModeTransitionExpirySeconds)
+                    && !EditorApplication.isPlayingOrWillChangePlaymode
+                    && !string.Equals(currentState, payload.target_state ?? "", StringComparison.Ordinal))
+                {
+                    DeletePersistedPlayModeTransitionState();
+                    return;
+                }
+
                 _playModeTransitionPending = true;
                 _playModeTransitionRequestId = payload.request_id ?? "";
                 _playModeTransitionAction = payload.action ?? "";
@@ -1051,6 +1116,25 @@ namespace XUUnity.LightMcp.Editor.Bridge
             }
 
             return EditorApplication.isPlayingOrWillChangePlaymode ? "transitioning" : "edit";
+        }
+
+        static bool HasUtcAgeExceeded(string startedAtUtc, double maxAgeSeconds)
+        {
+            if (string.IsNullOrWhiteSpace(startedAtUtc))
+            {
+                return false;
+            }
+
+            if (!DateTime.TryParse(
+                    startedAtUtc,
+                    null,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var startedAt))
+            {
+                return false;
+            }
+
+            return (DateTime.UtcNow - startedAt).TotalSeconds > Math.Max(0.0d, maxAgeSeconds);
         }
 
         static void PersistGenerationState()

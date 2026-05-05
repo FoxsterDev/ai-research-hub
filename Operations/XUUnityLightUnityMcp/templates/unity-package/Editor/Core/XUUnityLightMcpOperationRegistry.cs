@@ -17,6 +17,7 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.status", new XUUnityLightMcpStatusOperation() },
             { "unity.capabilities.get", new XUUnityLightMcpCapabilitiesGetOperation() },
             { "unity.health.probe", new XUUnityLightMcpHealthProbeOperation() },
+            { "unity.editor.quit", new XUUnityLightMcpEditorQuitOperation() },
             { "unity.project.refresh", new XUUnityLightMcpProjectRefreshOperation() },
             { "unity.console.tail", new XUUnityLightMcpConsoleTailOperation() },
             { "unity.scene.snapshot", new XUUnityLightMcpSceneSnapshotOperation() },
