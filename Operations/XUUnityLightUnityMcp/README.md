@@ -115,8 +115,16 @@ Short form:
 
 ## Package Source
 
-For this monorepo and other same-host repos that already have `AIRoot` checked out locally,
-use a direct local file dependency in `Packages/manifest.json`:
+Two package-source modes are now supported for same-host Unity consumers:
+
+- `devmode`
+  - local `file:` dependency to the current working tree under `AIRoot`
+  - best for fast MCP package iteration on the same machine
+- `prodmode`
+  - git-pinned dependency to the current `AIRoot` `origin` URL and current committed `HEAD`
+  - best for CI, build agents, and any consumer that must not depend on a local `AIRoot` checkout
+
+Default direct local dependency shape:
 
 ```json
 {
@@ -126,19 +134,46 @@ use a direct local file dependency in `Packages/manifest.json`:
 }
 ```
 
-For another repo that wants to consume the Unity package directly from GitHub,
-use this instead:
+Git-pinned shape:
 
 ```json
 {
   "dependencies": {
-    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#master"
+    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#<commit>"
   }
 }
 ```
 
 Use the direct local `file:` route when the consumer should always see the latest
 working-tree version from the local `AIRoot`.
+
+Use the git-pinned route when the consumer must resolve the package without any
+local `AIRoot` path on disk.
+
+Host-local wrapper commands for mode switching:
+
+```bash
+AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  devmode \
+  --project-root /path/to/UnityProject
+```
+
+```bash
+AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  prodmode \
+  --project-root /path/to/UnityProject
+```
+
+Behavior:
+
+- `devmode` rewrites `Packages/manifest.json` back to the local `file:` source
+- `prodmode` rewrites `Packages/manifest.json` to a git-pinned dependency using:
+  - the current `AIRoot` `origin` URL
+  - the current committed `AIRoot` `HEAD`
+- both commands remove the `com.xuunity.light-mcp` entry from `Packages/packages-lock.json`
+  so Unity is forced to re-resolve the package honestly on the next refresh/reopen
+- `prodmode` intentionally pins committed state only; uncommitted local `AIRoot`
+  changes are not part of the resolved package
 
 ## Scaffold Install
 
