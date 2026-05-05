@@ -14,14 +14,14 @@ It is intended to be:
 - disabled by default
 - safe to consume from more than one repo
 
-## GitHub Install
+## Install
 
 Add this to `Packages/manifest.json`:
 
 ```json
 {
   "dependencies": {
-    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#master"
+    "com.xuunity.light-mcp": "file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package"
   }
 }
 ```

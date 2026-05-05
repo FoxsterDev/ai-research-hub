@@ -309,6 +309,35 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["projectRoot", "configurations"]
         }
     },
+    "unity_compile_build_config_matrix": {
+        "description": "Resolve build profiles from the project's Unity build-config asset and run the Android/iOS compile matrix through unity.compile.matrix.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "buildConfigAsset": {
+                    "type": "string",
+                    "description": "Optional project-relative or absolute path to the Unity *BuildConfiguration.asset. When omitted, the tool auto-detects a single matching asset in the project."
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional subset of build profile names from the asset Configurations list."
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["Android", "iOS"]
+                    },
+                    "description": "Optional subset of compile targets. Defaults to Android and iOS."
+                },
+                "stopOnFirstFailure": {"type": "boolean", "default": False},
+                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
+            },
+            "required": ["projectRoot"]
+        }
+    },
     "unity_scenario_validate": {
         "bridgeOperation": "unity.scenario.validate",
         "description": "Validate a scripted Unity automation scenario before execution.",
@@ -672,6 +701,166 @@ def wait_for_ready(
     )
 
 
+def resolve_build_config_asset_path(project_root: Path, build_config_asset: str | None) -> Path:
+    if build_config_asset:
+        candidate = Path(build_config_asset).expanduser()
+        if not candidate.is_absolute():
+            candidate = project_root / candidate
+        candidate = candidate.resolve()
+        if not candidate.is_file():
+            raise ToolInvocationError("build_config_asset_not_found", f"Build config asset not found: {candidate}")
+        return candidate
+
+    candidates = sorted(project_root.glob("Assets/**/*BuildConfiguration.asset"))
+    if not candidates:
+        raise ToolInvocationError(
+            "build_config_asset_not_found",
+            "Could not auto-detect a *BuildConfiguration.asset under Assets/. Pass buildConfigAsset explicitly.",
+        )
+
+    if len(candidates) > 1:
+        joined = ", ".join(str(path.relative_to(project_root)) for path in candidates[:10])
+        raise ToolInvocationError(
+            "build_config_asset_ambiguous",
+            f"Found multiple *BuildConfiguration.asset files. Pass buildConfigAsset explicitly. Candidates: {joined}",
+        )
+
+    return candidates[0]
+
+
+def parse_unity_build_config_profiles(asset_path: Path) -> list[dict[str, Any]]:
+    try:
+        lines = asset_path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise ToolInvocationError("build_config_asset_read_failed", str(exc)) from exc
+
+    profiles: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    in_defines = False
+    in_debugging = False
+
+    for line in lines:
+        if current is not None and line.startswith("  _playerBuildConfig:"):
+            profiles.append(current)
+            current = None
+            in_defines = False
+            in_debugging = False
+            break
+
+        if line.startswith("  - ConfigName: "):
+            if current is not None:
+                profiles.append(current)
+            current = {
+                "configName": line.split(":", 1)[1].strip(),
+                "scriptingDefines": [],
+                "enableDevelopmentBuild": False,
+            }
+            in_defines = False
+            in_debugging = False
+            continue
+
+        if current is None:
+            continue
+
+        if line.startswith("    CompilationCSharpSettings:"):
+            in_debugging = False
+            continue
+
+        if line.startswith("    DebuggingSettings:"):
+            in_defines = False
+            in_debugging = True
+            continue
+
+        if line.startswith("    ") and not line.startswith("      "):
+            in_defines = False
+            if not line.startswith("    DebuggingSettings:"):
+                in_debugging = False
+
+        if line.startswith("      ScriptingDefines:"):
+            in_defines = True
+            continue
+
+        if in_defines:
+            if line.startswith("      - "):
+                current["scriptingDefines"].append(line[len("      - "):].strip())
+                continue
+            in_defines = False
+
+        if in_debugging and line.strip().startswith("EnableDevelopmentBuild:"):
+            value = line.split(":", 1)[1].strip()
+            current["enableDevelopmentBuild"] = value not in {"0", "false", "False", ""}
+
+    if current is not None:
+        profiles.append(current)
+
+    profiles = [profile for profile in profiles if profile.get("configName")]
+    if not profiles:
+        raise ToolInvocationError(
+            "build_config_profiles_missing",
+            f"No build profiles were parsed from {asset_path}. Expected Configurations entries with ConfigName.",
+        )
+
+    return profiles
+
+
+def build_compile_matrix_args_from_build_config(
+    project_root: Path,
+    build_config_asset: str | None,
+    requested_profiles: list[str] | None,
+    requested_targets: list[str] | None,
+    stop_on_first_failure: bool,
+) -> dict[str, Any]:
+    asset_path = resolve_build_config_asset_path(project_root, build_config_asset)
+    profiles = parse_unity_build_config_profiles(asset_path)
+
+    selected_targets = requested_targets or ["Android", "iOS"]
+    invalid_targets = [target for target in selected_targets if target not in {"Android", "iOS"}]
+    if invalid_targets:
+        raise ToolInvocationError("invalid_targets", f"Unsupported targets: {', '.join(invalid_targets)}")
+
+    selected_profile_names = requested_profiles or [profile["configName"] for profile in profiles]
+    selected_profile_set = set(selected_profile_names)
+    available_profile_names = {profile["configName"] for profile in profiles}
+    missing_profiles = [name for name in selected_profile_names if name not in available_profile_names]
+    if missing_profiles:
+        raise ToolInvocationError(
+            "unknown_build_profiles",
+            f"Unknown build profiles: {', '.join(missing_profiles)}. Available: {', '.join(sorted(available_profile_names))}",
+        )
+
+    configurations: list[dict[str, Any]] = []
+    resolved_profiles: list[dict[str, Any]] = []
+    for profile in profiles:
+        if profile["configName"] not in selected_profile_set:
+            continue
+
+        resolved_profiles.append(profile)
+        option_flags = ["DevelopmentBuild"] if profile.get("enableDevelopmentBuild") else []
+        extra_defines = list(profile.get("scriptingDefines") or [])
+        for target in selected_targets:
+            configurations.append(
+                {
+                    "name": f"{profile['configName']}-{target}",
+                    "target": target,
+                    "optionFlags": option_flags,
+                    "extraDefines": extra_defines,
+                }
+            )
+
+    if not configurations:
+        raise ToolInvocationError("build_config_matrix_empty", "No compile configurations were generated from the selected build profiles.")
+
+    relative_asset_path = str(asset_path.relative_to(project_root))
+    return {
+        "assetPath": relative_asset_path,
+        "profiles": resolved_profiles,
+        "matrixArgs": {
+            "stopOnFirstFailure": stop_on_first_failure,
+            "configurations": configurations,
+        },
+    }
+
+
 def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
     if response.get("status") == "ok":
         payload = {}
@@ -713,11 +902,84 @@ def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    project_root = ensure_project_root(project_root_value)
+    timeout_ms = arguments.get("timeoutMs", 300000)
+    if not isinstance(timeout_ms, int):
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+
+    profiles = arguments.get("profiles")
+    if profiles is not None and not isinstance(profiles, list):
+        raise JsonRpcError(-32602, "profiles must be an array of strings when provided.")
+
+    targets = arguments.get("targets")
+    if targets is not None and not isinstance(targets, list):
+        raise JsonRpcError(-32602, "targets must be an array of strings when provided.")
+
+    stop_on_first_failure = arguments.get("stopOnFirstFailure", False)
+    if not isinstance(stop_on_first_failure, bool):
+        raise JsonRpcError(-32602, "stopOnFirstFailure must be a boolean when provided.")
+
+    build_config_asset = arguments.get("buildConfigAsset")
+    if build_config_asset is not None and not isinstance(build_config_asset, str):
+        raise JsonRpcError(-32602, "buildConfigAsset must be a string when provided.")
+
+    try:
+        compile_plan = build_compile_matrix_args_from_build_config(
+            project_root=project_root,
+            build_config_asset=build_config_asset,
+            requested_profiles=profiles,
+            requested_targets=targets,
+            stop_on_first_failure=stop_on_first_failure,
+        )
+        response = invoke_bridge(
+            str(project_root),
+            "unity.compile.matrix",
+            compile_plan["matrixArgs"],
+            timeout_ms,
+        )
+    except ToolInvocationError as exc:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                }
+            ],
+            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "isError": True
+        }
+
+    tool_result = bridge_response_to_tool_result(response)
+    structured = tool_result.get("structuredContent") or {}
+    if not tool_result.get("isError"):
+        structured = {
+            "build_config_asset": compile_plan["assetPath"],
+            "profiles": compile_plan["profiles"],
+            "matrix": structured,
+        }
+        tool_result["structuredContent"] = structured
+        tool_result["content"] = [
+            {
+                "type": "text",
+                "text": json.dumps(structured, ensure_ascii=True)
+            }
+        ]
+    return tool_result
+
+
 def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     if name not in TOOLS:
         raise JsonRpcError(-32601, f"Unknown tool: {name}")
 
     args = arguments or {}
+    if name == "unity_compile_build_config_matrix":
+        return call_unity_compile_build_config_matrix_tool(args)
+
     tool = TOOLS[name]
     project_root = args.get("projectRoot")
     if not isinstance(project_root, str) or not project_root.strip():
@@ -933,6 +1195,98 @@ def cmd_request_compile(args):
     print_json(response)
 
 
+def cmd_request_compile_matrix(args):
+    config_file = Path(args.config_file).expanduser().resolve()
+    if not config_file.is_file():
+        raise ToolInvocationError("compile_matrix_config_not_found", f"Compile matrix config file not found: {config_file}")
+
+    try:
+        matrix_args = json.loads(config_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ToolInvocationError("compile_matrix_config_invalid", str(exc)) from exc
+
+    response = invoke_bridge(
+        args.project_root,
+        "unity.compile.matrix",
+        matrix_args,
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
+def cmd_request_build_config_compile_matrix(args):
+    project_root = ensure_project_root(args.project_root)
+    compile_plan = build_compile_matrix_args_from_build_config(
+        project_root=project_root,
+        build_config_asset=args.build_config_asset,
+        requested_profiles=args.profile,
+        requested_targets=args.target,
+        stop_on_first_failure=args.stop_on_first_failure,
+    )
+    response = invoke_bridge(
+        str(project_root),
+        "unity.compile.matrix",
+        compile_plan["matrixArgs"],
+        args.timeout_ms,
+    )
+
+    payload = {
+        "build_config_asset": compile_plan["assetPath"],
+        "profiles": compile_plan["profiles"],
+        "bridge_response": response,
+    }
+    print_json(payload)
+
+
+def load_json_file(path_value: str, error_code: str) -> Any:
+    path = Path(path_value).expanduser().resolve()
+    if not path.is_file():
+        raise ToolInvocationError(error_code, f"JSON file not found: {path}")
+
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ToolInvocationError(error_code, str(exc)) from exc
+
+
+def cmd_request_scenario_validate(args):
+    scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
+    response = invoke_bridge(
+        args.project_root,
+        "unity.scenario.validate",
+        {"scenario": scenario},
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
+def cmd_request_scenario_run(args):
+    scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
+    response = invoke_bridge(
+        args.project_root,
+        "unity.scenario.run",
+        {"scenario": scenario},
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
+def cmd_request_scenario_result(args):
+    bridge_args: dict[str, Any] = {}
+    if args.run_id:
+        bridge_args["runId"] = args.run_id
+    if args.scenario_name:
+        bridge_args["scenarioName"] = args.scenario_name
+
+    response = invoke_bridge(
+        args.project_root,
+        "unity.scenario.result",
+        bridge_args,
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_open_editor(args):
     project_root = ensure_project_root(args.project_root)
     unity_app = detect_unity_app_path(args.unity_app)
@@ -1004,6 +1358,43 @@ def build_parser():
     compile_cmd.add_argument("--extra-define", dest="extra_defines", action="append", default=[])
     compile_cmd.add_argument("--timeout-ms", type=int, default=120000)
     compile_cmd.set_defaults(func=cmd_request_compile)
+
+    compile_matrix_cmd = sub.add_parser("request-compile-matrix", help="Send a direct file-IPC unity.compile.matrix request using a JSON config file.")
+    compile_matrix_cmd.add_argument("--project-root", required=True)
+    compile_matrix_cmd.add_argument("--config-file", required=True)
+    compile_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
+    compile_matrix_cmd.set_defaults(func=cmd_request_compile_matrix)
+
+    build_config_matrix_cmd = sub.add_parser(
+        "request-build-config-compile-matrix",
+        help="Resolve build profiles from the project's *BuildConfiguration.asset and run the Android/iOS compile matrix through unity.compile.matrix.",
+    )
+    build_config_matrix_cmd.add_argument("--project-root", required=True)
+    build_config_matrix_cmd.add_argument("--build-config-asset")
+    build_config_matrix_cmd.add_argument("--profile", action="append", default=[])
+    build_config_matrix_cmd.add_argument("--target", action="append", default=[])
+    build_config_matrix_cmd.add_argument("--stop-on-first-failure", action="store_true")
+    build_config_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
+    build_config_matrix_cmd.set_defaults(func=cmd_request_build_config_compile_matrix)
+
+    scenario_validate_cmd = sub.add_parser("request-scenario-validate", help="Validate a Unity scenario JSON file through unity.scenario.validate.")
+    scenario_validate_cmd.add_argument("--project-root", required=True)
+    scenario_validate_cmd.add_argument("--scenario-file", required=True)
+    scenario_validate_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scenario_validate_cmd.set_defaults(func=cmd_request_scenario_validate)
+
+    scenario_run_cmd = sub.add_parser("request-scenario-run", help="Start a Unity scenario JSON file through unity.scenario.run.")
+    scenario_run_cmd.add_argument("--project-root", required=True)
+    scenario_run_cmd.add_argument("--scenario-file", required=True)
+    scenario_run_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scenario_run_cmd.set_defaults(func=cmd_request_scenario_run)
+
+    scenario_result_cmd = sub.add_parser("request-scenario-result", help="Read the current or completed result of a Unity scenario run.")
+    scenario_result_cmd.add_argument("--project-root", required=True)
+    scenario_result_cmd.add_argument("--run-id")
+    scenario_result_cmd.add_argument("--scenario-name")
+    scenario_result_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scenario_result_cmd.set_defaults(func=cmd_request_scenario_result)
 
     open_editor_cmd = sub.add_parser("open-editor", help="Open a Unity project with a deterministic log file path for MCP startup diagnostics.")
     open_editor_cmd.add_argument("--project-root", required=True)

@@ -40,6 +40,7 @@ Strengths:
 - good for fail-fast compile health
 - good for matrix-style target checks
 - avoids interactive editor focus and lifecycle churn
+- fits build-config-aware compile matrices that drive `unity.compile.matrix` from project profile data without mutating `PlayerSettings`
 
 Limits:
 - not suitable for play mode choreography, Game View, screenshots, or scene-state observation
@@ -72,6 +73,9 @@ Limits:
 - Keep `required_validation` and the chosen lane aligned. Do not ask a batch lane to prove an interactive runtime claim.
 - Use `interactive_mcp` when the question depends on live editor state, console state, scene state, Game View, play mode, or a host-integrated Unity contract.
 - Use `batch_compile` when the question is mainly compile health, define coverage, target coverage, or deterministic non-interactive test execution and direct shell automation is permitted.
+- When a project provides a supported Unity MCP path, prefer an MCP-backed batch compile lane over shell compile or direct Unity CLI.
+- Resolve the Unity editor version for MCP-backed validation from `ProjectSettings/ProjectVersion.txt`.
+- For define-sensitive validation, derive the compile matrix from the project's build-config asset instead of hand-authoring define sets.
 - Use `scenario` when the proof depends on ordered steps, waiting for state transitions, or persisted runtime evidence.
 - If repo or project rules require integrated validation, treat that as a hard override against `batch_compile` even if Unity CLI is available.
 - If interactive startup fails because of compile blockers, package-resolution failure, or Safe Mode gating, either:
@@ -83,6 +87,7 @@ Limits:
   - scene-state correctness
   - Game View rendering
   - device or native bridge behavior
+- Do not treat an ad hoc define compile as equivalent to a build-config-driven profile matrix when the project has profile-based build configuration.
 - Do not treat `scenario` or `interactive_mcp` success as proof of:
   - physical-device performance
   - native profiler truth

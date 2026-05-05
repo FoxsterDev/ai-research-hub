@@ -189,6 +189,8 @@ This ladder is mandatory for mobile-sensitive production changes.
   - platform-owned storage behavior
   - platform lifecycle ordering
   - build-flag or stripping-sensitive flows
+- When the project provides a supported Unity MCP path for compile, test, play mode, screenshot, or scenario control, prefer that MCP path as the default Unity-aware validation lane before falling back to non-MCP substitutes.
+- When compile behavior can vary by build profile or define set, prefer a build-config-aware MCP compile matrix that derives profiles from the project's build-config asset and covers the full target/profile matrix required by that project's validation contract.
 
 ### Layer 5. Release-Critical Mobile Flow Validation
 - Changes that affect any of the following require at least one representative runtime validation beyond fake-backed tests:
@@ -250,11 +252,13 @@ This ladder is mandatory for mobile-sensitive production changes.
     - at least one representative validation for the target branch when the behavior is mobile-sensitive
   - not enough:
     - assuming editor behavior proves non-editor branch correctness
+    - replacing available Unity MCP validation with shell compile alone
 
 ## Closure Rule
 
 - If a change falls into a mobile-sensitive validation bucket and the required ladder level was not executed, closure must explicitly report that validation gap.
 - Do not present fake-backed success, compile success, or partial branch proof as evidence of full runtime correctness when higher validation levels are still outstanding.
+- If the project had an available Unity MCP validation path and that path was not used, closure must explain why rather than silently substituting shell-driven checks.
 - A task is not fully validated merely because the easiest available test layer passed.
 - If test work changes shared setup, teardown, static reset helpers, or file-level harness behavior, do not close on a single passing test alone. Run at least:
   - the narrow failing test
