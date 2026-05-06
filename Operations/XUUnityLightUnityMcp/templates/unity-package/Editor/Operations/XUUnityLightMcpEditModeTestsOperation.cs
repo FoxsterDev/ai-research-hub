@@ -38,7 +38,12 @@ namespace XUUnity.LightMcp.Editor.Operations
                 );
             }
 
-            return XUUnityLightMcpEditModeTestRunner.Start(request);
+            if (!TryBuildFilter(request.args_json, out var filter, out var errorMessage))
+            {
+                return XUUnityLightMcpResponseWriter.Error(request.request_id, "invalid_args", errorMessage);
+            }
+
+            return XUUnityLightMcpEditModeTestRunner.Start(request, filter);
         }
 
         static List<Scene> GetDirtyOpenScenes()
@@ -61,6 +66,50 @@ namespace XUUnity.LightMcp.Editor.Operations
             var path = string.IsNullOrEmpty(scene.path) ? "(unsaved)" : scene.path;
             return $"'{name}' ({path})";
         }
+
+        static bool TryBuildFilter(string argsJson, out Filter filter, out string errorMessage)
+        {
+            filter = new Filter
+            {
+                testMode = TestMode.EditMode
+            };
+            errorMessage = "";
+
+            XUUnityLightMcpEditModeTestsArgs args;
+            try
+            {
+                args = string.IsNullOrWhiteSpace(argsJson)
+                    ? new XUUnityLightMcpEditModeTestsArgs()
+                    : JsonUtility.FromJson<XUUnityLightMcpEditModeTestsArgs>(argsJson) ?? new XUUnityLightMcpEditModeTestsArgs();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Invalid EditMode test filter JSON: {ex.Message}";
+                return false;
+            }
+
+            filter.testNames = NormalizeFilterValues(args.testNames);
+            filter.groupNames = NormalizeFilterValues(args.groupNames);
+            filter.categoryNames = NormalizeFilterValues(args.categoryNames);
+            filter.assemblyNames = NormalizeFilterValues(args.assemblyNames);
+            return true;
+        }
+
+        static string[] NormalizeFilterValues(string[] values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return null;
+            }
+
+            var normalized = values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct()
+                .ToArray();
+
+            return normalized.Length == 0 ? null : normalized;
+        }
     }
 
     [InitializeOnLoad]
@@ -77,7 +126,7 @@ namespace XUUnity.LightMcp.Editor.Operations
             EnsureApi();
         }
 
-        public static XUUnityLightMcpResponse Start(XUUnityLightMcpRequest request)
+        public static XUUnityLightMcpResponse Start(XUUnityLightMcpRequest request, Filter filter)
         {
             lock (Mutex)
             {
@@ -96,10 +145,7 @@ namespace XUUnity.LightMcp.Editor.Operations
                 try
                 {
                     ActiveRequestId = request.request_id;
-                    Api.Execute(new ExecutionSettings(new Filter
-                    {
-                        testMode = TestMode.EditMode
-                    }));
+                    Api.Execute(new ExecutionSettings(filter));
                 }
                 catch (Exception ex)
                 {

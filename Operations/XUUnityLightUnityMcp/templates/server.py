@@ -289,6 +289,22 @@ TOOLS: dict[str, dict[str, Any]] = {
             "type": "object",
             "properties": {
                 "projectRoot": {"type": "string"},
+                "testNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "groupNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "categoryNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "assemblyNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
                 "timeoutMs": {"type": "integer", "default": 600000, "minimum": 1000}
             },
             "required": ["projectRoot"]
@@ -3102,6 +3118,21 @@ def cmd_request_project_refresh(args):
     print_json(response)
 
 
+def cmd_request_editmode_tests(args):
+    response = invoke_bridge(
+        args.project_root,
+        "unity.tests.run_editmode",
+        {
+            "testNames": args.test_names or None,
+            "groupNames": args.group_names or None,
+            "categoryNames": args.category_names or None,
+            "assemblyNames": args.assembly_names or None,
+        },
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_request_compile(args):
     response = invoke_bridge(
         args.project_root,
@@ -3319,6 +3350,15 @@ def build_parser():
     project_refresh_cmd.add_argument("--rerun-health-probe", dest="rerun_health_probe", action=argparse.BooleanOptionalAction, default=True)
     project_refresh_cmd.add_argument("--timeout-ms", type=int, default=15000)
     project_refresh_cmd.set_defaults(func=cmd_request_project_refresh)
+
+    editmode_cmd = sub.add_parser("request-editmode-tests", help="Send a direct unity.tests.run_editmode request through the active bridge transport.")
+    editmode_cmd.add_argument("--project-root", required=True)
+    editmode_cmd.add_argument("--test-name", dest="test_names", action="append", default=[])
+    editmode_cmd.add_argument("--group-name", dest="group_names", action="append", default=[])
+    editmode_cmd.add_argument("--category-name", dest="category_names", action="append", default=[])
+    editmode_cmd.add_argument("--assembly-name", dest="assembly_names", action="append", default=[])
+    editmode_cmd.add_argument("--timeout-ms", type=int, default=600000)
+    editmode_cmd.set_defaults(func=cmd_request_editmode_tests)
 
     compile_cmd = sub.add_parser("request-compile", help="Send a direct unity.compile.player_scripts request through the active bridge transport.")
     compile_cmd.add_argument("--project-root", required=True)
