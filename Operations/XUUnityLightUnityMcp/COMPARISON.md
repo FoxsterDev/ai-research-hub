@@ -66,6 +66,10 @@ Current implemented surface:
 - `unity.tests.run_editmode`
 - `unity.compile.player_scripts`
 - `unity.compile.matrix`
+- `unity.scenario.validate`
+- `unity.scenario.run`
+- `unity.scenario.result`
+- `unity.editor.quit`
 - `unity.playmode.state`
 - `unity.playmode.set`
 - `unity.game_view.configure`
@@ -76,6 +80,7 @@ That means it already covers:
 - test execution
 - cross-target compile checks
 - basic editor-control loop
+- deterministic scenario replay with persisted result payloads
 - screenshot capture for verification
 
 ## Main Advantages Of The Lightweight MCP

@@ -29,6 +29,8 @@ Implemented:
 - scenario validation
 - asynchronous scenario execution
 - persisted scenario results
+- public reusable smoke runners
+- host-side editor-state restore for host-opened validation runs
 
 ## Current Maturity
 
@@ -52,6 +54,7 @@ The current service has already proven that it can:
 - control play mode transitions
 - persist scenario result bundles
 - run second-wave scenario steps for compile, tests, Game View configure, and project-defined hooks
+- restore host-opened Unity sessions back to closed after validation
 
 ## What Is Not Yet Proven
 
@@ -89,8 +92,8 @@ It should also read:
 
 Next:
 
-- switch stable consumers to the GitHub package route where local vendoring is not required
 - add richer scenario assertions and scenario result utilities
+- broaden proof across more clients and more Unity consumers
 
 This is now the most valuable bridge between the current validated core and the
 future device-and-profiler automation goal.

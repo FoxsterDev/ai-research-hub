@@ -44,6 +44,8 @@ Already implemented:
   - `unity.scenario.validate`
   - `unity.scenario.run`
   - `unity.scenario.result`
+- public reusable smoke runners for compact and JSON-heavy validation routes
+- host-side editor session restore for host-opened validation runs
 
 This is enough for:
 
@@ -120,6 +122,7 @@ Deliverables:
 Current state:
 - initial baseline is implemented
 - current step surface is intentionally small
+- next gap is richer assertions, result browsing, and artifact surfacing rather than first-time scenario bring-up
 
 Done when:
 - a scripted play-mode regression scenario can be authored once and replayed by any supported agent
@@ -287,15 +290,15 @@ That is the right target for "full automation support through MCP".
 
 The next milestone should be:
 
-`deterministic validation and scenario automation`
+`richer scenario assertions, result utilities, and broader cross-client proof`
 
 That means:
 
-- harden current operations
-- add scenario definitions
-- add scenario execution artifacts
+- harden current operations further
+- expand scenario result evidence and artifact surfacing
+- validate the same public smoke routes across more clients and consumers
 - keep device profiling for the next wave, not this one
 
 Reason:
-- this gives the fastest path from "working MCP" to "repeatable autonomous validation"
-- it also creates the control plane later needed for profiler-on-device workflows
+- the base scenario control plane already exists
+- the next highest leverage is trust, evidence quality, and reuse across consumers
