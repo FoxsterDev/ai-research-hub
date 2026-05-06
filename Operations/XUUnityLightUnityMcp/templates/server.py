@@ -955,7 +955,7 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
     name = TCP_LOOPBACK_BRIDGE_TRANSPORT
 
     def metadata(self, project_root: Path) -> dict[str, Any]:
-        state = read_best_effort_bridge_state(project_root) or {}
+        state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or {}
         return {
             "name": self.name,
             "requested_transport": str(state.get("transport_requested") or self.name),
@@ -973,7 +973,31 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
         args: dict[str, Any],
         timeout_ms: int,
     ) -> tuple[dict[str, Any], str, float]:
+        raw_state = try_read_bridge_state(project_root)
         state = read_best_effort_bridge_state(project_root)
+        if state is None and raw_state is not None:
+            liveness = inspect_bridge_state_liveness(raw_state)
+            if not bool(liveness.get("editor_pid_alive")):
+                stale_pid = int(liveness.get("editor_pid") or 0)
+                stale_listener_state = str(raw_state.get("transport_listener_state") or "")
+                stale_host = str(raw_state.get("transport_host") or "127.0.0.1")
+                stale_port = int(raw_state.get("transport_port") or 0)
+                raise ToolInvocationError(
+                    "editor_not_running",
+                    (
+                        "Unity editor is not running for this project. "
+                        f"Found stale bridge state with editor_pid={stale_pid}, "
+                        f"listener_state={stale_listener_state or 'unknown'}, "
+                        f"host={stale_host}, port={stale_port}. "
+                        "Reopen Unity or run ensure-ready --open-editor."
+                    ),
+                    {
+                        "transport": self.name,
+                        "state_path": str(bridge_state_path(project_root)),
+                        "state_liveness": liveness,
+                    },
+                )
+
         host = str((state or {}).get("transport_host") or "127.0.0.1")
         port = int((state or {}).get("transport_port") or 0)
         listener_state = str((state or {}).get("transport_listener_state") or "")
@@ -1447,6 +1471,46 @@ def heartbeat_age_seconds(state: dict[str, Any]) -> float | None:
         return None
 
     return max(0.0, time.time() - heartbeat_unix)
+
+
+def inspect_bridge_state_liveness(state: dict[str, Any] | None) -> dict[str, Any]:
+    if not state:
+        return {
+            "state_present": False,
+            "state_is_live": False,
+            "editor_pid": 0,
+            "editor_pid_alive": False,
+            "heartbeat_age_seconds": None,
+            "stale_reason": "state_missing",
+        }
+
+    pid = int(state.get("editor_pid") or 0)
+    pid_alive = pid > 0 and pid_is_alive(pid)
+    heartbeat_age = heartbeat_age_seconds(state)
+    stale_reason = ""
+
+    if pid <= 0:
+        stale_reason = "missing_editor_pid"
+    elif not pid_alive:
+        stale_reason = "editor_pid_not_alive"
+
+    return {
+        "state_present": True,
+        "state_is_live": pid_alive,
+        "editor_pid": pid,
+        "editor_pid_alive": pid_alive,
+        "heartbeat_age_seconds": round(heartbeat_age, 3) if heartbeat_age is not None else None,
+        "stale_reason": stale_reason,
+    }
+
+
+def annotate_bridge_state_with_liveness(state: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not state:
+        return None
+
+    annotated = dict(state)
+    annotated["_xuunity_bridge_state"] = inspect_bridge_state_liveness(state)
+    return annotated
 
 
 def parse_utc_timestamp(value: Any) -> float | None:
@@ -2986,7 +3050,7 @@ def cmd_bridge_state(args):
     state_path = bridge_state_path(project_root)
     if not state_path.is_file():
         raise SystemExit(f"Bridge state file not found: {state_path}")
-    print_json(read_json(state_path))
+    print_json(annotate_bridge_state_with_liveness(read_json(state_path)))
 
 
 def cmd_request_status(args):
@@ -3217,38 +3281,38 @@ def build_parser():
     state_cmd.add_argument("--project-root", required=True)
     state_cmd.set_defaults(func=cmd_bridge_state)
 
-    status_cmd = sub.add_parser("request-status", help="Send a direct file-IPC unity.status request.")
+    status_cmd = sub.add_parser("request-status", help="Send a direct unity.status request through the active bridge transport.")
     status_cmd.add_argument("--project-root", required=True)
     status_cmd.add_argument("--timeout-ms", type=int, default=5000)
     status_cmd.set_defaults(func=cmd_request_status)
 
-    playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct file-IPC unity.playmode.state request.")
+    playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct unity.playmode.state request through the active bridge transport.")
     playmode_state_cmd.add_argument("--project-root", required=True)
     playmode_state_cmd.add_argument("--timeout-ms", type=int, default=5000)
     playmode_state_cmd.set_defaults(func=cmd_request_playmode_state)
 
-    playmode_set_cmd = sub.add_parser("request-playmode-set", help="Send a direct file-IPC unity.playmode.set request.")
+    playmode_set_cmd = sub.add_parser("request-playmode-set", help="Send a direct unity.playmode.set request through the active bridge transport.")
     playmode_set_cmd.add_argument("--project-root", required=True)
     playmode_set_cmd.add_argument("--action", required=True, choices=["enter", "exit", "pause", "resume"])
     playmode_set_cmd.add_argument("--timeout-ms", type=int, default=45000)
     playmode_set_cmd.set_defaults(func=cmd_request_playmode_set)
 
-    capabilities_cmd = sub.add_parser("request-capabilities", help="Send a direct file-IPC unity.capabilities.get request.")
+    capabilities_cmd = sub.add_parser("request-capabilities", help="Send a direct unity.capabilities.get request through the active bridge transport.")
     capabilities_cmd.add_argument("--project-root", required=True)
     capabilities_cmd.add_argument("--timeout-ms", type=int, default=5000)
     capabilities_cmd.set_defaults(func=cmd_request_capabilities)
 
-    probe_cmd = sub.add_parser("request-health-probe", help="Send a direct file-IPC unity.health.probe request.")
+    probe_cmd = sub.add_parser("request-health-probe", help="Send a direct unity.health.probe request through the active bridge transport.")
     probe_cmd.add_argument("--project-root", required=True)
     probe_cmd.add_argument("--timeout-ms", type=int, default=15000)
     probe_cmd.set_defaults(func=cmd_request_health_probe)
 
-    editor_quit_cmd = sub.add_parser("request-editor-quit", help="Send a direct file-IPC unity.editor.quit request.")
+    editor_quit_cmd = sub.add_parser("request-editor-quit", help="Send a direct unity.editor.quit request through the active bridge transport.")
     editor_quit_cmd.add_argument("--project-root", required=True)
     editor_quit_cmd.add_argument("--timeout-ms", type=int, default=15000)
     editor_quit_cmd.set_defaults(func=cmd_request_editor_quit)
 
-    project_refresh_cmd = sub.add_parser("request-project-refresh", help="Send a direct file-IPC unity.project.refresh request.")
+    project_refresh_cmd = sub.add_parser("request-project-refresh", help="Send a direct unity.project.refresh request through the active bridge transport.")
     project_refresh_cmd.add_argument("--project-root", required=True)
     project_refresh_cmd.add_argument("--force-asset-refresh", dest="force_asset_refresh", action=argparse.BooleanOptionalAction, default=True)
     project_refresh_cmd.add_argument("--resolve-packages", dest="resolve_packages", action=argparse.BooleanOptionalAction, default=True)
@@ -3256,7 +3320,7 @@ def build_parser():
     project_refresh_cmd.add_argument("--timeout-ms", type=int, default=15000)
     project_refresh_cmd.set_defaults(func=cmd_request_project_refresh)
 
-    compile_cmd = sub.add_parser("request-compile", help="Send a direct file-IPC unity.compile.player_scripts request.")
+    compile_cmd = sub.add_parser("request-compile", help="Send a direct unity.compile.player_scripts request through the active bridge transport.")
     compile_cmd.add_argument("--project-root", required=True)
     compile_cmd.add_argument("--target", required=True)
     compile_cmd.add_argument("--name", default="")
@@ -3265,7 +3329,7 @@ def build_parser():
     compile_cmd.add_argument("--timeout-ms", type=int, default=120000)
     compile_cmd.set_defaults(func=cmd_request_compile)
 
-    compile_matrix_cmd = sub.add_parser("request-compile-matrix", help="Send a direct file-IPC unity.compile.matrix request using a JSON config file.")
+    compile_matrix_cmd = sub.add_parser("request-compile-matrix", help="Send a direct unity.compile.matrix request using a JSON config file through the active bridge transport.")
     compile_matrix_cmd.add_argument("--project-root", required=True)
     compile_matrix_cmd.add_argument("--config-file", required=True)
     compile_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
@@ -3273,7 +3337,7 @@ def build_parser():
 
     build_config_matrix_cmd = sub.add_parser(
         "request-build-config-compile-matrix",
-        help="Resolve build profiles from the project's *BuildConfiguration.asset and run the Android/iOS compile matrix through unity.compile.matrix.",
+        help="Resolve build profiles from the project's *BuildConfiguration.asset and run the Android/iOS compile matrix through unity.compile.matrix on the active bridge transport.",
     )
     build_config_matrix_cmd.add_argument("--project-root", required=True)
     build_config_matrix_cmd.add_argument("--build-config-asset")
@@ -3283,13 +3347,13 @@ def build_parser():
     build_config_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
     build_config_matrix_cmd.set_defaults(func=cmd_request_build_config_compile_matrix)
 
-    scenario_validate_cmd = sub.add_parser("request-scenario-validate", help="Validate a Unity scenario JSON file through unity.scenario.validate.")
+    scenario_validate_cmd = sub.add_parser("request-scenario-validate", help="Validate a Unity scenario JSON file through unity.scenario.validate on the active bridge transport.")
     scenario_validate_cmd.add_argument("--project-root", required=True)
     scenario_validate_cmd.add_argument("--scenario-file", required=True)
     scenario_validate_cmd.add_argument("--timeout-ms", type=int, default=5000)
     scenario_validate_cmd.set_defaults(func=cmd_request_scenario_validate)
 
-    scenario_run_cmd = sub.add_parser("request-scenario-run", help="Start a Unity scenario JSON file through unity.scenario.run.")
+    scenario_run_cmd = sub.add_parser("request-scenario-run", help="Start a Unity scenario JSON file through unity.scenario.run on the active bridge transport.")
     scenario_run_cmd.add_argument("--project-root", required=True)
     scenario_run_cmd.add_argument("--scenario-file", required=True)
     scenario_run_cmd.add_argument("--timeout-ms", type=int, default=5000)
