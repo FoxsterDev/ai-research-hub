@@ -100,6 +100,29 @@ Main entrypoints:
 - [SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
 - [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
 
+### XUUnity Light Unity MCP
+
+- [`Operations/XUUnityLightUnityMcp/`](./Operations/XUUnityLightUnityMcp/)
+  Public reusable lightweight Unity MCP path for `xuunity`.
+
+Primary MCP entrypoints:
+- overview: [Operations/XUUnityLightUnityMcp/README.md](./Operations/XUUnityLightUnityMcp/README.md)
+- public wrapper: [Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh](./Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh)
+- public init: [Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh](./Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh)
+
+Key MCP docs:
+- design: [Operations/XUUnityLightUnityMcp/DESIGN.md](./Operations/XUUnityLightUnityMcp/DESIGN.md)
+- integration: [Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md](./Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md)
+- smoke contract: [Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md](./Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md)
+- roadmap: [Operations/XUUnityLightUnityMcp/ROADMAP.md](./Operations/XUUnityLightUnityMcp/ROADMAP.md)
+- continuation: [Operations/XUUnityLightUnityMcp/CONTINUATION.md](./Operations/XUUnityLightUnityMcp/CONTINUATION.md)
+- public reports index: [Operations/XUUnityLightUnityMcp/Reports/README.md](./Operations/XUUnityLightUnityMcp/Reports/README.md)
+
+Reusable MCP assets:
+- scenario templates: `Operations/XUUnityLightUnityMcp/templates/scenarios/`
+- smoke runners: `Operations/XUUnityLightUnityMcp/templates/smoke/`
+- Unity package template: `Operations/XUUnityLightUnityMcp/templates/unity-package/`
+
 ### Visuals And Design
 
 - [`Visuals/`](./Visuals/)

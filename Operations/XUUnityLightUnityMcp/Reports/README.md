@@ -19,6 +19,8 @@ Use these reports when:
 ## Current Reports
 
 - `2026-05-05_design_baseline.md`
+- `2026-05-05_current_state_summary.md`
+- `2026-05-05_distribution_options_analysis.md`
 - `2026-05-05_roadmap_baseline.md`
 - `2026-05-05_progress_status.md`
 - `2026-05-05_xuunity_protocol_integration_status.md`
