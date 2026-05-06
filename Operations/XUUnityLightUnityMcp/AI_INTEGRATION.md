@@ -89,7 +89,7 @@ use the package subpath route instead:
 ```json
 {
   "dependencies": {
-    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#master"
+    "com.xuunity.light-mcp": "https://github.com/FoxsterDev/ai-research-hub.git?path=/Operations/XUUnityLightUnityMcp/templates/unity-package#<commit>"
   }
 }
 ```
@@ -105,6 +105,20 @@ Use the direct local `file:` route when:
 - the team wants the latest working-tree package version immediately
 - the team does not want commit-pin churn for active MCP iteration
 
+The host-local wrapper also exposes explicit package-source mode switches:
+
+```bash
+AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  devmode \
+  --project-root /path/to/UnityProject
+```
+
+```bash
+AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  prodmode \
+  --project-root /path/to/UnityProject
+```
+
 ## What The Agent Should Check After Install
 
 Before doing real work, check in this order:
@@ -118,6 +132,7 @@ Before doing real work, check in this order:
 7. `unity.status` succeeds
 8. `unity.capabilities.get` succeeds
 9. `unity.health.probe` succeeds
+10. if the host opened Unity for the validation session, the closeout path is defined
 
 Only after that:
 
@@ -164,14 +179,23 @@ Important limitation:
 - use Unity preferences to auto-enter Safe Mode if that is the team default
 - use `--background-open` when the host should avoid Unity stealing focus on macOS
 
+When the host opened Unity only to run validation, prefer the paired closeout:
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  restore-editor-state \
+  --project-root /path/to/UnityProject
+```
+
 ## Required Evidence To Record
 
 After integration, the agent should record:
 
 - Unity version
 - package version
-- whether the package is GitHub-based or embedded
+- whether the package is `file:`-based or Git-pinned
 - whether bridge enablement succeeded
+- active bridge transport
 - capability adapter IDs
 - supported and disabled operations
 - at least one successful:

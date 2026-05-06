@@ -33,8 +33,11 @@ Public continuation and integration files now exist in:
 - public progress baseline
 - agent-agnostic integration guidance
 - GitHub package install path
+- explicit `devmode` and `prodmode` package-source switching on the host wrapper
 - package metadata for external consumption
 - first scenario automation layer
+- public reusable smoke runners
+- validated host-side editor-state restore for host-opened validation runs
 
 ## What Still Needs To Happen For `xuunity`
 
@@ -52,13 +55,14 @@ The next `xuunity`-side integration steps are:
    - scenario replay
 4. add protocol-level guidance for capability probe interpretation
 5. add project-routing guidance for multi-project hosts
+6. add protocol-level closeout guidance for host-opened Unity sessions
 
 ## Immediate Next Work For A New Chat
 
-1. live-smoke `unity.scenario.*` on real consumer projects
-2. update public reports with scenario evidence
-3. add richer scenario steps
-4. start wiring scenario guidance into the shared `xuunity` protocol layer
+1. add richer scenario steps and richer assertions
+2. add scenario result utilities and artifact surfacing
+3. broaden public smoke proof across more consumers and clients
+4. continue wiring scenario guidance into the shared `xuunity` protocol layer
 
 ## Key Non-Goal
 

@@ -85,11 +85,12 @@ Add autonomous CUA support:
 
 The most important next milestone is:
 
-- deterministic scenario automation
+- richer scenario assertions, result utilities, and broader cross-client proof
 
 Reason:
 
-- it creates the control plane later needed for runtime and device profiling
+- the base scenario control plane already exists
+- the highest remaining leverage is trust, evidence quality, and reuse across consumers
 
 ## Canonical Source
 

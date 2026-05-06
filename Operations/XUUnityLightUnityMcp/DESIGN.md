@@ -25,11 +25,11 @@ Transport between them:
 
 No runtime/player package is part of the base service.
 
-Phase 5 start:
+Current transport shape:
 - host wrapper now uses an internal transport adapter layer
-- current active adapter is `file_ipc`
-- lifecycle orchestration is no longer hard-wired directly to inbox/outbox paths, which makes a future same-host transport option possible without rewriting retry, settle, and reconnect policy
-- the first stronger transport path is now `tcp_loopback` on `127.0.0.1`
+- `file_ipc` remains the baseline and fallback transport
+- lifecycle orchestration is no longer hard-wired directly to inbox/outbox paths
+- `tcp_loopback` on `127.0.0.1` is now the first stronger same-host transport path
 - this choice is intentionally cross-platform for macOS, Windows, and Linux; the design avoids Unix-domain-socket-only assumptions
 
 ## Lifecycle Contract
@@ -38,12 +38,15 @@ The wrapper is responsible for the host-local lifecycle gaps that the Unity pack
 
 Current design intent:
 - use `bridge-state` and `unity.status` as readiness evidence, not only request transport
+- classify stale bridge state with a dead `editor_pid` as offline
+- avoid launching a second Unity instance when the project is already open without a reusable bridge
 - surface editor busy reasons explicitly
 - activate Unity before focus-sensitive interactive operations
 - wait for editor idle before and after lifecycle-sensitive synchronous operations
 - distinguish request acceptance from settled editor completion
 - carry bridge session identity and generation in state
 - persist a lightweight request journal for reconnect and timeout evidence
+- restore the original closed state when the host opened Unity only for validation
 
 This keeps the lightweight lane closer to Rider-style behavior without depending on Rider runtime internals.
 
@@ -116,6 +119,7 @@ Current native settle-watcher start:
 - `unity.playmode.set` now starts a Unity-side playmode transition watcher
 - successful playmode payloads can now report `completion_basis: unity_playmode_transition_watcher`
 - pending playmode transition state persists through bridge rebootstrap so `enter` can still complete on the native watcher path after Play Mode recreates the bridge session
+- `unity.editor.quit` is now part of the core bridge surface so the host can close a host-opened editor session without GUI automation
 
 ## Stable Surface
 
@@ -128,6 +132,7 @@ Core validation operations:
 - `unity.tests.run_editmode`
 - `unity.compile.player_scripts`
 - `unity.compile.matrix`
+- `unity.editor.quit`
 
 Validated editor-control additions:
 - `unity.playmode.state`

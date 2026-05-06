@@ -1,7 +1,7 @@
 # XUUnity Light Unity MCP Continuation
 
 Date: `2026-05-05`
-Status: `new-chat continuation note`
+Status: `active continuation note`
 
 ## Current Baseline
 
@@ -30,6 +30,11 @@ External server:
 - local diagnostics helpers
 - `open-editor`
 - `ensure-ready`
+- `request-editor-quit`
+- `restore-editor-state`
+- host-local package-source mode switching:
+  - `devmode`
+  - `prodmode`
 
 Unity bridge:
 - heartbeat state
@@ -52,6 +57,11 @@ Scenario second-wave steps:
 - `tests_run_editmode`
 - `game_view_configure`
 - `project_defined_hook`
+
+Public reusable smoke assets:
+- `templates/scenarios/`
+- `templates/smoke/run_post_change_validation.sh`
+- `templates/smoke/run_smoke_suite.sh`
 
 ## Important Runtime Files
 
@@ -151,6 +161,8 @@ For shared protocol integration work:
 - scenario runs can persist results
 - second-wave scenario steps can run and report structured results
 - startup helpers can fail fast on interactive compile blockers and package-resolution failures
+- host-opened editor sessions can be restored to the original closed state after validation
+- baseline smoke orchestration can be reused from public `AIRoot` templates while keeping consumer-specific fixtures host-local
 
 ## What Is Not Yet Proven
 
@@ -188,7 +200,8 @@ For shared protocol integration work:
    - launch
    - screenshot
    - profiler capture
-5. only then move toward autonomous performance and bottleneck workflows
+5. broaden proof across more client and host combinations
+6. only then move toward autonomous performance and bottleneck workflows
 
 ## Important Non-Goals For The Next Chat
 

@@ -41,6 +41,10 @@ Current implemented baseline:
 - `unity.tests.run_editmode`
 - `unity.compile.player_scripts`
 - `unity.compile.matrix`
+- `unity.scenario.validate`
+- `unity.scenario.run`
+- `unity.scenario.result`
+- `unity.editor.quit`
 - `unity.playmode.state`
 - `unity.playmode.set`
 - `unity.game_view.configure`
@@ -75,10 +79,12 @@ That rule is already active for the Game View path.
 - no default runtime contamination
 - explicit capability gating
 - compile validation without active platform switching
+- reusable public smoke runners
+- host-side editor-state restore for host-opened validation runs
 
 ## Current Design Gaps
 
-- no scenario runner
+- richer scenario assertions and result utilities still missing
 - no runtime diagnostics companion
 - no device pipeline
 - no artifact comparison layer

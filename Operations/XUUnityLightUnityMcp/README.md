@@ -51,6 +51,7 @@ What exists now:
   - `unity.compile.player_scripts`
   - `unity.compile.matrix`
   - host-composed build-config compile matrix routing through `unity.compile.matrix`
+  - `unity.editor.quit`
   - `unity.playmode.state`
   - `unity.playmode.set`
   - `unity.game_view.configure`
@@ -63,6 +64,13 @@ What exists now:
 - MCP `tools/call`
 - host wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
+- host-side editor session safety helpers:
+  - `request-editor-quit`
+  - `restore-editor-state`
+  - stale bridge and stale lock guards on editor open
+- public reusable smoke runners:
+  - `templates/smoke/run_post_change_validation.sh`
+  - `templates/smoke/run_smoke_suite.sh`
 - scenario second-wave steps:
   - `compile_player_scripts`
   - `tests_run_editmode`
@@ -390,6 +398,15 @@ Bridge version `8` extends lifecycle truth further for package and play mode tra
   - `settle_target_state`
 - pending playmode transition state is now persisted across bridge rebootstrap so `enter` can complete with native watcher evidence even when Play Mode recreates the bridge session
 
+Bridge version `9` adds host-safe editor closeout support and stronger open-state hygiene:
+
+- `unity.editor.quit` is now a core bridge operation
+- the host can track whether it opened Unity for the current validation session
+- `restore-editor-state` can now return a host-opened project back to closed
+- stale bridge state with a dead `editor_pid` is treated as offline instead of reusable
+- open-editor no longer blindly launches a second Unity instance for the same project when a stale bridge or lock is present
+- scenario-result polling now tolerates transient read glitches during terminal-result waits instead of failing the whole scenario on the first closed response
+
 This does not yet provide full reconnect recovery, but it gives explicit evidence for:
 
 - bridge rebootstrap after reload
@@ -537,6 +554,12 @@ Generic example scenario templates are provided under:
 
 - `templates/scenarios/interactive_acceptance_smoke.json`
 - `templates/scenarios/refresh_contract_smoke.json`
+- `templates/scenarios/compile_contract_smoke.json`
+
+Generic shell runners are provided under:
+
+- `templates/smoke/run_post_change_validation.sh`
+- `templates/smoke/run_smoke_suite.sh`
 
 ## Cross-Platform Validation Kit
 

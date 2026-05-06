@@ -6,6 +6,10 @@ Status: `active public report index`
 This folder holds point-in-time public-safe reports for the lightweight
 `xuunity` Unity MCP effort.
 
+These baseline reports were refreshed on `2026-05-05` to match the current
+scenario, smoke-runner, and editor-state-restore surface. For the latest
+operational details, prefer the canonical docs one level up.
+
 Use these reports when:
 
 - another repo wants to consume this MCP
