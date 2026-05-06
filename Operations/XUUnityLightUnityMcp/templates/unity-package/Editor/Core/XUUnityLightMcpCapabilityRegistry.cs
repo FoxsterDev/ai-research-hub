@@ -7,6 +7,7 @@ namespace XUUnity.LightMcp.Editor.Core
     internal static class XUUnityLightMcpCapabilityRegistry
     {
         public const string CoreCapability = "core";
+        public const string BuildTargetCapability = "build_target_control";
         public const string EditModeTestsCapability = "editmode_tests";
         public const string CompileCapability = "compile_player_scripts";
         public const string PlayModeCapability = "playmode_control";
@@ -17,6 +18,7 @@ namespace XUUnity.LightMcp.Editor.Core
             "unity.status",
             "unity.capabilities.get",
             "unity.health.probe",
+            "unity.build_target.get",
             "unity.project.refresh",
             "unity.editor.quit"
         };
@@ -31,6 +33,8 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.scenario.validate", CoreCapability },
             { "unity.scenario.run", CoreCapability },
             { "unity.scenario.result", CoreCapability },
+            { "unity.build_target.get", BuildTargetCapability },
+            { "unity.build_target.switch", BuildTargetCapability },
             { "unity.tests.run_editmode", EditModeTestsCapability },
             { "unity.compile.player_scripts", CompileCapability },
             { "unity.compile.matrix", CompileCapability },

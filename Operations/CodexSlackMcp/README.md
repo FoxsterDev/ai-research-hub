@@ -97,13 +97,13 @@ Public-channel manifest:
 
 ```yaml
 display_information:
-  name: Apperfun Codex Slack MCP
+  name: Codex Slack MCP
   description: Single-channel Slack bot for Codex MCP
   background_color: "#1D9BD1"
 
 features:
   bot_user:
-    display_name: Apperfun Codex Slack MCP
+    display_name: Codex Slack MCP
     always_online: false
 
 oauth_config:
@@ -123,13 +123,13 @@ Private-channel manifest:
 
 ```yaml
 display_information:
-  name: Apperfun Codex Slack MCP
+  name: Codex Slack MCP
   description: Single-channel Slack bot for Codex MCP
   background_color: "#1D9BD1"
 
 features:
   bot_user:
-    display_name: Apperfun Codex Slack MCP
+    display_name: Codex Slack MCP
     always_online: false
 
 oauth_config:
@@ -163,7 +163,7 @@ configure the app manually.
 2. Select `Create New App`
 3. Choose `From scratch`
 4. Set the app name
-   Example: `Apperfun Codex Slack MCP`
+   Example: `Codex Slack MCP`
 5. Select the target workspace
 6. Finish app creation
 
@@ -224,7 +224,7 @@ Do not use these for this MCP setup:
 Open the target Slack channel and run:
 
 ```text
-/invite @Apperfun Codex Slack MCP
+/invite @Codex Slack MCP
 ```
 
 For the safest setup, invite the bot only to the single channel that Codex is

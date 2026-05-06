@@ -1,18 +1,73 @@
 #!/usr/bin/env python3
 import argparse
-import calendar
 import json
-import os
-import re
-import shutil
-import signal
-import socket
 import subprocess
 import sys
 import time
-import uuid
 from pathlib import Path
 from typing import Any
+
+from server_build_config import build_compile_matrix_args_from_build_config
+from server_bridge_runtime import (
+    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+    DEFAULT_IDLE_STABLE_CYCLES,
+    active_scenario_run_path,
+    annotate_bridge_state_with_liveness,
+    bridge_enabled,
+    bridge_identity_from_state,
+    bridge_root,
+    bridge_state_path,
+    captures_dir,
+    default_editor_log_path,
+    derive_busy_reason,
+    expected_playmode_state_for_action,
+    heartbeat_age_seconds,
+    inspect_bridge_state_liveness,
+    invoke_bridge_transport,
+    logs_dir,
+    maybe_record_settle_lifecycle_transition,
+    pid_is_alive,
+    read_best_effort_bridge_state,
+    request_journal_dir,
+    scenario_results_dir,
+    summarize_state_for_error,
+    try_read_bridge_state,
+    try_read_live_editor_state,
+    wait_for_editor_idle,
+    wait_for_playmode_state,
+)
+from server_core import ToolInvocationError, read_json
+from server_editor_host import (
+    activate_unity_editor,
+    build_plain_batch_build_command,
+    clear_stale_project_lock,
+    default_batch_build_log_path,
+    default_batch_build_result_path,
+    detect_unity_app_path_for_project,
+    list_live_project_editor_pids,
+    open_unity_editor,
+    read_recent_editor_log,
+    resolve_batch_build_output_path,
+    resolve_editor_log_path,
+    restore_host_opened_editor_state,
+    update_host_editor_session_pid,
+    wait_for_ready,
+)
+from server_specs import (
+    OPERATION_LIFECYCLE_POLICIES,
+    SCENARIO_DEFINITION_SCHEMA,
+    SCENARIO_TERMINAL_STATUSES,
+    STARTUP_POLICIES,
+    TOOLS,
+)
+from server_summaries import (
+    build_scenario_result_summary,
+    build_status_summary,
+    normalize_scenario_payload,
+    prune_project_artifacts,
+    try_read_json_dict,
+    truncate_text,
+)
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
@@ -23,498 +78,6 @@ LIGHTWEIGHT_PACKAGE_NAME = "com.xuunity.light-mcp"
 LIGHTWEIGHT_PACKAGE_TEMPLATE_MARKER = Path(
     "AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package/package.json"
 )
-
-STARTUP_POLICIES = {
-    "auto_enter_safe_mode_preferred",
-    "batch_compile_lane",
-    "fail_fast_on_interactive_compile_block",
-}
-
-DEFAULT_BRIDGE_TRANSPORT = "file_ipc"
-TCP_LOOPBACK_BRIDGE_TRANSPORT = "tcp_loopback"
-SUPPORTED_BRIDGE_TRANSPORTS = {
-    DEFAULT_BRIDGE_TRANSPORT,
-    TCP_LOOPBACK_BRIDGE_TRANSPORT,
-}
-
-ACTIVATION_DELAY_SECONDS = 0.35
-DEFAULT_HEARTBEAT_MAX_AGE_SECONDS = 10
-DEFAULT_IDLE_STABLE_CYCLES = 2
-SCENARIO_TERMINAL_STATUSES = {"passed", "failed"}
-
-OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
-    "unity.status": {
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.capabilities.get": {
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.health.probe": {
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.project.refresh": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.scene.snapshot": {
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.scenario.validate": {
-        "retry_on_lifecycle_reset": True,
-    },
-    "unity.compile.player_scripts": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-    },
-    "unity.compile.matrix": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-    },
-    "unity.tests.run_editmode": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-    },
-    "unity.playmode.set": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-    },
-    "unity.game_view.configure": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": True,
-        "idle_stable_cycles_after": 2,
-    },
-    "unity.game_view.screenshot": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": False,
-        "idle_stable_cycles_after": 1,
-    },
-    "unity.scenario.run": {
-        "activate_unity": True,
-        "wait_for_idle_before": True,
-        "wait_for_idle_after": False,
-        "idle_stable_cycles_after": 1,
-    },
-}
-
-SCENARIO_STEP_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "stepId": {"type": "string"},
-        "kind": {
-            "type": "string",
-            "enum": [
-                "status",
-                "health_probe",
-                "scene_snapshot",
-                "project_refresh",
-                "console_tail",
-                "playmode_set",
-                "wait",
-                "wait_for_playmode_state",
-                "assert_playmode_state",
-                "game_view_screenshot",
-                "compile_player_scripts",
-                "tests_run_editmode",
-                "game_view_configure",
-                "project_defined_hook",
-            ],
-        },
-        "action": {
-            "type": "string",
-            "enum": ["enter", "exit", "pause", "resume"],
-        },
-        "durationSeconds": {
-            "type": "number",
-            "minimum": 0.0,
-        },
-        "timeoutSeconds": {
-            "type": "number",
-            "minimum": 0.1,
-        },
-        "expectedPlaymodeState": {
-            "type": "string",
-            "enum": ["edit", "playing", "paused", "transitioning"],
-        },
-        "limit": {
-            "type": "integer",
-            "minimum": 1,
-        },
-        "includeTypes": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
-        "fileName": {"type": "string"},
-        "includeImage": {"type": "boolean"},
-        "maxResolution": {"type": "integer", "minimum": 1},
-        "target": {"type": "string"},
-        "optionFlags": {"type": "array", "items": {"type": "string"}},
-        "extraDefines": {"type": "array", "items": {"type": "string"}},
-        "name": {"type": "string"},
-        "width": {"type": "integer", "minimum": 1},
-        "height": {"type": "integer", "minimum": 1},
-        "group": {"type": "string"},
-        "label": {"type": "string"},
-        "allowCreateCustomSize": {"type": "boolean"},
-        "forceAssetRefresh": {"type": "boolean"},
-        "resolvePackages": {"type": "boolean"},
-        "rerunHealthProbe": {"type": "boolean"},
-        "hookName": {"type": "string"},
-        "hookPayloadJson": {"type": "string"},
-    },
-    "required": ["kind"],
-}
-
-SCENARIO_DEFINITION_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "name": {"type": "string"},
-        "description": {"type": "string"},
-        "stopOnFirstFailure": {"type": "boolean", "default": True},
-        "steps": {
-            "type": "array",
-            "items": SCENARIO_STEP_SCHEMA,
-            "minItems": 1,
-        },
-    },
-    "required": ["name", "steps"],
-}
-
-TOOLS: dict[str, dict[str, Any]] = {
-    "unity_status": {
-        "bridgeOperation": "unity.status",
-        "description": "Return normalized Unity editor and bridge readiness state for one project.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {
-                    "type": "string",
-                    "description": "Absolute or user-home-relative path to the Unity project root."
-                },
-                "timeoutMs": {
-                    "type": "integer",
-                    "description": "How long to wait for a bridge response.",
-                    "default": 5000,
-                    "minimum": 1000
-                }
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_capabilities": {
-        "bridgeOperation": "unity.capabilities.get",
-        "description": "Return the persisted Unity capability and health report used to gate version-sensitive operations.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_health_probe": {
-        "bridgeOperation": "unity.health.probe",
-        "description": "Re-run Unity-side health checks and persist a fresh capability report for this project and editor version.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_project_refresh": {
-        "bridgeOperation": "unity.project.refresh",
-        "description": "Refresh AssetDatabase, optionally request package resolve, and optionally persist a fresh capability report.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "forceAssetRefresh": {"type": "boolean", "default": True},
-                "resolvePackages": {"type": "boolean", "default": True},
-                "rerunHealthProbe": {"type": "boolean", "default": True},
-                "timeoutMs": {"type": "integer", "default": 30000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_console_tail": {
-        "bridgeOperation": "unity.console.tail",
-        "description": "Return recent Unity console items in normalized form.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "limit": {"type": "integer", "default": 50, "minimum": 1},
-                "includeTypes": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Subset of log, warning, error, exception."
-                },
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_scene_snapshot": {
-        "bridgeOperation": "unity.scene.snapshot",
-        "description": "Return a lightweight normalized snapshot of the currently active scene.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_tests_run_editmode": {
-        "bridgeOperation": "unity.tests.run_editmode",
-        "description": "Run Unity EditMode tests and return normalized result accounting.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "testNames": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "groupNames": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "categoryNames": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "assemblyNames": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "timeoutMs": {"type": "integer", "default": 600000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_playmode_state": {
-        "bridgeOperation": "unity.playmode.state",
-        "description": "Return normalized Unity play mode state for one project.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_playmode_set": {
-        "bridgeOperation": "unity.playmode.set",
-        "description": "Request a Unity play mode state transition or pause control.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "action": {
-                    "type": "string",
-                    "enum": ["enter", "exit", "pause", "resume"]
-                },
-                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
-            },
-            "required": ["projectRoot", "action"]
-        }
-    },
-    "unity_game_view_configure": {
-        "bridgeOperation": "unity.game_view.configure",
-        "description": "Set the active Unity Game View to a specific fixed resolution.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "width": {"type": "integer", "minimum": 1},
-                "height": {"type": "integer", "minimum": 1},
-                "group": {"type": "string", "description": "Optional active group override; must match the current build group."},
-                "label": {"type": "string", "description": "Optional custom label for a newly created resolution entry."},
-                "allowCreateCustomSize": {
-                    "type": "boolean",
-                    "default": False,
-                    "description": "When false, fail if the requested size is not already available in Unity Game View."
-                },
-                "timeoutMs": {"type": "integer", "default": 10000, "minimum": 1000}
-            },
-            "required": ["projectRoot", "width", "height"]
-        }
-    },
-    "unity_game_view_screenshot": {
-        "bridgeOperation": "unity.game_view.screenshot",
-        "description": "Capture a screenshot from the Unity Editor Game View.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "fileName": {"type": "string"},
-                "includeImage": {"type": "boolean", "default": False},
-                "maxResolution": {"type": "integer", "default": 640, "minimum": 1},
-                "timeoutMs": {"type": "integer", "default": 10000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_compile_player_scripts": {
-        "bridgeOperation": "unity.compile.player_scripts",
-        "description": "Compile Unity player scripts for one target/options/defines combination without switching the active build target.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "target": {"type": "string", "description": "Unity BuildTarget enum name, for example StandaloneOSX, StandaloneWindows64, Android, or iOS."},
-                "optionFlags": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional ScriptCompilationOptions flag names, for example DevelopmentBuild."
-                },
-                "extraDefines": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional extra scripting defines for this compile only."
-                },
-                "name": {"type": "string", "description": "Optional display name for this compile configuration."},
-                "timeoutMs": {"type": "integer", "default": 120000, "minimum": 1000}
-            },
-            "required": ["projectRoot", "target"]
-        }
-    },
-    "unity_compile_matrix": {
-        "bridgeOperation": "unity.compile.matrix",
-        "description": "Run a sequence of compile checks across multiple targets/options/defines combinations without switching active build target.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "stopOnFirstFailure": {"type": "boolean", "default": False},
-                "configurations": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string"},
-                            "target": {"type": "string"},
-                            "optionFlags": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            },
-                            "extraDefines": {
-                                "type": "array",
-                                "items": {"type": "string"}
-                            }
-                        },
-                        "required": ["target"]
-                    },
-                    "minItems": 1
-                },
-                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
-            },
-            "required": ["projectRoot", "configurations"]
-        }
-    },
-    "unity_compile_build_config_matrix": {
-        "description": "Resolve build profiles from the project's Unity build-config asset and run the Android/iOS compile matrix through unity.compile.matrix.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "buildConfigAsset": {
-                    "type": "string",
-                    "description": "Optional project-relative or absolute path to the Unity *BuildConfiguration.asset. When omitted, the tool auto-detects a single matching asset in the project."
-                },
-                "profiles": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Optional subset of build profile names from the asset Configurations list."
-                },
-                "targets": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "enum": ["Android", "iOS"]
-                    },
-                    "description": "Optional subset of compile targets. Defaults to Android and iOS."
-                },
-                "stopOnFirstFailure": {"type": "boolean", "default": False},
-                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
-            },
-            "required": ["projectRoot"]
-        }
-    },
-    "unity_scenario_validate": {
-        "bridgeOperation": "unity.scenario.validate",
-        "description": "Validate a scripted Unity automation scenario before execution.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "scenario": SCENARIO_DEFINITION_SCHEMA,
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
-            },
-            "required": ["projectRoot", "scenario"],
-        },
-    },
-    "unity_scenario_run": {
-        "bridgeOperation": "unity.scenario.run",
-        "description": "Start a scripted Unity automation scenario. Execution continues asynchronously inside the Unity editor update loop.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "scenario": SCENARIO_DEFINITION_SCHEMA,
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
-            },
-            "required": ["projectRoot", "scenario"],
-        },
-    },
-    "unity_scenario_result": {
-        "bridgeOperation": "unity.scenario.result",
-        "description": "Read the current or completed result of a previously started Unity automation scenario.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "runId": {"type": "string"},
-                "scenarioName": {"type": "string"},
-                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000},
-            },
-            "required": ["projectRoot"],
-        },
-    },
-    "unity_scenario_run_and_wait": {
-        "description": "Start a Unity automation scenario and wait until it reaches a terminal state.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "projectRoot": {"type": "string"},
-                "scenario": SCENARIO_DEFINITION_SCHEMA,
-                "timeoutMs": {"type": "integer", "default": 120000, "minimum": 1000},
-                "pollIntervalMs": {"type": "integer", "default": 1000, "minimum": 100},
-            },
-            "required": ["projectRoot", "scenario"],
-        },
-    }
-}
-
 
 def ensure_project_root(project_root: str) -> Path:
     root = Path(project_root).expanduser().resolve()
@@ -599,1519 +162,13 @@ def inspect_package_dependency_alignment(project_root: Path) -> dict[str, Any]:
 
     return result
 
-
-def bridge_root(project_root: Path) -> Path:
-    return project_root / "Library" / "XUUnityLightMcp"
-
-
-def bridge_state_path(project_root: Path) -> Path:
-    return bridge_root(project_root) / "state" / "bridge_state.json"
-
-
-def host_editor_session_state_path(project_root: Path) -> Path:
-    return bridge_root(project_root) / "state" / "host_editor_session.json"
-
-
-def bridge_config_path(project_root: Path) -> Path:
-    return bridge_root(project_root) / "config" / "bridge_config.json"
-
-
-def inbox_dir(project_root: Path) -> Path:
-    return bridge_root(project_root) / "inbox"
-
-
-def outbox_dir(project_root: Path) -> Path:
-    return bridge_root(project_root) / "outbox"
-
-
-def logs_dir(project_root: Path) -> Path:
-    return bridge_root(project_root) / "logs"
-
-
-def default_editor_log_path(project_root: Path) -> Path:
-    return logs_dir(project_root) / "unity_editor.log"
-
-
-def read_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(data, handle, indent=2, ensure_ascii=True)
-        handle.write("\n")
-
-
 def print_json(data: Any) -> None:
     json.dump(data, sys.stdout, indent=2, ensure_ascii=True)
     sys.stdout.write("\n")
 
 
-class ToolInvocationError(Exception):
-    def __init__(self, code: str, message: str, details: dict[str, Any] | None = None):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.details = details or {}
-
-
-def request_journal_dir(project_root: Path) -> Path:
-    return bridge_root(project_root) / "journal" / "requests"
-
-
-def bridge_identity_from_state(state: dict[str, Any] | None) -> tuple[int, str]:
-    if not state:
-        return 0, ""
-
-    generation = int(state.get("bridge_generation") or 0)
-    session_id = str(state.get("bridge_session_id") or "")
-    return generation, session_id
-
-
-def bridge_identity_changed(
-    initial_generation: int,
-    initial_session_id: str,
-    state: dict[str, Any] | None,
-) -> bool:
-    current_generation, current_session_id = bridge_identity_from_state(state)
-    if current_generation <= 0 and not current_session_id:
-        return False
-
-    if initial_generation > 0 and current_generation != initial_generation:
-        return True
-
-    if initial_session_id and current_session_id and current_session_id != initial_session_id:
-        return True
-
-    return False
-
-
-def write_host_request_journal_event(
-    project_root: Path,
-    event_type: str,
-    payload: dict[str, Any],
-) -> Path:
-    journal_dir = request_journal_dir(project_root)
-    journal_dir.mkdir(parents=True, exist_ok=True)
-    compact_utc = time.strftime("%Y%m%dT%H%M%S", time.gmtime()) + f"{int((time.time() % 1) * 1000):03d}Z"
-    event_id = f"{compact_utc}_{uuid.uuid4().hex}_{event_type}"
-    path = journal_dir / f"{event_id}.json"
-    data = dict(payload)
-    data.setdefault("event_id", event_id)
-    data.setdefault("event_type", event_type)
-    data.setdefault("event_source", "host_wrapper")
-    data.setdefault("event_at_utc", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-    data.setdefault("project_root", str(project_root))
-    write_json(path, data)
-    return path
-
-
-def maybe_record_settle_lifecycle_transition(
-    project_root: Path,
-    operation: str,
-    request_id: str,
-    before_state: dict[str, Any] | None,
-    after_state: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    initial_generation, initial_session_id = bridge_identity_from_state(before_state)
-    current_generation, current_session_id = bridge_identity_from_state(after_state)
-    if not bridge_identity_changed(initial_generation, initial_session_id, after_state):
-        return None
-
-    journal_path = write_host_request_journal_event(
-        project_root,
-        "request_reclassified",
-        {
-            "request_id": request_id,
-            "operation": operation,
-            "reason": "bridge_generation_changed_during_post_request_settle",
-            "retryable": False,
-            "reclassified_status": "settled_after_lifecycle_reset",
-            "previous_bridge_generation": initial_generation,
-            "previous_bridge_session_id": initial_session_id,
-            "bridge_generation": current_generation,
-            "bridge_session_id": current_session_id,
-        },
-    )
-    return {
-        "request_id": request_id,
-        "operation": operation,
-        "previous_bridge_generation": initial_generation,
-        "previous_bridge_session_id": initial_session_id,
-        "current_bridge_generation": current_generation,
-        "current_bridge_session_id": current_session_id,
-        "journal_event_path": str(journal_path),
-        "reclassified_status": "settled_after_lifecycle_reset",
-    }
-
-
-def bridge_enabled(project_root: Path) -> bool:
-    config_path = bridge_config_path(project_root)
-    if not config_path.is_file():
-        return False
-
-    try:
-        data = read_json(config_path)
-    except Exception:
-        return False
-
-    return bool(data.get("enabled"))
-
-
-def try_read_bridge_config(project_root: Path) -> dict[str, Any] | None:
-    config_path = bridge_config_path(project_root)
-    if not config_path.is_file():
-        return None
-
-    try:
-        data = read_json(config_path)
-    except Exception:
-        return None
-
-    return data if isinstance(data, dict) else None
-
-
-def try_read_host_editor_session_state(project_root: Path) -> dict[str, Any] | None:
-    path = host_editor_session_state_path(project_root)
-    if not path.is_file():
-        return None
-
-    try:
-        data = read_json(path)
-    except Exception:
-        return None
-
-    return data if isinstance(data, dict) else None
-
-
-def write_host_editor_session_state(project_root: Path, data: dict[str, Any]) -> None:
-    write_json(host_editor_session_state_path(project_root), data)
-
-
-def clear_host_editor_session_state(project_root: Path) -> None:
-    path = host_editor_session_state_path(project_root)
-    try:
-        if path.exists():
-            path.unlink()
-    except OSError:
-        pass
-
-
-def read_best_effort_bridge_state(project_root: Path) -> dict[str, Any] | None:
-    live_state = try_read_live_editor_state(project_root)
-    if live_state is not None:
-        return live_state
-
-    state = try_read_bridge_state(project_root)
-    if state is None:
-        return None
-
-    pid = int(state.get("editor_pid") or 0)
-    if pid > 0 and not pid_is_alive(pid):
-        return None
-
-    return state
-
-
-class BridgeTransportAdapter:
-    name = "unknown"
-
-    def metadata(self, project_root: Path) -> dict[str, Any]:
-        return {
-            "name": self.name,
-        }
-
-    def invoke(
-        self,
-        project_root: Path,
-        operation: str,
-        args: dict[str, Any],
-        timeout_ms: int,
-    ) -> tuple[dict[str, Any], str, float]:
-        raise NotImplementedError
-
-
-class FileIpcBridgeTransport(BridgeTransportAdapter):
-    name = DEFAULT_BRIDGE_TRANSPORT
-
-    def metadata(self, project_root: Path) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "state_path": str(bridge_state_path(project_root)),
-            "request_directory": str(inbox_dir(project_root)),
-            "response_directory": str(outbox_dir(project_root)),
-            "journal_directory": str(request_journal_dir(project_root)),
-        }
-
-    def invoke(
-        self,
-        project_root: Path,
-        operation: str,
-        args: dict[str, Any],
-        timeout_ms: int,
-    ) -> tuple[dict[str, Any], str, float]:
-        state_path = bridge_state_path(project_root)
-        if not state_path.is_file():
-            raise ToolInvocationError("editor_not_running", f"Bridge state file not found: {state_path}")
-
-        in_dir = inbox_dir(project_root)
-        out_dir = outbox_dir(project_root)
-        in_dir.mkdir(parents=True, exist_ok=True)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        request_id = str(uuid.uuid4())
-        request_path = in_dir / f"{request_id}.json"
-        response_path = out_dir / f"{request_id}.json"
-        request_started_at = time.time()
-        initial_state = read_best_effort_bridge_state(project_root)
-        initial_generation, initial_session_id = bridge_identity_from_state(initial_state)
-        observed_reset_state: dict[str, Any] | None = None
-
-        request = {
-            "request_id": request_id,
-            "operation": operation,
-            "project_root": str(project_root),
-            "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "timeout_ms": timeout_ms,
-            "args_json": json.dumps(args, ensure_ascii=True, separators=(",", ":")),
-        }
-
-        write_json(request_path, request)
-
-        deadline = time.time() + (timeout_ms / 1000.0)
-        while time.time() < deadline:
-            if response_path.is_file():
-                try:
-                    response = read_json(response_path)
-                finally:
-                    try:
-                        response_path.unlink()
-                    except OSError:
-                        pass
-                return response, request_id, request_started_at
-
-            current_state = read_best_effort_bridge_state(project_root)
-            if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
-                observed_reset_state = current_state
-
-            time.sleep(0.2)
-
-        state = read_best_effort_bridge_state(project_root)
-        if observed_reset_state is not None:
-            state = state or observed_reset_state
-            current_generation, current_session_id = bridge_identity_from_state(state)
-            processed = str((state or {}).get("last_processed_request_id") or "") == request_id
-            retryable = not processed
-            journal_path = write_host_request_journal_event(
-                project_root,
-                "request_reclassified",
-                {
-                    "request_id": request_id,
-                    "operation": operation,
-                    "reason": "bridge_generation_changed_before_response",
-                    "retryable": retryable,
-                    "reclassified_status": (
-                        "retryable_after_lifecycle_reset"
-                        if retryable
-                        else "response_missing_after_lifecycle_reset"
-                    ),
-                    "previous_bridge_generation": initial_generation,
-                    "previous_bridge_session_id": initial_session_id,
-                    "bridge_generation": current_generation,
-                    "bridge_session_id": current_session_id,
-                },
-            )
-            try:
-                if request_path.exists():
-                    request_path.unlink()
-            except OSError:
-                pass
-            details = {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "initial_bridge_generation": initial_generation,
-                "initial_bridge_session_id": initial_session_id,
-                "current_bridge_generation": current_generation,
-                "current_bridge_session_id": current_session_id,
-                "retryable": retryable,
-                "request_processed": processed,
-                "journal_event_path": str(journal_path),
-            }
-            if retryable:
-                raise ToolInvocationError(
-                    "request_lifecycle_reset",
-                    (
-                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
-                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                        f"transport={self.name}. journal_event={journal_path}."
-                    ),
-                    details,
-                )
-
-            raise ToolInvocationError(
-                "response_missing_after_lifecycle_reset",
-                (
-                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
-                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
-                ),
-                details,
-            )
-
-        raise ToolInvocationError(
-            "operation_timeout",
-            f"Timed out waiting for {response_path}. transport={self.name}. {summarize_state_for_error(state)}",
-        )
-
-
-class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
-    name = TCP_LOOPBACK_BRIDGE_TRANSPORT
-
-    def metadata(self, project_root: Path) -> dict[str, Any]:
-        state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or {}
-        return {
-            "name": self.name,
-            "requested_transport": str(state.get("transport_requested") or self.name),
-            "listener_state": str(state.get("transport_listener_state") or ""),
-            "host": str(state.get("transport_host") or "127.0.0.1"),
-            "port": int(state.get("transport_port") or 0),
-            "state_path": str(bridge_state_path(project_root)),
-            "journal_directory": str(request_journal_dir(project_root)),
-        }
-
-    def invoke(
-        self,
-        project_root: Path,
-        operation: str,
-        args: dict[str, Any],
-        timeout_ms: int,
-    ) -> tuple[dict[str, Any], str, float]:
-        raw_state = try_read_bridge_state(project_root)
-        state = read_best_effort_bridge_state(project_root)
-        if state is None and raw_state is not None:
-            liveness = inspect_bridge_state_liveness(raw_state)
-            if not bool(liveness.get("editor_pid_alive")):
-                stale_pid = int(liveness.get("editor_pid") or 0)
-                stale_listener_state = str(raw_state.get("transport_listener_state") or "")
-                stale_host = str(raw_state.get("transport_host") or "127.0.0.1")
-                stale_port = int(raw_state.get("transport_port") or 0)
-                raise ToolInvocationError(
-                    "editor_not_running",
-                    (
-                        "Unity editor is not running for this project. "
-                        f"Found stale bridge state with editor_pid={stale_pid}, "
-                        f"listener_state={stale_listener_state or 'unknown'}, "
-                        f"host={stale_host}, port={stale_port}. "
-                        "Reopen Unity or run ensure-ready --open-editor."
-                    ),
-                    {
-                        "transport": self.name,
-                        "state_path": str(bridge_state_path(project_root)),
-                        "state_liveness": liveness,
-                    },
-                )
-
-        host = str((state or {}).get("transport_host") or "127.0.0.1")
-        port = int((state or {}).get("transport_port") or 0)
-        listener_state = str((state or {}).get("transport_listener_state") or "")
-        if port <= 0:
-            raise ToolInvocationError(
-                "transport_not_ready",
-                (
-                    f"TCP loopback transport is not ready. "
-                    f"listener_state={listener_state or 'unknown'} host={host} port={port}."
-                ),
-            )
-
-        request_id = str(uuid.uuid4())
-        request_started_at = time.time()
-        initial_state = state
-        initial_generation, initial_session_id = bridge_identity_from_state(initial_state)
-        observed_reset_state: dict[str, Any] | None = None
-        request = {
-            "request_id": request_id,
-            "operation": operation,
-            "project_root": str(project_root),
-            "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "timeout_ms": timeout_ms,
-            "args_json": json.dumps(args, ensure_ascii=True, separators=(",", ":")),
-        }
-        payload = (json.dumps(request, ensure_ascii=True, separators=(",", ":")) + "\n").encode("utf-8")
-        deadline = time.time() + (timeout_ms / 1000.0)
-        chunks: list[bytes] = []
-
-        try:
-            connect_timeout = max(1.0, min(5.0, timeout_ms / 1000.0))
-            with socket.create_connection((host, port), timeout=connect_timeout) as sock:
-                sock.settimeout(0.2)
-                sock.sendall(payload)
-                try:
-                    sock.shutdown(socket.SHUT_WR)
-                except OSError:
-                    pass
-
-                while time.time() < deadline:
-                    try:
-                        chunk = sock.recv(65536)
-                        if chunk:
-                            chunks.append(chunk)
-                            continue
-                        break
-                    except socket.timeout:
-                        current_state = read_best_effort_bridge_state(project_root)
-                        if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
-                            observed_reset_state = current_state
-                        continue
-                    except OSError as exc:
-                        current_state = read_best_effort_bridge_state(project_root)
-                        if observed_reset_state is None and bridge_identity_changed(initial_generation, initial_session_id, current_state):
-                            observed_reset_state = current_state
-                            break
-                        raise ToolInvocationError(
-                            "transport_io_failed",
-                            (
-                                f"TCP loopback transport failed for {operation}: {exc}. "
-                                f"host={host} port={port}."
-                            ),
-                            {
-                                "request_id": request_id,
-                                "operation": operation,
-                                "transport": self.name,
-                                "host": host,
-                                "port": port,
-                            },
-                        ) from exc
-        except ToolInvocationError:
-            raise
-        except OSError as exc:
-            raise ToolInvocationError(
-                "transport_connect_failed",
-                (
-                    f"Failed to connect to TCP loopback transport for {operation}: {exc}. "
-                    f"host={host} port={port} listener_state={listener_state or 'unknown'}."
-                ),
-                {
-                    "request_id": request_id,
-                    "operation": operation,
-                    "transport": self.name,
-                    "host": host,
-                    "port": port,
-                    "listener_state": listener_state,
-                },
-            ) from exc
-
-        if chunks:
-            try:
-                response = json.loads(b"".join(chunks).decode("utf-8"))
-            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                raise ToolInvocationError(
-                    "transport_response_invalid",
-                    f"TCP loopback transport returned invalid JSON for {operation}: {exc}.",
-                    {
-                        "request_id": request_id,
-                        "operation": operation,
-                        "transport": self.name,
-                        "host": host,
-                        "port": port,
-                    },
-                ) from exc
-            if response.get("status") == "error":
-                error = response.get("error") or {}
-                error_code = str(error.get("code") or "")
-                if error_code == "transport_restarting":
-                    current_state = read_best_effort_bridge_state(project_root)
-                    current_generation, current_session_id = bridge_identity_from_state(current_state)
-                    raise ToolInvocationError(
-                        "request_lifecycle_reset",
-                        (
-                            f"Request {request_id} for {operation} crossed a TCP transport restart before a response was committed. "
-                            f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                            f"transport={self.name} host={host} port={port}."
-                        ),
-                        {
-                            "request_id": request_id,
-                            "operation": operation,
-                            "transport": self.name,
-                            "host": host,
-                            "port": port,
-                            "initial_bridge_generation": initial_generation,
-                            "initial_bridge_session_id": initial_session_id,
-                            "current_bridge_generation": current_generation,
-                            "current_bridge_session_id": current_session_id,
-                            "retryable": True,
-                            "error_code": error_code,
-                        },
-                    )
-            return response, request_id, request_started_at
-
-        state = read_best_effort_bridge_state(project_root)
-        if observed_reset_state is not None:
-            state = state or observed_reset_state
-            current_generation, current_session_id = bridge_identity_from_state(state)
-            processed = str((state or {}).get("last_processed_request_id") or "") == request_id
-            retryable = not processed
-            journal_path = write_host_request_journal_event(
-                project_root,
-                "request_reclassified",
-                {
-                    "request_id": request_id,
-                    "operation": operation,
-                    "reason": "bridge_generation_changed_before_response",
-                    "retryable": retryable,
-                    "reclassified_status": (
-                        "retryable_after_lifecycle_reset"
-                        if retryable
-                        else "response_missing_after_lifecycle_reset"
-                    ),
-                    "previous_bridge_generation": initial_generation,
-                    "previous_bridge_session_id": initial_session_id,
-                    "bridge_generation": current_generation,
-                    "bridge_session_id": current_session_id,
-                },
-            )
-            details = {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "host": host,
-                "port": port,
-                "initial_bridge_generation": initial_generation,
-                "initial_bridge_session_id": initial_session_id,
-                "current_bridge_generation": current_generation,
-                "current_bridge_session_id": current_session_id,
-                "retryable": retryable,
-                "request_processed": processed,
-                "journal_event_path": str(journal_path),
-            }
-            if retryable:
-                raise ToolInvocationError(
-                    "request_lifecycle_reset",
-                    (
-                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
-                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                        f"transport={self.name}. journal_event={journal_path}."
-                    ),
-                    details,
-                )
-
-            raise ToolInvocationError(
-                "response_missing_after_lifecycle_reset",
-                (
-                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
-                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
-                ),
-                details,
-            )
-
-        raise ToolInvocationError(
-            "transport_response_missing",
-            (
-                f"TCP loopback transport closed without a response for {operation}. "
-                f"host={host} port={port}. {summarize_state_for_error(state)}"
-            ),
-            {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "host": host,
-                "port": port,
-            },
-        )
-
-
-def resolve_bridge_transport(project_root: Path) -> BridgeTransportAdapter:
-    config = try_read_bridge_config(project_root) or {}
-    state = read_best_effort_bridge_state(project_root) or {}
-    state_transport = str(state.get("transport") or "").strip().lower()
-    if state_transport:
-        configured_transport = state_transport
-    else:
-        bridge_version = int(state.get("bridge_version") or 0)
-        configured_transport = (
-            DEFAULT_BRIDGE_TRANSPORT
-            if bridge_version > 0
-            else str(
-                config.get("transport")
-                or config.get("bridge_transport")
-                or DEFAULT_BRIDGE_TRANSPORT
-            ).strip().lower()
-        )
-    if not configured_transport:
-        configured_transport = DEFAULT_BRIDGE_TRANSPORT
-
-    if configured_transport == DEFAULT_BRIDGE_TRANSPORT:
-        return FileIpcBridgeTransport()
-
-    if configured_transport == TCP_LOOPBACK_BRIDGE_TRANSPORT:
-        return TcpLoopbackBridgeTransport()
-
-    supported = ", ".join(sorted(SUPPORTED_BRIDGE_TRANSPORTS))
-    raise ToolInvocationError(
-        "unsupported_bridge_transport",
-        (
-            f"Unsupported bridge transport '{configured_transport}'. "
-            f"Supported transports: {supported}."
-        ),
-    )
-
-
-def invoke_bridge_transport(
-    project_root: Path,
-    operation: str,
-    args: dict[str, Any],
-    timeout_ms: int,
-) -> tuple[dict[str, Any], str, float, dict[str, Any]]:
-    if not bridge_enabled(project_root):
-        raise ToolInvocationError(
-            "bridge_disabled",
-            (
-                "Unity bridge is disabled for this project. "
-                "Enable it with init_xuunity_light_unity_mcp.sh --project-root <path> --enable-project "
-                "and reopen Unity."
-            ),
-        )
-
-    transport = resolve_bridge_transport(project_root)
-    response, request_id, request_started_at = transport.invoke(project_root, operation, args, timeout_ms)
-    return response, request_id, request_started_at, transport.metadata(project_root)
-
-
-def try_read_bridge_state(project_root: Path) -> dict[str, Any] | None:
-    path = bridge_state_path(project_root)
-    if not path.is_file():
-        return None
-
-    try:
-        return read_json(path)
-    except Exception:
-        return None
-
-
-def pid_is_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-
-def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str, Any]]:
-    target_path = str(project_root)
-    marker = f"-projectPath {target_path}"
-
-    try:
-        completed = subprocess.run(
-            ["ps", "-axo", "pid=,command="],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return []
-
-    matches: list[dict[str, Any]] = []
-    seen_pids: set[int] = set()
-    for line in completed.stdout.splitlines():
-        line = line.rstrip()
-        if not line:
-            continue
-
-        parts = line.lstrip().split(None, 1)
-        if len(parts) != 2:
-            continue
-
-        raw_pid, command = parts
-        try:
-            pid = int(raw_pid)
-        except ValueError:
-            continue
-
-        if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
-            continue
-
-        if "Unity.app/Contents/MacOS/Unity" not in command:
-            continue
-
-        normalized_command = command.replace("\\ ", " ")
-        if marker not in normalized_command and target_path not in normalized_command:
-            continue
-
-        unity_app = ""
-        unity_version = ""
-        app_match = re.search(r"(.+?/Unity\.app)/Contents/MacOS/Unity", normalized_command)
-        if app_match:
-            unity_app = app_match.group(1)
-            try:
-                unity_version = Path(unity_app).parent.name
-            except Exception:
-                unity_version = ""
-
-        matches.append(
-            {
-                "pid": pid,
-                "command": normalized_command,
-                "unity_app": unity_app,
-                "unity_version": unity_version,
-            }
-        )
-        seen_pids.add(pid)
-
-    return matches
-
-
-def list_live_project_editor_pids(project_root: Path) -> list[int]:
-    pids: set[int] = set()
-
-    bridge_state = try_read_live_editor_state(project_root)
-    if bridge_state is not None:
-        bridge_pid = int(bridge_state.get("editor_pid") or 0)
-        if bridge_pid > 0 and pid_is_alive(bridge_pid):
-            pids.add(bridge_pid)
-
-    for editor in find_running_unity_editors_for_project(project_root):
-        pid = int(editor.get("pid") or 0)
-        if pid > 0 and pid_is_alive(pid):
-            pids.add(pid)
-
-    return sorted(pids)
-
-
-def project_lock_path(project_root: Path) -> Path:
-    return project_root / "Temp" / "UnityLockfile"
-
-
-def try_list_path_owner_pids(path: Path) -> list[int]:
-    if not path.is_file():
-        return []
-
-    lsof_path = shutil.which("lsof")
-    if not lsof_path:
-        return []
-
-    try:
-        completed = subprocess.run(
-            [lsof_path, "-t", "--", str(path)],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return []
-
-    owner_pids: list[int] = []
-    for line in completed.stdout.splitlines():
-        raw_value = line.strip()
-        if not raw_value:
-            continue
-        try:
-            pid = int(raw_value)
-        except ValueError:
-            continue
-        if pid > 0 and pid not in owner_pids:
-            owner_pids.append(pid)
-    return owner_pids
-
-
-def inspect_project_lock(project_root: Path) -> dict[str, Any]:
-    lock_path = project_lock_path(project_root)
-    present = lock_path.is_file()
-    owner_pids = try_list_path_owner_pids(lock_path) if present else []
-    live_owner_pids = [pid for pid in owner_pids if pid_is_alive(pid)]
-
-    return {
-        "path": str(lock_path),
-        "present": present,
-        "owner_pids": owner_pids,
-        "live_owner_pids": live_owner_pids,
-    }
-
-
-def clear_stale_project_lock(project_root: Path) -> dict[str, Any]:
-    lock_state = inspect_project_lock(project_root)
-    if not lock_state["present"] or lock_state["live_owner_pids"]:
-        lock_state["removed"] = False
-        return lock_state
-
-    try:
-        Path(lock_state["path"]).unlink()
-        lock_state["removed"] = True
-        lock_state["present"] = False
-    except OSError:
-        lock_state["removed"] = False
-    return lock_state
-
-
-def build_host_editor_session_state(
-    project_root: Path,
-    unity_app: Path,
-    log_path: Path,
-    background_open: bool,
-    editor_pid: int = 0,
-) -> dict[str, Any]:
-    return {
-        "project_root": str(project_root),
-        "unity_app": str(unity_app),
-        "editor_log_path": str(log_path),
-        "background_open": background_open,
-        "opened_by_host": True,
-        "opened_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "editor_pid": max(0, int(editor_pid or 0)),
-    }
-
-
-def update_host_editor_session_pid(project_root: Path, editor_pid: int) -> None:
-    state = try_read_host_editor_session_state(project_root)
-    if not state or not bool(state.get("opened_by_host")):
-        return
-
-    normalized = dict(state)
-    normalized["editor_pid"] = max(0, int(editor_pid or 0))
-    write_host_editor_session_state(project_root, normalized)
-
-
-def heartbeat_age_seconds(state: dict[str, Any]) -> float | None:
-    heartbeat_utc = state.get("heartbeat_utc")
-    if not isinstance(heartbeat_utc, str) or not heartbeat_utc:
-        return None
-
-    try:
-        heartbeat_unix = calendar.timegm(time.strptime(heartbeat_utc, "%Y-%m-%dT%H:%M:%SZ"))
-    except ValueError:
-        return None
-
-    return max(0.0, time.time() - heartbeat_unix)
-
-
-def inspect_bridge_state_liveness(state: dict[str, Any] | None) -> dict[str, Any]:
-    if not state:
-        return {
-            "state_present": False,
-            "state_is_live": False,
-            "editor_pid": 0,
-            "editor_pid_alive": False,
-            "heartbeat_age_seconds": None,
-            "stale_reason": "state_missing",
-        }
-
-    pid = int(state.get("editor_pid") or 0)
-    pid_alive = pid > 0 and pid_is_alive(pid)
-    heartbeat_age = heartbeat_age_seconds(state)
-    stale_reason = ""
-
-    if pid <= 0:
-        stale_reason = "missing_editor_pid"
-    elif not pid_alive:
-        stale_reason = "editor_pid_not_alive"
-
-    return {
-        "state_present": True,
-        "state_is_live": pid_alive,
-        "editor_pid": pid,
-        "editor_pid_alive": pid_alive,
-        "heartbeat_age_seconds": round(heartbeat_age, 3) if heartbeat_age is not None else None,
-        "stale_reason": stale_reason,
-    }
-
-
-def annotate_bridge_state_with_liveness(state: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not state:
-        return None
-
-    annotated = dict(state)
-    annotated["_xuunity_bridge_state"] = inspect_bridge_state_liveness(state)
-    return annotated
-
-
-def parse_utc_timestamp(value: Any) -> float | None:
-    if not isinstance(value, str) or not value:
-        return None
-
-    try:
-        return float(calendar.timegm(time.strptime(value, "%Y-%m-%dT%H:%M:%SZ")))
-    except ValueError:
-        return None
-
-
-def state_is_idle(state: dict[str, Any]) -> bool:
-    return (
-        not bool(state.get("domain_reload_in_progress"))
-        and not bool(state.get("package_operation_in_progress"))
-        and not bool(state.get("script_reload_pending"))
-        and not bool(state.get("asset_import_in_progress"))
-        and not bool(state.get("refresh_settle_pending"))
-        and not bool(state.get("compile_settle_pending"))
-        and not bool(state.get("playmode_transition_pending"))
-        and not bool(state.get("is_compiling"))
-        and not bool(state.get("is_updating"))
-        and not bool(state.get("active_operation"))
-        and (bool(state.get("is_playing")) or not bool(state.get("is_playing_or_will_change_playmode")))
-    )
-
-
-def derive_busy_reason(state: dict[str, Any] | None) -> str:
-    if not state:
-        return "bridge_state_missing"
-
-    busy_reason = state.get("busy_reason")
-    if isinstance(busy_reason, str) and busy_reason:
-        return busy_reason
-
-    if bool(state.get("domain_reload_in_progress")):
-        return "domain_reload"
-
-    if bool(state.get("package_operation_in_progress")):
-        return "package_operation"
-
-    if bool(state.get("refresh_settle_pending")):
-        return "refresh_settle"
-
-    if bool(state.get("compile_settle_pending")):
-        return "compile_settle"
-
-    if bool(state.get("playmode_transition_pending")):
-        return "playmode_settle"
-
-    if bool(state.get("is_compiling")):
-        return "compiling"
-
-    if bool(state.get("script_reload_pending")):
-        return "script_reload_pending"
-
-    if bool(state.get("asset_import_in_progress")):
-        return "asset_import"
-
-    if bool(state.get("is_updating")):
-        return "updating"
-
-    if state.get("active_operation"):
-        return "processing_request"
-
-    if not bool(state.get("is_playing")) and bool(state.get("is_playing_or_will_change_playmode")):
-        return "playmode_transition"
-
-    if int(state.get("pending_request_count") or 0) > 0:
-        return "request_queue_pending"
-
-    return "idle"
-
-
-def summarize_state_for_error(state: dict[str, Any] | None) -> str:
-    if not state:
-        return "No live bridge state was available."
-
-    heartbeat_age = heartbeat_age_seconds(state)
-    heartbeat_summary = "unknown"
-    if heartbeat_age is not None:
-        heartbeat_summary = f"{round(heartbeat_age, 3)}s"
-
-    return (
-        f"bridge_version={state.get('bridge_version') or 'unknown'}, "
-        f"bridge_generation={state.get('bridge_generation') or 'unknown'}, "
-        f"bridge_session_id={state.get('bridge_session_id') or ''}, "
-        f"busy_reason={derive_busy_reason(state)}, "
-        f"heartbeat_age={heartbeat_summary}, "
-        f"domain_reload_in_progress={bool(state.get('domain_reload_in_progress'))}, "
-        f"package_operation_in_progress={bool(state.get('package_operation_in_progress'))}, "
-        f"package_operation_name={state.get('package_operation_name') or ''}, "
-        f"package_operation_phase={state.get('package_operation_phase') or ''}, "
-        f"refresh_settle_pending={bool(state.get('refresh_settle_pending'))}, "
-        f"refresh_settle_phase={state.get('refresh_settle_phase') or ''}, "
-        f"compile_settle_pending={bool(state.get('compile_settle_pending'))}, "
-        f"compile_settle_phase={state.get('compile_settle_phase') or ''}, "
-        f"compile_settle_operation={state.get('compile_settle_operation') or ''}, "
-        f"playmode_transition_pending={bool(state.get('playmode_transition_pending'))}, "
-        f"playmode_transition_phase={state.get('playmode_transition_phase') or ''}, "
-        f"playmode_transition_target_state={state.get('playmode_transition_target_state') or ''}, "
-        f"script_reload_pending={bool(state.get('script_reload_pending'))}, "
-        f"asset_import_in_progress={bool(state.get('asset_import_in_progress'))}, "
-        f"is_compiling={bool(state.get('is_compiling'))}, "
-        f"is_updating={bool(state.get('is_updating'))}, "
-        f"is_playing={bool(state.get('is_playing'))}, "
-        f"is_playing_or_will_change_playmode={bool(state.get('is_playing_or_will_change_playmode'))}, "
-        f"health_status={state.get('health_status') or 'unknown'}, "
-        f"active_operation={state.get('active_operation') or ''}, "
-        f"busy_reason_detail={state.get('busy_reason_detail') or ''}, "
-        f"last_processed_request_id={state.get('last_processed_request_id') or ''}, "
-        f"request_journal_head={state.get('request_journal_head') or ''}, "
-        f"pending_request_count={int(state.get('pending_request_count') or 0)}"
-    )
-
-
-def activate_unity_editor(project_root: Path, explicit_unity_app: Path | None = None) -> dict[str, Any]:
-    unity_app = explicit_unity_app or detect_unity_app_path_for_project(project_root, None)
-    subprocess.run(["open", "-a", str(unity_app)], check=True)
-    time.sleep(ACTIVATION_DELAY_SECONDS)
-    return {
-        "unity_app": str(unity_app),
-        "activation_delay_seconds": ACTIVATION_DELAY_SECONDS,
-    }
-
-
-def classify_editor_log(log_text: str, startup_policy: str) -> tuple[str, str] | None:
-    if not log_text:
-        return None
-
-    if "Project has invalid dependencies:" in log_text or "An error occurred while resolving packages:" in log_text:
-        return (
-            "package_resolution_failed",
-            "Unity package resolution failed. Inspect Editor.log for invalid dependencies, git package errors, or registry failures.",
-        )
-
-    if "Could not clone [" in log_text:
-        return (
-            "package_resolution_failed",
-            "Unity could not clone a git package dependency. Inspect Editor.log for the failing dependency URL or commit hash.",
-        )
-
-    if "error CS" in log_text or "AssetDatabase: script compilation time:" in log_text and "error CS" in log_text:
-        if startup_policy == "batch_compile_lane":
-            return (
-                "interactive_compile_block_detected",
-                "Interactive Unity startup is blocked by compilation errors. Use the batch compile lane for compile-only validation or fix the compile errors first.",
-            )
-
-        if startup_policy == "auto_enter_safe_mode_preferred":
-            return (
-                "safe_mode_manual_required",
-                "Compilation errors were detected during startup. This host-side wrapper cannot click the Safe Mode dialog. Prefer auto-enter Safe Mode in Unity preferences or reopen manually into Safe Mode.",
-            )
-
-        return (
-            "interactive_compile_block_detected",
-            "Compilation errors were detected during interactive startup. This wrapper is failing fast instead of waiting for a bridge heartbeat that cannot become healthy.",
-        )
-
-    return None
-
-
-def resolve_editor_log_path(project_root: Path, explicit_path: str | None) -> Path:
-    if explicit_path:
-        return Path(explicit_path).expanduser().resolve()
-    return default_editor_log_path(project_root)
-
-
-def read_recent_editor_log(log_path: Path, command_started_at: float) -> str:
-    if not log_path.is_file():
-        return ""
-
-    try:
-        stat = log_path.stat()
-    except OSError:
-        return ""
-
-    if stat.st_mtime < command_started_at - 1.0:
-        return ""
-
-    try:
-        text = log_path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return ""
-
-    if len(text) > 200000:
-        return text[-200000:]
-    return text
-
-
-def detect_unity_app_path(explicit_path: str | None) -> Path:
-    if explicit_path:
-        path = Path(explicit_path).expanduser().resolve()
-        if not path.is_dir():
-            raise ToolInvocationError("unity_app_not_found", f"Unity app not found: {path}")
-        return path
-
-    candidates = sorted(Path("/Applications/Unity/Hub/Editor").glob("*/Unity.app"))
-    if not candidates:
-        raise ToolInvocationError(
-            "unity_app_not_found",
-            "Could not auto-detect a Unity.app under /Applications/Unity/Hub/Editor. Pass --unity-app explicitly.",
-    )
-    return candidates[-1]
-
-
-def read_project_unity_version(project_root: Path) -> str | None:
-    version_path = project_root / "ProjectSettings" / "ProjectVersion.txt"
-    if not version_path.is_file():
-        return None
-
-    try:
-        for line in version_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-            if line.startswith("m_EditorVersion:"):
-                version = line.split(":", 1)[1].strip()
-                return version or None
-    except OSError:
-        return None
-
-    return None
-
-
-def detect_unity_app_path_for_project(project_root: Path, explicit_path: str | None) -> Path:
-    if explicit_path:
-        return detect_unity_app_path(explicit_path)
-
-    project_version = read_project_unity_version(project_root)
-    if project_version:
-        exact_match = Path("/Applications/Unity/Hub/Editor") / project_version / "Unity.app"
-        if exact_match.is_dir():
-            return exact_match.resolve()
-
-    return detect_unity_app_path(None)
-
-
-def resolve_unity_app_version(unity_app: Path) -> str:
-    return unity_app.parent.name
-
-
-def try_read_live_editor_state(project_root: Path) -> dict[str, Any] | None:
-    state = try_read_bridge_state(project_root)
-    if not state:
-        return None
-
-    pid = int(state.get("editor_pid") or 0)
-    if not pid_is_alive(pid):
-        return None
-
-    return state
-
-
-def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, background_open: bool) -> dict[str, Any]:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    live_state = try_read_live_editor_state(project_root)
-    if live_state is not None:
-        requested_version = resolve_unity_app_version(unity_app)
-        running_version = str(live_state.get("unity_version") or "")
-        if requested_version and running_version and requested_version != running_version:
-            raise ToolInvocationError(
-                "project_already_open_with_different_unity_version",
-                (
-                    "This project already appears open in Unity "
-                    f"{running_version} (pid {live_state.get('editor_pid')}). "
-                    f"Requested Unity version is {requested_version}. "
-                    "Close the running editor instance for this project before opening a different version."
-                ),
-            )
-
-        return {
-            "unity_app": str(unity_app),
-            "editor_log_path": str(log_path),
-            "background_open": background_open,
-            "reused_existing_editor": True,
-            "editor_pid": live_state.get("editor_pid"),
-            "unity_version": running_version,
-        }
-
-    detected_editors = find_running_unity_editors_for_project(project_root)
-    if detected_editors:
-        requested_version = resolve_unity_app_version(unity_app)
-        detected_versions = sorted(
-            {
-                str(editor.get("unity_version") or "").strip()
-                for editor in detected_editors
-                if str(editor.get("unity_version") or "").strip()
-            }
-        )
-        if requested_version and detected_versions and requested_version not in detected_versions:
-            raise ToolInvocationError(
-                "project_already_open_with_different_unity_version",
-                (
-                    "This project already appears open in Unity "
-                    f"{', '.join(detected_versions)} (pid {detected_editors[0]['pid']}). "
-                    f"Requested Unity version is {requested_version}. "
-                    "Close the running editor instance for this project before opening a different version."
-                ),
-            )
-
-        detected_unity_app = str(detected_editors[0].get("unity_app") or unity_app)
-        try:
-            activate_unity_editor(project_root, Path(detected_unity_app))
-        except Exception:
-            pass
-
-        return {
-            "unity_app": detected_unity_app,
-            "editor_log_path": str(log_path),
-            "background_open": background_open,
-            "reused_existing_editor": True,
-            "reused_via": "project_process_detection",
-            "bridge_available": False,
-            "editor_pid": detected_editors[0]["pid"],
-            "unity_version": str(detected_editors[0].get("unity_version") or requested_version or ""),
-            "matching_editor_pids": [int(editor["pid"]) for editor in detected_editors],
-        }
-
-    lock_state = inspect_project_lock(project_root)
-    if lock_state["present"]:
-        live_owner_pids = lock_state["live_owner_pids"]
-        if live_owner_pids:
-            raise ToolInvocationError(
-                "project_already_open_without_bridge",
-                (
-                    "This project already appears open in Unity, but no reusable MCP bridge session is currently "
-                    f"available. Project lock: {lock_state['path']}. "
-                    f"Live lock owner pid(s): {', '.join(str(pid) for pid in live_owner_pids)}. "
-                    "Focus or recover the running editor instead of launching a second instance."
-                ),
-            )
-        cleared_lock_state = clear_stale_project_lock(project_root)
-        if cleared_lock_state.get("present"):
-            raise ToolInvocationError(
-                "project_lock_present_without_bridge",
-                (
-                    "This project has a Unity lock file, but no reusable MCP bridge session is currently available. "
-                    f"Project lock: {lock_state['path']}. "
-                    "Another Unity instance may already own the project, or the editor may have exited uncleanly. "
-                    "Resolve the running editor or clear the stale lock before retrying."
-                ),
-            )
-
-    command = ["open"]
-    if background_open:
-        command.append("-g")
-    command.extend(
-        [
-            "-na",
-            str(unity_app),
-            "--args",
-            "-projectPath",
-            str(project_root),
-            "-logFile",
-            str(log_path),
-        ]
-    )
-
-    subprocess.run(command, check=True)
-    launched_editors = find_running_unity_editors_for_project(project_root)
-    launched_pid = int(launched_editors[0]["pid"]) if launched_editors else 0
-    write_host_editor_session_state(
-        project_root,
-        build_host_editor_session_state(project_root, unity_app, log_path, background_open, launched_pid),
-    )
-    return {
-        "unity_app": str(unity_app),
-        "editor_log_path": str(log_path),
-        "background_open": background_open,
-        "opened_by_host": True,
-        "editor_pid": launched_pid,
-    }
-
-
 def request_editor_quit(project_root: Path, timeout_ms: int) -> dict[str, Any]:
     return invoke_bridge(project_root, "unity.editor.quit", {}, timeout_ms)
-
-
-def terminate_editor_pid(pid: int, timeout_ms: int) -> bool:
-    if pid <= 0 or not pid_is_alive(pid):
-        return True
-
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except OSError:
-        return not pid_is_alive(pid)
-
-    deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
-    while time.time() < deadline:
-        if not pid_is_alive(pid):
-            return True
-        time.sleep(0.2)
-
-    return not pid_is_alive(pid)
-
-
-def restore_host_opened_editor_state(project_root: Path, timeout_ms: int) -> dict[str, Any]:
-    session = try_read_host_editor_session_state(project_root)
-    if not session or not bool(session.get("opened_by_host")):
-        return {
-            "project_root": str(project_root),
-            "restored": False,
-            "reason": "not_opened_by_host",
-        }
-
-    tracked_pid = int(session.get("editor_pid") or 0)
-    live_state = try_read_live_editor_state(project_root)
-    restoration = {
-        "project_root": str(project_root),
-        "tracked_editor_pid": tracked_pid,
-        "restored": False,
-        "reason": "",
-        "close_path": "",
-    }
-
-    if live_state is not None:
-        current_pid = int(live_state.get("editor_pid") or 0)
-        if current_pid > 0 and (tracked_pid <= 0 or current_pid == tracked_pid):
-            request_editor_quit(str(project_root), timeout_ms)
-            deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
-            while time.time() < deadline:
-                live_project_pids = list_live_project_editor_pids(project_root)
-                if not pid_is_alive(current_pid) and current_pid not in live_project_pids:
-                    clear_host_editor_session_state(project_root)
-                    restoration["restored"] = True
-                    restoration["reason"] = "host_opened_editor_closed"
-                    restoration["close_path"] = "unity.editor.quit"
-                    restoration["closed_editor_pid"] = current_pid
-                    clear_stale_project_lock(project_root)
-                    return restoration
-                time.sleep(0.2)
-
-    if tracked_pid > 0 and terminate_editor_pid(tracked_pid, timeout_ms):
-        live_project_pids = list_live_project_editor_pids(project_root)
-        if tracked_pid not in live_project_pids:
-            clear_host_editor_session_state(project_root)
-            restoration["restored"] = True
-            restoration["reason"] = "host_opened_editor_closed"
-            restoration["close_path"] = "host_sigterm"
-            restoration["closed_editor_pid"] = tracked_pid
-            clear_stale_project_lock(project_root)
-            return restoration
-
-    if tracked_pid > 0 and not pid_is_alive(tracked_pid):
-        live_project_pids = list_live_project_editor_pids(project_root)
-        if not live_project_pids:
-            clear_host_editor_session_state(project_root)
-            restoration["restored"] = False
-            restoration["reason"] = "tracked_editor_already_closed"
-            return restoration
-
-        restoration["reason"] = "project_editor_still_running_untracked"
-        restoration["live_project_editor_pids"] = live_project_pids
-        return restoration
-
-    restoration["reason"] = "tracked_editor_still_running"
-    restoration["live_project_editor_pids"] = list_live_project_editor_pids(project_root)
-    return restoration
-
-
-def wait_for_editor_idle(
-    project_root: Path,
-    timeout_ms: int,
-    heartbeat_max_age_seconds: int,
-    reason: str,
-    *,
-    after_request_id: str | None = None,
-    not_before_unix: float | None = None,
-    require_healthy_bridge: bool = True,
-    stable_cycles: int = DEFAULT_IDLE_STABLE_CYCLES,
-) -> dict[str, Any]:
-    started_at = time.time()
-    deadline = started_at + (timeout_ms / 1000.0)
-    stable_matches = 0
-    last_state: dict[str, Any] | None = None
-
-    while time.time() < deadline:
-        state = try_read_live_editor_state(project_root)
-        if state:
-            last_state = state
-            age_seconds = heartbeat_age_seconds(state)
-            heartbeat_is_fresh = age_seconds is not None and age_seconds <= heartbeat_max_age_seconds
-            bridge_is_healthy = not require_healthy_bridge or state.get("health_status") == "healthy"
-            last_processed_request_id = str(state.get("last_processed_request_id") or "")
-            last_pump_unix = parse_utc_timestamp(state.get("last_pump_utc"))
-            request_match = (
-                after_request_id is None
-                or last_processed_request_id == after_request_id
-                or (not_before_unix is not None and last_pump_unix is not None and last_pump_unix >= not_before_unix)
-            )
-            editor_is_idle = state_is_idle(state)
-
-            if heartbeat_is_fresh and bridge_is_healthy and request_match and editor_is_idle:
-                stable_matches += 1
-                if stable_matches >= max(1, stable_cycles):
-                    result = dict(state)
-                    result["heartbeat_age_seconds"] = round(age_seconds or 0.0, 3)
-                    result["idle_wait_reason"] = reason
-                    result["idle_wait_duration_seconds"] = round(time.time() - started_at, 3)
-                    return result
-            else:
-                stable_matches = 0
-        else:
-            stable_matches = 0
-
-        time.sleep(0.5)
-
-    request_summary = ""
-    if after_request_id:
-        request_summary = f" request_id={after_request_id}."
-
-    raise ToolInvocationError(
-        "editor_idle_timeout",
-        (
-            f"Timed out waiting for Unity editor idle ({reason})."
-            f"{request_summary} {summarize_state_for_error(last_state)}"
-        ),
-    )
-
-
-def wait_for_playmode_state(
-    project_root: Path,
-    timeout_ms: int,
-    heartbeat_max_age_seconds: int,
-    expected_state: str,
-    reason: str,
-    *,
-    after_request_id: str | None = None,
-    not_before_unix: float | None = None,
-    stable_cycles: int = DEFAULT_IDLE_STABLE_CYCLES,
-) -> dict[str, Any]:
-    started_at = time.time()
-    deadline = started_at + (timeout_ms / 1000.0)
-    stable_matches = 0
-    last_state: dict[str, Any] | None = None
-
-    while time.time() < deadline:
-        state = try_read_live_editor_state(project_root)
-        if state:
-            last_state = state
-            age_seconds = heartbeat_age_seconds(state)
-            heartbeat_is_fresh = age_seconds is not None and age_seconds <= heartbeat_max_age_seconds
-            request_match = (
-                after_request_id is None
-                or str(state.get("last_processed_request_id") or "") == after_request_id
-                or (
-                    not_before_unix is not None
-                    and parse_utc_timestamp(state.get("last_pump_utc")) is not None
-                    and parse_utc_timestamp(state.get("last_pump_utc")) >= not_before_unix
-                )
-            )
-            playmode_state = str(state.get("playmode_state") or "")
-            transition_request_id = str(state.get("playmode_transition_request_id") or "")
-            transition_phase = str(state.get("playmode_transition_phase") or "")
-            transition_contract_applies = after_request_id is not None and transition_request_id == after_request_id
-            transition_settled = (not transition_contract_applies) or transition_phase == "settled"
-
-            if heartbeat_is_fresh and request_match and playmode_state == expected_state and transition_settled:
-                stable_matches += 1
-                if stable_matches >= max(1, stable_cycles):
-                    result = dict(state)
-                    result["heartbeat_age_seconds"] = round(age_seconds or 0.0, 3)
-                    result["playmode_wait_reason"] = reason
-                    result["playmode_wait_duration_seconds"] = round(time.time() - started_at, 3)
-                    return result
-            else:
-                stable_matches = 0
-        else:
-            stable_matches = 0
-
-        time.sleep(0.5)
-
-    request_summary = ""
-    if after_request_id:
-        request_summary = f" request_id={after_request_id}."
-
-    raise ToolInvocationError(
-        "playmode_state_timeout",
-        (
-            f"Timed out waiting for play mode state '{expected_state}' ({reason})."
-            f"{request_summary} {summarize_state_for_error(last_state)}"
-        ),
-    )
-
 
 def wait_for_scenario_result(
     project_root: Path,
@@ -2168,7 +225,7 @@ def wait_for_scenario_result(
 
         payload = tool_result.get("structuredContent") or {}
         if isinstance(payload, dict):
-            payload = normalize_scenario_payload(payload)
+            payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
         last_payload = payload
 
         if is_terminal_scenario_status(payload.get("status")):
@@ -2187,31 +244,8 @@ def wait_for_scenario_result(
         f"Timed out waiting for scenario '{scenario_label}' to reach a terminal state.{suffix}",
     )
 
-
-def expected_playmode_state_for_action(action: str) -> str | None:
-    normalized = (action or "").strip().lower()
-    mapping = {
-        "enter": "playing",
-        "exit": "edit",
-        "pause": "paused",
-        "resume": "playing",
-    }
-    return mapping.get(normalized)
-
-
 def is_terminal_scenario_status(status: Any) -> bool:
     return isinstance(status, str) and status in SCENARIO_TERMINAL_STATUSES
-
-
-def normalize_scenario_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    status = str(normalized.get("status") or "")
-    terminal = is_terminal_scenario_status(status)
-    normalized["terminal"] = terminal
-    normalized["succeeded"] = status == "passed"
-    normalized["terminal_status"] = status if terminal else ""
-    normalized["terminal_statuses"] = sorted(SCENARIO_TERMINAL_STATUSES)
-    return normalized
 
 
 def normalize_refresh_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
@@ -2307,6 +341,20 @@ def normalize_playmode_payload_from_lifecycle(payload: dict[str, Any], lifecycle
     return normalized
 
 
+def normalize_build_target_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    idle_wait_after = lifecycle.get("idle_wait_after")
+    if not isinstance(idle_wait_after, dict):
+        return normalized
+
+    normalized["completion_basis"] = "host_waited_for_editor_idle"
+    normalized["settled_at_utc"] = str(idle_wait_after.get("heartbeat_utc") or normalized.get("settled_at_utc") or "")
+    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
+    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
+    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
+    return normalized
+
+
 def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
     if response.get("status") != "ok":
         return response
@@ -2330,9 +378,11 @@ def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycl
         payload = normalize_refresh_payload_from_lifecycle(payload, lifecycle)
     elif operation in {"unity.compile.player_scripts", "unity.compile.matrix"}:
         payload = normalize_compile_payload_from_lifecycle(payload, lifecycle)
+    elif operation == "unity.build_target.switch":
+        payload = normalize_build_target_payload_from_lifecycle(payload, lifecycle)
 
     if payload_type in {"unity.scenario.run", "unity.scenario.result"}:
-        payload = normalize_scenario_payload(payload)
+        payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
 
     normalized = dict(response)
     normalized["payload_json"] = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
@@ -2452,222 +502,6 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
 
     raise ToolInvocationError("unreachable", f"Unexpected lifecycle retry state for {operation}.")
 
-
-def wait_for_ready(
-    project_root: Path,
-    timeout_ms: int,
-    heartbeat_max_age_seconds: int,
-    startup_policy: str,
-    editor_log_path: Path,
-) -> dict[str, Any]:
-    if startup_policy not in STARTUP_POLICIES:
-        raise ToolInvocationError("invalid_startup_policy", f"Unknown startup policy: {startup_policy}")
-
-    if not bridge_enabled(project_root):
-        raise ToolInvocationError(
-            "bridge_disabled",
-            (
-                "Unity bridge is disabled for this project. "
-                "Enable it with init_xuunity_light_unity_mcp.sh --project-root <path> --enable-project "
-                "and reopen Unity."
-            ),
-        )
-
-    started_at = time.time()
-    deadline = started_at + (timeout_ms / 1000.0)
-    while time.time() < deadline:
-        state = try_read_bridge_state(project_root)
-        if state:
-            pid = int(state.get("editor_pid") or 0)
-            age_seconds = heartbeat_age_seconds(state)
-            if (
-                pid_is_alive(pid)
-                and age_seconds is not None
-                and age_seconds <= heartbeat_max_age_seconds
-                and state.get("health_status") == "healthy"
-                and not bool(state.get("is_compiling"))
-            ):
-                state["startup_policy"] = startup_policy
-                state["editor_log_path"] = str(editor_log_path)
-                state["heartbeat_age_seconds"] = round(age_seconds, 3)
-                return state
-
-        classification = classify_editor_log(read_recent_editor_log(editor_log_path, started_at), startup_policy)
-        if classification:
-            code, message = classification
-            raise ToolInvocationError(code, message)
-
-        time.sleep(1.0)
-
-    raise ToolInvocationError(
-        "editor_ready_timeout",
-        (
-            "Timed out waiting for a healthy Unity bridge heartbeat. "
-            f"Last inspected log: {editor_log_path}"
-        ),
-    )
-
-
-def resolve_build_config_asset_path(project_root: Path, build_config_asset: str | None) -> Path:
-    if build_config_asset:
-        candidate = Path(build_config_asset).expanduser()
-        if not candidate.is_absolute():
-            candidate = project_root / candidate
-        candidate = candidate.resolve()
-        if not candidate.is_file():
-            raise ToolInvocationError("build_config_asset_not_found", f"Build config asset not found: {candidate}")
-        return candidate
-
-    candidates = sorted(project_root.glob("Assets/**/*BuildConfiguration.asset"))
-    if not candidates:
-        raise ToolInvocationError(
-            "build_config_asset_not_found",
-            "Could not auto-detect a *BuildConfiguration.asset under Assets/. Pass buildConfigAsset explicitly.",
-        )
-
-    if len(candidates) > 1:
-        joined = ", ".join(str(path.relative_to(project_root)) for path in candidates[:10])
-        raise ToolInvocationError(
-            "build_config_asset_ambiguous",
-            f"Found multiple *BuildConfiguration.asset files. Pass buildConfigAsset explicitly. Candidates: {joined}",
-        )
-
-    return candidates[0]
-
-
-def parse_unity_build_config_profiles(asset_path: Path) -> list[dict[str, Any]]:
-    try:
-        lines = asset_path.read_text(encoding="utf-8").splitlines()
-    except OSError as exc:
-        raise ToolInvocationError("build_config_asset_read_failed", str(exc)) from exc
-
-    profiles: list[dict[str, Any]] = []
-    current: dict[str, Any] | None = None
-    in_defines = False
-    in_debugging = False
-
-    for line in lines:
-        if current is not None and line.startswith("  _playerBuildConfig:"):
-            profiles.append(current)
-            current = None
-            in_defines = False
-            in_debugging = False
-            break
-
-        if line.startswith("  - ConfigName: "):
-            if current is not None:
-                profiles.append(current)
-            current = {
-                "configName": line.split(":", 1)[1].strip(),
-                "scriptingDefines": [],
-                "enableDevelopmentBuild": False,
-            }
-            in_defines = False
-            in_debugging = False
-            continue
-
-        if current is None:
-            continue
-
-        if line.startswith("    CompilationCSharpSettings:"):
-            in_debugging = False
-            continue
-
-        if line.startswith("    DebuggingSettings:"):
-            in_defines = False
-            in_debugging = True
-            continue
-
-        if line.startswith("    ") and not line.startswith("      "):
-            in_defines = False
-            if not line.startswith("    DebuggingSettings:"):
-                in_debugging = False
-
-        if line.startswith("      ScriptingDefines:"):
-            in_defines = True
-            continue
-
-        if in_defines:
-            if line.startswith("      - "):
-                current["scriptingDefines"].append(line[len("      - "):].strip())
-                continue
-            in_defines = False
-
-        if in_debugging and line.strip().startswith("EnableDevelopmentBuild:"):
-            value = line.split(":", 1)[1].strip()
-            current["enableDevelopmentBuild"] = value not in {"0", "false", "False", ""}
-
-    if current is not None:
-        profiles.append(current)
-
-    profiles = [profile for profile in profiles if profile.get("configName")]
-    if not profiles:
-        raise ToolInvocationError(
-            "build_config_profiles_missing",
-            f"No build profiles were parsed from {asset_path}. Expected Configurations entries with ConfigName.",
-        )
-
-    return profiles
-
-
-def build_compile_matrix_args_from_build_config(
-    project_root: Path,
-    build_config_asset: str | None,
-    requested_profiles: list[str] | None,
-    requested_targets: list[str] | None,
-    stop_on_first_failure: bool,
-) -> dict[str, Any]:
-    asset_path = resolve_build_config_asset_path(project_root, build_config_asset)
-    profiles = parse_unity_build_config_profiles(asset_path)
-
-    selected_targets = requested_targets or ["Android", "iOS"]
-    invalid_targets = [target for target in selected_targets if target not in {"Android", "iOS"}]
-    if invalid_targets:
-        raise ToolInvocationError("invalid_targets", f"Unsupported targets: {', '.join(invalid_targets)}")
-
-    selected_profile_names = requested_profiles or [profile["configName"] for profile in profiles]
-    selected_profile_set = set(selected_profile_names)
-    available_profile_names = {profile["configName"] for profile in profiles}
-    missing_profiles = [name for name in selected_profile_names if name not in available_profile_names]
-    if missing_profiles:
-        raise ToolInvocationError(
-            "unknown_build_profiles",
-            f"Unknown build profiles: {', '.join(missing_profiles)}. Available: {', '.join(sorted(available_profile_names))}",
-        )
-
-    configurations: list[dict[str, Any]] = []
-    resolved_profiles: list[dict[str, Any]] = []
-    for profile in profiles:
-        if profile["configName"] not in selected_profile_set:
-            continue
-
-        resolved_profiles.append(profile)
-        option_flags = ["DevelopmentBuild"] if profile.get("enableDevelopmentBuild") else []
-        extra_defines = list(profile.get("scriptingDefines") or [])
-        for target in selected_targets:
-            configurations.append(
-                {
-                    "name": f"{profile['configName']}-{target}",
-                    "target": target,
-                    "optionFlags": option_flags,
-                    "extraDefines": extra_defines,
-                }
-            )
-
-    if not configurations:
-        raise ToolInvocationError("build_config_matrix_empty", "No compile configurations were generated from the selected build profiles.")
-
-    relative_asset_path = str(asset_path.relative_to(project_root))
-    return {
-        "assetPath": relative_asset_path,
-        "profiles": resolved_profiles,
-        "matrixArgs": {
-            "stopOnFirstFailure": stop_on_first_failure,
-            "configurations": configurations,
-        },
-    }
-
-
 def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
     if response.get("status") == "ok":
         payload = {}
@@ -2682,7 +516,7 @@ def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
         if isinstance(lifecycle, dict) and lifecycle:
             payload["_xuunity_lifecycle"] = lifecycle
         elif payload_type in {"unity.scenario.run", "unity.scenario.result"} and isinstance(payload, dict):
-            payload = normalize_scenario_payload(payload)
+            payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
 
         return {
             "content": [
@@ -2771,6 +605,7 @@ def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> di
             requested_profiles=profiles,
             requested_targets=targets,
             stop_on_first_failure=stop_on_first_failure,
+            tool_error_type=ToolInvocationError,
         )
         response = invoke_bridge(
             str(project_root),
@@ -2874,11 +709,151 @@ def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str
     }
 
 
+def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    timeout_ms = arguments.get("timeoutMs", 5000)
+    if not isinstance(timeout_ms, int):
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+
+    project_root = ensure_project_root(project_root_value)
+    try:
+        response = invoke_bridge(str(project_root), "unity.status", {}, timeout_ms)
+    except ToolInvocationError as exc:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                }
+            ],
+            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "isError": True
+        }
+
+    tool_result = bridge_response_to_tool_result(response)
+    if tool_result.get("isError"):
+        return tool_result
+
+    payload = tool_result.get("structuredContent") or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    summary = build_status_summary(
+        project_root,
+        payload,
+        read_best_effort_bridge_state=read_best_effort_bridge_state,
+        try_read_bridge_state=try_read_bridge_state,
+        pid_is_alive=pid_is_alive,
+        heartbeat_age_seconds=heartbeat_age_seconds,
+        derive_busy_reason=derive_busy_reason,
+        summarize_state_for_error=summarize_state_for_error,
+    )
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(summary, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": summary,
+        "isError": False
+    }
+
+
+def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    timeout_ms = arguments.get("timeoutMs", 5000)
+    if not isinstance(timeout_ms, int):
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+
+    bridge_args: dict[str, Any] = {}
+    run_id = arguments.get("runId")
+    if isinstance(run_id, str) and run_id.strip():
+        bridge_args["runId"] = run_id
+    scenario_name = arguments.get("scenarioName")
+    if isinstance(scenario_name, str) and scenario_name.strip():
+        bridge_args["scenarioName"] = scenario_name
+
+    try:
+        response = invoke_bridge(project_root_value, "unity.scenario.result", bridge_args, timeout_ms)
+    except ToolInvocationError as exc:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                }
+            ],
+            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "isError": True
+        }
+
+    tool_result = bridge_response_to_tool_result(response)
+    if tool_result.get("isError"):
+        return tool_result
+
+    payload = tool_result.get("structuredContent") or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    summary = build_scenario_result_summary(payload, SCENARIO_TERMINAL_STATUSES)
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(summary, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": summary,
+        "isError": False
+    }
+
+
+def call_unity_maintenance_prune_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    project_root = ensure_project_root(project_root_value)
+    result = prune_project_artifacts(
+        project_root,
+        arguments,
+        bridge_root=bridge_root,
+        request_journal_dir=request_journal_dir,
+        scenario_results_dir=scenario_results_dir,
+        active_scenario_run_path=active_scenario_run_path,
+        captures_dir=captures_dir,
+        logs_dir=logs_dir,
+        default_editor_log_path=default_editor_log_path,
+        read_json=read_json,
+    )
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(result, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": result,
+        "isError": False
+    }
+
+
 def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     if name not in TOOLS:
         raise JsonRpcError(-32601, f"Unknown tool: {name}")
 
     args = arguments or {}
+    if name == "unity_status_summary":
+        return call_unity_status_summary_tool(args)
+    if name == "unity_scenario_result_summary":
+        return call_unity_scenario_result_summary_tool(args)
+    if name == "unity_maintenance_prune":
+        return call_unity_maintenance_prune_tool(args)
     if name == "unity_compile_build_config_matrix":
         return call_unity_compile_build_config_matrix_tool(args)
     if name == "unity_scenario_run_and_wait":
@@ -3074,6 +1049,26 @@ def cmd_request_status(args):
     print_json(response)
 
 
+def cmd_request_status_summary(args):
+    project_root = ensure_project_root(args.project_root)
+    response = invoke_bridge(str(project_root), "unity.status", {}, args.timeout_ms)
+    tool_result = bridge_response_to_tool_result(response)
+    if tool_result.get("isError"):
+        print_json(tool_result.get("structuredContent") or {})
+        raise SystemExit(1)
+    payload = tool_result.get("structuredContent") or {}
+    print_json(build_status_summary(
+        project_root,
+        payload if isinstance(payload, dict) else {},
+        read_best_effort_bridge_state=read_best_effort_bridge_state,
+        try_read_bridge_state=try_read_bridge_state,
+        pid_is_alive=pid_is_alive,
+        heartbeat_age_seconds=heartbeat_age_seconds,
+        derive_busy_reason=derive_busy_reason,
+        summarize_state_for_error=summarize_state_for_error,
+    ))
+
+
 def cmd_request_playmode_state(args):
     response = invoke_bridge(args.project_root, "unity.playmode.state", {}, args.timeout_ms)
     print_json(response)
@@ -3096,6 +1091,21 @@ def cmd_request_capabilities(args):
 
 def cmd_request_health_probe(args):
     response = invoke_bridge(args.project_root, "unity.health.probe", {}, args.timeout_ms)
+    print_json(response)
+
+
+def cmd_request_build_target_get(args):
+    response = invoke_bridge(args.project_root, "unity.build_target.get", {}, args.timeout_ms)
+    print_json(response)
+
+
+def cmd_request_build_target_switch(args):
+    response = invoke_bridge(
+        args.project_root,
+        "unity.build_target.switch",
+        {"target": args.target},
+        args.timeout_ms,
+    )
     print_json(response)
 
 
@@ -3175,6 +1185,7 @@ def cmd_request_build_config_compile_matrix(args):
         requested_profiles=args.profile,
         requested_targets=args.target,
         stop_on_first_failure=args.stop_on_first_failure,
+        tool_error_type=ToolInvocationError,
     )
     response = invoke_bridge(
         str(project_root),
@@ -3255,6 +1266,62 @@ def cmd_request_scenario_result(args):
     print_json(response)
 
 
+def cmd_request_scenario_result_summary(args):
+    bridge_args: dict[str, Any] = {}
+    if args.run_id:
+        bridge_args["runId"] = args.run_id
+    if args.scenario_name:
+        bridge_args["scenarioName"] = args.scenario_name
+
+    response = invoke_bridge(
+        args.project_root,
+        "unity.scenario.result",
+        bridge_args,
+        args.timeout_ms,
+    )
+    tool_result = bridge_response_to_tool_result(response)
+    if tool_result.get("isError"):
+        print_json(tool_result.get("structuredContent") or {})
+        raise SystemExit(1)
+    payload = tool_result.get("structuredContent") or {}
+    print_json(build_scenario_result_summary(
+        payload if isinstance(payload, dict) else {},
+        SCENARIO_TERMINAL_STATUSES,
+    ))
+
+
+def cmd_maintenance_prune(args):
+    project_root = ensure_project_root(args.project_root)
+    result = prune_project_artifacts(
+        project_root,
+        {
+            "dryRun": args.dry_run,
+            "requestJournalMaxAgeHours": args.request_journal_max_age_hours,
+            "requestJournalKeepLatest": args.request_journal_keep_latest,
+            "scenarioSuccessMaxAgeHours": args.scenario_success_max_age_hours,
+            "scenarioFailureMaxAgeHours": args.scenario_failure_max_age_hours,
+            "scenarioRunningMaxAgeHours": args.scenario_running_max_age_hours,
+            "scenarioKeepLatestSuccess": args.scenario_keep_latest_success,
+            "scenarioKeepLatestFailure": args.scenario_keep_latest_failure,
+            "scenarioKeepLatestRunning": args.scenario_keep_latest_running,
+            "capturesMaxAgeHours": args.captures_max_age_hours,
+            "capturesKeepLatest": args.captures_keep_latest,
+            "pruneLogs": args.prune_logs,
+            "logsMaxAgeHours": args.logs_max_age_hours,
+            "logsKeepLatest": args.logs_keep_latest,
+        },
+        bridge_root=bridge_root,
+        request_journal_dir=request_journal_dir,
+        scenario_results_dir=scenario_results_dir,
+        active_scenario_run_path=active_scenario_run_path,
+        captures_dir=captures_dir,
+        logs_dir=logs_dir,
+        default_editor_log_path=default_editor_log_path,
+        read_json=read_json,
+    )
+    print_json(result)
+
+
 def cmd_open_editor(args):
     project_root = ensure_project_root(args.project_root)
     unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
@@ -3294,8 +1361,97 @@ def cmd_ensure_ready(args):
 
 def cmd_restore_editor_state(args):
     project_root = ensure_project_root(args.project_root)
-    payload = restore_host_opened_editor_state(project_root, args.timeout_ms)
+    payload = restore_host_opened_editor_state(project_root, args.timeout_ms, request_editor_quit)
     print_json(payload)
+
+
+def cmd_batch_build_player(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+    build_target = str(args.build_target or "").strip()
+    if not build_target:
+        raise ToolInvocationError("missing_build_target", "--build-target is required.")
+
+    log_path = (
+        Path(args.batch_log_path).expanduser().resolve()
+        if args.batch_log_path
+        else default_batch_build_log_path(project_root, build_target)
+    )
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else default_batch_build_result_path(project_root, build_target)
+    )
+    output_path = resolve_batch_build_output_path(project_root, args.output_path)
+    scene_paths = list(args.scene_path or [])
+    build_options = list(args.build_option or [])
+
+    command = build_plain_batch_build_command(
+        project_root=project_root,
+        unity_app=unity_app,
+        log_path=log_path,
+        result_path=result_path,
+        build_target=build_target,
+        output_path=output_path,
+        scene_paths=scene_paths,
+        build_options=build_options,
+    )
+
+    payload: dict[str, Any] = {
+        "action": "plain_batch_build",
+        "project_root": str(project_root),
+        "unity_app": str(unity_app),
+        "build_target": build_target,
+        "output_path": output_path,
+        "scene_paths": scene_paths,
+        "build_options": build_options,
+        "log_path": str(log_path),
+        "result_file": str(result_path),
+        "command": command,
+        "dry_run": args.dry_run,
+    }
+
+    if args.dry_run:
+        print_json(payload)
+        return
+
+    live_editor_pids = list_live_project_editor_pids(project_root)
+    if live_editor_pids:
+        raise ToolInvocationError(
+            "editor_running_batch_conflict",
+            (
+                "Refusing to start a plain batch build while the Unity project is open in the editor. "
+                f"Live editor pid(s): {', '.join(str(pid) for pid in live_editor_pids)}. "
+                "Close the editor first or use a host-local wrapper that manages editor shutdown/reopen explicitly."
+            ),
+            {"live_editor_pids": live_editor_pids},
+        )
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    stale_lock = clear_stale_project_lock(project_root)
+    payload["stale_lock"] = stale_lock
+
+    command_started_at = time.time()
+    completed = subprocess.run(command, check=False)
+    payload["batch_exit_code"] = completed.returncode
+
+    result_payload = try_read_json_dict(result_path, read_json)
+    if result_payload is not None:
+        payload["build_result_payload"] = result_payload
+        payload["succeeded"] = bool(result_payload.get("succeeded", False)) and completed.returncode == 0
+    else:
+        payload["build_result_payload"] = None
+        payload["succeeded"] = completed.returncode == 0
+
+    if completed.returncode != 0:
+        log_excerpt = read_recent_editor_log(log_path, command_started_at)
+        if log_excerpt:
+            payload["log_excerpt_tail"] = truncate_text(log_excerpt[-4000:], 4000)
+
+    print_json(payload)
+    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+        raise SystemExit(1)
 
 
 def build_parser():
@@ -3317,6 +1473,11 @@ def build_parser():
     status_cmd.add_argument("--timeout-ms", type=int, default=5000)
     status_cmd.set_defaults(func=cmd_request_status)
 
+    status_summary_cmd = sub.add_parser("request-status-summary", help="Send unity.status and print a compact summary suitable for polling.")
+    status_summary_cmd.add_argument("--project-root", required=True)
+    status_summary_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    status_summary_cmd.set_defaults(func=cmd_request_status_summary)
+
     playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct unity.playmode.state request through the active bridge transport.")
     playmode_state_cmd.add_argument("--project-root", required=True)
     playmode_state_cmd.add_argument("--timeout-ms", type=int, default=5000)
@@ -3337,6 +1498,17 @@ def build_parser():
     probe_cmd.add_argument("--project-root", required=True)
     probe_cmd.add_argument("--timeout-ms", type=int, default=15000)
     probe_cmd.set_defaults(func=cmd_request_health_probe)
+
+    build_target_get_cmd = sub.add_parser("request-build-target-get", help="Send a direct unity.build_target.get request through the active bridge transport.")
+    build_target_get_cmd.add_argument("--project-root", required=True)
+    build_target_get_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    build_target_get_cmd.set_defaults(func=cmd_request_build_target_get)
+
+    build_target_switch_cmd = sub.add_parser("request-build-target-switch", help="Send a direct unity.build_target.switch request through the active bridge transport.")
+    build_target_switch_cmd.add_argument("--project-root", required=True)
+    build_target_switch_cmd.add_argument("--target", required=True)
+    build_target_switch_cmd.add_argument("--timeout-ms", type=int, default=120000)
+    build_target_switch_cmd.set_defaults(func=cmd_request_build_target_switch)
 
     editor_quit_cmd = sub.add_parser("request-editor-quit", help="Send a direct unity.editor.quit request through the active bridge transport.")
     editor_quit_cmd.add_argument("--project-root", required=True)
@@ -3413,6 +1585,13 @@ def build_parser():
     scenario_result_cmd.add_argument("--timeout-ms", type=int, default=5000)
     scenario_result_cmd.set_defaults(func=cmd_request_scenario_result)
 
+    scenario_result_summary_cmd = sub.add_parser("request-scenario-result-summary", help="Read the current or completed result of a Unity scenario run and print a compact summary.")
+    scenario_result_summary_cmd.add_argument("--project-root", required=True)
+    scenario_result_summary_cmd.add_argument("--run-id")
+    scenario_result_summary_cmd.add_argument("--scenario-name")
+    scenario_result_summary_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scenario_result_summary_cmd.set_defaults(func=cmd_request_scenario_result_summary)
+
     open_editor_cmd = sub.add_parser("open-editor", help="Open a Unity project with a deterministic log file path for MCP startup diagnostics.")
     open_editor_cmd.add_argument("--project-root", required=True)
     open_editor_cmd.add_argument("--unity-app")
@@ -3445,6 +1624,42 @@ def build_parser():
     restore_editor_cmd.add_argument("--project-root", required=True)
     restore_editor_cmd.add_argument("--timeout-ms", type=int, default=15000)
     restore_editor_cmd.set_defaults(func=cmd_restore_editor_state)
+
+    batch_build_cmd = sub.add_parser(
+        "batch-build-player",
+        help="Run a generic plain Unity batch build for simple projects using the public lightweight MCP package entrypoint.",
+    )
+    batch_build_cmd.add_argument("--project-root", required=True)
+    batch_build_cmd.add_argument("--build-target", required=True)
+    batch_build_cmd.add_argument("--output-path")
+    batch_build_cmd.add_argument("--scene-path", action="append", default=[])
+    batch_build_cmd.add_argument("--build-option", action="append", default=[])
+    batch_build_cmd.add_argument("--unity-app")
+    batch_build_cmd.add_argument("--batch-log-path")
+    batch_build_cmd.add_argument("--result-file")
+    batch_build_cmd.add_argument("--dry-run", action="store_true")
+    batch_build_cmd.set_defaults(func=cmd_batch_build_player)
+
+    maintenance_prune_cmd = sub.add_parser(
+        "maintenance-prune",
+        help="Prune stale request-journal, scenario-result, capture, and optional log artifacts under Library/XUUnityLightMcp.",
+    )
+    maintenance_prune_cmd.add_argument("--project-root", required=True)
+    maintenance_prune_cmd.add_argument("--dry-run", action="store_true")
+    maintenance_prune_cmd.add_argument("--request-journal-max-age-hours", type=int, default=72)
+    maintenance_prune_cmd.add_argument("--request-journal-keep-latest", type=int, default=200)
+    maintenance_prune_cmd.add_argument("--scenario-success-max-age-hours", type=int, default=168)
+    maintenance_prune_cmd.add_argument("--scenario-failure-max-age-hours", type=int, default=336)
+    maintenance_prune_cmd.add_argument("--scenario-running-max-age-hours", type=int, default=168)
+    maintenance_prune_cmd.add_argument("--scenario-keep-latest-success", type=int, default=20)
+    maintenance_prune_cmd.add_argument("--scenario-keep-latest-failure", type=int, default=50)
+    maintenance_prune_cmd.add_argument("--scenario-keep-latest-running", type=int, default=20)
+    maintenance_prune_cmd.add_argument("--captures-max-age-hours", type=int, default=168)
+    maintenance_prune_cmd.add_argument("--captures-keep-latest", type=int, default=20)
+    maintenance_prune_cmd.add_argument("--prune-logs", action="store_true")
+    maintenance_prune_cmd.add_argument("--logs-max-age-hours", type=int, default=168)
+    maintenance_prune_cmd.add_argument("--logs-keep-latest", type=int, default=10)
+    maintenance_prune_cmd.set_defaults(func=cmd_maintenance_prune)
 
     return parser
 

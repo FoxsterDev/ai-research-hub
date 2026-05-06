@@ -227,6 +227,10 @@ remove_bridge_state() {
 
 run mkdir -p "$codex_home" "$install_dir"
 copy_if_needed "$templates_dir/server.py" "$install_dir/server.py" 644
+for helper_module in "$templates_dir"/server_*.py; do
+  [[ -f "$helper_module" ]] || continue
+  copy_if_needed "$helper_module" "$install_dir/$(basename "$helper_module")" 644
+done
 copy_if_needed "$templates_dir/run.sh" "$install_dir/run.sh" 755
 
 if [[ -n "$project_root" ]]; then

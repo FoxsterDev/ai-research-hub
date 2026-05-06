@@ -311,6 +311,42 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpBuildTargetGetPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string active_build_target = "";
+        public string active_build_target_group = "";
+        public string selected_build_target_group = "";
+        public bool target_support_loaded;
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpBuildTargetSwitchArgs
+    {
+        public string target = "";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpBuildTargetSwitchPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string requested_build_target = "";
+        public string previous_build_target = "";
+        public string active_build_target = "";
+        public string active_build_target_group = "";
+        public string selected_build_target_group = "";
+        public bool target_support_loaded;
+        public string outcome = "";
+        public string request_completed_at_utc = "";
+        public string settled_at_utc = "";
+        public string completion_basis = "";
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpEditorQuitPayload
     {
         public string backend_id = "xuunity.light_unity_mcp";

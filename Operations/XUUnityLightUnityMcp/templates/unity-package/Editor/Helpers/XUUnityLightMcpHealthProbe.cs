@@ -40,6 +40,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
             var capabilities = new List<XUUnityLightMcpCapabilityRecord>
             {
                 BuildCoreCapability(),
+                BuildBuildTargetCapability(),
                 BuildEditModeTestsCapability(),
                 BuildCompileCapability(),
                 BuildPlayModeCapability(),
@@ -183,6 +184,22 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     ? ""
                     : "Unity Test Framework API is unavailable; EditMode test operations are disabled.",
                 operations = new List<string> { "unity.tests.run_editmode" }
+            };
+        }
+
+        static XUUnityLightMcpCapabilityRecord BuildBuildTargetCapability()
+        {
+            return new XUUnityLightMcpCapabilityRecord
+            {
+                capability_id = XUUnityLightMcpCapabilityRegistry.BuildTargetCapability,
+                adapter_id = "editor_build_target_builtin_v1",
+                supported = true,
+                reason = "",
+                operations = new List<string>
+                {
+                    "unity.build_target.get",
+                    "unity.build_target.switch"
+                }
             };
         }
 

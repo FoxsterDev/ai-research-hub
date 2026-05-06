@@ -22,6 +22,7 @@ Related public docs:
 - `COMPARISON.md`
 - `ROADMAP.md`
 - `AI_INTEGRATION.md`
+- `BUILD_AUTOMATION.md`
 - `SMOKE_TESTS.md`
 - `LICENSE.md`
 - `Reports/`
@@ -45,6 +46,8 @@ What exists now:
   - `unity.status`
   - `unity.capabilities.get`
   - `unity.health.probe`
+  - `unity.build_target.get`
+  - `unity.build_target.switch`
   - `unity.console.tail`
   - `unity.scene.snapshot`
   - `unity.tests.run_editmode`
@@ -59,6 +62,11 @@ What exists now:
   - `unity.scenario.validate`
   - `unity.scenario.run`
   - `unity.scenario.result`
+  - compact host/tool surfaces for low-token polling:
+    - `unity_status_summary`
+    - `unity_scenario_result_summary`
+  - public maintenance cleanup surface:
+    - `unity_maintenance_prune`
 - MCP `initialize`
 - MCP `tools/list`
 - MCP `tools/call`
@@ -68,6 +76,7 @@ What exists now:
   - `request-editor-quit`
   - `restore-editor-state`
   - stale bridge and stale lock guards on editor open
+  - `batch-build-player` for plain Unity batch builds when the project is closed
 - public reusable smoke runners:
   - `templates/smoke/run_post_change_validation.sh`
   - `templates/smoke/run_smoke_suite.sh`
@@ -84,6 +93,7 @@ What does not exist yet:
 - more polished host-local wrappers and repo-aware helpers
 - device/runtime automation layers beyond editor-bound scenario automation
 - shared `xuunity` protocol recipes for scenario-driven workflows
+- public generic batch-build execution adapters beyond compile validation and build-target switching
 
 ## Goal
 
@@ -463,7 +473,7 @@ Current request-lifecycle event set now includes:
 
 Operational note:
 
-- on the current `ApperfunHub` live session, repeated `refresh/resolve` alone was not sufficient to hot-pick up the latest file-package code from the external `AIRoot` path
+- in one live validation session, repeated `refresh/resolve` alone was not sufficient to hot-pick up the latest file-package code from the external `AIRoot` path
 - the bridge eventually activated the new package code after a real recompilation/rebootstrap cycle
 - operationally, that means file-package updates may require more than plain `refresh/resolve`; they may need an actual script/package recompilation cycle, and in the worst case still a full editor reopen
 
@@ -571,9 +581,9 @@ Public package commands are platform-neutral. A host or project can wrap them in
 4. request-abandoned fault validation
 5. optional transport matrix validation when more than one transport is enabled on that host
 
-For project-local examples of this pattern, see the checked-in host wrappers under:
+For project-local examples of this pattern, see checked-in host wrappers under a project-specific folder such as:
 
-- `AIOutput/Operations/XUUnityLightUnityMcp/smoke/ApperfunHub/`
+- `AIOutput/Operations/XUUnityLightUnityMcp/smoke/<ProjectName>/`
 
 Those project-local wrappers are evidence routes, not public proof for every host.
 
