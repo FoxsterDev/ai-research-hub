@@ -394,6 +394,15 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpEditModeTestsArgs
+    {
+        public string[] testNames = null;
+        public string[] groupNames = null;
+        public string[] categoryNames = null;
+        public string[] assemblyNames = null;
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpGameViewConfigureArgs
     {
         public int width;
@@ -599,6 +608,10 @@ namespace XUUnity.LightMcp.Editor.Core
         public string target = "";
         public string[] optionFlags = null;
         public string[] extraDefines = null;
+        public string[] testNames = null;
+        public string[] groupNames = null;
+        public string[] categoryNames = null;
+        public string[] assemblyNames = null;
         public string name = "";
         public int width;
         public int height;

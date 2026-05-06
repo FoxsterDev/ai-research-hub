@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using XUUnity.LightMcp.Editor.Bridge;
@@ -475,7 +476,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
         {
             if (stepResult.status == "pending")
             {
-                var request = BuildNestedRequest("unity.tests.run_editmode", "{}", GetTimeoutMs(step, 600.0d));
+                var request = BuildNestedRequest("unity.tests.run_editmode", BuildEditModeTestsArgsJson(step), GetTimeoutMs(step, 600.0d));
                 var response = ExecuteNestedOperation(request.operation, request.args_json, request);
                 if (response != null)
                 {
@@ -523,6 +524,40 @@ namespace XUUnity.LightMcp.Editor.Helpers
             stepResult.error_message = "Timed out waiting for EditMode test completion.";
             ClearPendingNestedOperation(state);
             return true;
+        }
+
+        static string BuildEditModeTestsArgsJson(XUUnityLightMcpScenarioStepDefinition step)
+        {
+            var args = new XUUnityLightMcpEditModeTestsArgs
+            {
+                testNames = NormalizeOptionalStringArray(step.testNames),
+                groupNames = NormalizeOptionalStringArray(step.groupNames),
+                categoryNames = NormalizeOptionalStringArray(step.categoryNames),
+                assemblyNames = NormalizeOptionalStringArray(step.assemblyNames),
+            };
+
+            return args.testNames == null
+                   && args.groupNames == null
+                   && args.categoryNames == null
+                   && args.assemblyNames == null
+                ? "{}"
+                : JsonUtility.ToJson(args);
+        }
+
+        static string[] NormalizeOptionalStringArray(string[] values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return null;
+            }
+
+            var normalized = values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct()
+                .ToArray();
+
+            return normalized.Length == 0 ? null : normalized;
         }
 
         static bool ProcessGameViewConfigureStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
