@@ -173,6 +173,19 @@ summarize_json \
   "$TMP_DIR/health_probe.json" \
   "\"status=%s supported_ops=%s\" % ((lambda report: (report.get('status'), len(report.get('supported_operations') or [])))(__import__('json').loads(data['payload_json']).get('report') or {}))"
 
+if [[ "$COMPILE_MODE" == "build-config-matrix" ]]; then
+  run_step compile_matrix \
+    "$WRAPPER" request-build-config-compile-matrix \
+    --project-root "$PROJECT_ROOT" \
+    --timeout-ms 300000
+  summarize_json \
+    "compile-matrix" \
+    "$TMP_DIR/compile_matrix.json" \
+    "\"status=%s passed=%s/%s basis=%s duration=%.3fs\" % ((lambda matrix: (matrix.get('status'), matrix.get('passed'), matrix.get('total'), matrix.get('completion_basis'), float(matrix.get('duration_seconds') or 0.0)))(__import__('json').loads(data['bridge_response']['payload_json'])))"
+else
+  echo "[skip] compile-matrix compile_mode=none"
+fi
+
 run_step acceptance_scenario \
   "$WRAPPER" request-scenario-run-and-wait \
   --project-root "$PROJECT_ROOT" \
@@ -194,18 +207,5 @@ summarize_json \
   "contract-scenario" \
   "$TMP_DIR/contract_scenario.json" \
   "\"status=%s refresh=%s compile=%s duration=%.3fs\" % ((data.get('status') or data.get('terminal_status') or ((data.get('run_start') or {}).get('status'))), next((__import__('json').loads(step.get('payload_json') or '{}').get('outcome') for step in ((data.get('steps') or ((data.get('run_start') or {}).get('steps')) or [])) if step.get('stepId') == 'refresh'), 'unknown'), next((__import__('json').loads(step.get('payload_json') or '{}').get('completion_basis') for step in ((data.get('steps') or ((data.get('run_start') or {}).get('steps')) or [])) if step.get('stepId') == 'compile'), 'unknown'), float(data.get('duration_seconds') or 0.0))"
-
-if [[ "$COMPILE_MODE" == "build-config-matrix" ]]; then
-  run_step compile_matrix \
-    "$WRAPPER" request-build-config-compile-matrix \
-    --project-root "$PROJECT_ROOT" \
-    --timeout-ms 300000
-  summarize_json \
-    "compile-matrix" \
-    "$TMP_DIR/compile_matrix.json" \
-    "\"status=%s passed=%s/%s basis=%s duration=%.3fs\" % ((lambda matrix: (matrix.get('status'), matrix.get('passed'), matrix.get('total'), matrix.get('completion_basis'), float(matrix.get('duration_seconds') or 0.0)))(__import__('json').loads(data['bridge_response']['payload_json'])))"
-else
-  echo "[skip] compile-matrix compile_mode=none"
-fi
 
 echo "[pass] suite overall"

@@ -493,6 +493,23 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
   --project-root /path/to/UnityProject
 ```
 
+Send `unity.status` and return a compact stabilization summary:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-status-summary \
+  --project-root /path/to/UnityProject
+```
+
+Resolve final disposition for a request id after transport churn:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-final-status \
+  --project-root /path/to/UnityProject \
+  --request-id <request-id>
+```
+
 Read the persisted capability report:
 
 ```bash
@@ -570,6 +587,14 @@ Generic shell runners are provided under:
 
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
+
+The compact post-change runner now applies compile-first discipline:
+
+1. `ensure-ready`
+2. `request-status`
+3. `request-health-probe`
+4. fast compile gate
+5. interactive and contract scenarios
 
 ## Cross-Platform Validation Kit
 
