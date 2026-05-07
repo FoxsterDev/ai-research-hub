@@ -126,3 +126,13 @@ Lifecycle contract:
   preserve the interactive editor session for follow-up inspection
 - after lifecycle churn or wrapper-side response loss, the preferred recovery
   path is `request-final-status --request-id <id>` before blind retry
+- when a compact summary surface exists, the smoke route should use it before
+  raw result polling or large log inspection
+
+Token-discipline contract:
+
+- prefer `request-status-summary` over repeated raw status checks
+- prefer persisted scenario-result summaries over tight `unity.scenario.result`
+  polling loops
+- prefer compact batch failure summaries over direct `prepare.log` or
+  `build.log` tailing

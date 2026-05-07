@@ -19,6 +19,8 @@ body unless they are required as evidence inputs.
 - the wrapper said a request failed but Unity may have completed it
 - refresh, compile, tests, play mode, or scenario runs felt operationally weak
 - bridge resets, reconnects, or request churn created false-negative conclusions
+- repeated polling or raw-log digging made the session disproportionately
+  expensive in tokens or diagnosis time
 - you want to extract productized improvements from one real session
 
 ## Inputs To Gather First
@@ -39,6 +41,8 @@ Preferred evidence set:
 - `AIRoot/Operations/XUUnityLightUnityMcp/DESIGN.md`
 - `AIRoot/Operations/XUUnityLightUnityMcp/CONTINUATION.md`
 - `AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md`
+- any compact batch result or failure summary artifacts already emitted by the
+  wrapper
 
 ## Prompt
 
@@ -49,6 +53,8 @@ Goal:
 - determine what actually failed
 - separate Unity-side execution from wrapper/transport failure
 - identify what evidence was sufficient or insufficient
+- identify which operations were most expensive in token churn or raw-log
+  volume
 - propose the smallest reusable improvements to the public MCP surface
 
 Required questions:
@@ -56,7 +62,10 @@ Required questions:
 2. Was there enough evidence to prove that distinction?
 3. What did the operator need but not have?
 4. What recovery step should have been obvious but was not?
-5. What should be promoted into the public AIRoot MCP docs, wrapper, smoke contract, or summaries?
+5. Which operations or evidence paths were most expensive in token usage or
+   repeated polling?
+6. What should be promoted into the public AIRoot MCP docs, wrapper, smoke
+   contract, or summaries?
 
 Evidence to inspect:
 - chat transcript or condensed timeline
@@ -64,6 +73,7 @@ Evidence to inspect:
 - request journal entries by request_id
 - bridge_state.json
 - current public docs and runner contract
+- compact summaries versus raw log sizes when both exist
 
 Output format:
 1. Executive summary
@@ -87,6 +97,7 @@ Scoring categories:
 - Transport lifecycle transparency
 - End-to-end trustworthiness during churn
 - Parallel request handling
+- Token efficiency of the default operator path
 - Time-to-diagnosis
 - Validation workflow discipline
 
@@ -131,3 +142,5 @@ When the retrospective finds reusable value, prefer promoting into:
 - Treat real request ids and request-journal evidence as the strongest source of truth for lifecycle-reset incidents.
 - Prefer improvements that reduce false-negative validation conclusions.
 - Prefer compile-first validation ordering before heavier scenario or test work when changed scripts are already in play.
+- Prefer compact summaries over repeated raw polling or large-log inspection
+  when both surfaces are available.

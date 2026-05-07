@@ -20,6 +20,8 @@ It now has:
 - lifecycle-reset recovery by `request_id`
 - explicit operator-facing split between transport outcome and Unity operation outcome
 - compile-first public post-change validation ordering
+- public retro guidance for operator-facing lifecycle and transport failures
+- summary-first token discipline for high-churn request paths
 
 The public `xuunity` protocol layer also now understands validation-lane
 selection.
@@ -129,6 +131,8 @@ Meaning:
 7. `unity.capabilities.get`
 8. `unity.health.probe`
 9. if a request crossed lifecycle churn, `request-final-status <request_id>`
+10. prefer compact scenario or batch summaries before raw result polling or raw
+    log inspection
 
 Only after that:
 - compile
@@ -173,6 +177,8 @@ For shared protocol integration work:
 - baseline smoke orchestration can be reused from public `AIRoot` templates while keeping consumer-specific fixtures host-local
 - lifecycle-reset ambiguity can now be resolved from the request journal without manual raw journal digging
 - the reusable post-change validation route now runs compile before heavier scenario work
+- the public operator contract now prefers summary-first recovery over repeated
+  raw result polling when compact surfaces exist
 
 ## What Is Not Yet Proven
 

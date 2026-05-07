@@ -704,6 +704,28 @@ The compact post-change runner now applies compile-first discipline:
 4. fast compile gate
 5. interactive and contract scenarios
 
+## Token Discipline
+
+When a compact summary surface exists, prefer it before any raw high-churn
+request loop.
+
+Preferred order:
+
+1. `request-status-summary`
+2. `request-final-status <request_id>` after lifecycle churn or wrapper-side
+   response loss
+3. `unity_scenario_result_summary` for persisted scenario outcome checks
+4. raw `unity.scenario.result` only when the compact summary is insufficient
+5. raw `prepare.log` and `build.log` only after compact failure summary surfaces
+   are exhausted
+
+Operator rule:
+
+- treat repeated `unity.scenario.result` polling as an expensive fallback, not
+  the default steady-state observation path
+- if transport continuity was lost, recover by `request_id` before retrying the
+  operation
+
 ## Cross-Platform Validation Kit
 
 Public package commands are platform-neutral. A host or project can wrap them in local scripts, but the proof route should stay the same in shape:
