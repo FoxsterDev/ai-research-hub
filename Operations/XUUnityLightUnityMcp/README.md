@@ -238,6 +238,8 @@ Behavior:
 - `prodmode` rewrites `Packages/manifest.json` to a git-pinned dependency using:
   - the current `AIRoot` `origin` URL
   - the current committed `AIRoot` `HEAD`
+- `prodmode` now fails before rewriting the manifest when the current `AIRoot` `HEAD`
+  has not yet been published on the remote
 - both commands remove the `com.xuunity.light-mcp` entry from `Packages/packages-lock.json`
   so Unity is forced to re-resolve the package honestly on the next refresh/reopen
 - `prodmode` intentionally pins committed state only; uncommitted local `AIRoot`
