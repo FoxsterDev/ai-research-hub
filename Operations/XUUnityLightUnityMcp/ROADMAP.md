@@ -70,6 +70,106 @@ This is not yet enough for:
 - autonomous regression investigation
 - agent-safe mutation planning at scale
 
+## Targeted Next Threshold
+
+Near-term target:
+
+- raise the current service from `78/100` to `85+/100`
+- do this first in the intended same-host editor validation scope
+- avoid widening scope until the current lane is measurably hardened
+
+Meaning of `85+` here:
+
+- repeatable healthy startup and validation across supported clients
+- clear recovery after bridge churn and lifecycle resets
+- stable compact operator status and finalization semantics
+- richer evidence outputs per operation
+- broader proof across more than one Unity consumer and version
+
+This is not the same as "full world-class device automation platform".
+It is the threshold for calling the current lane operationally strong.
+
+## Phased Plan To Reach 85+
+
+### Phase 1: Core Reliability Hardening
+
+Goal:
+- remove the most expensive operational ambiguity from the current lane
+
+Focus:
+- stdio server hardening
+- cancellation semantics
+- stale request cleanup
+- stronger lifecycle fault-injection proof
+- explicit host prerequisite reporting
+
+Exit criteria:
+- lifecycle churn is tested, not only reasoned about
+- stale requests do not accumulate silently
+- tool failures land in a stable structured taxonomy
+- the operator can distinguish setup failure, transport loss, and Unity-side failure quickly
+
+Expected score impact:
+- `+3 to +4`
+
+### Phase 2: Evidence And Observability Hardening
+
+Goal:
+- make every important operation easier to trust and debug
+
+Focus:
+- artifact manifest per operation
+- structured timings per operation
+- scenario result listing and last-result fetch
+- clearer artifact path surfacing
+- compact summary enrichment where it reduces operator guesswork
+
+Exit criteria:
+- a failed or timed-out run leaves enough structured evidence for a new chat to continue without journal archaeology
+- scenario outputs are discoverable through first-class utilities
+- timings and artifacts are part of the default debugging flow
+
+Expected score impact:
+- `+2 to +3`
+
+### Phase 3: Proof Breadth Across Clients And Consumers
+
+Goal:
+- prove that the lane is stable outside one narrow local success case
+
+Focus:
+- repeatable validation in Codex, Claude Code, and Cursor
+- proof on more than one Unity consumer project
+- proof on a broader Unity version slice where feasible
+- remove or sharply document client-specific quirks
+
+Exit criteria:
+- the same baseline flow works without ad hoc host repairs across supported clients
+- the same core contract works on more than one real consumer
+- known incompatibilities are explicit and bounded
+
+Expected score impact:
+- `+2 to +3`
+
+### Phase 4: Narrow Surface Completion For The Current Lane
+
+Goal:
+- finish the missing pieces that block calling the lane mature within its current scope
+
+Focus:
+- scenario assertions and result browsing
+- better read-surface helpers for diagnosis
+- optional reduction of reflection dependency where practical
+- tighter operational docs and decision trees
+
+Exit criteria:
+- common validation and regression tasks stay inside the MCP lane instead of falling back to shell scraping
+- result interpretation is cheaper for both humans and agents
+- the current lane is defensibly `85+`
+
+Expected score impact:
+- `+1 to +2`
+
 ## Roadmap Layers
 
 ### Wave 1: Harden The Core
@@ -95,6 +195,7 @@ Current progress:
 - compact operator recovery by `request_id` is now in place
 - compile-first validation order is now part of the reusable runner baseline
 - remaining work in this wave is broader fault-injection proof, cancellation hygiene, and artifact-manifest depth
+- this wave maps directly to Phase 1 and the beginning of Phase 2 in the `85+` plan
 
 ### Wave 2: Better Read Surface
 
@@ -137,6 +238,7 @@ Current state:
 - initial baseline is implemented
 - current step surface is intentionally small
 - next gap is richer assertions, result browsing, and artifact surfacing rather than first-time scenario bring-up
+- this wave contributes to Phase 2 and Phase 4 of the `85+` plan
 
 Done when:
 - a scripted play-mode regression scenario can be authored once and replayed by any supported agent
@@ -232,12 +334,12 @@ Done when:
 
 Highest-value missing capabilities:
 
-1. scenario runner
-2. device deploy and launch
-3. profiler capture and export
-4. runtime screenshot and logs
-5. deeper scene and asset inspection
-6. artifact manifests and comparison helpers
+1. artifact manifests and structured timings
+2. scenario result browsing and artifact surfacing
+3. deeper scene and asset inspection
+4. device deploy and launch
+5. profiler capture and export
+6. runtime screenshot and logs
 
 Second-wave mutation capabilities:
 
@@ -258,6 +360,20 @@ Recommended layers:
 4. host-side device adapters
 5. project-defined scenario adapters
 6. analysis adapters
+
+## Practical Sequencing
+
+Do next:
+
+1. finish Phase 1
+2. finish Phase 2
+3. prove Phase 3
+4. close Phase 4 only after the evidence says the lane is already near `85`
+
+Do not do next:
+
+- do not prioritize device automation before the current lane is hardened
+- do not widen runtime-scope ambition to hide unresolved core reliability gaps
 
 This keeps:
 - the base install small
