@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Distribution Options Analysis
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public options analysis`
 
 ## Scope

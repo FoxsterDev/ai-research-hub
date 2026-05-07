@@ -19,6 +19,7 @@ Canonical location:
 Related public docs:
 - `DESIGN.md`
 - `CONTINUATION.md`
+- `CHAT_RETRO_PROMPT.md`
 - `COMPARISON.md`
 - `ROADMAP.md`
 - `AI_INTEGRATION.md`

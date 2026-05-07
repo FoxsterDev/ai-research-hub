@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Design
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `active public design`
 
 ## Goal

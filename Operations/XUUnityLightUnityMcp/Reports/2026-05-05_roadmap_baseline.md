@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Roadmap Baseline
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public baseline report`
 
 ## Scope
@@ -85,11 +85,12 @@ Add autonomous CUA support:
 
 The most important next milestone is:
 
-- richer scenario assertions, result utilities, and broader cross-client proof
+- lifecycle-fault proof, scenario result utilities, and broader cross-client proof
 
 Reason:
 
 - the base scenario control plane already exists
+- the lifecycle-recovery contract is now implemented and wants deliberate fault proof
 - the highest remaining leverage is trust, evidence quality, and reuse across consumers
 
 ## Canonical Source
