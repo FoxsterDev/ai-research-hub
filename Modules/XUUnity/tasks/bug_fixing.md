@@ -23,6 +23,12 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 - If `Library/` was deleted, reimport is in progress, or generated Bee/Gradle outputs may predate a clean rebuild, treat those artifacts as potentially stale evidence rather than root-cause proof.
 - Before proposing a source-level fix for vendor-managed manifest entries, inspect the same-build `Editor.log` for resolver and postprocess execution.
 - Do not convert a vendor-owned build-time declaration into a permanent checked-in source fix unless a clean rebuild reproduces the failure and ownership transfer is explicitly justified.
+- If the bug report uses product-facing entry language such as `enter app`, `come back to app`, `return to lobby`, or similar user-visible wording, normalize that contract across the realistic lifecycle entry modes before closure.
+- For startup-sensitive or foreground-return-sensitive bugs, explicitly decide whether the intended contract covers:
+  - cold start
+  - focus restore or resume
+  - both
+- Do not close a lifecycle-sensitive UX bug after fixing only one technical entry path when the user-visible contract clearly spans the same product surface across multiple entry modes.
 
 ## Patch Shape Classification
 - Before patching, classify the fix using the narrowest primary patch shape:

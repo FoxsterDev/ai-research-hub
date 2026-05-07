@@ -21,6 +21,13 @@
 - Inspect the same-build `Editor.log` for resolver, manifest merger, and `IPostGenerateGradleAndroidProject` callback execution before concluding that a vendor postprocessor failed.
 - If `Library/` was recently deleted or the project was reimported, bias toward artifact freshness validation before recommending source-manifest edits.
 - Treat source-level duplication of vendor-managed Android declarations as a workaround, not a default fix, unless the project intentionally takes ownership of that declaration.
+- If an Android permission is critical to a product flow, treat it as a build-contract input instead of as report noise or incidental source-manifest detail.
+- For critical Android permissions, prefer this ownership order:
+  - define the mandatory permission set in build-owned configuration
+  - enforce that set on the merged launcher manifest before Gradle build
+  - verify the same set on the final APK or App Bundle artifact
+  - fail the build if a mandatory permission is still missing after enforcement
+- Do not remove explicit critical-permission ownership only to silence duplicate manifest warnings. Clean report output is lower priority than preserving a trustworthy permission contract.
 - Verify graphics API ordering explicitly when Vulkan versus `OpenGLES3` tradeoffs affect startup, crash risk, or device coverage.
 - Require representative OEM and GPU-family validation before recommending `Vulkan`-preferred Android builds at scale.
 - Keep a forward-looking verification note in release/compliance reviews:
