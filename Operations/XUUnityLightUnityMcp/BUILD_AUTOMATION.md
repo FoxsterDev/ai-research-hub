@@ -140,6 +140,8 @@ Default expectations:
 - prefer batch execution for artifact-only builds
 - define explicit restore boundaries for project-managed files
 - emit compact summaries so callers do not need to read large logs
+- emit compact failure summaries for failed prepare/build phases before sending
+  callers to raw logs
 
 ## Cleanup and Token Discipline
 
@@ -151,6 +153,19 @@ Preferred pattern:
 - read compact scenario summaries second
 - inspect full logs only on failure or unresolved ambiguity
 - prune old request journals and scenario results routinely
+
+For batch builds, the same rule applies:
+
+- a successful run should end in a compact build result artifact
+- a failed run should still end in a compact failure summary artifact with:
+  - phase: `prepare` or `build`
+  - transport outcome
+  - Unity operation outcome when known
+  - top actionable error or blocker
+  - paths to the next raw logs only as second-line evidence
+
+This keeps operator diagnosis bounded even when `prepare.log` or `build.log`
+are large.
 
 Current cleanup command:
 
