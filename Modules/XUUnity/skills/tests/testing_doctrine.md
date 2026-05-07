@@ -119,9 +119,21 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 
 ### 7. Reflection Restriction
 - Reflection against private state or private method flow in tests for live production code requires explicit human approval.
+- For repo-owned runtime code that can be edited in place, prefer narrow `internal` seams with `InternalsVisibleTo` before approving reflection.
 - Exception:
   - legacy or static platform-bound code where a cleaner seam is disproportionate
+  - Unity-owned package cache code, precompiled vendor SDKs, closed DLLs, and manifest-resolved read-only external packages that the repo cannot safely reshape
 - Even for exceptions, call the reason out explicitly. Do not normalize reflection as the default testing answer.
+
+### 7b. Repo-Owned Access Rule
+- For repo-owned code, reflection is not the default answer for non-public test access.
+- The default order is:
+  1. real public contract
+  2. narrow `internal` seam with `InternalsVisibleTo`
+  3. protected seam or test subclass only when it matches the runtime design naturally
+  4. reflection only for approved closed-boundary exceptions
+- Do not add `virtual`, remove `sealed`, or widen inheritance only to make tests possible when the code is repo-owned and a narrower `internal` seam would do.
+- Do not hide routine repo-owned test access behind `#if UNITY_INCLUDE_TESTS` by default. Prefer stable non-public seams that remain valid in normal builds.
 
 ### 7a. Exception Protocol
 - Doctrine exceptions require explicit human approval.
