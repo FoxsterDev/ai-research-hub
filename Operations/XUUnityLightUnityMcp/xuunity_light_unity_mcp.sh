@@ -64,6 +64,15 @@ normalize_git_url_for_unity_upm() {
   printf '%s\n' "$git_url"
 }
 
+remote_advertises_commit() {
+  local repo_root="$1"
+  local remote_name="$2"
+  local git_commit="$3"
+  git -C "$repo_root" ls-remote --heads --tags "$remote_name" \
+    | awk '{print $1}' \
+    | rg -qx "$git_commit"
+}
+
 read_project_unity_version() {
   local project_root="$1"
   python3 - "$project_root/ProjectSettings/ProjectVersion.txt" <<'PY'
@@ -252,11 +261,26 @@ switch_project_to_prodmode() {
 
   local manifest_path="$project_root/Packages/manifest.json"
   local lock_path="$project_root/Packages/packages-lock.json"
+  local remote_name="origin"
   local git_url
-  git_url="$(git -C "$AIROOT_PATH" remote get-url origin)"
+  git_url="$(git -C "$AIROOT_PATH" remote get-url "$remote_name")"
   git_url="$(normalize_git_url_for_unity_upm "$git_url")"
   local git_commit
   git_commit="$(git -C "$AIROOT_PATH" rev-parse HEAD)"
+  local airroot_branch
+  airroot_branch="$(git -C "$AIROOT_PATH" branch --show-current)"
+
+  if ! remote_advertises_commit "$AIROOT_PATH" "$remote_name" "$git_commit"; then
+    echo "prodmode requires the current AIRoot HEAD to be published on the remote before pinning it." >&2
+    echo "AIRoot commit is not currently advertised by remote '$remote_name' as a branch or tag tip: $git_commit" >&2
+    if [[ -n "$airroot_branch" ]]; then
+      echo "Push it first, for example: git -C \"$AIROOT_PATH\" push $remote_name $airroot_branch" >&2
+    else
+      echo "Push the AIRoot commit to '$remote_name' first, or use devmode for local-only iteration." >&2
+    fi
+    exit 1
+  fi
+
   local dependency_value="${git_url}?path=/${PACKAGE_TEMPLATE_RELATIVE_PATH}#${git_commit}"
 
   update_manifest_dependency "$manifest_path" "$dependency_value"
@@ -270,6 +294,8 @@ switch_project_to_prodmode() {
   echo "xuunity-light-unity-mcp mode switched: prodmode"
   echo "project_root=$project_root"
   echo "dependency=$dependency_value"
+  echo "airroot_remote=$remote_name"
+  echo "airroot_branch=$airroot_branch"
   echo "airroot_commit=$git_commit"
   echo "airroot_worktree_dirty=$worktree_dirty"
   echo "packages_lock_entry_removed=true"
