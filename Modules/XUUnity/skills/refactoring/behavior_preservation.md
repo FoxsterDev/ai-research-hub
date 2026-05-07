@@ -6,18 +6,21 @@
 - safety-first structural work
 
 ## Rules
-- Product behavior and public contract stability are higher priority than local structural elegance.
-- Preserve observable behavior before improving structure.
-- Before refactoring a critical flow, explicitly freeze the non-negotiable invariants first.
-  - include lifecycle order, identity or state semantics, persistence expectations, fallback boundaries, and failure severity when those affect backend or product contracts
-  - do not start extracting helpers or simplifying structure until those invariants are clear
-- Diagnostic or logging improvements must not move creation ownership or lifecycle boundaries of critical request, transport, or callback objects.
-- Identify lifecycle order, side effects, callback timing, persistence expectations, and degraded-mode behavior before moving code.
-- Keep public method shape, callback timing, threading guarantees, and failure semantics stable unless a contract change is explicitly part of the task.
-- If a proposed fallback changes the semantic class of the contract rather than only degrading availability, treat that as a behavior change, not as a safe refactor.
-- Prefer minimal-diff changes on critical paths unless a larger redesign is required for safety.
-- Keep refactor scope narrow enough that regressions can be localized quickly.
-- Delete or merge helpers only when the resulting flow keeps behavior easier to verify, not just shorter.
-- When simplifying signatures, remove parameters only if the remaining call site still makes ownership and failure behavior clearer than before.
-- Do not mix structural cleanup with feature changes unless the user explicitly wants both.
-- Maintain a clear rollback path for critical-flow refactors.
+- Behavior wins over structural elegance.
+- In preservation and refactor work, do not change reviewed behavior unless the task explicitly requires it.
+- Before refactoring a critical flow, write down the invariants first. Minimum set:
+  - lifecycle order
+  - callback timing
+  - persistence expectations
+  - fallback boundaries
+  - failure severity
+  - reviewed trigger ownership and delivery-channel boundaries for user-visible flows
+- Do not start helper extraction or structural cleanup until those invariants are fixed.
+- Keep public method shape, callback timing, threading guarantees, and failure semantics unchanged unless contract change is part of the task.
+- A fallback that changes the semantic class of the contract is a behavior change, not a safe refactor.
+- Logging or diagnostics work must not move creation ownership or lifecycle boundaries of request, transport, or callback objects.
+- On critical paths, default to minimal-diff changes. Use a larger redesign only when safety requires it.
+- Delete or merge helpers only when verification becomes easier after the change.
+- Remove parameters only when ownership and failure behavior become clearer, not just shorter.
+- Do not mix feature work and structural cleanup unless the task explicitly asks for both.
+- Keep a rollback path for critical-flow refactors.
