@@ -2,6 +2,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from server_bridge_runtime import build_bridge_stabilization_summary
+
 
 def truncate_text(value: Any, max_length: int = 240) -> str:
     text = str(value or "")
@@ -43,7 +45,7 @@ def build_status_summary(
 
     heartbeat_age = heartbeat_age_seconds(effective)
     busy_reason = derive_busy_reason(effective)
-    return {
+    summary = {
         "action": "unity_status_summary",
         "project_root": str(project_root),
         "editor_running": editor_running,
@@ -66,6 +68,14 @@ def build_status_summary(
         "request_journal_head": str(effective.get("request_journal_head") or ""),
         "state_summary": summarize_state_for_error(effective),
     }
+    summary.update(
+        build_bridge_stabilization_summary(
+            effective,
+            editor_running=editor_running,
+            mcp_reachable=bool(payload.get("mcp_reachable", True)),
+        )
+    )
+    return summary
 
 
 def summarize_scenario_step(step: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -350,4 +360,3 @@ def prune_project_artifacts(
         "removed_bytes": removed_bytes,
         "categories": categories,
     }
-

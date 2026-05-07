@@ -253,6 +253,19 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["projectRoot"]
         }
     },
+    "unity_request_final_status": {
+        "description": "Resolve final disposition for one request id from the request journal and current bridge state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "requestId": {"type": "string"},
+                "operation": {"type": "string"},
+                "timeoutMs": {"type": "integer", "default": 2000, "minimum": 0}
+            },
+            "required": ["projectRoot", "requestId"]
+        }
+    },
     "unity_project_refresh": {
         "bridgeOperation": "unity.project.refresh",
         "description": "Refresh AssetDatabase, optionally request package resolve, and optionally persist a fresh capability report.",
@@ -567,4 +580,3 @@ TOOLS: dict[str, dict[str, Any]] = {
         }
     },
 }
-

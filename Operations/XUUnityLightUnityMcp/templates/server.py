@@ -13,6 +13,7 @@ from server_bridge_runtime import (
     DEFAULT_IDLE_STABLE_CYCLES,
     active_scenario_run_path,
     annotate_bridge_state_with_liveness,
+    build_request_final_status,
     bridge_enabled,
     bridge_identity_from_state,
     bridge_root,
@@ -165,6 +166,37 @@ def inspect_package_dependency_alignment(project_root: Path) -> dict[str, Any]:
 def print_json(data: Any) -> None:
     json.dump(data, sys.stdout, indent=2, ensure_ascii=True)
     sys.stdout.write("\n")
+
+
+def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
+    details = dict(exc.details or {})
+    error: dict[str, Any] = {
+        "code": exc.code,
+        "message": exc.message,
+    }
+    if details:
+        error["details"] = details
+
+    payload: dict[str, Any] = {"error": error}
+    for key in (
+        "request_id",
+        "transport_outcome",
+        "operation_outcome",
+        "recommended_next_action",
+        "transport",
+        "initial_bridge_generation",
+        "initial_bridge_session_id",
+        "current_bridge_generation",
+        "current_bridge_session_id",
+        "retryable",
+        "request_processed",
+        "bridge_stabilization",
+        "request_final_status",
+        "journal_event_path",
+    ):
+        if key in details:
+            payload[key] = details[key]
+    return payload
 
 
 def request_editor_quit(project_root: Path, timeout_ms: int) -> dict[str, Any]:
@@ -614,14 +646,15 @@ def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> di
             timeout_ms,
         )
     except ToolInvocationError as exc:
+        payload = build_tool_error_payload(exc)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                    "text": json.dumps(payload, ensure_ascii=True)
                 }
             ],
-            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "structuredContent": payload,
             "isError": True
         }
 
@@ -683,14 +716,15 @@ def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str
             poll_interval_ms=poll_interval_ms,
         )
     except ToolInvocationError as exc:
+        payload = build_tool_error_payload(exc)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                    "text": json.dumps(payload, ensure_ascii=True)
                 }
             ],
-            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "structuredContent": payload,
             "isError": True
         }
 
@@ -722,14 +756,15 @@ def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         response = invoke_bridge(str(project_root), "unity.status", {}, timeout_ms)
     except ToolInvocationError as exc:
+        payload = build_tool_error_payload(exc)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                    "text": json.dumps(payload, ensure_ascii=True)
                 }
             ],
-            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "structuredContent": payload,
             "isError": True
         }
 
@@ -749,6 +784,44 @@ def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
         heartbeat_age_seconds=heartbeat_age_seconds,
         derive_busy_reason=derive_busy_reason,
         summarize_state_for_error=summarize_state_for_error,
+    )
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(summary, ensure_ascii=True)
+            }
+        ],
+        "structuredContent": summary,
+        "isError": False
+    }
+
+
+def call_unity_request_final_status_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    request_id = arguments.get("requestId")
+    if not isinstance(request_id, str) or not request_id.strip():
+        raise JsonRpcError(-32602, "requestId is required.")
+
+    timeout_ms = arguments.get("timeoutMs", 2000)
+    if not isinstance(timeout_ms, int):
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+
+    operation = arguments.get("operation")
+    if operation is not None and not isinstance(operation, str):
+        raise JsonRpcError(-32602, "operation must be a string when provided.")
+
+    project_root = ensure_project_root(project_root_value)
+    current_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root)
+    summary = build_request_final_status(
+        project_root,
+        request_id.strip(),
+        operation.strip() if isinstance(operation, str) else "",
+        current_state=current_state,
+        poll_timeout_ms=timeout_ms,
     )
     return {
         "content": [
@@ -782,14 +855,15 @@ def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[s
     try:
         response = invoke_bridge(project_root_value, "unity.scenario.result", bridge_args, timeout_ms)
     except ToolInvocationError as exc:
+        payload = build_tool_error_payload(exc)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                    "text": json.dumps(payload, ensure_ascii=True)
                 }
             ],
-            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "structuredContent": payload,
             "isError": True
         }
 
@@ -850,6 +924,8 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     args = arguments or {}
     if name == "unity_status_summary":
         return call_unity_status_summary_tool(args)
+    if name == "unity_request_final_status":
+        return call_unity_request_final_status_tool(args)
     if name == "unity_scenario_result_summary":
         return call_unity_scenario_result_summary_tool(args)
     if name == "unity_maintenance_prune":
@@ -875,14 +951,15 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     try:
         response = invoke_bridge(project_root, tool["bridgeOperation"], bridge_args, timeout_ms)
     except ToolInvocationError as exc:
+        payload = build_tool_error_payload(exc)
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": json.dumps({"error": {"code": exc.code, "message": exc.message}}, ensure_ascii=True)
+                    "text": json.dumps(payload, ensure_ascii=True)
                 }
             ],
-            "structuredContent": {"error": {"code": exc.code, "message": exc.message}},
+            "structuredContent": payload,
             "isError": True
         }
 
@@ -1067,6 +1144,18 @@ def cmd_request_status_summary(args):
         derive_busy_reason=derive_busy_reason,
         summarize_state_for_error=summarize_state_for_error,
     ))
+
+
+def cmd_request_final_status(args):
+    project_root = ensure_project_root(args.project_root)
+    summary = build_request_final_status(
+        project_root,
+        args.request_id,
+        args.operation or "",
+        current_state=read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root),
+        poll_timeout_ms=args.timeout_ms,
+    )
+    print_json(summary)
 
 
 def cmd_request_playmode_state(args):
@@ -1478,6 +1567,13 @@ def build_parser():
     status_summary_cmd.add_argument("--timeout-ms", type=int, default=5000)
     status_summary_cmd.set_defaults(func=cmd_request_status_summary)
 
+    final_status_cmd = sub.add_parser("request-final-status", help="Summarize final disposition for a request id using the request journal and current bridge state.")
+    final_status_cmd.add_argument("--project-root", required=True)
+    final_status_cmd.add_argument("--request-id", required=True)
+    final_status_cmd.add_argument("--operation")
+    final_status_cmd.add_argument("--timeout-ms", type=int, default=2000)
+    final_status_cmd.set_defaults(func=cmd_request_final_status)
+
     playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct unity.playmode.state request through the active bridge transport.")
     playmode_state_cmd.add_argument("--project-root", required=True)
     playmode_state_cmd.add_argument("--timeout-ms", type=int, default=5000)
@@ -1676,7 +1772,8 @@ def main():
             raise SystemExit(1)
         args.func(args)
     except ToolInvocationError as exc:
-        raise SystemExit(f"{exc.code}: {exc.message}")
+        print_json(build_tool_error_payload(exc))
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

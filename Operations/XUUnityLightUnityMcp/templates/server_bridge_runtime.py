@@ -119,6 +119,269 @@ def write_host_request_journal_event(
     return path
 
 
+def parse_journal_utc_timestamp(value: Any) -> float:
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+
+    try:
+        return float(calendar.timegm(time.strptime(text, "%Y-%m-%dT%H:%M:%SZ")))
+    except ValueError:
+        return 0.0
+
+
+def read_request_journal_events(project_root: Path, request_id: str) -> list[dict[str, Any]]:
+    journal_dir = request_journal_dir(project_root)
+    if not journal_dir.is_dir():
+        return []
+
+    matched: list[dict[str, Any]] = []
+    for path in journal_dir.glob("*.json"):
+        try:
+            payload = read_json(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("request_id") or "") != request_id:
+            continue
+
+        event = dict(payload)
+        event["_path"] = str(path)
+        matched.append(event)
+
+    matched.sort(
+        key=lambda item: (
+            parse_journal_utc_timestamp(item.get("event_at_utc")),
+            str(item.get("event_id") or ""),
+        )
+    )
+    return matched
+
+
+def build_bridge_stabilization_summary(
+    state: dict[str, Any] | None,
+    *,
+    editor_running: bool | None = None,
+    mcp_reachable: bool | None = None,
+) -> dict[str, Any]:
+    effective = state or {}
+    health_status = str(effective.get("health_status") or "unknown")
+    transport = str(effective.get("transport") or effective.get("transport_requested") or "")
+    transport_listener_state = str(effective.get("transport_listener_state") or "")
+    pending_request_count = int(effective.get("pending_request_count") or 0)
+    editor_running_effective = bool(editor_running if editor_running is not None else effective.get("editor_running", True))
+    mcp_reachable_effective = bool(mcp_reachable if mcp_reachable is not None else effective.get("mcp_reachable", True))
+
+    blocking_reasons: list[str] = []
+    if not editor_running_effective:
+        blocking_reasons.append("editor_not_running")
+    if not mcp_reachable_effective:
+        blocking_reasons.append("mcp_not_reachable")
+    if health_status != "healthy":
+        blocking_reasons.append("health_not_healthy")
+    if bool(effective.get("domain_reload_in_progress")):
+        blocking_reasons.append("domain_reload_in_progress")
+    if bool(effective.get("asset_import_in_progress")):
+        blocking_reasons.append("asset_import_in_progress")
+    if bool(effective.get("package_operation_in_progress")):
+        blocking_reasons.append("package_operation_in_progress")
+    if bool(effective.get("compile_settle_pending")):
+        blocking_reasons.append("compile_settle_pending")
+    if bool(effective.get("refresh_settle_pending")):
+        blocking_reasons.append("refresh_settle_pending")
+    if bool(effective.get("playmode_transition_pending")):
+        blocking_reasons.append("playmode_transition_pending")
+    if pending_request_count > 0:
+        blocking_reasons.append("pending_request_in_flight")
+    if transport == TCP_LOOPBACK_BRIDGE_TRANSPORT and transport_listener_state not in {"", "listening"}:
+        blocking_reasons.append("transport_listener_not_ready")
+
+    stabilized = len(blocking_reasons) == 0
+    return {
+        "bridge_generation": int(effective.get("bridge_generation") or 0),
+        "bridge_session_id": str(effective.get("bridge_session_id") or ""),
+        "transport": transport,
+        "health_status": health_status,
+        "transport_listener_state": transport_listener_state,
+        "pending_request_count": pending_request_count,
+        "stabilized": stabilized,
+        "safe_to_retry": stabilized,
+        "blocking_reasons": blocking_reasons,
+    }
+
+
+def build_request_final_status(
+    project_root: Path,
+    request_id: str,
+    operation: str = "",
+    *,
+    current_state: dict[str, Any] | None = None,
+    poll_timeout_ms: int = 0,
+    poll_interval_ms: int = 200,
+) -> dict[str, Any]:
+    deadline = time.time() + max(0.0, poll_timeout_ms / 1000.0)
+
+    while True:
+        events = read_request_journal_events(project_root, request_id)
+        active_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or current_state or {}
+        stabilization = build_bridge_stabilization_summary(active_state)
+
+        started_event = next((event for event in events if str(event.get("event_type") or "") == "request_started"), None)
+        completed_events = [event for event in events if str(event.get("event_type") or "") == "request_completed"]
+        completed_event = completed_events[-1] if completed_events else None
+        reclassified_events = [
+            event
+            for event in events
+            if str(event.get("event_type") or "") in {"request_reclassified", "request_abandoned"}
+        ]
+        reclassified_event = reclassified_events[-1] if reclassified_events else None
+        last_event = events[-1] if events else None
+
+        completion_status = str((completed_event or {}).get("operation_status") or "")
+        request_started = started_event is not None
+        request_completed = completed_event is not None
+        reclassified = reclassified_event is not None
+        retryable = bool((reclassified_event or {}).get("retryable")) if reclassified else False
+
+        if request_completed and completion_status == "ok":
+            operation_outcome = "completed_ok"
+        elif request_completed:
+            operation_outcome = "completed_failed"
+        else:
+            operation_outcome = "unknown"
+
+        if operation_outcome == "completed_ok":
+            recommended_next_action = "none"
+        elif operation_outcome == "completed_failed":
+            recommended_next_action = "inspect_request_journal"
+        elif reclassified and retryable and stabilization["safe_to_retry"]:
+            recommended_next_action = "retry_request"
+        elif reclassified and not stabilization["safe_to_retry"]:
+            recommended_next_action = "wait_for_bridge_stabilization"
+        elif not request_started and stabilization["safe_to_retry"]:
+            recommended_next_action = "retry_request"
+        elif not stabilization["safe_to_retry"]:
+            recommended_next_action = "wait_for_bridge_stabilization"
+        else:
+            recommended_next_action = "inspect_request_journal"
+
+        summary = {
+            "request_id": request_id,
+            "operation": str((started_event or completed_event or reclassified_event or {}).get("operation") or operation or ""),
+            "request_started": request_started,
+            "request_completed": request_completed,
+            "completion_status": completion_status,
+            "operation_outcome": operation_outcome,
+            "reclassified": reclassified,
+            "reclassified_status": str((reclassified_event or {}).get("reclassified_status") or ""),
+            "reclassified_reason": str((reclassified_event or {}).get("reason") or ""),
+            "retryable": retryable,
+            "recommended_next_action": recommended_next_action,
+            "request_started_at_utc": str((started_event or {}).get("started_at_utc") or (started_event or {}).get("event_at_utc") or ""),
+            "request_completed_at_utc": str((completed_event or {}).get("completed_at_utc") or (completed_event or {}).get("event_at_utc") or ""),
+            "last_event_type": str((last_event or {}).get("event_type") or ""),
+            "last_event_at_utc": str((last_event or {}).get("event_at_utc") or ""),
+            "last_bridge_generation_seen": int((last_event or {}).get("bridge_generation") or active_state.get("bridge_generation") or 0),
+            "last_bridge_session_id_seen": str((last_event or {}).get("bridge_session_id") or active_state.get("bridge_session_id") or ""),
+            "journal_event_count": len(events),
+            "journal_event_paths": [str(event.get("_path") or "") for event in events],
+            "bridge_stabilization": stabilization,
+        }
+
+        if request_completed or time.time() >= deadline:
+            return summary
+
+        time.sleep(max(0.05, poll_interval_ms / 1000.0))
+
+
+def build_lifecycle_reset_tool_error(
+    project_root: Path,
+    *,
+    request_id: str,
+    operation: str,
+    transport: str,
+    initial_bridge_generation: int,
+    initial_bridge_session_id: str,
+    current_state: dict[str, Any] | None,
+    journal_event_path: Path | None = None,
+    retryable_hint: bool | None = None,
+    request_processed_hint: bool | None = None,
+    transport_host: str = "",
+    transport_port: int = 0,
+    poll_timeout_ms: int = 1500,
+) -> ToolInvocationError:
+    final_status = build_request_final_status(
+        project_root,
+        request_id,
+        operation,
+        current_state=current_state,
+        poll_timeout_ms=poll_timeout_ms,
+    )
+    stabilization = final_status.get("bridge_stabilization") or {}
+    current_generation = int(stabilization.get("bridge_generation") or 0)
+    current_session_id = str(stabilization.get("bridge_session_id") or "")
+    operation_outcome = str(final_status.get("operation_outcome") or "unknown")
+    recommended_next_action = str(final_status.get("recommended_next_action") or "inspect_request_journal")
+
+    message = (
+        "The response channel reset before the wrapper could return the result. "
+        f"request_id: {request_id} "
+        "transport_outcome: reset_before_response_commit "
+        f"operation_outcome: {operation_outcome} "
+        f"recommended_next_action: {recommended_next_action}"
+    )
+    code = "request_lifecycle_reset"
+    if operation_outcome == "completed_ok":
+        message = (
+            "The response channel reset before the wrapper could return the result. "
+            "The Unity operation completed successfully, but the response payload was not observed. "
+            f"request_id: {request_id} "
+            "transport_outcome: reset_before_response_commit "
+            "operation_outcome: completed_ok "
+            "recommended_next_action: none"
+        )
+        code = "response_missing_after_lifecycle_reset"
+    elif operation_outcome == "completed_failed":
+        message = (
+            "The response channel reset before the wrapper could return the result. "
+            "The Unity operation completed with a failure status, but the response payload was not observed. "
+            f"request_id: {request_id} "
+            "transport_outcome: reset_before_response_commit "
+            "operation_outcome: completed_failed "
+            "recommended_next_action: inspect_request_journal"
+        )
+        code = "response_missing_after_lifecycle_reset"
+    else:
+        message = (
+            message + ". The Unity operation may still have completed."
+        )
+
+    details: dict[str, Any] = {
+        "request_id": request_id,
+        "operation": operation,
+        "transport": transport,
+        "transport_outcome": "reset_before_response_commit",
+        "operation_outcome": operation_outcome,
+        "recommended_next_action": recommended_next_action,
+        "initial_bridge_generation": initial_bridge_generation,
+        "initial_bridge_session_id": initial_bridge_session_id,
+        "current_bridge_generation": current_generation,
+        "current_bridge_session_id": current_session_id,
+        "retryable": bool(retryable_hint if retryable_hint is not None else final_status.get("retryable")),
+        "request_processed": bool(request_processed_hint if request_processed_hint is not None else final_status.get("request_completed")),
+        "request_final_status": final_status,
+        "bridge_stabilization": stabilization,
+    }
+    if journal_event_path is not None:
+        details["journal_event_path"] = str(journal_event_path)
+    if transport_host:
+        details["host"] = transport_host
+    if transport_port > 0:
+        details["port"] = transport_port
+    return ToolInvocationError(code, message, details)
+
+
 def maybe_record_settle_lifecycle_transition(
     project_root: Path,
     operation: str,
@@ -349,37 +612,17 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
                     request_path.unlink()
             except OSError:
                 pass
-            details = {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "initial_bridge_generation": initial_generation,
-                "initial_bridge_session_id": initial_session_id,
-                "current_bridge_generation": current_generation,
-                "current_bridge_session_id": current_session_id,
-                "retryable": retryable,
-                "request_processed": processed,
-                "journal_event_path": str(journal_path),
-            }
-            if retryable:
-                raise ToolInvocationError(
-                    "request_lifecycle_reset",
-                    (
-                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
-                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                        f"transport={self.name}. journal_event={journal_path}."
-                    ),
-                    details,
-                )
-
-            raise ToolInvocationError(
-                "response_missing_after_lifecycle_reset",
-                (
-                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
-                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
-                ),
-                details,
+            raise build_lifecycle_reset_tool_error(
+                project_root,
+                request_id=request_id,
+                operation=operation,
+                transport=self.name,
+                initial_bridge_generation=initial_generation,
+                initial_bridge_session_id=initial_session_id,
+                current_state=state,
+                journal_event_path=journal_path,
+                retryable_hint=retryable,
+                request_processed_hint=processed,
             )
 
         raise ToolInvocationError(
@@ -545,26 +788,33 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                 if error_code == "transport_restarting":
                     current_state = read_best_effort_bridge_state(project_root)
                     current_generation, current_session_id = bridge_identity_from_state(current_state)
-                    raise ToolInvocationError(
-                        "request_lifecycle_reset",
-                        (
-                            f"Request {request_id} for {operation} crossed a TCP transport restart before a response was committed. "
-                            f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                            f"transport={self.name} host={host} port={port}."
-                        ),
+                    journal_path = write_host_request_journal_event(
+                        project_root,
+                        "request_reclassified",
                         {
                             "request_id": request_id,
                             "operation": operation,
-                            "transport": self.name,
-                            "host": host,
-                            "port": port,
-                            "initial_bridge_generation": initial_generation,
-                            "initial_bridge_session_id": initial_session_id,
-                            "current_bridge_generation": current_generation,
-                            "current_bridge_session_id": current_session_id,
+                            "reason": "bridge_generation_changed_before_response",
                             "retryable": True,
-                            "error_code": error_code,
+                            "reclassified_status": "retryable_after_lifecycle_reset",
+                            "previous_bridge_generation": initial_generation,
+                            "previous_bridge_session_id": initial_session_id,
+                            "bridge_generation": current_generation,
+                            "bridge_session_id": current_session_id,
                         },
+                    )
+                    raise build_lifecycle_reset_tool_error(
+                        project_root,
+                        request_id=request_id,
+                        operation=operation,
+                        transport=self.name,
+                        initial_bridge_generation=initial_generation,
+                        initial_bridge_session_id=initial_session_id,
+                        current_state=current_state,
+                        journal_event_path=journal_path,
+                        retryable_hint=True,
+                        transport_host=host,
+                        transport_port=port,
                     )
             return response, request_id, request_started_at
 
@@ -593,39 +843,19 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                     "bridge_session_id": current_session_id,
                 },
             )
-            details = {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "host": host,
-                "port": port,
-                "initial_bridge_generation": initial_generation,
-                "initial_bridge_session_id": initial_session_id,
-                "current_bridge_generation": current_generation,
-                "current_bridge_session_id": current_session_id,
-                "retryable": retryable,
-                "request_processed": processed,
-                "journal_event_path": str(journal_path),
-            }
-            if retryable:
-                raise ToolInvocationError(
-                    "request_lifecycle_reset",
-                    (
-                        f"Request {request_id} for {operation} crossed a bridge lifecycle reset before a response was observed. "
-                        f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                        f"transport={self.name}. journal_event={journal_path}."
-                    ),
-                    details,
-                )
-
-            raise ToolInvocationError(
-                "response_missing_after_lifecycle_reset",
-                (
-                    f"Request {request_id} for {operation} appears processed, but its response was not observed after a bridge lifecycle reset. "
-                    f"Previous bridge_generation={initial_generation}, current bridge_generation={current_generation}. "
-                    f"transport={self.name}. journal_event={journal_path}. {summarize_state_for_error(state)}"
-                ),
-                details,
+            raise build_lifecycle_reset_tool_error(
+                project_root,
+                request_id=request_id,
+                operation=operation,
+                transport=self.name,
+                initial_bridge_generation=initial_generation,
+                initial_bridge_session_id=initial_session_id,
+                current_state=state,
+                journal_event_path=journal_path,
+                retryable_hint=retryable,
+                request_processed_hint=processed,
+                transport_host=host,
+                transport_port=port,
             )
 
         raise ToolInvocationError(

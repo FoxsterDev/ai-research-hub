@@ -102,6 +102,12 @@ Known current weakness:
 Current reconnect policy:
 
 - the host classifies a request as `request_lifecycle_reset` when bridge generation/session changes before a response is observed
+- after lifecycle reset, the host resolves final disposition by `request_id` from the request journal before returning the final operator-facing error
+- lifecycle-reset output now separates:
+  - `transport_outcome`
+  - `operation_outcome`
+  - `recommended_next_action`
+- compact operator recovery is available through `request-final-status <request_id>`
 - explicitly idempotent operations can be retried once automatically
 - non-idempotent operations stay fail-fast and surface the lifecycle-reset evidence instead of retrying blindly
 - deferred async operations now retain active-request ownership until their completion callback, which makes `request_abandoned` reachable during real in-flight reloads instead of only in theory
