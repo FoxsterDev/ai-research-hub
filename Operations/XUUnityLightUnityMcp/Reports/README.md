@@ -7,7 +7,8 @@ This folder holds point-in-time public-safe reports for the lightweight
 `xuunity` Unity MCP effort.
 
 These baseline reports were refreshed on `2026-05-07` to match the current
-lifecycle-recovery, compile-first smoke-runner, and operator-summary surface.
+lifecycle-recovery, compile-first smoke-runner, operator-summary surface, and
+clean-project Unity-version validation baseline.
 For the latest operational details, prefer the canonical docs one level up.
 
 Use these reports when:
@@ -24,6 +25,7 @@ Use these reports when:
 - `2026-05-05_roadmap_baseline.md`
 - `2026-05-05_progress_status.md`
 - `2026-05-05_xuunity_protocol_integration_status.md`
+- `2026-05-07_unity_version_matrix.md`
 
 ## Canonical Supporting Docs
 
