@@ -38,8 +38,10 @@ This is a minimal working MCP service, not a production-hardened one.
 
 What exists now:
 - install/init script
+- public clean-project Unity version-matrix runner
 - external stdio server scaffold
 - embedded Unity package template
+- version-aware package manifest templates for `2021/2022` and `6000+`
 - file IPC layout
 - Unity editor heartbeat
 - Unity capability probe and persisted health report
@@ -110,6 +112,7 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 ## Files
 
 - `init_xuunity_light_unity_mcp.sh`
+- `run_unity_version_matrix.sh`
 - `xuunity_light_unity_mcp.sh`
 - `SMOKE_TESTS.md`
 - `templates/run.sh`
@@ -117,8 +120,51 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 - `templates/scenarios/`
 - `templates/smoke/`
 - `templates/clients/`
+- `templates/package-manifests/`
 - `templates/unity-package/`
 - `Reports/`
+
+## Unity Version Matrix Runner
+
+Use the public matrix runner when the goal is to create clean projects across
+multiple installed Unity editors and run the baseline MCP regression contract.
+
+Canonical entrypoint:
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/run_unity_version_matrix.sh
+```
+
+Current runner behavior:
+
+- if no Unity versions are passed, it auto-discovers installed editors on the current host
+- if specific Unity versions are passed, it runs only those versions
+- current default discovery roots are:
+  - macOS:
+    - `/Applications/Unity/Hub/Editor`
+  - Windows:
+    - `C:\Program Files\Unity\Hub\Editor`
+    - legacy locate-style fallbacks under `C:\Program Files\Unity*`
+  - Linux:
+    - `~/Unity/Hub/Editor`
+    - `/opt/Unity/Hub/Editor`
+    - `/opt/unity/Hub/Editor`
+- if your Hub editor location is custom, set `XUUNITY_UNITY_EDITOR_ROOTS` to one or more roots separated by the platform path separator
+
+Useful commands:
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/run_unity_version_matrix.sh --list-detected
+```
+
+```bash
+bash AIRoot/Operations/XUUnityLightUnityMcp/run_unity_version_matrix.sh \
+  2021.3.58f1 \
+  2022.3.67f2 \
+  6000.0.61f1
+```
+
+The runner still needs a valid Unity license for each editor version it opens.
 
 ## License
 
@@ -170,22 +216,24 @@ working-tree version from the local `AIRoot`.
 Use the git-pinned route when the consumer must resolve the package without any
 local `AIRoot` path on disk.
 
-Host-local wrapper commands for mode switching:
+Wrapper commands for mode switching:
 
 ```bash
-AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
   devmode \
   --project-root /path/to/UnityProject
 ```
 
 ```bash
-AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
   prodmode \
   --project-root /path/to/UnityProject
 ```
 
 Behavior:
 
+- `devmode` materializes a version-selected local package source under:
+  - `<Project>/XUUnityLightMcpPackageSource/com.xuunity.light-mcp`
 - `devmode` rewrites `Packages/manifest.json` back to the local `file:` source
 - `prodmode` rewrites `Packages/manifest.json` to a git-pinned dependency using:
   - the current `AIRoot` `origin` URL
@@ -194,6 +242,8 @@ Behavior:
   so Unity is forced to re-resolve the package honestly on the next refresh/reopen
 - `prodmode` intentionally pins committed state only; uncommitted local `AIRoot`
   changes are not part of the resolved package
+- the public wrapper delegates unknown project-specific commands to a host-local
+  wrapper when one exists
 
 ## Scaffold Install
 
@@ -250,7 +300,8 @@ External scaffold:
 
 Public convenience wrapper:
 - `AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh`
-  - delegates to `AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh` when that host-local wrapper exists
+  - directly supports the public `devmode` and `prodmode` package-source switches
+  - delegates unknown project-specific commands to `AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh` when that host-local wrapper exists
   - otherwise falls back to the installed helper in `~/.codex-tools/`
 
 Optional Unity project scaffold:
@@ -464,6 +515,60 @@ Recommended validation order for a new host:
 5. run the request-abandoned fault route
 
 The right evidence bar for Windows/Linux is host execution, not protocol inference.
+
+## Unity Version Validation Status
+
+Keep Unity-version claims just as narrow as transport claims:
+
+- report `live-proven` only for Unity editor versions where the clean-project MCP regression was actually run
+- do not infer `2021 LTS` or `2022 LTS` support from a successful `6000.x` run
+- treat the package manifest minimum as part of the support contract
+
+Current package declaration:
+
+- `templates/unity-package/package.json`
+  - `"unity": "6000.0"`
+
+Current compatibility strategy for legacy editors:
+
+- keep the checked-in base package under `templates/unity-package/` as the `6000+` line
+- generate a version-aware package source per project when wiring older editors
+- select the package manifest from:
+  - `templates/package-manifests/unity-package-2021_2022.json`
+  - `templates/package-manifests/unity-package-6000.json`
+
+Live-proven on this macOS host by clean-project regression on `2026-05-07`:
+
+| Unity version | Result | Notes |
+| --- | --- | --- |
+| `2021.3.58f1` | `live-proven` | full clean-project MCP regression passed with the version-aware generated package source |
+| `2022.3.62f3` | `live-proven` | full clean-project MCP regression passed with the version-aware generated package source |
+| `2022.3.67f2` | `live-proven` | full clean-project MCP regression passed with the version-aware generated package source |
+| `6000.0.58f2` | `live-proven` | full clean-project MCP regression passed |
+| `6000.0.61f1` | `live-proven` | full clean-project MCP regression passed |
+| `6000.2.14f1` | `live-proven` | full clean-project MCP regression passed |
+| `6000.3.3f1` | `live-proven` | full clean-project MCP regression passed |
+| `2021.3.45f2` | `not live-proven on this host` | clean-project creation was blocked by editor licensing before MCP validation |
+
+Regression contract used for the `live-proven` rows:
+
+1. create clean project
+2. add `com.xuunity.light-mcp` as a local `file:` package
+3. enable the bridge
+4. run `ensure-ready`
+5. run `request-status`
+6. run `request-health-probe`
+7. run `request-capabilities`
+8. run `interactive_acceptance_smoke.json`
+9. run `refresh_contract_smoke.json`
+10. run `compile_contract_smoke.json`
+
+Operational rule:
+
+- if a version has not passed that full clean-project route on the current host, do not label it `live-proven`
+- if the target editor is older than `6000`, use the version-aware generated package-source route instead of assuming the checked-in `6000` package manifest is directly consumable
+- current pre-`6000` proof is for the generated local package-source route used by installer/devmode, not for the `prodmode` git-pinned route
+- the public runner now auto-discovers installed editors on macOS, Windows, and Linux, but `live-proven` still requires an executed host run on that specific machine/OS
 
 Current request-lifecycle event set now includes:
 

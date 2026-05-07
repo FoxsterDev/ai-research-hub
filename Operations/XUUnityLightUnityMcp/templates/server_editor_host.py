@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import json
 import os
 import re
 import shutil
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -22,6 +24,289 @@ from server_core import ToolInvocationError, read_json, write_json
 from server_specs import STARTUP_POLICIES
 
 ACTIVATION_DELAY_SECONDS = 0.35
+UNITY_EDITOR_ROOTS_ENV = "XUUNITY_UNITY_EDITOR_ROOTS"
+
+
+def host_platform_kind() -> str:
+    if sys.platform == "darwin":
+        return "macos"
+    if os.name == "nt":
+        return "windows"
+    return "linux"
+
+
+def parse_unity_version_from_text(value: str) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+
+    match = re.search(r"(\d{4}\.\d+\.\d+[A-Za-z]\d+)", text)
+    if match:
+        return match.group(1)
+    return text
+
+
+def version_sort_key(version: str) -> tuple[Any, ...]:
+    text = (version or "").strip()
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)([A-Za-z])(\d+)$", text)
+    if not match:
+        return (0, 0, 0, 0, 0, text)
+
+    stream_rank = {
+        "a": 0,
+        "b": 1,
+        "f": 2,
+        "p": 3,
+        "x": 4,
+    }
+    major, minor, patch, stream, stream_number = match.groups()
+    return (
+        int(major),
+        int(minor),
+        int(patch),
+        stream_rank.get(stream.lower(), 99),
+        int(stream_number),
+        text,
+    )
+
+
+def normalize_unity_installation_path(path: Path) -> Path | None:
+    candidate = path.expanduser().resolve()
+    platform_kind = host_platform_kind()
+
+    if platform_kind == "macos":
+        if candidate.is_file() and candidate.name == "Unity" and candidate.parent.name == "MacOS":
+            app_path = candidate.parent.parent.parent
+            if app_path.name == "Unity.app":
+                return app_path
+        if candidate.is_dir() and candidate.name == "Unity.app" and (candidate / "Contents" / "MacOS" / "Unity").is_file():
+            return candidate
+        return None
+
+    if platform_kind == "windows":
+        if candidate.is_file() and candidate.name.lower() == "unity.exe":
+            return candidate
+        if candidate.is_dir():
+            direct = candidate / "Unity.exe"
+            nested = candidate / "Editor" / "Unity.exe"
+            if direct.is_file():
+                return direct
+            if nested.is_file():
+                return nested
+        return None
+
+    if candidate.is_file() and candidate.name == "Unity":
+        return candidate
+    if candidate.is_dir():
+        direct = candidate / "Unity"
+        nested = candidate / "Editor" / "Unity"
+        if direct.is_file():
+            return direct
+        if nested.is_file():
+            return nested
+    return None
+
+
+def resolve_unity_executable(unity_app: Path) -> Path:
+    normalized = normalize_unity_installation_path(unity_app)
+    if normalized is None:
+        raise ToolInvocationError("unity_app_not_found", f"Unity installation not found: {unity_app}")
+
+    if host_platform_kind() == "macos":
+        executable = normalized / "Contents" / "MacOS" / "Unity"
+    else:
+        executable = normalized
+
+    if not executable.is_file():
+        raise ToolInvocationError("unity_binary_not_found", f"Unity binary not found: {executable}")
+    return executable
+
+
+def resolve_unity_app_version(unity_app: Path) -> str:
+    normalized = normalize_unity_installation_path(unity_app)
+    if normalized is None:
+        return ""
+
+    platform_kind = host_platform_kind()
+    if platform_kind == "macos":
+        return normalized.parent.name
+
+    if platform_kind == "windows":
+        if normalized.parent.name == "Editor":
+            return parse_unity_version_from_text(normalized.parent.parent.name)
+        return parse_unity_version_from_text(normalized.parent.name)
+
+    if normalized.parent.name == "Editor":
+        return parse_unity_version_from_text(normalized.parent.parent.name)
+    return parse_unity_version_from_text(normalized.parent.name)
+
+
+def configured_unity_editor_roots() -> list[Path]:
+    raw = (os.environ.get(UNITY_EDITOR_ROOTS_ENV) or "").strip()
+    if not raw:
+        return []
+
+    roots: list[Path] = []
+    for entry in raw.split(os.pathsep):
+        entry = entry.strip()
+        if not entry:
+            continue
+        roots.append(Path(entry).expanduser())
+    return roots
+
+
+def candidate_unity_editor_roots() -> list[Path]:
+    configured = configured_unity_editor_roots()
+    if configured:
+        return configured
+
+    platform_kind = host_platform_kind()
+    roots: list[Path] = []
+
+    if platform_kind == "macos":
+        roots.append(Path("/Applications/Unity/Hub/Editor"))
+        return roots
+
+    if platform_kind == "windows":
+        seen: set[str] = set()
+        for env_name in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+            value = (os.environ.get(env_name) or "").strip()
+            if not value:
+                continue
+            expanded = str(Path(value).expanduser())
+            if expanded.lower() in seen:
+                continue
+            seen.add(expanded.lower())
+            roots.append(Path(expanded))
+        return roots
+
+    roots.append(Path.home() / "Unity" / "Hub" / "Editor")
+    roots.append(Path("/opt/Unity/Hub/Editor"))
+    roots.append(Path("/opt/unity/Hub/Editor"))
+    return roots
+
+
+def iter_candidate_installation_paths_from_root(root: Path) -> list[Path]:
+    platform_kind = host_platform_kind()
+    candidates: list[Path] = []
+
+    normalized_root = normalize_unity_installation_path(root)
+    if normalized_root is not None:
+        candidates.append(normalized_root)
+        return candidates
+
+    if not root.exists():
+        return candidates
+
+    if platform_kind == "macos":
+        candidates.extend(sorted(root.glob("*/Unity.app")))
+        return candidates
+
+    if platform_kind == "windows":
+        candidates.extend(sorted(root.glob("Unity/Hub/Editor/*/Editor/Unity.exe")))
+        candidates.extend(sorted(root.glob("Unity*/Editor/Unity.exe")))
+        candidates.extend(sorted(root.glob("Unity/Editor/Unity.exe")))
+        return candidates
+
+    candidates.extend(sorted(root.glob("*/Editor/Unity")))
+    candidates.extend(sorted(root.glob("*/Unity")))
+    return candidates
+
+
+def discover_unity_installations() -> list[tuple[str, Path]]:
+    discovered: list[tuple[str, Path]] = []
+    seen: set[str] = set()
+
+    for root in candidate_unity_editor_roots():
+        for candidate in iter_candidate_installation_paths_from_root(root):
+            normalized = normalize_unity_installation_path(candidate)
+            if normalized is None:
+                continue
+            key = str(normalized).lower() if os.name == "nt" else str(normalized)
+            if key in seen:
+                continue
+            seen.add(key)
+            version = resolve_unity_app_version(normalized)
+            discovered.append((version, normalized))
+
+    discovered.sort(key=lambda item: version_sort_key(item[0]))
+    return discovered
+
+
+def list_process_commands() -> list[tuple[int, str]]:
+    if os.name == "nt":
+        shell_path = shutil.which("powershell") or shutil.which("powershell.exe") or shutil.which("pwsh")
+        if not shell_path:
+            return []
+
+        script = (
+            "Get-CimInstance Win32_Process | "
+            "Where-Object { $_.CommandLine } | "
+            "Select-Object ProcessId,CommandLine | "
+            "ConvertTo-Json -Compress"
+        )
+        try:
+            completed = subprocess.run(
+                [shell_path, "-NoProfile", "-Command", script],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            return []
+
+        raw = completed.stdout.strip()
+        if not raw:
+            return []
+
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+
+        if isinstance(payload, dict):
+            payload = [payload]
+
+        commands: list[tuple[int, str]] = []
+        for entry in payload if isinstance(payload, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                pid = int(entry.get("ProcessId") or 0)
+            except (TypeError, ValueError):
+                continue
+            command = str(entry.get("CommandLine") or "").strip()
+            if pid > 0 and command:
+                commands.append((pid, command))
+        return commands
+
+    try:
+        completed = subprocess.run(
+            ["ps", "-axo", "pid=,command="],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return []
+
+    commands: list[tuple[int, str]] = []
+    for line in completed.stdout.splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+        parts = line.lstrip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        raw_pid, command = parts
+        try:
+            pid = int(raw_pid)
+        except ValueError:
+            continue
+        command = command.strip()
+        if pid > 0 and command:
+            commands.append((pid, command))
+    return commands
 
 
 def try_read_host_editor_session_state(project_root: Path) -> dict[str, Any] | None:
@@ -52,43 +337,26 @@ def clear_host_editor_session_state(project_root: Path) -> None:
 
 def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str, Any]]:
     target_path = str(project_root)
-    marker = f"-projectPath {target_path}"
-
-    try:
-        completed = subprocess.run(
-            ["ps", "-axo", "pid=,command="],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return []
+    target_path_posix = target_path.replace("\\", "/")
 
     matches: list[dict[str, Any]] = []
     seen_pids: set[int] = set()
-    for line in completed.stdout.splitlines():
-        line = line.rstrip()
-        if not line:
-            continue
-
-        parts = line.lstrip().split(None, 1)
-        if len(parts) != 2:
-            continue
-
-        raw_pid, command = parts
-        try:
-            pid = int(raw_pid)
-        except ValueError:
-            continue
+    for pid, command in list_process_commands():
+        normalized_command = command.replace("\\ ", " ").strip()
+        command_for_match = normalized_command.replace("\\", "/")
 
         if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
             continue
 
-        if "Unity.app/Contents/MacOS/Unity" not in command:
+        if not (
+            "Unity.app/Contents/MacOS/Unity" in normalized_command
+            or "Unity.exe" in normalized_command
+            or "/Unity " in f"{command_for_match} "
+            or command_for_match.endswith("/Unity")
+        ):
             continue
 
-        normalized_command = command.replace("\\ ", " ")
-        if marker not in normalized_command and target_path not in normalized_command:
+        if target_path not in normalized_command and target_path_posix not in command_for_match:
             continue
 
         unity_app = ""
@@ -96,10 +364,16 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
         app_match = re.search(r"(.+?/Unity\.app)/Contents/MacOS/Unity", normalized_command)
         if app_match:
             unity_app = app_match.group(1)
-            try:
-                unity_version = Path(unity_app).parent.name
-            except Exception:
-                unity_version = ""
+            unity_version = resolve_unity_app_version(Path(unity_app))
+        else:
+            windows_match = re.search(r'([A-Za-z]:\\[^"\r\n]*?Unity\.exe)', normalized_command)
+            linux_match = re.search(r"((?:/[^\"\s]+)+/Unity)(?:\s|$)", command_for_match)
+            if windows_match:
+                unity_app = windows_match.group(1)
+                unity_version = resolve_unity_app_version(Path(unity_app))
+            elif linux_match:
+                unity_app = linux_match.group(1)
+                unity_version = resolve_unity_app_version(Path(unity_app))
 
         matches.append(
             {
@@ -226,18 +500,22 @@ def update_host_editor_session_pid(project_root: Path, editor_pid: int) -> None:
 
 def detect_unity_app_path(explicit_path: str | None) -> Path:
     if explicit_path:
-        path = Path(explicit_path).expanduser().resolve()
-        if not path.is_dir():
-            raise ToolInvocationError("unity_app_not_found", f"Unity app not found: {path}")
-        return path
+        normalized = normalize_unity_installation_path(Path(explicit_path))
+        if normalized is None:
+            raise ToolInvocationError("unity_app_not_found", f"Unity installation not found: {explicit_path}")
+        return normalized
 
-    candidates = sorted(Path("/Applications/Unity/Hub/Editor").glob("*/Unity.app"))
+    candidates = discover_unity_installations()
     if not candidates:
         raise ToolInvocationError(
             "unity_app_not_found",
-            "Could not auto-detect a Unity.app under /Applications/Unity/Hub/Editor. Pass --unity-app explicitly.",
+            (
+                "Could not auto-detect a Unity installation. "
+                f"Check the default Unity Hub install locations for {host_platform_kind()} "
+                f"or set {UNITY_EDITOR_ROOTS_ENV} to one or more custom roots."
+            ),
         )
-    return candidates[-1]
+    return candidates[-1][1]
 
 
 def read_project_unity_version(project_root: Path) -> str | None:
@@ -262,20 +540,17 @@ def detect_unity_app_path_for_project(project_root: Path, explicit_path: str | N
 
     project_version = read_project_unity_version(project_root)
     if project_version:
-        exact_match = Path("/Applications/Unity/Hub/Editor") / project_version / "Unity.app"
-        if exact_match.is_dir():
-            return exact_match.resolve()
+        for version, candidate in discover_unity_installations():
+            if version == project_version:
+                return candidate
 
     return detect_unity_app_path(None)
 
 
-def resolve_unity_app_version(unity_app: Path) -> str:
-    return unity_app.parent.name
-
-
 def activate_unity_editor(project_root: Path, explicit_unity_app: Path | None = None) -> dict[str, Any]:
     unity_app = explicit_unity_app or detect_unity_app_path_for_project(project_root, None)
-    subprocess.run(["open", "-a", str(unity_app)], check=True)
+    if host_platform_kind() == "macos":
+        subprocess.run(["open", "-a", str(unity_app)], check=True)
     time.sleep(ACTIVATION_DELAY_SECONDS)
     return {
         "unity_app": str(unity_app),
@@ -468,24 +743,54 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
                 ),
             )
 
-    command = ["open"]
-    if background_open:
-        command.append("-g")
-    command.extend(
-        [
-            "-na",
-            str(unity_app),
-            "--args",
+    launched_pid = 0
+    if host_platform_kind() == "macos":
+        command = ["open"]
+        if background_open:
+            command.append("-g")
+        command.extend(
+            [
+                "-na",
+                str(unity_app),
+                "--args",
+                "-projectPath",
+                str(project_root),
+                "-logFile",
+                str(log_path),
+            ]
+        )
+        subprocess.run(command, check=True)
+        launched_editors = find_running_unity_editors_for_project(project_root)
+        launched_pid = int(launched_editors[0]["pid"]) if launched_editors else 0
+    else:
+        unity_executable = resolve_unity_executable(unity_app)
+        command = [
+            str(unity_executable),
             "-projectPath",
             str(project_root),
             "-logFile",
             str(log_path),
         ]
-    )
+        popen_kwargs: dict[str, Any] = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+            "close_fds": True,
+        }
+        if os.name == "nt":
+            creation_flags = 0
+            detached_process = getattr(subprocess, "DETACHED_PROCESS", 0)
+            new_process_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            if background_open:
+                creation_flags |= detached_process
+            creation_flags |= new_process_group
+            if creation_flags:
+                popen_kwargs["creationflags"] = creation_flags
+        else:
+            popen_kwargs["start_new_session"] = True
 
-    subprocess.run(command, check=True)
-    launched_editors = find_running_unity_editors_for_project(project_root)
-    launched_pid = int(launched_editors[0]["pid"]) if launched_editors else 0
+        process = subprocess.Popen(command, **popen_kwargs)
+        launched_pid = int(process.pid or 0)
     write_host_editor_session_state(
         project_root,
         build_host_editor_session_state(project_root, unity_app, log_path, background_open, launched_pid),
@@ -509,9 +814,7 @@ def build_plain_batch_build_command(
     scene_paths: list[str],
     build_options: list[str],
 ) -> list[str]:
-    unity_binary = unity_app / "Contents" / "MacOS" / "Unity"
-    if not unity_binary.is_file():
-        raise ToolInvocationError("unity_binary_not_found", f"Unity binary not found: {unity_binary}")
+    unity_binary = resolve_unity_executable(unity_app)
 
     command = [
         str(unity_binary),
