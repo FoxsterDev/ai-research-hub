@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Design Baseline
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public baseline report`
 
 ## Scope
@@ -81,6 +81,7 @@ That rule is already active for the Game View path.
 - compile validation without active platform switching
 - reusable public smoke runners
 - host-side editor-state restore for host-opened validation runs
+- request-journal-backed lifecycle recovery after host-side response loss
 
 ## Current Design Gaps
 

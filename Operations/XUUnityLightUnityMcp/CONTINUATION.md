@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Continuation
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `active continuation note`
 
 ## Current Baseline
@@ -12,10 +12,14 @@ It now has:
 - an editor-only Unity bridge
 - capability probing and gating
 - compile and test validation
+- compact status summaries with bridge stabilization output
 - play mode control
 - Game View configure and screenshot support
 - asynchronous scenario automation with persisted results
 - host-side startup helpers with fail-fast policy for interactive editor startup
+- lifecycle-reset recovery by `request_id`
+- explicit operator-facing split between transport outcome and Unity operation outcome
+- compile-first public post-change validation ordering
 
 The public `xuunity` protocol layer also now understands validation-lane
 selection.
@@ -32,6 +36,8 @@ External server:
 - `ensure-ready`
 - `request-editor-quit`
 - `restore-editor-state`
+- `request-status-summary`
+- `request-final-status`
 - host-local package-source mode switching:
   - `devmode`
   - `prodmode`
@@ -119,9 +125,10 @@ Meaning:
 3. whether the bridge is enabled
 4. `bridge_state.json`
 5. `capabilities_report.json`
-6. `unity.status`
+6. `unity.status` or `request-status-summary`
 7. `unity.capabilities.get`
 8. `unity.health.probe`
+9. if a request crossed lifecycle churn, `request-final-status <request_id>`
 
 Only after that:
 - compile
@@ -136,12 +143,13 @@ For reusable MCP work:
 
 1. `README.md`
 2. `DESIGN.md`
-3. `ROADMAP.md`
-4. `AI_INTEGRATION.md`
-5. `COMPARISON.md`
-6. `Reports/2026-05-05_progress_status.md`
-7. `Reports/2026-05-05_xuunity_protocol_integration_status.md`
-8. this continuation note
+3. `CHAT_RETRO_PROMPT.md` when the source is a real failure or weak operator session
+4. `ROADMAP.md`
+5. `AI_INTEGRATION.md`
+6. `COMPARISON.md`
+7. `Reports/2026-05-05_progress_status.md`
+8. `Reports/2026-05-05_xuunity_protocol_integration_status.md`
+9. this continuation note
 
 For shared protocol integration work:
 
@@ -163,6 +171,8 @@ For shared protocol integration work:
 - startup helpers can fail fast on interactive compile blockers and package-resolution failures
 - host-opened editor sessions can be restored to the original closed state after validation
 - baseline smoke orchestration can be reused from public `AIRoot` templates while keeping consumer-specific fixtures host-local
+- lifecycle-reset ambiguity can now be resolved from the request journal without manual raw journal digging
+- the reusable post-change validation route now runs compile before heavier scenario work
 
 ## What Is Not Yet Proven
 
@@ -184,24 +194,28 @@ For shared protocol integration work:
 
 ## Recommended Next Work
 
-1. harden the scenario lane:
-   - richer assertions
-   - better result summaries
-   - clearer failure taxonomy
+1. harden lifecycle and transport proof:
+   - lifecycle fault injection
+   - bridge churn recovery proof
+   - clearer cancellation and stale-request hygiene
 2. add scenario-result utilities:
    - last-result fetch
    - result listing
    - artifact path surfacing
-3. add first runtime evidence adapters:
+3. harden the scenario lane:
+   - richer assertions
+   - better result summaries
+   - clearer failure taxonomy
+4. add first runtime evidence adapters:
    - runtime markers
    - frame or state checkpoints
    - controlled project hook outputs
-4. design the device layer on top of scenario control:
+5. design the device layer on top of scenario control:
    - launch
    - screenshot
    - profiler capture
-5. broaden proof across more client and host combinations
-6. only then move toward autonomous performance and bottleneck workflows
+6. broaden proof across more client and host combinations
+7. only then move toward autonomous performance and bottleneck workflows
 
 ## Important Non-Goals For The Next Chat
 

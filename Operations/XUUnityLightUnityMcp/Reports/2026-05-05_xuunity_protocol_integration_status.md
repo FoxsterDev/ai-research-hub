@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Protocol Integration Status
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public progress report`
 
 ## Scope
@@ -38,6 +38,8 @@ Public continuation and integration files now exist in:
 - first scenario automation layer
 - public reusable smoke runners
 - validated host-side editor-state restore for host-opened validation runs
+- explicit lifecycle-reset recovery by `request_id`
+- reusable compile-first post-change validation ordering
 
 ## What Still Needs To Happen For `xuunity`
 
@@ -59,7 +61,7 @@ The next `xuunity`-side integration steps are:
 
 ## Immediate Next Work For A New Chat
 
-1. add richer scenario steps and richer assertions
+1. add lifecycle fault-injection proof and recovery acceptance checks
 2. add scenario result utilities and artifact surfacing
 3. broaden public smoke proof across more consumers and clients
 4. continue wiring scenario guidance into the shared `xuunity` protocol layer

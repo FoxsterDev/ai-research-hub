@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Current State Summary
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public current-state summary`
 
 ## Scope
@@ -25,6 +25,9 @@ Current reusable surface includes:
 - asynchronous scenario validation, run, and result retrieval
 - public reusable smoke runners
 - host-side editor-state restore for host-opened validation sessions
+- lifecycle-reset finalization recovery by `request_id`
+- compact status summaries with bridge stabilization fields
+- compile-first public post-change validation ordering
 
 ## Current Strengths
 
@@ -32,6 +35,7 @@ Current reusable surface includes:
 - no default player-build contamination
 - explicit capability-gated behavior for version-sensitive operations
 - stronger lifecycle evidence through bridge session/generation state
+- operator-facing separation of transport outcome from Unity operation outcome
 - Unity-side settle watchers for refresh, compile, and play mode transitions
 - public-safe reusable smoke assets under `templates/scenarios/` and `templates/smoke/`
 

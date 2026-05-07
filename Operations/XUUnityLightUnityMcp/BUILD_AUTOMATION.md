@@ -16,6 +16,7 @@ Current public operations:
 - `unity.compile.player_scripts`
 - `unity.compile.matrix`
 - `unity_status_summary`
+- `unity_request_final_status`
 - `unity_scenario_result_summary`
 - `unity_maintenance_prune`
 
@@ -30,6 +31,7 @@ This means the public layer already covers:
 - deterministic platform switching
 - compile validation without switching active build target
 - compact polling/status surfaces
+- request-level recovery follow-up after transport churn
 - cleanup of request/scenario/capture artifacts
 - typed project hook execution inside scenarios
 
@@ -145,6 +147,7 @@ The public surface should avoid forcing callers to inspect large raw logs.
 
 Preferred pattern:
 - read compact status summaries first
+- resolve ambiguous lifecycle-reset requests by request id before rerunning them
 - read compact scenario summaries second
 - inspect full logs only on failure or unresolved ambiguity
 - prune old request journals and scenario results routinely

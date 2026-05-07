@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Progress Status
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public progress report`
 
 ## Summary
@@ -20,6 +20,7 @@ Implemented:
 - install/init workflow
 - enable/disable workflow
 - status and capability probing
+- compact status summary with retry/stabilization clues
 - compile validation
 - edit-mode test execution
 - scene snapshot
@@ -31,6 +32,8 @@ Implemented:
 - persisted scenario results
 - public reusable smoke runners
 - host-side editor-state restore for host-opened validation runs
+- request-finalization recovery after lifecycle reset
+- compile-first reusable post-change validation ordering
 
 ## Current Maturity
 
@@ -55,6 +58,7 @@ The current service has already proven that it can:
 - persist scenario result bundles
 - run second-wave scenario steps for compile, tests, Game View configure, and project-defined hooks
 - restore host-opened Unity sessions back to closed after validation
+- resolve lifecycle-reset ambiguity from the request journal by request id
 
 ## What Is Not Yet Proven
 
@@ -92,7 +96,7 @@ It should also read:
 
 Next:
 
-- add richer scenario assertions and scenario result utilities
+- add lifecycle-fault proof and scenario result utilities
 - broaden proof across more clients and more Unity consumers
 
 This is now the most valuable bridge between the current validated core and the

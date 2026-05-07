@@ -1,6 +1,6 @@
 # AI Integration Guide
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `active public guidance`
 
 ## Purpose
@@ -133,6 +133,7 @@ Before doing real work, check in this order:
 8. `unity.capabilities.get` succeeds
 9. `unity.health.probe` succeeds
 10. if the host opened Unity for the validation session, the closeout path is defined
+11. if transport churn interrupted a request, resolve it with `request-final-status --request-id <id>`
 
 Only after that:
 
@@ -150,6 +151,7 @@ An integrating agent should:
 - treat capability probe as authoritative for version-sensitive operations
 - keep the bridge disabled unless the current task actually needs Unity-aware validation
 - prefer read and validation operations before mutation
+- prefer compile before EditMode tests when changed scripts are already in play
 - keep install and removal simple
 - keep validation gaps explicit when Unity is not running or the bridge is disabled
 
@@ -208,25 +210,26 @@ After integration, the agent should record:
 For a new consumer project, the recommended first pass is:
 
 1. `unity.status`
-2. `unity.capabilities.get`
-3. `unity.health.probe`
-4. `unity.console.tail`
-5. `unity.scene.snapshot`
-6. `unity.compile.player_scripts`
-7. `unity.tests.run_editmode`
+2. `request-status-summary`
+3. `unity.capabilities.get`
+4. `unity.health.probe`
+5. `unity.console.tail`
+6. `unity.scene.snapshot`
+7. `unity.compile.player_scripts`
+8. `unity.tests.run_editmode`
 
 Only after that:
 
-8. `unity.playmode.state`
-9. `unity.playmode.set`
-10. `unity.game_view.screenshot`
-11. `unity.scenario.validate`
-12. `unity.scenario.run`
-13. `unity.scenario.result`
+9. `unity.playmode.state`
+10. `unity.playmode.set`
+11. `unity.game_view.screenshot`
+12. `unity.scenario.validate`
+13. `unity.scenario.run`
+14. `unity.scenario.result`
 
 Scenario extension route:
 
-14. implement `IXUUnityLightMcpScenarioHook` in a project `Assets/Editor/` assembly when the consumer needs project-local automation not worth promoting into the shared package yet
+15. implement `IXUUnityLightMcpScenarioHook` in a project `Assets/Editor/` assembly when the consumer needs project-local automation not worth promoting into the shared package yet
 
 ## Where To Extend
 

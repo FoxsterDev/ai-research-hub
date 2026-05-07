@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Comparison
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `public comparison snapshot`
 Scope: compare the lightweight `XUUnity Light Unity MCP` approach against the main Unity MCP reference options that informed its design
 
@@ -82,6 +82,8 @@ That means it already covers:
 - basic editor-control loop
 - deterministic scenario replay with persisted result payloads
 - screenshot capture for verification
+- lifecycle-reset recovery with request-journal follow-up
+- compact bridge stabilization summaries for operator diagnosis
 
 ## Main Advantages Of The Lightweight MCP
 
@@ -124,6 +126,7 @@ That is a strength when the real need is:
 - verify tests
 - verify compile state
 - inspect scene/editor state
+- recover cleanly from bridge churn without collapsing transport failure into Unity operation failure
 
 ## Main Disadvantages Of The Lightweight MCP
 

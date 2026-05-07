@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Roadmap
 
-Date: `2026-05-05`
+Date: `2026-05-07`
 Status: `active public roadmap`
 
 ## North Star
@@ -34,6 +34,7 @@ Already implemented:
 
 - bridge enable/disable lifecycle
 - status and capability probing
+- compact status summaries with bridge stabilization fields
 - console tail
 - scene snapshot
 - edit-mode tests
@@ -46,6 +47,13 @@ Already implemented:
   - `unity.scenario.result`
 - public reusable smoke runners for compact and JSON-heavy validation routes
 - host-side editor session restore for host-opened validation runs
+- lifecycle-reset finalization recovery by `request_id`
+- `request-final-status` for operator follow-up after transport churn
+- operator-facing separation of:
+  - `transport_outcome`
+  - `operation_outcome`
+  - `recommended_next_action`
+- compile-first public post-change validation ordering
 
 This is enough for:
 
@@ -81,6 +89,12 @@ Deliverables:
 Done when:
 - the same project can be onboarded and used across multiple clients without ad hoc host fixes
 - every operation returns stable structured evidence
+
+Current progress:
+- lifecycle-reset ambiguity is materially reduced
+- compact operator recovery by `request_id` is now in place
+- compile-first validation order is now part of the reusable runner baseline
+- remaining work in this wave is broader fault-injection proof, cancellation hygiene, and artifact-manifest depth
 
 ### Wave 2: Better Read Surface
 
@@ -290,11 +304,11 @@ That is the right target for "full automation support through MCP".
 
 The next milestone should be:
 
-`richer scenario assertions, result utilities, and broader cross-client proof`
+`lifecycle-fault proof, scenario result utilities, and broader cross-client proof`
 
 That means:
 
-- harden current operations further
+- harden current operations further under induced transport churn
 - expand scenario result evidence and artifact surfacing
 - validate the same public smoke routes across more clients and consumers
 - keep device profiling for the next wave, not this one
