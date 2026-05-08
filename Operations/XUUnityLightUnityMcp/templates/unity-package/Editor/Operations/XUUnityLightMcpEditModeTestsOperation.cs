@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using XUUnity.LightMcp.Editor.Bridge;
 using XUUnity.LightMcp.Editor.Core;
+using XUUnity.LightMcp.Editor.Helpers;
 
 namespace XUUnity.LightMcp.Editor.Operations
 {
@@ -92,6 +93,7 @@ namespace XUUnity.LightMcp.Editor.Operations
             filter.groupNames = NormalizeFilterValues(args.groupNames);
             filter.categoryNames = NormalizeFilterValues(args.categoryNames);
             filter.assemblyNames = NormalizeFilterValues(args.assemblyNames);
+            XUUnityLightMcpEditModeFilterResolver.ResolveTestNames(filter);
             return true;
         }
 
