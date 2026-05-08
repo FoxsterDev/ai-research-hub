@@ -411,6 +411,7 @@ namespace XUUnity.LightMcp.Editor.Batch
             filter.groupNames = NormalizeFilterValues(args.groupNames);
             filter.categoryNames = NormalizeFilterValues(args.categoryNames);
             filter.assemblyNames = NormalizeFilterValues(args.assemblyNames);
+            XUUnityLightMcpEditModeFilterResolver.ResolveTestNames(filter);
             return true;
         }
 
