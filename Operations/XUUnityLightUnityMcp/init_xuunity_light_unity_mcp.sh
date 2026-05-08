@@ -45,7 +45,7 @@ Usage:
   bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh [options]
 
 Options:
-    --project-root <path>     Optional Unity project root for wiring the editor-only package as a file dependency with a version-aware generated package source.
+    --project-root <path>     Optional Unity project root for wiring the editor-only package as a direct local AIRoot file dependency.
   --install-codex-config    Also append the early-stage Codex MCP config block.
   --enable-project          Write local bridge config under Library/ so the editor-only bridge is active on next editor load.
   --disable-project         Remove local bridge config and local bridge state under Library/.
@@ -70,88 +70,9 @@ install_dir="$tools_home/xuunity-light-unity-mcp"
 config_path="$codex_home/config.toml"
 run_path="$install_dir/run.sh"
 
-read_project_unity_version() {
-  local project_root="$1"
-  python3 - "$project_root/ProjectSettings/ProjectVersion.txt" <<'PY'
-import pathlib
-import sys
-
-project_version_path = pathlib.Path(sys.argv[1])
-for line in project_version_path.read_text(encoding="utf-8").splitlines():
-    if line.startswith("m_EditorVersion:"):
-        print(line.split(":", 1)[1].strip())
-        raise SystemExit(0)
-raise SystemExit("Could not find m_EditorVersion in ProjectVersion.txt")
-PY
-}
-
-select_package_manifest_template() {
-  local unity_version="$1"
-  local major="${unity_version%%.*}"
-
-  case "$major" in
-    6000|6[0-9][0-9][0-9])
-      printf '%s\n' "$templates_dir/package-manifests/unity-package-6000.json"
-      ;;
-    *)
-      printf '%s\n' "$templates_dir/package-manifests/unity-package-2021_2022.json"
-      ;;
-  esac
-}
-
 materialized_package_source_path() {
   local project_root="$1"
   printf '%s\n' "$project_root/XUUnityLightMcpPackageSource/com.xuunity.light-mcp"
-}
-
-materialize_package_source() {
-  local project_root="$1"
-  local unity_version="$2"
-  local source_template_path="$templates_dir/unity-package"
-  local manifest_template_path
-  manifest_template_path="$(select_package_manifest_template "$unity_version")"
-  local destination_path
-  destination_path="$(materialized_package_source_path "$project_root")"
-
-  if [[ $dry_run -eq 1 ]]; then
-    printf '[dry-run] materialize package source %s from %s with manifest %s\n' \
-      "$destination_path" \
-      "$source_template_path" \
-      "$manifest_template_path"
-    printf '%s\n' "$destination_path"
-    return
-  fi
-
-  python3 - "$source_template_path" "$manifest_template_path" "$destination_path" "$unity_version" <<'PY'
-import json
-import pathlib
-import shutil
-import sys
-
-source_template = pathlib.Path(sys.argv[1])
-manifest_template = pathlib.Path(sys.argv[2])
-destination = pathlib.Path(sys.argv[3])
-unity_version = sys.argv[4]
-
-if destination.exists():
-    shutil.rmtree(destination)
-
-shutil.copytree(source_template, destination)
-shutil.copyfile(manifest_template, destination / "package.json")
-
-metadata = {
-    "materialized_for_unity_version": unity_version,
-    "manifest_template": str(manifest_template),
-    "source_template": str(source_template),
-}
-(destination / ".xuunity-package-source.json").write_text(
-    json.dumps(metadata, indent=2) + "\n",
-    encoding="utf-8",
-)
-PY
-
-  printf 'updated %s\n' "$destination_path" >&2
-  printf '%s\n' "$destination_path"
 }
 
 remove_materialized_package_source() {
@@ -342,13 +263,17 @@ if [[ -n "$project_root" ]]; then
     exit 1
   fi
 
-  unity_version="$(read_project_unity_version "$project_root")"
   project_package_dir="$project_root/Packages/com.xuunity.light-mcp"
   manifest_path="$project_root/Packages/manifest.json"
   package_source_path=""
 
   if [[ $uninstall_project -eq 0 && $disable_project -eq 0 ]]; then
-    package_source_path="$(materialize_package_source "$project_root" "$unity_version")"
+    package_source_path="$(python3 - "$project_root/Packages" "$templates_dir/unity-package" <<'PY'
+import os
+import sys
+print("file:" + os.path.relpath(os.path.realpath(sys.argv[2]), os.path.realpath(sys.argv[1])))
+PY
+)"
   fi
 
   if [[ $uninstall_project -eq 1 ]]; then

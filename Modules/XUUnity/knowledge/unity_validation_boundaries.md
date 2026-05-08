@@ -7,7 +7,11 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - If a project exposes a supported Unity MCP path, use that MCP path as the default Unity-aware validation route.
 - When Unity MCP is available for the active project, treat shell compile, direct Unity CLI, and ad hoc editor automation as fallback-only paths unless a project-local rule says otherwise.
 - If repo or project rules require MCP or another integrated path, treat that as a hard must-not for direct shell-launched Unity automation.
-- This hard must-not includes direct Unity editor launches, `-batchmode`, `-runTests`, `-executeMethod`, and comparable shell-driven editor automation.
+- This hard must-not includes direct Unity editor launches, `-batchmode`, `-runTests`, `-executeMethod`, and comparable shell-driven editor automation unless the repo or project exposes an approved batch lane for compile-only or EditMode-test-only validation.
+- When an approved batch lane exists, keep it narrow:
+  - compile and define-matrix validation may use that lane
+  - deterministic EditMode tests may use that lane
+  - play mode operations, scene-state inspection, Game View, and runtime choreography still require an interactive integrated lane
 - When opening Unity through an MCP wrapper or host helper, resolve the editor version from the target project's `ProjectSettings/ProjectVersion.txt`.
 - For define-sensitive validation, treat the project's build-config asset as the source of truth for the compile matrix.
 - Resolve the validation matrix from the project's `BuildConfigurationsBase` resource, typically a `*BuildConfiguration.asset` under `Assets/.../Resources/...`.

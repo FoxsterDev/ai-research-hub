@@ -23,13 +23,18 @@ Current public operations:
 Current public scenario hook lane:
 - `project_defined_hook`
 
-Current public host-side batch helper:
+Current public host-side batch helpers:
+- `batch-compile`
+- `batch-compile-matrix`
+- `batch-build-config-compile-matrix`
+- `batch-editmode-tests`
 - `batch-build-player`
 
 This means the public layer already covers:
 - current active platform inspection
 - deterministic platform switching
 - compile validation without switching active build target
+- compile and EditMode validation when the target project is closed
 - compact polling/status surfaces
 - request-level recovery follow-up after transport churn
 - cleanup of request/scenario/capture artifacts
@@ -55,6 +60,28 @@ Current minimal host-side command:
 
 ```bash
 python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  batch-compile \
+  --project-root /path/to/UnityProject \
+  --target Android
+```
+
+Define-matrix validation and deterministic EditMode tests use the same closed-project batch lane:
+
+```bash
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  batch-build-config-compile-matrix \
+  --project-root /path/to/UnityProject
+
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  batch-editmode-tests \
+  --project-root /path/to/UnityProject \
+  --assembly-name MyProject.Tests
+```
+
+Plain artifact builds still use:
+
+```bash
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
   batch-build-player \
   --project-root /path/to/UnityProject \
   --build-target Android \
@@ -63,9 +90,12 @@ python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
 
 Notes:
 - this lane is intentionally plain
-- it expects the Unity project editor to be closed before execution
+- it expects the same Unity project editor to be closed before execution
+- another Unity editor process for a different project does not block this lane
 - it uses the current project settings and enabled scenes unless scenes are passed explicitly
 - it is suitable for simple projects and CI lanes, not for custom per-project restore workflows
+- it is valid for compile, compile-matrix, and deterministic EditMode test work
+- it is not a substitute for Play Mode, Game View, scene-state inspection, or other interactive editor evidence
 
 ### 2. Profile-Aware Batch Build
 
@@ -163,6 +193,8 @@ For batch builds, the same rule applies:
   - Unity operation outcome when known
   - top actionable error or blocker
   - paths to the next raw logs only as second-line evidence
+- batch wrapper stdout should surface that summary artifact path directly instead
+  of dumping large raw result payloads or large log tails by default
 
 This keeps operator diagnosis bounded even when `prepare.log` or `build.log`
 are large.

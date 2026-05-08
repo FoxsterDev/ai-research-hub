@@ -73,6 +73,7 @@ Limits:
 - Keep `required_validation` and the chosen lane aligned. Do not ask a batch lane to prove an interactive runtime claim.
 - Use `interactive_mcp` when the question depends on live editor state, console state, scene state, Game View, play mode, or a host-integrated Unity contract.
 - Use `batch_compile` when the question is mainly compile health, define coverage, target coverage, or deterministic non-interactive test execution and direct shell automation is permitted.
+- Approved batch lanes may also cover deterministic EditMode tests when those tests do not depend on interactive editor state, but that does not extend `batch_compile` to play mode or scene-observation claims.
 - When a project provides a supported Unity MCP path, prefer an MCP-backed batch compile lane over shell compile or direct Unity CLI.
 - Resolve the Unity editor version for MCP-backed validation from `ProjectSettings/ProjectVersion.txt`.
 - For define-sensitive validation, derive the compile matrix from the project's build-config asset instead of hand-authoring define sets.
