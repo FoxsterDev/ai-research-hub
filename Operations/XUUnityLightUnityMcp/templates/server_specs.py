@@ -12,15 +12,23 @@ SCENARIO_TERMINAL_STATUSES = {"passed", "failed"}
 OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
     "unity.status": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.capabilities.get": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.health.probe": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.build_target.get": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.build_target.switch": {
         "activate_unity": True,
@@ -35,12 +43,18 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.scene.snapshot": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.scenario.validate": {
         "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
     },
     "unity.compile.player_scripts": {
         "activate_unity": True,

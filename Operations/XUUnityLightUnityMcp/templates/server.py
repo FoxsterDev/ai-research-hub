@@ -616,6 +616,8 @@ def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
         "wait_for_idle_after": False,
         "idle_stable_cycles_after": DEFAULT_IDLE_STABLE_CYCLES,
         "retry_on_lifecycle_reset": False,
+        "retry_on_transport_response_missing": False,
+        "retry_on_transport_connect_failed": False,
     }
     policy.update(OPERATION_LIFECYCLE_POLICIES.get(operation, {}))
     return policy
@@ -624,7 +626,11 @@ def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
 def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
     project_root = ensure_project_root(project_root_value)
     policy = resolve_operation_lifecycle_policy(operation)
-    max_attempts = 2 if bool(policy.get("retry_on_lifecycle_reset")) else 1
+    max_attempts = 2 if (
+        bool(policy.get("retry_on_lifecycle_reset"))
+        or bool(policy.get("retry_on_transport_response_missing"))
+        or bool(policy.get("retry_on_transport_connect_failed"))
+    ) else 1
 
     for attempt_index in range(max_attempts):
         pre_request_state = try_read_live_editor_state(project_root) or try_read_bridge_state(project_root)
@@ -717,6 +723,32 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
         except ToolInvocationError as exc:
             if exc.code == "request_lifecycle_reset" and attempt_index + 1 < max_attempts:
                 lifecycle["lifecycle_reset_retry"] = exc.details
+                continue
+            if (
+                exc.code == "transport_response_missing"
+                and bool(policy.get("retry_on_transport_response_missing"))
+                and attempt_index + 1 < max_attempts
+                and not bool((exc.details or {}).get("request_processed"))
+            ):
+                lifecycle["transport_response_missing_retry"] = exc.details
+                continue
+            if (
+                exc.code == "transport_connect_failed"
+                and bool(policy.get("retry_on_transport_connect_failed"))
+                and attempt_index + 1 < max_attempts
+            ):
+                lifecycle["transport_connect_failed_retry"] = exc.details
+                retry_state = try_read_bridge_state(project_root) or pre_request_state or {}
+                wait_for_ready(
+                    project_root=project_root,
+                    timeout_ms=min(timeout_ms, 10000),
+                    heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                    startup_policy=str(
+                        retry_state.get("startup_policy")
+                        or "fail_fast_on_interactive_compile_block"
+                    ),
+                    editor_log_path=default_editor_log_path(project_root),
+                )
                 continue
             raise
 

@@ -389,6 +389,71 @@ def build_lifecycle_reset_tool_error(
     return ToolInvocationError(code, message, details)
 
 
+def build_transport_response_missing_tool_error(
+    project_root: Path,
+    *,
+    request_id: str,
+    operation: str,
+    transport: str,
+    current_state: dict[str, Any] | None,
+    transport_host: str = "",
+    transport_port: int = 0,
+    poll_timeout_ms: int = 1000,
+) -> ToolInvocationError:
+    final_status = build_request_final_status(
+        project_root,
+        request_id,
+        operation,
+        current_state=current_state,
+        poll_timeout_ms=poll_timeout_ms,
+    )
+    stabilization = final_status.get("bridge_stabilization") or {}
+    operation_outcome = str(final_status.get("operation_outcome") or "unknown")
+    request_processed = bool(final_status.get("request_started") or final_status.get("request_completed"))
+    recommended_next_action = str(final_status.get("recommended_next_action") or "retry_request")
+    recommended_recovery_command = (
+        f"request-final-status --project-root {project_root} --request-id {request_id}"
+    )
+
+    if request_processed:
+        message = (
+            "The TCP loopback transport closed before the wrapper observed a response payload. "
+            f"request_id: {request_id} "
+            "transport_outcome: response_missing_without_reset_signal "
+            f"operation_outcome: {operation_outcome} "
+            f"recommended_next_action: {recommended_next_action} "
+            f"next_step: {recommended_recovery_command}"
+        )
+    else:
+        message = (
+            "The TCP loopback transport closed before the request was observed in the Unity request journal. "
+            f"request_id: {request_id} "
+            "transport_outcome: response_missing_without_reset_signal "
+            "operation_outcome: unknown "
+            "recommended_next_action: retry_request "
+            f"next_step: {recommended_recovery_command}"
+        )
+
+    details: dict[str, Any] = {
+        "request_id": request_id,
+        "operation": operation,
+        "transport": transport,
+        "transport_outcome": "response_missing_without_reset_signal",
+        "operation_outcome": operation_outcome,
+        "recommended_next_action": recommended_next_action,
+        "recommended_recovery_command": recommended_recovery_command,
+        "retryable": bool(final_status.get("retryable")) if request_processed else True,
+        "request_processed": request_processed,
+        "request_final_status": final_status,
+        "bridge_stabilization": stabilization,
+    }
+    if transport_host:
+        details["host"] = transport_host
+    if transport_port > 0:
+        details["port"] = transport_port
+    return ToolInvocationError("transport_response_missing", message, details)
+
+
 def maybe_record_settle_lifecycle_transition(
     project_root: Path,
     operation: str,
@@ -865,19 +930,14 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                 transport_port=port,
             )
 
-        raise ToolInvocationError(
-            "transport_response_missing",
-            (
-                f"TCP loopback transport closed without a response for {operation}. "
-                f"host={host} port={port}. {summarize_state_for_error(state)}"
-            ),
-            {
-                "request_id": request_id,
-                "operation": operation,
-                "transport": self.name,
-                "host": host,
-                "port": port,
-            },
+        raise build_transport_response_missing_tool_error(
+            project_root,
+            request_id=request_id,
+            operation=operation,
+            transport=self.name,
+            current_state=state,
+            transport_host=host,
+            transport_port=port,
         )
 
 
