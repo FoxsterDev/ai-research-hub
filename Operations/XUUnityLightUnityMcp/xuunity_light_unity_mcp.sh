@@ -9,7 +9,6 @@ INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
 SERVER_PATH="${XUUNITY_LIGHT_UNITY_MCP_SERVER:-$INSTALL_DIR/server.py}"
 PACKAGE_NAME="com.xuunity.light-mcp"
 PACKAGE_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/unity-package"
-PACKAGE_MANIFEST_TEMPLATE_DIR_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/package-manifests"
 
 require_command() {
   local command_name="$1"
@@ -88,77 +87,6 @@ raise SystemExit("Could not find m_EditorVersion in ProjectVersion.txt")
 PY
 }
 
-package_manifest_template_relative_path_for_version() {
-  local unity_version="$1"
-  local major="${unity_version%%.*}"
-
-  case "$major" in
-    6000|6[0-9][0-9][0-9])
-      printf '%s/unity-package-6000.json\n' "$PACKAGE_MANIFEST_TEMPLATE_DIR_RELATIVE_PATH"
-      ;;
-    *)
-      printf '%s/unity-package-2021_2022.json\n' "$PACKAGE_MANIFEST_TEMPLATE_DIR_RELATIVE_PATH"
-      ;;
-  esac
-}
-
-materialized_package_source_root() {
-  local project_root="$1"
-  printf '%s\n' "$project_root/XUUnityLightMcpPackageSource/$PACKAGE_NAME"
-}
-
-materialize_project_package_source() {
-  local project_root="$1"
-  local unity_version="$2"
-  local source_template_path="$AIROOT_PATH/$PACKAGE_TEMPLATE_RELATIVE_PATH"
-  local manifest_template_relative_path
-  manifest_template_relative_path="$(package_manifest_template_relative_path_for_version "$unity_version")"
-  local manifest_template_path="$AIROOT_PATH/$manifest_template_relative_path"
-  local destination_path
-  destination_path="$(materialized_package_source_root "$project_root")"
-
-  if [[ ! -f "$source_template_path/package.json" ]]; then
-    echo "local MCP package source not found: $source_template_path/package.json" >&2
-    exit 1
-  fi
-
-  if [[ ! -f "$manifest_template_path" ]]; then
-    echo "package manifest template not found: $manifest_template_path" >&2
-    exit 1
-  fi
-
-  python3 - "$source_template_path" "$manifest_template_path" "$destination_path" "$unity_version" <<'PY'
-import json
-import pathlib
-import shutil
-import sys
-
-source_template = pathlib.Path(sys.argv[1])
-manifest_template = pathlib.Path(sys.argv[2])
-destination = pathlib.Path(sys.argv[3])
-unity_version = sys.argv[4]
-
-if destination.exists():
-    shutil.rmtree(destination)
-
-shutil.copytree(source_template, destination)
-shutil.copyfile(manifest_template, destination / "package.json")
-
-metadata = {
-    "materialized_for_unity_version": unity_version,
-    "manifest_template": str(manifest_template),
-    "source_template": str(source_template),
-}
-(destination / ".xuunity-package-source.json").write_text(
-    json.dumps(metadata, indent=2) + "\n",
-    encoding="utf-8",
-)
-PY
-
-  printf 'updated %s\n' "$destination_path" >&2
-  printf '%s\n' "$destination_path"
-}
-
 update_manifest_dependency() {
   local manifest_path="$1"
   local dependency_value="$2"
@@ -207,13 +135,14 @@ switch_project_to_devmode() {
 
   local project_root
   project_root="$(require_project_root_argument "$@")"
-  local unity_version
-  unity_version="$(read_project_unity_version "$project_root")"
-
   local manifest_path="$project_root/Packages/manifest.json"
   local lock_path="$project_root/Packages/packages-lock.json"
-  local package_source_path
-  package_source_path="$(materialize_project_package_source "$project_root" "$unity_version")"
+  local package_source_path="$AIROOT_PATH/$PACKAGE_TEMPLATE_RELATIVE_PATH"
+
+  if [[ ! -f "$package_source_path/package.json" ]]; then
+    echo "local MCP package source not found: $package_source_path/package.json" >&2
+    exit 1
+  fi
 
   local dependency_value
   dependency_value="$(python3 - "$project_root/Packages" "$package_source_path" <<'PY'
@@ -228,9 +157,8 @@ PY
 
   echo "xuunity-light-unity-mcp mode switched: devmode"
   echo "project_root=$project_root"
-  echo "unity_version=$unity_version"
   echo "dependency=$dependency_value"
-  echo "materialized_package_source=$package_source_path"
+  echo "package_source=$package_source_path"
   echo "packages_lock_entry_removed=true"
   echo "next_step=let Unity re-resolve packages by reopen, focus, or explicit refresh"
 }
@@ -254,7 +182,7 @@ switch_project_to_prodmode() {
     6000|6[0-9][0-9][0-9])
       ;;
     *)
-      echo "prodmode is currently supported only for Unity 6000+ package variants; use devmode for version-aware materialized package sources on $unity_version" >&2
+      echo "prodmode is currently supported only for Unity 6000+ package variants; use devmode for direct local AIRoot package iteration on $unity_version" >&2
       exit 1
       ;;
   esac

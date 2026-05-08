@@ -43,6 +43,12 @@ External server:
 - host-local package-source mode switching:
   - `devmode`
   - `prodmode`
+- approved closed-project batch validation helpers:
+  - `batch-compile`
+  - `batch-compile-matrix`
+  - `batch-build-config-compile-matrix`
+  - `batch-editmode-tests`
+  - `batch-build-player`
 
 Unity bridge:
 - heartbeat state
@@ -119,6 +125,9 @@ Meaning:
   automation are equivalent
 - lane selection is now part of the protocol contract
 - new work should extend that model rather than inventing another validation-path taxonomy
+- compile and deterministic EditMode tests may now use an approved closed-project
+  `batch_compile` lane, but Play Mode and scene-observation work still require
+  `interactive_mcp`
 
 ## What A New Chat Should Check First
 
@@ -133,6 +142,14 @@ Meaning:
 9. if a request crossed lifecycle churn, `request-final-status <request_id>`
 10. prefer compact scenario or batch summaries before raw result polling or raw
     log inspection
+
+Mini-playbook after wrapper churn:
+
+1. do not retry the original operation yet
+2. run `request-final-status --project-root <project> --request-id <id>`
+3. if the request completed, use that disposition and continue
+4. only retry after the request-id recovery step says the original operation did
+   not complete
 
 Only after that:
 - compile

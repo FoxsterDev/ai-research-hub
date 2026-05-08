@@ -79,6 +79,10 @@ What exists now:
   - `request-editor-quit`
   - `restore-editor-state`
   - stale bridge and stale lock guards on editor open
+  - `batch-compile` for non-interactive compile validation when the target project is closed
+  - `batch-compile-matrix` for non-interactive define-matrix validation when the target project is closed
+  - `batch-build-config-compile-matrix` for config-driven non-interactive matrix validation when the target project is closed
+  - `batch-editmode-tests` for deterministic non-interactive EditMode tests when the target project is closed
   - `batch-build-player` for plain Unity batch builds when the project is closed
 - public reusable smoke runners:
   - `templates/smoke/run_post_change_validation.sh`
@@ -232,9 +236,10 @@ AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
 
 Behavior:
 
-- `devmode` materializes a version-selected local package source under:
+- `devmode` rewrites `Packages/manifest.json` directly to the local `AIRoot` `file:` source:
+  - `file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package`
+- `devmode` must not create a project-local mirror such as:
   - `<Project>/XUUnityLightMcpPackageSource/com.xuunity.light-mcp`
-- `devmode` rewrites `Packages/manifest.json` back to the local `file:` source
 - `prodmode` rewrites `Packages/manifest.json` to a git-pinned dependency using:
   - the current `AIRoot` `origin` URL
   - the current committed `AIRoot` `HEAD`
@@ -385,6 +390,16 @@ For those operations the wrapper may:
 - activate Unity before sending the request
 - wait for editor idle before sending work
 - wait for a post-request settled idle state before claiming success for synchronous operations
+
+For compile-only and EditMode-test-only validation, the public host layer now also exposes an approved closed-project batch lane:
+- `batch-compile`
+- `batch-compile-matrix`
+- `batch-build-config-compile-matrix`
+- `batch-editmode-tests`
+
+That batch lane is intentionally narrower than `interactive_mcp`:
+- valid for compile and deterministic EditMode test claims
+- not valid for Play Mode, Game View, scene-state inspection, or interactive smoke
 
 Bridge state now exposes additional lifecycle fields under `bridge-state` and `unity.status`:
 - `bridge_session_id`
@@ -618,6 +633,9 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
   --request-id <request-id>
 ```
 
+If the wrapper reports a lifecycle reset or response loss, treat that command as
+the default next step. Do not retry blindly before resolving the request id.
+
 Read the persisted capability report:
 
 ```bash
@@ -725,6 +743,16 @@ Operator rule:
   the default steady-state observation path
 - if transport continuity was lost, recover by `request_id` before retrying the
   operation
+- a workflow that jumps straight to raw `unity.scenario.result`, `prepare.log`,
+  or `build.log` while a compact summary surface already exists is an operator
+  experience regression
+
+Batch rule:
+
+- batch commands print `summary_file` plus a compact `result_summary` or
+  `build_result_summary` by default
+- on failed prepare/build/validation paths, read the summary artifact first and
+  inspect `raw_log_path` only when the summary is insufficient
 
 ## Cross-Platform Validation Kit
 

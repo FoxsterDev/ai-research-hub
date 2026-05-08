@@ -323,13 +323,17 @@ def build_lifecycle_reset_tool_error(
     current_session_id = str(stabilization.get("bridge_session_id") or "")
     operation_outcome = str(final_status.get("operation_outcome") or "unknown")
     recommended_next_action = str(final_status.get("recommended_next_action") or "inspect_request_journal")
+    recommended_recovery_command = (
+        f"request-final-status --project-root {project_root} --request-id {request_id}"
+    )
 
     message = (
         "The response channel reset before the wrapper could return the result. "
         f"request_id: {request_id} "
         "transport_outcome: reset_before_response_commit "
         f"operation_outcome: {operation_outcome} "
-        f"recommended_next_action: {recommended_next_action}"
+        f"recommended_next_action: {recommended_next_action} "
+        f"next_step: {recommended_recovery_command}"
     )
     code = "request_lifecycle_reset"
     if operation_outcome == "completed_ok":
@@ -339,7 +343,8 @@ def build_lifecycle_reset_tool_error(
             f"request_id: {request_id} "
             "transport_outcome: reset_before_response_commit "
             "operation_outcome: completed_ok "
-            "recommended_next_action: none"
+            "recommended_next_action: none "
+            f"next_step: {recommended_recovery_command}"
         )
         code = "response_missing_after_lifecycle_reset"
     elif operation_outcome == "completed_failed":
@@ -349,7 +354,8 @@ def build_lifecycle_reset_tool_error(
             f"request_id: {request_id} "
             "transport_outcome: reset_before_response_commit "
             "operation_outcome: completed_failed "
-            "recommended_next_action: inspect_request_journal"
+            "recommended_next_action: inspect_request_journal "
+            f"next_step: {recommended_recovery_command}"
         )
         code = "response_missing_after_lifecycle_reset"
     else:
@@ -364,6 +370,7 @@ def build_lifecycle_reset_tool_error(
         "transport_outcome": "reset_before_response_commit",
         "operation_outcome": operation_outcome,
         "recommended_next_action": recommended_next_action,
+        "recommended_recovery_command": recommended_recovery_command,
         "initial_bridge_generation": initial_bridge_generation,
         "initial_bridge_session_id": initial_bridge_session_id,
         "current_bridge_generation": current_generation,

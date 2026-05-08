@@ -45,6 +45,7 @@ namespace XUUnity.LightMcp.Editor.Batch
             public string[] build_options = Array.Empty<string>();
             public string outcome = "";
             public string build_result = "";
+            public string top_actionable_error = "";
             public string exception_message = "";
             public string started_at_utc = "";
             public string completed_at_utc = "";
@@ -78,7 +79,8 @@ namespace XUUnity.LightMcp.Editor.Batch
             catch (Exception ex)
             {
                 result.build_result = "Exception";
-                result.exception_message = ex.ToString();
+                result.top_actionable_error = string.IsNullOrWhiteSpace(ex.Message) ? "Batch build failed." : ex.Message;
+                result.exception_message = string.IsNullOrWhiteSpace(ex.Message) ? "Batch build failed." : ex.Message;
                 result.succeeded = false;
                 result.outcome = "batch_build_failed";
                 Debug.LogException(ex);
@@ -169,6 +171,12 @@ namespace XUUnity.LightMcp.Editor.Batch
             result.total_size_bytes = summary.totalSize;
             result.succeeded = summary.result == BuildResult.Succeeded;
             result.outcome = result.succeeded ? "batch_build_completed" : "batch_build_failed";
+            if (!result.succeeded)
+            {
+                result.top_actionable_error = summary.totalErrors > 0
+                    ? $"Unity BuildPipeline reported {summary.totalErrors} error(s)."
+                    : $"Unity BuildPipeline returned '{summary.result}'.";
+            }
         }
 
         static BatchBuildArgs ParseArgs(string[] rawArgs)

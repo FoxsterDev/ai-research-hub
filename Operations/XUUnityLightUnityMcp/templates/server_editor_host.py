@@ -620,6 +620,16 @@ def default_batch_build_result_path(project_root: Path, build_target: str) -> Pa
     return logs_dir(project_root) / "batch" / f"{timestamp}_{sanitize_filename_component(build_target)}_result.json"
 
 
+def default_batch_operation_log_path(project_root: Path, operation_name: str) -> Path:
+    timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    return logs_dir(project_root) / "batch" / f"{timestamp}_{sanitize_filename_component(operation_name)}.log"
+
+
+def default_batch_operation_result_path(project_root: Path, operation_name: str) -> Path:
+    timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    return logs_dir(project_root) / "batch" / f"{timestamp}_{sanitize_filename_component(operation_name)}_result.json"
+
+
 def resolve_batch_build_output_path(project_root: Path, explicit_path: str | None) -> str:
     if not explicit_path:
         return ""
@@ -842,6 +852,36 @@ def build_plain_batch_build_command(
     for build_option in build_options:
         command.extend(["--xuunity-build-option", build_option])
 
+    return command
+
+
+def build_batch_validation_command(
+    project_root: Path,
+    unity_app: Path,
+    log_path: Path,
+    result_path: Path,
+    action: str,
+    extra_args: list[str] | None = None,
+) -> list[str]:
+    unity_binary = resolve_unity_executable(unity_app)
+    command = [
+        str(unity_binary),
+        "-batchmode",
+        "-projectPath",
+        str(project_root),
+        "-logFile",
+        str(log_path),
+        "-executeMethod",
+        "XUUnity.LightMcp.Editor.Batch.XUUnityLightMcpBatchValidationCli.ExecuteFromCommandLine",
+        "--",
+        "--xuunity-batch-action",
+        action,
+        "--xuunity-result-file",
+        str(result_path),
+    ]
+
+    if extra_args:
+        command.extend(extra_args)
     return command
 
 

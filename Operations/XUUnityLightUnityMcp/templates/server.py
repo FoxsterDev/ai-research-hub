@@ -3,6 +3,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -40,9 +41,12 @@ from server_bridge_runtime import (
 from server_core import ToolInvocationError, read_json
 from server_editor_host import (
     activate_unity_editor,
+    build_batch_validation_command,
     build_plain_batch_build_command,
     clear_stale_project_lock,
     default_batch_build_log_path,
+    default_batch_operation_log_path,
+    default_batch_operation_result_path,
     default_batch_build_result_path,
     detect_unity_app_path_for_project,
     list_live_project_editor_pids,
@@ -193,10 +197,194 @@ def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
         "bridge_stabilization",
         "request_final_status",
         "journal_event_path",
+        "recommended_recovery_command",
+        "batch_summary_file",
+        "batch_failure_summary",
     ):
         if key in details:
             payload[key] = details[key]
     return payload
+
+
+def first_non_empty_line(text: str, *, limit: int = 240) -> str:
+    for line in str(text or "").splitlines():
+        candidate = line.strip()
+        if candidate:
+            return truncate_text(candidate, limit)
+    return ""
+
+
+def batch_summary_artifact_path(result_path: Path) -> Path:
+    suffix = result_path.suffix or ".json"
+    stem = result_path.stem if result_path.suffix else result_path.name
+    return result_path.with_name(f"{stem}_summary{suffix}")
+
+
+def write_batch_summary_artifact(summary_path: Path, summary: dict[str, Any]) -> None:
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with summary_path.open("w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2, ensure_ascii=True)
+        handle.write("\n")
+
+
+def batch_phase_for_action(action: str) -> str:
+    if action == "plain_batch_build":
+        return "build"
+    if action.startswith("batch_"):
+        return "validation"
+    return "batch"
+
+
+def derive_batch_unity_outcome(result_payload: dict[str, Any] | None, succeeded: bool) -> str:
+    if not isinstance(result_payload, dict):
+        return "completed_ok" if succeeded else "unknown"
+
+    for key in ("outcome", "status", "build_result"):
+        value = str(result_payload.get(key) or "").strip()
+        if value:
+            return value
+
+    compile_result = ((result_payload.get("compile") or {}).get("result") or {}) if isinstance(result_payload.get("compile"), dict) else {}
+    if isinstance(compile_result, dict):
+        value = str(compile_result.get("status") or "").strip()
+        if value:
+            return value
+
+    matrix_payload = result_payload.get("matrix") or {}
+    if isinstance(matrix_payload, dict):
+        value = str(matrix_payload.get("status") or "").strip()
+        if value:
+            return value
+
+    tests_payload = result_payload.get("tests") or {}
+    if isinstance(tests_payload, dict):
+        value = str(tests_payload.get("status") or "").strip()
+        if value:
+            return value
+
+    return "completed_ok" if succeeded else "unknown"
+
+
+def summarize_batch_result_payload(result_payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(result_payload, dict):
+        return {}
+
+    summary: dict[str, Any] = {}
+    operation = str(result_payload.get("operation") or "")
+    for key in (
+        "action",
+        "operation",
+        "outcome",
+        "succeeded",
+        "build_result",
+        "requested_build_target",
+        "total_errors",
+        "total_warnings",
+        "total_size_bytes",
+        "output_path",
+        "output_directory",
+    ):
+        if key in result_payload:
+            summary[key] = result_payload[key]
+
+    compile_payload = result_payload.get("compile") or {}
+    if operation == "compile-player-scripts" and isinstance(compile_payload, dict) and compile_payload:
+        compile_result = compile_payload.get("result") or {}
+        if isinstance(compile_result, dict) and compile_result:
+            summary["compile"] = {
+                "status": compile_result.get("status"),
+                "compiled_assembly_count": compile_result.get("compiled_assembly_count"),
+                "error_count": compile_result.get("error_count"),
+            }
+            if "warning_count" in compile_result and compile_result.get("warning_count") is not None:
+                summary["compile"]["warning_count"] = compile_result.get("warning_count")
+
+    matrix_payload = result_payload.get("matrix") or {}
+    if operation == "compile-matrix" and isinstance(matrix_payload, dict) and matrix_payload:
+        summary["matrix"] = {
+            "status": matrix_payload.get("status"),
+            "total": matrix_payload.get("total"),
+            "passed": matrix_payload.get("passed"),
+            "failed": matrix_payload.get("failed"),
+            "skipped": matrix_payload.get("skipped"),
+        }
+
+    tests_payload = result_payload.get("tests") or {}
+    if operation == "editmode-tests" and isinstance(tests_payload, dict) and tests_payload:
+        summary["tests"] = {
+            "status": tests_payload.get("status"),
+            "total": tests_payload.get("total"),
+            "passed": tests_payload.get("passed"),
+            "failed": tests_payload.get("failed"),
+            "skipped": tests_payload.get("skipped"),
+        }
+
+    top_actionable_error = first_non_empty_line(result_payload.get("top_actionable_error") or "")
+    if not top_actionable_error:
+        top_actionable_error = first_non_empty_line(result_payload.get("exception_message") or "")
+    if top_actionable_error:
+        summary["top_actionable_error"] = top_actionable_error
+
+    return summary
+
+
+def build_batch_execution_summary(
+    *,
+    action: str,
+    result_payload: dict[str, Any] | None,
+    batch_exit_code: int,
+    succeeded: bool,
+    result_path: Path,
+    log_path: Path,
+    log_excerpt_hint: str,
+) -> dict[str, Any]:
+    summary = {
+        "action": action,
+        "phase": batch_phase_for_action(action),
+        "transport_outcome": "batch_process_exited_cleanly" if batch_exit_code == 0 else "batch_process_failed",
+        "unity_outcome": derive_batch_unity_outcome(result_payload, succeeded),
+        "succeeded": succeeded,
+        "batch_exit_code": batch_exit_code,
+        "result_file": str(result_path),
+        "raw_log_path": str(log_path),
+        "next_step": "Inspect raw_log_path only if result_file and this summary are insufficient.",
+    }
+    summary.update(summarize_batch_result_payload(result_payload))
+    if log_excerpt_hint and "top_actionable_error" not in summary:
+        summary["log_excerpt_hint"] = log_excerpt_hint
+    return summary
+
+
+def build_batch_prepare_failure_summary(
+    *,
+    action: str,
+    result_path: Path,
+    log_path: Path,
+    exc: ToolInvocationError,
+) -> dict[str, Any]:
+    return {
+        "action": action,
+        "phase": "prepare",
+        "transport_outcome": "batch_prepare_blocked",
+        "unity_outcome": "not_started",
+        "succeeded": False,
+        "top_actionable_error": first_non_empty_line(exc.message or exc.code, limit=320),
+        "result_file": str(result_path),
+        "raw_log_path": str(log_path),
+        "next_step": "Resolve the prepare blocker, then rerun the batch command.",
+    }
+
+
+def attach_batch_summary_to_error(
+    exc: ToolInvocationError,
+    *,
+    summary_path: Path,
+    summary: dict[str, Any],
+) -> ToolInvocationError:
+    details = dict(exc.details or {})
+    details["batch_summary_file"] = str(summary_path)
+    details["batch_failure_summary"] = summary
+    return ToolInvocationError(exc.code, exc.message, details)
 
 
 def request_editor_quit(project_root: Path, timeout_ms: int) -> dict[str, Any]:
@@ -1302,6 +1490,89 @@ def load_json_file(path_value: str, error_code: str) -> Any:
         raise ToolInvocationError(error_code, str(exc)) from exc
 
 
+def ensure_batch_project_closed(project_root: Path, action_label: str):
+    live_editor_pids = list_live_project_editor_pids(project_root)
+    if live_editor_pids:
+        raise ToolInvocationError(
+            "editor_running_batch_conflict",
+            (
+                f"Refusing to start {action_label} while the Unity project is open in the editor. "
+                f"Live editor pid(s): {', '.join(str(pid) for pid in live_editor_pids)}. "
+                "Close the same project editor instance first or use the interactive MCP lane."
+            ),
+            {"live_editor_pids": live_editor_pids},
+        )
+
+
+def run_batch_operation(
+    *,
+    project_root: Path,
+    command: list[str],
+    payload: dict[str, Any],
+    log_path: Path,
+    result_path: Path,
+    dry_run: bool,
+):
+    if dry_run:
+        print_json(payload)
+        return
+
+    summary_path = batch_summary_artifact_path(result_path)
+    payload["summary_file"] = str(summary_path)
+
+    try:
+        ensure_batch_project_closed(project_root, str(payload.get("action") or "batch operation"))
+    except ToolInvocationError as exc:
+        summary = build_batch_prepare_failure_summary(
+            action=str(payload.get("action") or "batch operation"),
+            result_path=result_path,
+            log_path=log_path,
+            exc=exc,
+        )
+        write_batch_summary_artifact(summary_path, summary)
+        raise attach_batch_summary_to_error(exc, summary_path=summary_path, summary=summary)
+
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    payload["stale_lock"] = clear_stale_project_lock(project_root)
+
+    command_started_at = time.time()
+    completed = subprocess.run(command, check=False)
+    payload["batch_exit_code"] = completed.returncode
+
+    result_payload = try_read_json_dict(result_path, read_json)
+    payload["result_payload_present"] = result_payload is not None
+    payload["succeeded"] = (
+        bool(result_payload.get("succeeded", False)) and completed.returncode == 0
+        if result_payload is not None
+        else completed.returncode == 0
+    )
+
+    log_excerpt_hint = ""
+    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+        log_excerpt = read_recent_editor_log(log_path, command_started_at)
+        if log_excerpt:
+            log_excerpt_hint = truncate_text(log_excerpt[-600:], 600)
+
+    result_summary = build_batch_execution_summary(
+        action=str(payload.get("action") or "batch operation"),
+        result_payload=result_payload,
+        batch_exit_code=completed.returncode,
+        succeeded=bool(payload.get("succeeded")),
+        result_path=result_path,
+        log_path=log_path,
+        log_excerpt_hint=log_excerpt_hint,
+    )
+    write_batch_summary_artifact(summary_path, result_summary)
+    payload["result_summary"] = result_summary
+    if "top_actionable_error" in result_summary:
+        payload["top_actionable_error"] = result_summary["top_actionable_error"]
+
+    print_json(payload)
+    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+        raise SystemExit(1)
+
+
 def cmd_request_scenario_validate(args):
     scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
     response = invoke_bridge(
@@ -1454,6 +1725,234 @@ def cmd_restore_editor_state(args):
     print_json(payload)
 
 
+def cmd_batch_compile(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+    build_target = str(args.target or "").strip()
+    if not build_target:
+        raise ToolInvocationError("missing_build_target", "--target is required.")
+
+    operation_suffix = build_target if not args.name else f"{build_target}_{args.name}"
+    log_path = (
+        Path(args.batch_log_path).expanduser().resolve()
+        if args.batch_log_path
+        else default_batch_operation_log_path(project_root, f"compile_{operation_suffix}")
+    )
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else default_batch_operation_result_path(project_root, f"compile_{operation_suffix}")
+    )
+
+    extra_args = [
+        "--xuunity-build-target",
+        build_target,
+    ]
+    if args.name:
+        extra_args.extend(["--xuunity-compile-name", args.name])
+    for option_flag in list(args.option_flag or []):
+        extra_args.extend(["--xuunity-option-flag", option_flag])
+    for extra_define in list(args.extra_define or []):
+        extra_args.extend(["--xuunity-extra-define", extra_define])
+
+    command = build_batch_validation_command(
+        project_root=project_root,
+        unity_app=unity_app,
+        log_path=log_path,
+        result_path=result_path,
+        action="compile-player-scripts",
+        extra_args=extra_args,
+    )
+    payload = {
+        "action": "batch_compile_player_scripts",
+        "project_root": str(project_root),
+        "unity_app": str(unity_app),
+        "build_target": build_target,
+        "compile_name": args.name or "",
+        "option_flags": list(args.option_flag or []),
+        "extra_defines": list(args.extra_define or []),
+        "log_path": str(log_path),
+        "result_file": str(result_path),
+        "command": command,
+        "dry_run": args.dry_run,
+    }
+    run_batch_operation(
+        project_root=project_root,
+        command=command,
+        payload=payload,
+        log_path=log_path,
+        result_path=result_path,
+        dry_run=args.dry_run,
+    )
+
+
+def cmd_batch_compile_matrix(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+    config_file = Path(args.config_file).expanduser().resolve()
+    if not config_file.is_file():
+        raise ToolInvocationError("compile_matrix_config_not_found", f"Compile matrix config file not found: {config_file}")
+
+    log_path = (
+        Path(args.batch_log_path).expanduser().resolve()
+        if args.batch_log_path
+        else default_batch_operation_log_path(project_root, "compile_matrix")
+    )
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else default_batch_operation_result_path(project_root, "compile_matrix")
+    )
+
+    command = build_batch_validation_command(
+        project_root=project_root,
+        unity_app=unity_app,
+        log_path=log_path,
+        result_path=result_path,
+        action="compile-matrix",
+        extra_args=["--xuunity-config-file", str(config_file)],
+    )
+    payload = {
+        "action": "batch_compile_matrix",
+        "project_root": str(project_root),
+        "unity_app": str(unity_app),
+        "config_file": str(config_file),
+        "log_path": str(log_path),
+        "result_file": str(result_path),
+        "command": command,
+        "dry_run": args.dry_run,
+    }
+    run_batch_operation(
+        project_root=project_root,
+        command=command,
+        payload=payload,
+        log_path=log_path,
+        result_path=result_path,
+        dry_run=args.dry_run,
+    )
+
+
+def cmd_batch_build_config_compile_matrix(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+    compile_plan = build_compile_matrix_args_from_build_config(
+        project_root=project_root,
+        build_config_asset=args.build_config_asset,
+        requested_profiles=args.profile,
+        requested_targets=args.target,
+        stop_on_first_failure=args.stop_on_first_failure,
+        tool_error_type=ToolInvocationError,
+    )
+    log_path = (
+        Path(args.batch_log_path).expanduser().resolve()
+        if args.batch_log_path
+        else default_batch_operation_log_path(project_root, "build_config_compile_matrix")
+    )
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else default_batch_operation_result_path(project_root, "build_config_compile_matrix")
+    )
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        suffix="_xuunity_compile_matrix.json",
+        delete=False,
+    ) as temp_file:
+        temp_config_path = Path(temp_file.name)
+    try:
+        temp_config_path.write_text(json.dumps(compile_plan["matrixArgs"], indent=2) + "\n", encoding="utf-8")
+        command = build_batch_validation_command(
+            project_root=project_root,
+            unity_app=unity_app,
+            log_path=log_path,
+            result_path=result_path,
+            action="compile-matrix",
+            extra_args=["--xuunity-config-file", str(temp_config_path)],
+        )
+        payload = {
+            "action": "batch_build_config_compile_matrix",
+            "project_root": str(project_root),
+            "unity_app": str(unity_app),
+            "build_config_asset": compile_plan["assetPath"],
+            "profiles": compile_plan["profiles"],
+            "generated_config_file": str(temp_config_path),
+            "log_path": str(log_path),
+            "result_file": str(result_path),
+            "command": command,
+            "dry_run": False,
+        }
+        run_batch_operation(
+            project_root=project_root,
+            command=command,
+            payload=payload,
+            log_path=log_path,
+            result_path=result_path,
+            dry_run=False,
+        )
+    finally:
+        try:
+            temp_config_path.unlink()
+        except OSError:
+            pass
+
+
+def cmd_batch_editmode_tests(args):
+    project_root = ensure_project_root(args.project_root)
+    unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+    log_path = (
+        Path(args.batch_log_path).expanduser().resolve()
+        if args.batch_log_path
+        else default_batch_operation_log_path(project_root, "editmode_tests")
+    )
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else default_batch_operation_result_path(project_root, "editmode_tests")
+    )
+
+    extra_args: list[str] = []
+    for test_name in list(args.test_names or []):
+        extra_args.extend(["--xuunity-test-name", test_name])
+    for group_name in list(args.group_names or []):
+        extra_args.extend(["--xuunity-group-name", group_name])
+    for category_name in list(args.category_names or []):
+        extra_args.extend(["--xuunity-category-name", category_name])
+    for assembly_name in list(args.assembly_names or []):
+        extra_args.extend(["--xuunity-assembly-name", assembly_name])
+
+    command = build_batch_validation_command(
+        project_root=project_root,
+        unity_app=unity_app,
+        log_path=log_path,
+        result_path=result_path,
+        action="editmode-tests",
+        extra_args=extra_args,
+    )
+    payload = {
+        "action": "batch_editmode_tests",
+        "project_root": str(project_root),
+        "unity_app": str(unity_app),
+        "test_names": list(args.test_names or []),
+        "group_names": list(args.group_names or []),
+        "category_names": list(args.category_names or []),
+        "assembly_names": list(args.assembly_names or []),
+        "log_path": str(log_path),
+        "result_file": str(result_path),
+        "command": command,
+        "dry_run": args.dry_run,
+    }
+    run_batch_operation(
+        project_root=project_root,
+        command=command,
+        payload=payload,
+        log_path=log_path,
+        result_path=result_path,
+        dry_run=args.dry_run,
+    )
+
+
 def cmd_batch_build_player(args):
     project_root = ensure_project_root(args.project_root)
     unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
@@ -1499,6 +1998,8 @@ def cmd_batch_build_player(args):
         "command": command,
         "dry_run": args.dry_run,
     }
+    summary_path = batch_summary_artifact_path(result_path)
+    payload["summary_file"] = str(summary_path)
 
     if args.dry_run:
         print_json(payload)
@@ -1506,7 +2007,7 @@ def cmd_batch_build_player(args):
 
     live_editor_pids = list_live_project_editor_pids(project_root)
     if live_editor_pids:
-        raise ToolInvocationError(
+        exc = ToolInvocationError(
             "editor_running_batch_conflict",
             (
                 "Refusing to start a plain batch build while the Unity project is open in the editor. "
@@ -1515,6 +2016,14 @@ def cmd_batch_build_player(args):
             ),
             {"live_editor_pids": live_editor_pids},
         )
+        summary = build_batch_prepare_failure_summary(
+            action="plain_batch_build",
+            result_path=result_path,
+            log_path=log_path,
+            exc=exc,
+        )
+        write_batch_summary_artifact(summary_path, summary)
+        raise attach_batch_summary_to_error(exc, summary_path=summary_path, summary=summary)
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1527,16 +2036,31 @@ def cmd_batch_build_player(args):
 
     result_payload = try_read_json_dict(result_path, read_json)
     if result_payload is not None:
-        payload["build_result_payload"] = result_payload
+        payload["build_result_payload_present"] = True
         payload["succeeded"] = bool(result_payload.get("succeeded", False)) and completed.returncode == 0
     else:
-        payload["build_result_payload"] = None
+        payload["build_result_payload_present"] = False
         payload["succeeded"] = completed.returncode == 0
 
-    if completed.returncode != 0:
+    log_excerpt_hint = ""
+    if completed.returncode != 0 or not bool(payload.get("succeeded")):
         log_excerpt = read_recent_editor_log(log_path, command_started_at)
         if log_excerpt:
-            payload["log_excerpt_tail"] = truncate_text(log_excerpt[-4000:], 4000)
+            log_excerpt_hint = truncate_text(log_excerpt[-600:], 600)
+
+    result_summary = build_batch_execution_summary(
+        action="plain_batch_build",
+        result_payload=result_payload,
+        batch_exit_code=completed.returncode,
+        succeeded=bool(payload.get("succeeded")),
+        result_path=result_path,
+        log_path=log_path,
+        log_excerpt_hint=log_excerpt_hint,
+    )
+    write_batch_summary_artifact(summary_path, result_summary)
+    payload["build_result_summary"] = result_summary
+    if "top_actionable_error" in result_summary:
+        payload["top_actionable_error"] = result_summary["top_actionable_error"]
 
     print_json(payload)
     if completed.returncode != 0 or not bool(payload.get("succeeded")):
@@ -1720,6 +2244,62 @@ def build_parser():
     restore_editor_cmd.add_argument("--project-root", required=True)
     restore_editor_cmd.add_argument("--timeout-ms", type=int, default=15000)
     restore_editor_cmd.set_defaults(func=cmd_restore_editor_state)
+
+    batch_compile_cmd = sub.add_parser(
+        "batch-compile",
+        help="Run unity.compile.player_scripts through a non-interactive Unity batchmode lane when the target project is closed.",
+    )
+    batch_compile_cmd.add_argument("--project-root", required=True)
+    batch_compile_cmd.add_argument("--target", required=True)
+    batch_compile_cmd.add_argument("--name", default="")
+    batch_compile_cmd.add_argument("--option-flag", action="append", default=[])
+    batch_compile_cmd.add_argument("--extra-define", action="append", default=[])
+    batch_compile_cmd.add_argument("--unity-app")
+    batch_compile_cmd.add_argument("--batch-log-path")
+    batch_compile_cmd.add_argument("--result-file")
+    batch_compile_cmd.add_argument("--dry-run", action="store_true")
+    batch_compile_cmd.set_defaults(func=cmd_batch_compile)
+
+    batch_compile_matrix_cmd = sub.add_parser(
+        "batch-compile-matrix",
+        help="Run unity.compile.matrix through a non-interactive Unity batchmode lane from a JSON config file when the target project is closed.",
+    )
+    batch_compile_matrix_cmd.add_argument("--project-root", required=True)
+    batch_compile_matrix_cmd.add_argument("--config-file", required=True)
+    batch_compile_matrix_cmd.add_argument("--unity-app")
+    batch_compile_matrix_cmd.add_argument("--batch-log-path")
+    batch_compile_matrix_cmd.add_argument("--result-file")
+    batch_compile_matrix_cmd.add_argument("--dry-run", action="store_true")
+    batch_compile_matrix_cmd.set_defaults(func=cmd_batch_compile_matrix)
+
+    batch_build_config_matrix_cmd = sub.add_parser(
+        "batch-build-config-compile-matrix",
+        help="Resolve build profiles from the project's build-config asset and run the Android/iOS compile matrix through a non-interactive Unity batchmode lane when the target project is closed.",
+    )
+    batch_build_config_matrix_cmd.add_argument("--project-root", required=True)
+    batch_build_config_matrix_cmd.add_argument("--build-config-asset")
+    batch_build_config_matrix_cmd.add_argument("--profile", action="append", default=[])
+    batch_build_config_matrix_cmd.add_argument("--target", action="append", default=[])
+    batch_build_config_matrix_cmd.add_argument("--stop-on-first-failure", action="store_true")
+    batch_build_config_matrix_cmd.add_argument("--unity-app")
+    batch_build_config_matrix_cmd.add_argument("--batch-log-path")
+    batch_build_config_matrix_cmd.add_argument("--result-file")
+    batch_build_config_matrix_cmd.set_defaults(func=cmd_batch_build_config_compile_matrix)
+
+    batch_editmode_cmd = sub.add_parser(
+        "batch-editmode-tests",
+        help="Run unity.tests.run_editmode through a non-interactive Unity batchmode lane when the target project is closed.",
+    )
+    batch_editmode_cmd.add_argument("--project-root", required=True)
+    batch_editmode_cmd.add_argument("--test-name", dest="test_names", action="append", default=[])
+    batch_editmode_cmd.add_argument("--group-name", dest="group_names", action="append", default=[])
+    batch_editmode_cmd.add_argument("--category-name", dest="category_names", action="append", default=[])
+    batch_editmode_cmd.add_argument("--assembly-name", dest="assembly_names", action="append", default=[])
+    batch_editmode_cmd.add_argument("--unity-app")
+    batch_editmode_cmd.add_argument("--batch-log-path")
+    batch_editmode_cmd.add_argument("--result-file")
+    batch_editmode_cmd.add_argument("--dry-run", action="store_true")
+    batch_editmode_cmd.set_defaults(func=cmd_batch_editmode_tests)
 
     batch_build_cmd = sub.add_parser(
         "batch-build-player",

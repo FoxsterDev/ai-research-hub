@@ -128,6 +128,8 @@ Lifecycle contract:
   path is `request-final-status --request-id <id>` before blind retry
 - when a compact summary surface exists, the smoke route should use it before
   raw result polling or large log inspection
+- a lifecycle-reset smoke result is not accepted unless the wrapper exposes one
+  obvious follow-up command using that exact `request_id`
 
 Token-discipline contract:
 
@@ -136,3 +138,5 @@ Token-discipline contract:
   polling loops
 - prefer compact batch failure summaries over direct `prepare.log` or
   `build.log` tailing
+- treat a smoke workflow as failed if it repeatedly dumps raw scenario results
+  or raw build logs before exhausting the compact summary surfaces
