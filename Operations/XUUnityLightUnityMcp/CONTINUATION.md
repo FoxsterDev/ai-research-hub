@@ -139,16 +139,26 @@ Meaning:
 6. `unity.status` or `request-status-summary`
 7. `unity.capabilities.get`
 8. `unity.health.probe`
-9. if a request crossed lifecycle churn, `request-final-status <request_id>`
-10. prefer compact scenario or batch summaries before raw result polling or raw
+9. if a request crossed lifecycle churn and the `request_id` is known,
+   `request-final-status <request_id>`
+10. if the wrapper stalled before surfacing a usable `request_id`,
+    `request-latest-status --operation <operation>`
+11. prefer compact scenario or batch summaries before raw result polling or raw
     log inspection
 
 Mini-playbook after wrapper churn:
 
 1. do not retry the original operation yet
-2. run `request-final-status --project-root <project> --request-id <id>`
-3. if the request completed, use that disposition and continue
-4. only retry after the request-id recovery step says the original operation did
+2. check whether the wrapper already emitted a `request_submitted` acknowledgement
+   - if it emitted `request_not_submitted`, do not search for request recovery
+     yet; recover bridge/editor health first
+3. run `request-status-summary --project-root <project>`
+4. if the `request_id` is known, run:
+   `request-final-status --project-root <project> --request-id <id>`
+5. if the `request_id` is not known, run:
+   `request-latest-status --project-root <project> --operation <operation>`
+6. if the recovered request completed, use that disposition and continue
+7. only retry after the compact recovery step says the original operation did
    not complete
 
 Only after that:

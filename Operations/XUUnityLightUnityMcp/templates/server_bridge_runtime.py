@@ -3,6 +3,7 @@ import calendar
 import json
 import os
 import socket
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -83,6 +84,52 @@ def bridge_identity_from_state(state: dict[str, Any] | None) -> tuple[int, str]:
     generation = int(state.get("bridge_generation") or 0)
     session_id = str(state.get("bridge_session_id") or "")
     return generation, session_id
+
+
+def emit_request_submission_ack(
+    *,
+    project_root: Path,
+    operation: str,
+    request_id: str,
+    transport_name: str,
+    state: dict[str, Any] | None,
+) -> None:
+    bridge_generation, bridge_session_id = bridge_identity_from_state(state)
+    message = (
+        "[xuunity-light-unity-mcp] request_submitted "
+        f"operation={operation} "
+        f"request_id={request_id} "
+        f"transport={transport_name} "
+        f"bridge_generation={bridge_generation} "
+        f"bridge_session_id={bridge_session_id or '-'} "
+        f"project_root={project_root}\n"
+    )
+    try:
+        sys.stderr.write(message)
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+
+def emit_request_not_submitted_ack(
+    *,
+    project_root: Path,
+    operation: str,
+    transport_name: str,
+    reason: str,
+) -> None:
+    message = (
+        "[xuunity-light-unity-mcp] request_not_submitted "
+        f"operation={operation} "
+        f"transport={transport_name} "
+        f"reason={reason} "
+        f"project_root={project_root}\n"
+    )
+    try:
+        sys.stderr.write(message)
+        sys.stderr.flush()
+    except Exception:
+        pass
 
 
 def bridge_identity_changed(
@@ -668,7 +715,24 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
     ) -> tuple[dict[str, Any], str, float]:
         state_path = bridge_state_path(project_root)
         if not state_path.is_file():
-            raise ToolInvocationError("editor_not_running", f"Bridge state file not found: {state_path}")
+            emit_request_not_submitted_ack(
+                project_root=project_root,
+                operation=operation,
+                transport_name=self.name,
+                reason="bridge_state_missing",
+            )
+            raise ToolInvocationError(
+                "editor_not_running",
+                f"Bridge state file not found: {state_path}",
+                {
+                    "request_submitted": False,
+                    "request_ownership_acquired": False,
+                    "transport_outcome": "request_not_submitted",
+                    "operation_outcome": "request_not_dispatched",
+                    "recommended_next_action": "start_or_recover_editor",
+                    "transport": self.name,
+                },
+            )
 
         in_dir = inbox_dir(project_root)
         out_dir = outbox_dir(project_root)
@@ -693,6 +757,13 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
         }
 
         write_json(request_path, request)
+        emit_request_submission_ack(
+            project_root=project_root,
+            operation=operation,
+            request_id=request_id,
+            transport_name=self.name,
+            state=initial_state,
+        )
 
         deadline = time.time() + (timeout_ms / 1000.0)
         while time.time() < deadline:
@@ -855,6 +926,13 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
             with socket.create_connection((host, port), timeout=connect_timeout) as sock:
                 sock.settimeout(0.2)
                 sock.sendall(payload)
+                emit_request_submission_ack(
+                    project_root=project_root,
+                    operation=operation,
+                    request_id=request_id,
+                    transport_name=self.name,
+                    state=initial_state,
+                )
                 try:
                     sock.shutdown(socket.SHUT_WR)
                 except OSError:
@@ -894,6 +972,12 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
         except ToolInvocationError:
             raise
         except OSError as exc:
+            emit_request_not_submitted_ack(
+                project_root=project_root,
+                operation=operation,
+                transport_name=self.name,
+                reason="transport_connect_failed",
+            )
             raise ToolInvocationError(
                 "transport_connect_failed",
                 (
@@ -902,7 +986,12 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                 ),
                 {
                     "request_id": request_id,
+                    "request_submitted": False,
+                    "request_ownership_acquired": False,
                     "operation": operation,
+                    "transport_outcome": "request_not_submitted",
+                    "operation_outcome": "request_not_dispatched",
+                    "recommended_next_action": "request_status_summary_then_retry",
                     "transport": self.name,
                     "host": host,
                     "port": port,
@@ -1080,6 +1169,12 @@ def invoke_bridge_transport(
     post_reset_recovery_cap_ms: int = 0,
 ) -> tuple[dict[str, Any], str, float, dict[str, Any]]:
     if not bridge_enabled(project_root):
+        emit_request_not_submitted_ack(
+            project_root=project_root,
+            operation=operation,
+            transport_name="disabled",
+            reason="bridge_disabled",
+        )
         raise ToolInvocationError(
             "bridge_disabled",
             (
@@ -1087,6 +1182,14 @@ def invoke_bridge_transport(
                 "Enable it with init_xuunity_light_unity_mcp.sh --project-root <path> --enable-project "
                 "and reopen Unity."
             ),
+            {
+                "request_submitted": False,
+                "request_ownership_acquired": False,
+                "transport_outcome": "request_not_submitted",
+                "operation_outcome": "request_not_dispatched",
+                "recommended_next_action": "enable_bridge_and_retry",
+                "transport": "disabled",
+            },
         )
 
     transport = resolve_bridge_transport(project_root)
