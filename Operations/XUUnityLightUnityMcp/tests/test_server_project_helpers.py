@@ -1,14 +1,21 @@
 import json
+import time
+import threading
+import types
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 if str(TEMPLATES_DIR) not in sys.path:
     sys.path.insert(0, str(TEMPLATES_DIR))
 
 import server
+import server_editor_host
+from server_project_context import ensure_project_root as ensure_project_root_base
+from server_registry import BridgeRegistry
 from server_core import ToolInvocationError
 
 
@@ -142,6 +149,725 @@ class ServerProjectHelperTests(unittest.TestCase):
 
             self.assertEqual("dependency_missing", result["alignment"])
             self.assertIn("not declared", result["warning"])
+
+    def test_bridge_registry_reuses_context_for_normalized_same_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            registry = BridgeRegistry(ensure_project_root=ensure_project_root_base)
+
+            first = registry.get_or_discover(str(project_root))
+            second = registry.get_or_discover(str(project_root / "."))
+
+            self.assertIs(first, second)
+            self.assertEqual(1, len(registry.list_active_contexts()))
+            self.assertEqual(str(project_root.resolve()), first.instance_key)
+
+    def test_bridge_registry_keeps_project_context_state_isolated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            project_a = make_unity_project(base / "ProjectA")
+            project_b = make_unity_project(base / "ProjectB")
+
+            def refresh_context_state(project_root: Path) -> dict:
+                marker = project_root.name
+                return {
+                    "last_bridge_state": {"project": marker, "editor_pid": 100 if marker == "ProjectA" else 200},
+                    "last_host_editor_session_state": {"editor_pid": 1000 if marker == "ProjectA" else 2000},
+                    "active_transport": "tcp_loopback",
+                    "transport_metadata": {"transport_listener_state": "listening", "project": marker},
+                    "last_seen_pid": 100 if marker == "ProjectA" else 200,
+                    "last_seen_generation": 1 if marker == "ProjectA" else 2,
+                    "last_seen_session_id": f"session-{marker}",
+                    "last_refresh_utc": f"{marker}-refresh",
+                    "last_refresh_unix": 10.0 if marker == "ProjectA" else 20.0,
+                    "health_classification": f"healthy-{marker}",
+                }
+
+            registry = BridgeRegistry(
+                ensure_project_root=ensure_project_root_base,
+                refresh_context_state=refresh_context_state,
+            )
+
+            context_a = registry.get_or_discover(str(project_a))
+            context_b = registry.get_or_discover(str(project_b))
+
+            self.assertNotEqual(context_a.instance_key, context_b.instance_key)
+            self.assertEqual("ProjectA", context_a.last_bridge_state["project"])
+            self.assertEqual("ProjectB", context_b.last_bridge_state["project"])
+            self.assertEqual("session-ProjectA", context_a.last_seen_session_id)
+            self.assertEqual("session-ProjectB", context_b.last_seen_session_id)
+            self.assertEqual(2, len(registry.list_active_contexts()))
+
+    def test_bridge_registry_prunes_offline_idle_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            registry = BridgeRegistry(
+                ensure_project_root=ensure_project_root_base,
+                refresh_context_state=lambda _: {
+                    "last_bridge_state": {},
+                    "last_host_editor_session_state": {},
+                    "discovery_details": {
+                        "bridge_state_live": False,
+                        "host_session_live": False,
+                        "detected_editor_count": 0,
+                    },
+                },
+                offline_context_max_idle_seconds=1.0,
+                general_context_max_idle_seconds=9999.0,
+            )
+
+            context = registry.get_or_discover(str(project_root))
+            context.last_access_unix = time.time() - 100.0
+
+            pruned = registry.prune_stale_contexts()
+
+            self.assertEqual(1, len(pruned))
+            self.assertEqual("offline_idle_expired", pruned[0]["reason"])
+            self.assertEqual([], registry.list_active_contexts())
+
+    def test_bridge_registry_keeps_live_context_when_only_offline_idle_expires(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            registry = BridgeRegistry(
+                ensure_project_root=ensure_project_root_base,
+                refresh_context_state=lambda _: {
+                    "last_bridge_state": {"editor_pid": 321},
+                    "last_host_editor_session_state": {},
+                    "last_seen_pid": 321,
+                    "discovery_details": {
+                        "bridge_state_live": True,
+                        "host_session_live": False,
+                        "detected_editor_count": 1,
+                    },
+                },
+                offline_context_max_idle_seconds=1.0,
+                general_context_max_idle_seconds=9999.0,
+            )
+
+            context = registry.get_or_discover(str(project_root))
+            context.last_access_unix = time.time() - 100.0
+
+            pruned = registry.prune_stale_contexts()
+
+            self.assertEqual([], pruned)
+            remaining = registry.list_active_contexts()
+            self.assertEqual(1, len(remaining))
+            self.assertEqual(str(project_root.resolve()), remaining[0].instance_key)
+
+    def test_bridge_operation_requires_request_lock_matches_mutation_policy(self) -> None:
+        self.assertTrue(server.bridge_operation_requires_request_lock("unity.project.refresh"))
+        self.assertTrue(server.bridge_operation_requires_request_lock("unity.compile.matrix"))
+        self.assertTrue(server.bridge_operation_requires_request_lock("unity.editor.quit"))
+        self.assertFalse(server.bridge_operation_requires_request_lock("unity.status"))
+        self.assertFalse(server.bridge_operation_requires_request_lock("unity.health.probe"))
+
+    def test_run_in_project_request_lock_uses_lock_for_mutating_operation_only(self) -> None:
+        events: list[str] = []
+
+        class RecordingLock:
+            def __enter__(self):
+                events.append("enter")
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                events.append("exit")
+                return False
+
+        context = types.SimpleNamespace(request_lock=RecordingLock())
+
+        def callback() -> str:
+            events.append("callback")
+            return "ok"
+
+        result = server.run_in_project_request_lock(context, "unity.project.refresh", callback)
+        self.assertEqual("ok", result)
+        self.assertEqual(["enter", "callback", "exit"], events)
+
+        events.clear()
+        result = server.run_in_project_request_lock(context, "unity.status", callback)
+        self.assertEqual("ok", result)
+        self.assertEqual(["callback"], events)
+
+    def test_current_project_context_bridge_state_prefers_best_effort_and_falls_back_to_context(self) -> None:
+        context = types.SimpleNamespace(
+            last_bridge_state={"bridge_generation": 7, "transport": "file_ipc"},
+            last_host_editor_session_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+        project_root = Path("/tmp/FakeProject")
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+        ):
+            fallback_state = server.current_project_context_bridge_state(project_root)
+        self.assertEqual(7, fallback_state["bridge_generation"])
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value={"bridge_generation": 11, "transport": "tcp_loopback"}),
+        ):
+            best_effort_state = server.current_project_context_bridge_state(project_root)
+        self.assertEqual(11, best_effort_state["bridge_generation"])
+        self.assertEqual("tcp_loopback", best_effort_state["transport"])
+
+    def test_current_project_context_host_session_state_uses_context_snapshot(self) -> None:
+        context = types.SimpleNamespace(
+            last_bridge_state={},
+            last_host_editor_session_state={"editor_pid": 1234, "opened_by_host": True},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with mock.patch.object(server, "_BRIDGE_REGISTRY", registry):
+            host_session = server.current_project_context_host_session_state(Path("/tmp/FakeProject"))
+
+        self.assertEqual(1234, host_session["editor_pid"])
+        self.assertTrue(host_session["opened_by_host"])
+
+    def test_build_project_discovery_report_includes_context_cache_transport_state_and_state_groups(self) -> None:
+        context = types.SimpleNamespace(
+            instance_key="/tmp/FakeProject",
+            last_seen_pid=4321,
+            last_seen_generation=9,
+            last_seen_session_id="session-z",
+            active_transport="tcp_loopback",
+            health_classification="fresh",
+            transport_metadata={"transport_listener_state": "listening"},
+            transport_state={"selection_scope": "per_project_context", "active_transport": "tcp_loopback"},
+            state_groups={"bridge_identity": {"bridge_generation": 9}},
+            created_unix=10.0,
+            last_access_unix=20.0,
+            last_refresh_unix=30.0,
+            last_refresh_utc="2026-05-09T12:00:00Z",
+            idle_seconds=lambda: 1.25,
+            has_live_runtime_evidence=lambda: True,
+            discovery_details={
+                "host_health_classification": "fresh",
+                "host_health_reason": "heartbeat_fresh",
+                "host_health_recommended_next_action": "none",
+                "host_health_termination_policy": "observe_only",
+                "host_health_heartbeat_age_seconds": 0.5,
+                "host_health_busy_reason": "idle",
+                "host_health_progress_evidence": [],
+                "anr_classification": "none",
+                "discovery_classification": "bridge_live",
+                "discovery_reason": "live_bridge_state_with_live_pid",
+                "authoritative_state_source": "bridge_state",
+                "reconciliation_case": "bridge_state_authoritative",
+                "reconciliation_status": "healthy",
+                "reconciliation_reason": "live_bridge_state_with_live_pid",
+                "reconciliation_recommended_next_action": "none",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [4321],
+                "bridge_state_live": True,
+                "host_session_live": False,
+                "bridge_enabled": True,
+                "transport_state": {"selection_scope": "per_project_context", "active_transport": "tcp_loopback"},
+                "state_groups": {"bridge_identity": {"bridge_generation": 9}},
+            },
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with mock.patch.object(server, "_BRIDGE_REGISTRY", registry):
+            report = server.build_project_discovery_report(Path("/tmp/FakeProject"))
+
+        self.assertEqual("tcp_loopback", report["transport_state"]["active_transport"])
+        self.assertEqual(9, report["state_groups"]["bridge_identity"]["bridge_generation"])
+        self.assertEqual(10.0, report["context_cache"]["created_unix"])
+        self.assertEqual(1.25, report["context_cache"]["idle_seconds"])
+        self.assertTrue(report["context_cache"]["live_runtime_evidence"])
+
+    def test_build_request_final_status_from_context_includes_discovery_and_reconciliation(self) -> None:
+        context = types.SimpleNamespace(
+            last_bridge_state={"bridge_generation": 7, "bridge_session_id": "session-a"},
+            last_host_editor_session_state={},
+            discovery_details={
+                "discovery_classification": "editor_process_only",
+                "discovery_reason": "project_matched_in_process_table",
+                "authoritative_state_source": "process_table",
+                "reconciliation_case": "live_process_only",
+                "reconciliation_status": "degraded",
+                "reconciliation_reason": "process_table_match_without_live_state_authority",
+                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [777],
+            },
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+            mock.patch.object(
+                server,
+                "build_request_final_status",
+                return_value={
+                    "request_id": "req-1",
+                    "request_completed": False,
+                    "recommended_next_action": "retry_request",
+                },
+            ),
+        ):
+            summary = server.build_request_final_status_from_context(Path("/tmp/FakeProject"), "req-1", "unity.status", 0)
+
+        self.assertEqual("editor_process_only", summary["discovery_classification"])
+        self.assertEqual("live_process_only", summary["reconciliation_case"])
+        self.assertEqual("ensure_ready_or_recover_bridge", summary["recommended_next_action"])
+
+    def test_build_request_final_status_prefers_host_health_next_action_for_anr(self) -> None:
+        context = types.SimpleNamespace(
+            last_bridge_state={"bridge_generation": 7, "bridge_session_id": "session-a"},
+            last_host_editor_session_state={},
+            discovery_details={
+                "host_health_classification": "anr_suspected",
+                "host_health_reason": "heartbeat_stale_without_progress_evidence",
+                "host_health_recommended_next_action": "inspect_editor_log_and_observe",
+                "host_health_termination_policy": "observe_only",
+                "host_health_heartbeat_age_seconds": 22.0,
+                "host_health_busy_reason": "idle",
+                "host_health_progress_evidence": [],
+                "anr_classification": "anr_suspected",
+                "discovery_classification": "bridge_live",
+                "discovery_reason": "live_bridge_state_with_live_pid",
+                "authoritative_state_source": "bridge_state",
+                "reconciliation_case": "bridge_state_authoritative",
+                "reconciliation_status": "healthy",
+                "reconciliation_reason": "live_bridge_state_with_live_pid",
+                "reconciliation_recommended_next_action": "none",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [777],
+            },
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+            mock.patch.object(
+                server,
+                "build_request_final_status",
+                return_value={
+                    "request_id": "req-2",
+                    "request_completed": False,
+                    "recommended_next_action": "wait_for_bridge_stabilization",
+                },
+            ),
+        ):
+            summary = server.build_request_final_status_from_context(Path("/tmp/FakeProject"), "req-2", "unity.status", 0)
+
+        self.assertEqual("anr_suspected", summary["host_health_classification"])
+        self.assertEqual("inspect_editor_log_and_observe", summary["recommended_next_action"])
+
+    def test_build_scenario_result_summary_from_context_includes_discovery_and_reconciliation(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "host_health_classification": "stale",
+                "host_health_reason": "live_editor_without_live_bridge_state",
+                "host_health_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "host_health_termination_policy": "observe_only",
+                "host_health_heartbeat_age_seconds": None,
+                "host_health_busy_reason": "bridge_state_missing",
+                "host_health_progress_evidence": [],
+                "anr_classification": "none",
+                "discovery_classification": "host_session_live",
+                "discovery_reason": "host_editor_session_with_live_pid",
+                "authoritative_state_source": "host_editor_session",
+                "reconciliation_case": "stale_bridge_state",
+                "reconciliation_status": "degraded",
+                "reconciliation_reason": "live_host_session_overrides_stale_bridge_state",
+                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [202],
+            },
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with mock.patch.object(server, "_BRIDGE_REGISTRY", registry):
+            summary = server.build_scenario_result_summary_from_context(
+                Path("/tmp/FakeProject"),
+                {
+                    "run_id": "run-1",
+                    "scenario_name": "SampleScenario",
+                    "status": "running",
+                    "terminal": False,
+                },
+            )
+
+        self.assertEqual("host_session_live", summary["discovery_classification"])
+        self.assertEqual("stale_bridge_state", summary["reconciliation_case"])
+        self.assertEqual("stale", summary["host_health_classification"])
+        self.assertEqual("ensure_ready_or_recover_bridge", summary["recommended_next_action"])
+
+    def test_enrich_error_details_with_discovery_adds_recovery_command(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "discovery_classification": "bridge_disabled",
+                "discovery_reason": "bridge_disabled_in_project_config",
+                "authoritative_state_source": "bridge_config",
+                "reconciliation_case": "bridge_disabled",
+                "reconciliation_status": "offline",
+                "reconciliation_reason": "bridge_disabled_in_project_config",
+                "reconciliation_recommended_next_action": "enable_bridge_and_retry",
+                "detected_editor_count": 0,
+                "detected_editor_pids": [],
+            }
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with mock.patch.object(server, "_BRIDGE_REGISTRY", registry):
+            details = server.enrich_error_details_with_discovery(
+                Path("/tmp/FakeProject"),
+                {"recommended_next_action": "inspect_request_journal"},
+            )
+
+        self.assertEqual("bridge_disabled", details["discovery_classification"])
+        self.assertEqual("enable_bridge_and_retry", details["recommended_next_action"])
+        self.assertIn("init_xuunity_light_unity_mcp.sh", details["recommended_recovery_command"])
+
+    def test_recover_project_bridge_for_reconciliation_raises_guided_bridge_disabled_error(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "reconciliation_case": "bridge_disabled",
+                "reconciliation_status": "offline",
+                "reconciliation_recommended_next_action": "enable_bridge_and_retry",
+                "discovery_classification": "bridge_disabled",
+                "discovery_reason": "bridge_disabled_in_project_config",
+                "authoritative_state_source": "bridge_config",
+                "detected_editor_count": 0,
+                "detected_editor_pids": [],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+        ):
+            with self.assertRaises(ToolInvocationError) as ctx:
+                server.recover_project_bridge_for_reconciliation(
+                    Path("/tmp/FakeProject"),
+                    timeout_ms=5000,
+                    heartbeat_max_age_seconds=5,
+                    startup_policy="fail_fast_on_interactive_compile_block",
+                    allow_open_editor=True,
+                )
+
+        self.assertEqual("bridge_disabled", ctx.exception.code)
+        self.assertEqual("enable_bridge_and_retry", ctx.exception.details["recommended_next_action"])
+        self.assertIn("init_xuunity_light_unity_mcp.sh", ctx.exception.details["recommended_recovery_command"])
+
+    def test_recover_project_bridge_for_reconciliation_activates_live_process_only_editor(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "reconciliation_case": "live_process_only",
+                "reconciliation_status": "degraded",
+                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [777],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+            mock.patch.object(server, "activate_unity_editor", return_value={"activated": True}) as activate_mock,
+            mock.patch.object(server, "wait_for_ready", return_value={"editor_pid": 777, "health_status": "healthy"}) as wait_mock,
+            mock.patch.object(server, "refresh_project_context", return_value=context),
+        ):
+            recovery = server.recover_project_bridge_for_reconciliation(
+                Path("/tmp/FakeProject"),
+                timeout_ms=5000,
+                heartbeat_max_age_seconds=5,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                allow_open_editor=False,
+            )
+
+        self.assertEqual("activated_existing_editor", recovery["action"])
+        activate_mock.assert_called_once()
+        wait_mock.assert_called_once()
+
+    def test_execute_host_health_recovery_policy_observe_only_does_not_terminate(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "host_health_classification": "anr_suspected",
+                "host_health_termination_policy": "observe_only",
+                "host_health_recommended_next_action": "inspect_editor_log_and_observe",
+                "bridge_pid": 777,
+                "detected_editor_pids": [777],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "terminate_editor_pid") as terminate_mock,
+        ):
+            recovery = server.execute_host_health_recovery_policy(
+                Path("/tmp/FakeProject"),
+                timeout_ms=5000,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                allow_open_editor=True,
+            )
+
+        self.assertEqual("observe_only", recovery["action"])
+        terminate_mock.assert_not_called()
+
+    def test_execute_host_health_recovery_policy_defers_termination_without_open_permission(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "host_health_classification": "anr",
+                "host_health_termination_policy": "graceful_terminate",
+                "host_health_recommended_next_action": "inspect_editor_log_and_consider_graceful_restart",
+                "bridge_pid": 777,
+                "detected_editor_pids": [777],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "terminate_editor_pid") as terminate_mock,
+        ):
+            recovery = server.execute_host_health_recovery_policy(
+                Path("/tmp/FakeProject"),
+                timeout_ms=5000,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                allow_open_editor=False,
+            )
+
+        self.assertEqual("termination_deferred_no_open", recovery["action"])
+        terminate_mock.assert_not_called()
+
+    def test_execute_host_health_recovery_policy_terminates_and_reopens_for_anr(self) -> None:
+        context = types.SimpleNamespace(
+            discovery_details={
+                "host_health_classification": "anr",
+                "host_health_termination_policy": "graceful_terminate",
+                "host_health_recommended_next_action": "inspect_editor_log_and_consider_graceful_restart",
+                "bridge_pid": 777,
+                "detected_editor_pids": [777],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "terminate_editor_pid", return_value=True) as terminate_mock,
+            mock.patch.object(server, "detect_unity_app_path_for_project", return_value=Path("/Applications/Unity.app")),
+            mock.patch.object(server, "open_unity_editor", return_value={"editor_pid": 888, "reused_existing_editor": False}) as open_mock,
+            mock.patch.object(server, "wait_for_ready", return_value={"editor_pid": 888, "health_status": "healthy"}) as wait_mock,
+            mock.patch.object(server, "update_host_editor_session_pid") as update_mock,
+            mock.patch.object(server, "refresh_project_context", return_value=context),
+        ):
+            recovery = server.execute_host_health_recovery_policy(
+                Path("/tmp/FakeProject"),
+                timeout_ms=5000,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                allow_open_editor=True,
+            )
+
+        self.assertEqual("terminated_and_reopened", recovery["action"])
+        terminate_mock.assert_called_once_with(777, 5000)
+        open_mock.assert_called_once()
+        wait_mock.assert_called_once()
+        update_mock.assert_called_once_with(Path("/tmp/FakeProject"), 888)
+
+    def test_wait_for_scenario_result_attempts_recovery_on_editor_not_running(self) -> None:
+        success_response = {
+            "status": "ok",
+            "payload_type": "unity.scenario.result",
+            "payload_json": json.dumps(
+                {
+                    "run_id": "run-1",
+                    "scenario_name": "SampleScenario",
+                    "status": "passed",
+                    "project_root": "/tmp/FakeProject",
+                },
+                ensure_ascii=True,
+            ),
+        }
+        context = types.SimpleNamespace(
+            discovery_details={
+                "discovery_classification": "editor_process_only",
+                "discovery_reason": "project_matched_in_process_table",
+                "authoritative_state_source": "process_table",
+                "reconciliation_case": "live_process_only",
+                "reconciliation_status": "degraded",
+                "reconciliation_reason": "process_table_match_without_live_state_authority",
+                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "detected_editor_count": 1,
+                "detected_editor_pids": [777],
+            },
+            last_bridge_state={},
+        )
+        registry = types.SimpleNamespace(refresh_context=lambda _: context)
+
+        with (
+            mock.patch.object(server, "_BRIDGE_REGISTRY", registry),
+            mock.patch.object(server, "try_read_live_editor_state", return_value=None),
+            mock.patch.object(
+                server,
+                "invoke_bridge",
+                side_effect=[
+                    ToolInvocationError("editor_not_running", "editor offline"),
+                    success_response,
+                ],
+            ) as invoke_mock,
+            mock.patch.object(server, "recover_project_bridge_for_reconciliation", return_value={"action": "activated_existing_editor"}) as recovery_mock,
+            mock.patch.object(server, "read_best_effort_bridge_state", return_value=None),
+            mock.patch.object(server, "time", wraps=server.time) as time_module_mock,
+        ):
+            time_module_mock.sleep = mock.Mock()
+            payload = server.wait_for_scenario_result(
+                Path("/tmp/FakeProject"),
+                "run-1",
+                "SampleScenario",
+                timeout_ms=5000,
+                poll_interval_ms=10,
+            )
+
+        self.assertEqual("passed", payload["status"])
+        self.assertEqual(1, payload["recovery_attempt_count"])
+        self.assertEqual("live_process_only", payload["reconciliation_case"])
+        self.assertEqual(2, invoke_mock.call_count)
+        recovery_mock.assert_called_once()
+
+    def test_run_in_project_request_lock_serializes_same_project_mutations(self) -> None:
+        context = types.SimpleNamespace(request_lock=threading.Lock())
+        entry_order: list[str] = []
+        finished: list[str] = []
+        first_entered = threading.Event()
+        release_first = threading.Event()
+        second_entered = threading.Event()
+
+        def first_callback() -> str:
+            entry_order.append("first")
+            first_entered.set()
+            release_first.wait(timeout=2.0)
+            finished.append("first")
+            return "first"
+
+        def second_callback() -> str:
+            entry_order.append("second")
+            second_entered.set()
+            finished.append("second")
+            return "second"
+
+        first_thread = threading.Thread(
+            target=lambda: server.run_in_project_request_lock(context, "unity.project.refresh", first_callback)
+        )
+        second_thread = threading.Thread(
+            target=lambda: server.run_in_project_request_lock(context, "unity.project.refresh", second_callback)
+        )
+
+        first_thread.start()
+        self.assertTrue(first_entered.wait(timeout=2.0))
+        second_thread.start()
+
+        self.assertFalse(second_entered.wait(timeout=0.2))
+        release_first.set()
+        first_thread.join(timeout=2.0)
+        second_thread.join(timeout=2.0)
+
+        self.assertEqual(["first", "second"], entry_order)
+        self.assertEqual(["first", "second"], finished)
+
+    def test_run_in_project_request_lock_allows_cross_project_independence(self) -> None:
+        context_a = types.SimpleNamespace(request_lock=threading.Lock())
+        context_b = types.SimpleNamespace(request_lock=threading.Lock())
+        first_entered = threading.Event()
+        second_entered = threading.Event()
+        release_both = threading.Event()
+        entry_order: list[str] = []
+
+        def callback_a() -> str:
+            entry_order.append("a")
+            first_entered.set()
+            release_both.wait(timeout=2.0)
+            return "a"
+
+        def callback_b() -> str:
+            entry_order.append("b")
+            second_entered.set()
+            release_both.wait(timeout=2.0)
+            return "b"
+
+        thread_a = threading.Thread(
+            target=lambda: server.run_in_project_request_lock(context_a, "unity.project.refresh", callback_a)
+        )
+        thread_b = threading.Thread(
+            target=lambda: server.run_in_project_request_lock(context_b, "unity.project.refresh", callback_b)
+        )
+
+        thread_a.start()
+        self.assertTrue(first_entered.wait(timeout=2.0))
+        thread_b.start()
+        self.assertTrue(second_entered.wait(timeout=2.0))
+
+        release_both.set()
+        thread_a.join(timeout=2.0)
+        thread_b.join(timeout=2.0)
+
+        self.assertCountEqual(["a", "b"], entry_order)
+
+    def test_find_running_unity_editors_for_project_ignores_unity_hub_launcher(self) -> None:
+        project_root = Path("/Users/test/ProjectA")
+        commands = [
+            (
+                101,
+                "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub -- --silent -- -projectPath "
+                f"{project_root} -logFile /tmp/editor.log",
+            ),
+            (
+                202,
+                "/Applications/Unity/Hub/Editor/6000.0.58f2/Unity.app/Contents/MacOS/Unity "
+                f"-projectPath {project_root} -logFile /tmp/editor.log",
+            ),
+        ]
+
+        with (
+            mock.patch.object(server_editor_host, "list_process_commands", return_value=commands),
+            mock.patch.object(server_editor_host, "pid_is_alive", return_value=True),
+        ):
+            matches = server_editor_host.find_running_unity_editors_for_project(project_root)
+
+        self.assertEqual(1, len(matches))
+        self.assertEqual(202, matches[0]["pid"])
+        self.assertEqual("6000.0.58f2", matches[0]["unity_version"])
+
+    def test_find_running_unity_editors_for_project_requires_exact_project_path_argument(self) -> None:
+        project_root = Path("/Users/test/ProjectA")
+        commands = [
+            (
+                202,
+                "/Applications/Unity/Hub/Editor/6000.0.58f2/Unity.app/Contents/MacOS/Unity "
+                '-projectPath "/Users/test/ProjectA-Shadow" -logFile /tmp/editor.log',
+            ),
+        ]
+
+        with (
+            mock.patch.object(server_editor_host, "list_process_commands", return_value=commands),
+            mock.patch.object(server_editor_host, "pid_is_alive", return_value=True),
+        ):
+            matches = server_editor_host.find_running_unity_editors_for_project(project_root)
+
+        self.assertEqual([], matches)
+
+    def test_extract_unity_project_path_from_command_supports_quoted_paths(self) -> None:
+        command = (
+            '/Applications/Unity/Hub/Editor/6000.0.58f2/Unity.app/Contents/MacOS/Unity '
+            '-projectPath "/Users/test/My Project" -logFile /tmp/editor.log'
+        )
+
+        result = server_editor_host.extract_unity_project_path_from_command(command)
+
+        self.assertEqual("/Users/test/My Project", result)
 
 
 if __name__ == "__main__":

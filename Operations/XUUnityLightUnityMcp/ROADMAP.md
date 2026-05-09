@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Roadmap
 
-Date: `2026-05-07`
+Date: `2026-05-09`
 Status: `active public roadmap`
 
 ## North Star
@@ -28,6 +28,40 @@ operators, and future project-specific assistants.
 - narrow, composable operations instead of one giant universal tool
 - support for more than one MCP client and more than one agent role
 
+## Current Architecture Milestone
+
+The architecture-hardening milestone that was previously only planned is now
+materially implemented in the public baseline.
+
+Implemented:
+
+- explicit per-project `BridgeRegistry`
+- explicit per-project `ProjectContext`
+- per-project mutation locking
+- formal discovery and reconciliation
+- exact process ownership matching by parsed `-projectPath`
+- health and ANR classification scaffold
+- structured grouped state:
+  - `transport_state`
+  - `state_groups`
+- explicit context-cache pruning for stale offline projects
+- public proof runners for:
+  - multi-project acceptance
+  - divergence and reconciliation cases
+  - health-policy classification
+
+This means the current same-host editor lane is no longer only a transport
+experiment. It now has an explicit routing model, recovery model, and proof
+model.
+
+What still remains after this milestone is less about basic multi-project
+survival and more about:
+
+- richer read surfaces
+- stronger artifact and timing evidence
+- broader supported-client proof
+- deeper scenario result browsing and diagnosis flows
+
 ## Current Baseline
 
 Already implemented:
@@ -53,6 +87,9 @@ Already implemented:
   - `transport_outcome`
   - `operation_outcome`
   - `recommended_next_action`
+- per-project discovery and reconciliation reporting
+- per-project health and ANR classification reporting
+- structured grouped transport and lifecycle state
 - compile-first public post-change validation ordering
 
 This is enough for:
@@ -61,6 +98,7 @@ This is enough for:
 - basic Unity-aware validation
 - controlled screenshot capture
 - early automation experiments
+- repeatable same-host multi-project routing and recovery
 
 This is not yet enough for:
 
@@ -88,6 +126,12 @@ Meaning of `85+` here:
 
 This is not the same as "full world-class device automation platform".
 It is the threshold for calling the current lane operationally strong.
+
+Near-term emphasis after the architecture milestone:
+
+- keep hardening the current lane with richer evidence outputs
+- broaden proof across more supported clients and more real consumer projects
+- improve read surfaces so diagnosis needs less shell fallback
 
 ## Phased Plan To Reach 85+
 

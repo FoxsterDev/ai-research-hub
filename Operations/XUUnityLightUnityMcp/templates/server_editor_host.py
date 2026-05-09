@@ -21,6 +21,7 @@ from server_bridge_runtime import (
     try_read_live_editor_state,
 )
 from server_core import ToolInvocationError, read_json, write_json
+from server_host_platform import current_host_platform_adapter
 from server_specs import STARTUP_POLICIES
 
 ACTIVATION_DELAY_SECONDS = 0.35
@@ -28,11 +29,7 @@ UNITY_EDITOR_ROOTS_ENV = "XUUNITY_UNITY_EDITOR_ROOTS"
 
 
 def host_platform_kind() -> str:
-    if sys.platform == "darwin":
-        return "macos"
-    if os.name == "nt":
-        return "windows"
-    return "linux"
+    return current_host_platform_adapter().platform_kind
 
 
 def parse_unity_version_from_text(value: str) -> str:
@@ -234,79 +231,7 @@ def discover_unity_installations() -> list[tuple[str, Path]]:
 
 
 def list_process_commands() -> list[tuple[int, str]]:
-    if os.name == "nt":
-        shell_path = shutil.which("powershell") or shutil.which("powershell.exe") or shutil.which("pwsh")
-        if not shell_path:
-            return []
-
-        script = (
-            "Get-CimInstance Win32_Process | "
-            "Where-Object { $_.CommandLine } | "
-            "Select-Object ProcessId,CommandLine | "
-            "ConvertTo-Json -Compress"
-        )
-        try:
-            completed = subprocess.run(
-                [shell_path, "-NoProfile", "-Command", script],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-        except OSError:
-            return []
-
-        raw = completed.stdout.strip()
-        if not raw:
-            return []
-
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
-
-        if isinstance(payload, dict):
-            payload = [payload]
-
-        commands: list[tuple[int, str]] = []
-        for entry in payload if isinstance(payload, list) else []:
-            if not isinstance(entry, dict):
-                continue
-            try:
-                pid = int(entry.get("ProcessId") or 0)
-            except (TypeError, ValueError):
-                continue
-            command = str(entry.get("CommandLine") or "").strip()
-            if pid > 0 and command:
-                commands.append((pid, command))
-        return commands
-
-    try:
-        completed = subprocess.run(
-            ["ps", "-axo", "pid=,command="],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-    except OSError:
-        return []
-
-    commands: list[tuple[int, str]] = []
-    for line in completed.stdout.splitlines():
-        line = line.rstrip()
-        if not line:
-            continue
-        parts = line.lstrip().split(None, 1)
-        if len(parts) != 2:
-            continue
-        raw_pid, command = parts
-        try:
-            pid = int(raw_pid)
-        except ValueError:
-            continue
-        command = command.strip()
-        if pid > 0 and command:
-            commands.append((pid, command))
-    return commands
+    return current_host_platform_adapter().list_process_commands()
 
 
 def try_read_host_editor_session_state(project_root: Path) -> dict[str, Any] | None:
@@ -335,10 +260,48 @@ def clear_host_editor_session_state(project_root: Path) -> None:
         pass
 
 
-def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str, Any]]:
-    target_path = str(project_root)
-    target_path_posix = target_path.replace("\\", "/")
+def _normalized_project_match_key(path_value: str | Path) -> str:
+    text = str(path_value or "").strip()
+    if not text:
+        return ""
+    try:
+        resolved = str(Path(text).expanduser().resolve())
+    except OSError:
+        resolved = str(Path(text).expanduser())
+    normalized = resolved.replace("\\", "/").rstrip("/")
+    if os.name == "nt":
+        normalized = normalized.lower()
+    return normalized
 
+
+def extract_unity_project_path_from_command(command: str) -> str:
+    normalized_command = str(command or "").replace("\\ ", " ").strip()
+    if not normalized_command:
+        return ""
+
+    match = re.search(
+        r'(?:^|\s)-projectPath\s+(?:"([^"]+)"|\'([^\']+)\'|([^\s].*?))(?=\s+-\w|\s*$)',
+        normalized_command,
+        re.IGNORECASE,
+    )
+    if not match:
+        return ""
+
+    for group in match.groups():
+        value = str(group or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def unity_command_targets_project(command: str, project_root: Path) -> bool:
+    project_path_argument = extract_unity_project_path_from_command(command)
+    if not project_path_argument:
+        return False
+    return _normalized_project_match_key(project_path_argument) == _normalized_project_match_key(project_root)
+
+
+def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str, Any]]:
     matches: list[dict[str, Any]] = []
     seen_pids: set[int] = set()
     for pid, command in list_process_commands():
@@ -346,6 +309,9 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
         command_for_match = normalized_command.replace("\\", "/")
 
         if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
+            continue
+
+        if "Unity Hub.app/Contents/MacOS/Unity Hub" in normalized_command:
             continue
 
         if not (
@@ -356,7 +322,8 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
         ):
             continue
 
-        if target_path not in normalized_command and target_path_posix not in command_for_match:
+        project_path_argument = extract_unity_project_path_from_command(normalized_command)
+        if not project_path_argument or not unity_command_targets_project(normalized_command, project_root):
             continue
 
         unity_app = ""
@@ -379,6 +346,7 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
             {
                 "pid": pid,
                 "command": normalized_command,
+                "project_path": project_path_argument,
                 "unity_app": unity_app,
                 "unity_version": unity_version,
             }
@@ -392,14 +360,10 @@ def find_running_unity_hub_launchers_for_project(project_root: Path) -> list[dic
     if host_platform_kind() != "macos":
         return []
 
-    target_path = str(project_root)
-    target_path_posix = target_path.replace("\\", "/")
-
     matches: list[dict[str, Any]] = []
     seen_pids: set[int] = set()
     for pid, command in list_process_commands():
         normalized_command = command.replace("\\ ", " ").strip()
-        command_for_match = normalized_command.replace("\\", "/")
 
         if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
             continue
@@ -407,13 +371,15 @@ def find_running_unity_hub_launchers_for_project(project_root: Path) -> list[dic
         if "Unity Hub.app/Contents/MacOS/Unity Hub" not in normalized_command:
             continue
 
-        if target_path not in normalized_command and target_path_posix not in command_for_match:
+        project_path_argument = extract_unity_project_path_from_command(normalized_command)
+        if not project_path_argument or not unity_command_targets_project(normalized_command, project_root):
             continue
 
         matches.append(
             {
                 "pid": pid,
                 "command": normalized_command,
+                "project_path": project_path_argument,
             }
         )
         seen_pids.add(pid)

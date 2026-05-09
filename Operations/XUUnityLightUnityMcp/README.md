@@ -34,7 +34,25 @@ Author:
 
 ## Current Status
 
-This is a minimal working MCP service, not a production-hardened one.
+This is a working lightweight Unity MCP service with substantial same-host
+editor hardening already in place.
+
+It is still not the final production platform, but it is no longer only a thin
+prototype.
+
+Current architecture milestone:
+
+- explicit per-project `BridgeRegistry` routing
+- explicit per-project `ProjectContext`
+- per-project transport selection and transport metadata
+- formal discovery and reconciliation across:
+  - bridge state
+  - host editor session state
+  - process-table evidence
+  - bridge-enabled project config
+- host health and ANR classification scaffold
+- structured grouped state while preserving flat compatibility keys
+- explicit in-memory context pruning for stale offline project contexts
 
 What exists now:
 - install/init script
@@ -74,6 +92,14 @@ What exists now:
 - MCP `initialize`
 - MCP `tools/list`
 - MCP `tools/call`
+- host-side per-project diagnostics and registry helpers:
+  - `project-discovery-report`
+  - `request-status-summary`
+  - `request-final-status`
+  - `request-latest-status`
+  - `request-scenario-result-summary`
+  - `registry-context-report`
+  - `registry-prune-contexts`
 - host wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - host-side editor session safety helpers:
@@ -93,6 +119,9 @@ What exists now:
   - `templates/smoke/run_transport_matrix_suite.sh`
   - `templates/smoke/run_lifecycle_stress_suite.sh`
   - `templates/smoke/run_lifecycle_fault_injection_suite.sh`
+  - `templates/smoke/run_multi_project_acceptance_suite.sh`
+  - `templates/smoke/run_phase2_divergence_suite.sh`
+  - `templates/smoke/run_phase3_health_policy_suite.sh`
   - `templates/smoke/run_post_change_validation.sh`
   - `templates/smoke/run_playmode_settled_state_regression.sh`
   - `templates/smoke/run_smoke_suite.sh`
@@ -110,6 +139,19 @@ What does not exist yet:
 - device/runtime automation layers beyond editor-bound scenario automation
 - shared `xuunity` protocol recipes for scenario-driven workflows
 - public generic batch-build execution adapters beyond compile validation and build-target switching
+
+What is already materially hardened:
+
+- request recovery across bridge generation/session changes
+- per-project routing for more than one Unity consumer
+- exact `-projectPath` process ownership matching
+- recovery-aware discovery for:
+  - `live_process_only`
+  - `stale_bridge_state`
+  - `stale_host_session`
+  - `bridge_disabled`
+- health-aware recovery guidance for stale or ANR-suspected editors
+- structured state grouping through `transport_state` and `state_groups`
 
 ## Goal
 
