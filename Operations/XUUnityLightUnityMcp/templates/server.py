@@ -41,6 +41,7 @@ from server_bridge_runtime import (
 from server_core import ToolInvocationError, read_json, write_json
 from server_editor_host import (
     activate_unity_editor,
+    bridge_state_is_ready,
     build_batch_validation_command,
     build_plain_batch_build_command,
     clear_stale_project_lock,
@@ -2441,7 +2442,16 @@ def cmd_ensure_ready(args):
         "startup_policy": args.startup_policy,
     }
 
-    if args.open_editor:
+    current_state = try_read_bridge_state(project_root)
+
+    if args.open_editor and bridge_state_is_ready(current_state, args.heartbeat_max_age_seconds):
+        payload["launch"] = {
+            "reused_existing_editor": True,
+            "reused_via": "healthy_bridge_state",
+            "editor_pid": int(current_state.get("editor_pid") or 0),
+            "unity_version": str(current_state.get("unity_version") or ""),
+        }
+    elif args.open_editor:
         unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
         payload["launch"] = open_unity_editor(project_root, log_path, unity_app, args.background_open)
 

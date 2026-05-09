@@ -79,6 +79,8 @@ What exists now:
 - host-side editor session safety helpers:
   - `request-editor-quit`
   - `restore-editor-state`
+  - healthy-editor reuse before forced open
+  - post-launch verification that a real editor process appeared for the target project
   - stale bridge and stale lock guards on editor open
   - `batch-compile` for non-interactive compile validation when the target project is closed
   - `batch-compile-matrix` for non-interactive define-matrix validation when the target project is closed
