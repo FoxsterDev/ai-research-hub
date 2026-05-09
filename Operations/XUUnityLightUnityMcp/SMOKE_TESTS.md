@@ -91,6 +91,66 @@ Pass criteria:
 - if scenario-driven refresh is used, nested refresh payload should expose the
   same settled contract class rather than only raw `*_requested` transport timing
 
+### 5. PlayMode Result Parity Smoke
+
+Use a representative direct `unity.tests.run_playmode` request and a scenario
+`tests_run_playmode` step that target the same PlayMode test.
+
+Pass criteria:
+
+- both paths finish successfully
+- both payloads expose `playmode_state_after_settle`
+- both payloads report the same final value
+- for the common single-test happy path, the final value should normally be
+  `edit`
+
+### 6. Lifecycle Reclassification Fault Smoke
+
+Use a temporary editor script change that forces a real compile or bridge
+rebootstrap while a top-level refresh request is in flight.
+
+Pass criteria:
+
+- the refresh request still resolves successfully
+- lifecycle metadata reports a `bridge_identity_transition`
+- the transition includes a host-written `request_reclassified` journal event
+- a cleanup refresh returns the editor to healthy `edit` idle state
+
+### 7. Request-Abandoned Fault Smoke
+
+Use an in-flight async request plus an injected editor reload to prove Unity-side
+`request_abandoned` journaling.
+
+Pass criteria:
+
+- the async request reaches `request_started`
+- a forced reload occurs before completion
+- Unity writes `request_abandoned` journal evidence for the same `request_id`
+- cleanup restores healthy `edit` idle state
+
+### 8. Transport Matrix Smoke
+
+Switch the bridge transport across the supported transport set and rerun the
+compact post-change validation route on each transport.
+
+Pass criteria:
+
+- each configured transport reaches healthy status
+- status reports the requested and active transport coherently
+- the compact post-change validation route passes on each transport
+- cleanup restores the original bridge config
+
+### 9. Lifecycle Stress Smoke
+
+Run a short resilience route while another desktop app is frontmost, then verify
+the bridge still handles refresh, scenario, and playmode lifecycle operations.
+
+Pass criteria:
+
+- status, refresh, contract scenario, and playmode enter/exit all succeed
+- repeated `ensure-ready` works against the same editor session
+- final status returns to healthy `edit`
+
 ## Public Template Assets
 
 Generic example scenario JSON templates live under:
@@ -98,6 +158,11 @@ Generic example scenario JSON templates live under:
 - `templates/scenarios/interactive_acceptance_smoke.json`
 - `templates/scenarios/refresh_contract_smoke.json`
 - `templates/scenarios/compile_contract_smoke.json`
+- `templates/smoke/run_playmode_settled_state_regression.sh`
+- `templates/smoke/run_request_abandoned_fault_suite.sh`
+- `templates/smoke/run_transport_matrix_suite.sh`
+- `templates/smoke/run_lifecycle_stress_suite.sh`
+- `templates/smoke/run_lifecycle_fault_injection_suite.sh`
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
 
@@ -117,6 +182,11 @@ Current generic compile modes:
 
 - `build-config-matrix`
 - `none`
+
+Optional post-change parity inputs:
+
+- `--playmode-regression-assembly-name`
+- `--playmode-regression-test-name`
 
 Lifecycle contract:
 

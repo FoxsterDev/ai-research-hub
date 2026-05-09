@@ -9,6 +9,8 @@ PROJECT_ROOT=""
 ACCEPTANCE_SCENARIO=""
 CONTRACT_SCENARIO=""
 COMPILE_MODE="build-config-matrix"
+PLAYMODE_REGRESSION_ASSEMBLY_NAME=""
+PLAYMODE_REGRESSION_TEST_NAME=""
 RESTORE_EDITOR_STATE="true"
 OPEN_EDITOR="true"
 TMP_DIR=""
@@ -22,6 +24,8 @@ Usage:
     --acceptance-scenario /path/to/acceptance.json \
     --contract-scenario /path/to/contract.json \
     [--compile-mode build-config-matrix|none] \
+    [--playmode-regression-assembly-name PlayMode.Tests] \
+    [--playmode-regression-test-name MyPlayModeTest] \
     [--no-open-editor] \
     [--no-restore-editor-state]
 EOF
@@ -55,6 +59,16 @@ while [[ $# -gt 0 ]]; do
       [[ $# -gt 0 ]] || fail_usage "--compile-mode requires a value"
       COMPILE_MODE="$1"
       ;;
+    --playmode-regression-assembly-name)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--playmode-regression-assembly-name requires a value"
+      PLAYMODE_REGRESSION_ASSEMBLY_NAME="$1"
+      ;;
+    --playmode-regression-test-name)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--playmode-regression-test-name requires a value"
+      PLAYMODE_REGRESSION_TEST_NAME="$1"
+      ;;
     --no-open-editor)
       OPEN_EDITOR="false"
       ;;
@@ -83,6 +97,11 @@ case "$COMPILE_MODE" in
     fail_usage "unsupported --compile-mode value: $COMPILE_MODE"
     ;;
 esac
+
+if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" || -n "$PLAYMODE_REGRESSION_TEST_NAME" ]]; then
+  [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]] || fail_usage "--playmode-regression-test-name requires --playmode-regression-assembly-name"
+  [[ -n "$PLAYMODE_REGRESSION_TEST_NAME" ]] || fail_usage "--playmode-regression-assembly-name requires --playmode-regression-test-name"
+fi
 
 TMP_DIR="$(mktemp -d)"
 
@@ -207,5 +226,16 @@ summarize_json \
   "contract-scenario" \
   "$TMP_DIR/contract_scenario.json" \
   "\"status=%s refresh=%s compile=%s duration=%.3fs\" % ((data.get('status') or data.get('terminal_status') or ((data.get('run_start') or {}).get('status'))), next((__import__('json').loads(step.get('payload_json') or '{}').get('outcome') for step in ((data.get('steps') or ((data.get('run_start') or {}).get('steps')) or [])) if step.get('stepId') == 'refresh'), 'unknown'), next((__import__('json').loads(step.get('payload_json') or '{}').get('completion_basis') for step in ((data.get('steps') or ((data.get('run_start') or {}).get('steps')) or [])) if step.get('stepId') == 'compile'), 'unknown'), float(data.get('duration_seconds') or 0.0))"
+
+if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]]; then
+  run_step playmode_settled_state_regression \
+    "$SCRIPT_DIR/run_playmode_settled_state_regression.sh" \
+    --project-root "$PROJECT_ROOT" \
+    --assembly-name "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" \
+    --test-name "$PLAYMODE_REGRESSION_TEST_NAME" \
+    --no-open-editor \
+    --no-restore-editor-state
+  echo "[pass] playmode-settled-state-regression"
+fi
 
 echo "[pass] suite overall"

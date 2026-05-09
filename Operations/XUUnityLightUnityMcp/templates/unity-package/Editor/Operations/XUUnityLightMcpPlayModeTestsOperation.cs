@@ -8,17 +8,17 @@ using XUUnity.LightMcp.Editor.Helpers;
 
 namespace XUUnity.LightMcp.Editor.Operations
 {
-    internal sealed class XUUnityLightMcpEditModeTestsOperation : IXUUnityLightMcpOperation
+    internal sealed class XUUnityLightMcpPlayModeTestsOperation : IXUUnityLightMcpOperation
     {
-        public string OperationName => XUUnityLightMcpEditModeTestRunner.OperationName;
+        public string OperationName => XUUnityLightMcpPlayModeTestRunner.OperationName;
 
         public XUUnityLightMcpResponse Execute(XUUnityLightMcpRequest request)
         {
             if (!XUUnityLightMcpTestsUtility.TryPrepareTestRun(
                     request,
-                    TestMode.EditMode,
-                    "EditMode",
-                    requireEditModeState: false,
+                    TestMode.PlayMode,
+                    "PlayMode",
+                    requireEditModeState: true,
                     out var filter,
                     out var filterSummary,
                     out var errorResponse))
@@ -26,14 +26,14 @@ namespace XUUnity.LightMcp.Editor.Operations
                 return errorResponse;
             }
 
-            return XUUnityLightMcpEditModeTestRunner.Start(request, filter, filterSummary);
+            return XUUnityLightMcpPlayModeTestRunner.Start(request, filter, filterSummary);
         }
     }
 
     [InitializeOnLoad]
-    internal static class XUUnityLightMcpEditModeTestRunner
+    internal static class XUUnityLightMcpPlayModeTestRunner
     {
-        internal const string OperationName = "unity.tests.run_editmode";
+        internal const string OperationName = "unity.tests.run_playmode";
 
         static readonly object Mutex = new();
         static volatile TestRunnerApi Api;
@@ -41,7 +41,7 @@ namespace XUUnity.LightMcp.Editor.Operations
         static volatile bool CallbacksRegistered;
         static volatile string ActiveRequestId;
 
-        static XUUnityLightMcpEditModeTestRunner()
+        static XUUnityLightMcpPlayModeTestRunner()
         {
             XUUnityLightMcpTestRunState.TryWritePendingCompletedResponse();
             EnsureApi();
@@ -90,7 +90,7 @@ namespace XUUnity.LightMcp.Editor.Operations
             lock (Mutex)
             {
                 Api ??= ScriptableObject.CreateInstance<TestRunnerApi>();
-                Callbacks ??= new XUUnityLightMcpPersistedTestCallbacks(OperationName, "editmode", OnRunCompleted);
+                Callbacks ??= new XUUnityLightMcpPersistedTestCallbacks(OperationName, "playmode", OnRunCompleted);
 
                 if (!CallbacksRegistered)
                 {

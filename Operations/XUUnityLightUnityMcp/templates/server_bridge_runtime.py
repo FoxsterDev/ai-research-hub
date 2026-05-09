@@ -44,6 +44,10 @@ def outbox_dir(project_root: Path) -> Path:
     return bridge_root(project_root) / "outbox"
 
 
+def response_path(project_root: Path, request_id: str) -> Path:
+    return outbox_dir(project_root) / f"{request_id}.json"
+
+
 def logs_dir(project_root: Path) -> Path:
     return bridge_root(project_root) / "logs"
 
@@ -295,6 +299,58 @@ def build_request_final_status(
         time.sleep(max(0.05, poll_interval_ms / 1000.0))
 
 
+def try_take_recovered_response(project_root: Path, request_id: str) -> dict[str, Any] | None:
+    path = response_path(project_root, request_id)
+    if not path.is_file():
+        return None
+
+    try:
+        return read_json(path)
+    finally:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def try_recover_completed_response_after_reset(
+    project_root: Path,
+    *,
+    request_id: str,
+    operation: str,
+    current_state: dict[str, Any] | None,
+    poll_timeout_ms: int,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    final_status = build_request_final_status(
+        project_root,
+        request_id,
+        operation,
+        current_state=current_state,
+        poll_timeout_ms=poll_timeout_ms,
+    )
+
+    if bool(final_status.get("request_completed")):
+        recovered_response = try_take_recovered_response(project_root, request_id)
+        if recovered_response is not None:
+            return recovered_response, final_status
+
+    return None, final_status
+
+
+def resolve_post_reset_recovery_timeout_ms(
+    request_deadline_unix: float,
+    post_reset_recovery_cap_ms: int,
+) -> int:
+    remaining_ms = max(0, int((request_deadline_unix - time.time()) * 1000))
+    if remaining_ms <= 0:
+        return 0
+
+    cap_ms = max(0, int(post_reset_recovery_cap_ms or 0))
+    if cap_ms > 0:
+        return min(remaining_ms, cap_ms)
+    return remaining_ms
+
+
 def build_lifecycle_reset_tool_error(
     project_root: Path,
     *,
@@ -311,10 +367,10 @@ def build_lifecycle_reset_tool_error(
     transport_port: int = 0,
     poll_timeout_ms: int = 1500,
 ) -> ToolInvocationError:
-    final_status = build_request_final_status(
+    _, final_status = try_recover_completed_response_after_reset(
         project_root,
-        request_id,
-        operation,
+        request_id=request_id,
+        operation=operation,
         current_state=current_state,
         poll_timeout_ms=poll_timeout_ms,
     )
@@ -585,6 +641,7 @@ class BridgeTransportAdapter:
         operation: str,
         args: dict[str, Any],
         timeout_ms: int,
+        post_reset_recovery_cap_ms: int = 0,
     ) -> tuple[dict[str, Any], str, float]:
         raise NotImplementedError
 
@@ -607,6 +664,7 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
         operation: str,
         args: dict[str, Any],
         timeout_ms: int,
+        post_reset_recovery_cap_ms: int = 0,
     ) -> tuple[dict[str, Any], str, float]:
         state_path = bridge_state_path(project_root)
         if not state_path.is_file():
@@ -657,6 +715,17 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
         state = read_best_effort_bridge_state(project_root)
         if observed_reset_state is not None:
             state = state or observed_reset_state
+            recovery_timeout_ms = resolve_post_reset_recovery_timeout_ms(deadline, post_reset_recovery_cap_ms)
+            recovered_response, _ = try_recover_completed_response_after_reset(
+                project_root,
+                request_id=request_id,
+                operation=operation,
+                current_state=state,
+                poll_timeout_ms=recovery_timeout_ms,
+            )
+            if recovered_response is not None:
+                return recovered_response, request_id, request_started_at
+
             current_generation, current_session_id = bridge_identity_from_state(state)
             processed = str((state or {}).get("last_processed_request_id") or "") == request_id
             retryable = not processed
@@ -695,6 +764,7 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
                 journal_event_path=journal_path,
                 retryable_hint=retryable,
                 request_processed_hint=processed,
+                poll_timeout_ms=recovery_timeout_ms,
             )
 
         raise ToolInvocationError(
@@ -724,6 +794,7 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
         operation: str,
         args: dict[str, Any],
         timeout_ms: int,
+        post_reset_recovery_cap_ms: int = 0,
     ) -> tuple[dict[str, Any], str, float]:
         raw_state = try_read_bridge_state(project_root)
         state = read_best_effort_bridge_state(project_root)
@@ -859,6 +930,17 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                 error_code = str(error.get("code") or "")
                 if error_code == "transport_restarting":
                     current_state = read_best_effort_bridge_state(project_root)
+                    recovery_timeout_ms = resolve_post_reset_recovery_timeout_ms(deadline, post_reset_recovery_cap_ms)
+                    recovered_response, _ = try_recover_completed_response_after_reset(
+                        project_root,
+                        request_id=request_id,
+                        operation=operation,
+                        current_state=current_state,
+                        poll_timeout_ms=recovery_timeout_ms,
+                    )
+                    if recovered_response is not None:
+                        return recovered_response, request_id, request_started_at
+
                     current_generation, current_session_id = bridge_identity_from_state(current_state)
                     journal_path = write_host_request_journal_event(
                         project_root,
@@ -887,12 +969,24 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                         retryable_hint=True,
                         transport_host=host,
                         transport_port=port,
+                        poll_timeout_ms=recovery_timeout_ms,
                     )
             return response, request_id, request_started_at
 
         state = read_best_effort_bridge_state(project_root)
         if observed_reset_state is not None:
             state = state or observed_reset_state
+            recovery_timeout_ms = resolve_post_reset_recovery_timeout_ms(deadline, post_reset_recovery_cap_ms)
+            recovered_response, _ = try_recover_completed_response_after_reset(
+                project_root,
+                request_id=request_id,
+                operation=operation,
+                current_state=state,
+                poll_timeout_ms=recovery_timeout_ms,
+            )
+            if recovered_response is not None:
+                return recovered_response, request_id, request_started_at
+
             current_generation, current_session_id = bridge_identity_from_state(state)
             processed = str((state or {}).get("last_processed_request_id") or "") == request_id
             retryable = not processed
@@ -928,6 +1022,7 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                 request_processed_hint=processed,
                 transport_host=host,
                 transport_port=port,
+                poll_timeout_ms=recovery_timeout_ms,
             )
 
         raise build_transport_response_missing_tool_error(
@@ -982,6 +1077,7 @@ def invoke_bridge_transport(
     operation: str,
     args: dict[str, Any],
     timeout_ms: int,
+    post_reset_recovery_cap_ms: int = 0,
 ) -> tuple[dict[str, Any], str, float, dict[str, Any]]:
     if not bridge_enabled(project_root):
         raise ToolInvocationError(
@@ -994,7 +1090,13 @@ def invoke_bridge_transport(
         )
 
     transport = resolve_bridge_transport(project_root)
-    response, request_id, request_started_at = transport.invoke(project_root, operation, args, timeout_ms)
+    response, request_id, request_started_at = transport.invoke(
+        project_root,
+        operation,
+        args,
+        timeout_ms,
+        post_reset_recovery_cap_ms=post_reset_recovery_cap_ms,
+    )
     return response, request_id, request_started_at, transport.metadata(project_root)
 
 

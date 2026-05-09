@@ -9,6 +9,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public const string CoreCapability = "core";
         public const string BuildTargetCapability = "build_target_control";
         public const string EditModeTestsCapability = "editmode_tests";
+        public const string PlayModeTestsCapability = "playmode_tests";
         public const string CompileCapability = "compile_player_scripts";
         public const string PlayModeCapability = "playmode_control";
         public const string GameViewCapability = "game_view_reflection";
@@ -36,6 +37,7 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.build_target.get", BuildTargetCapability },
             { "unity.build_target.switch", BuildTargetCapability },
             { "unity.tests.run_editmode", EditModeTestsCapability },
+            { "unity.tests.run_playmode", PlayModeTestsCapability },
             { "unity.compile.player_scripts", CompileCapability },
             { "unity.compile.matrix", CompileCapability },
             { "unity.playmode.state", PlayModeCapability },

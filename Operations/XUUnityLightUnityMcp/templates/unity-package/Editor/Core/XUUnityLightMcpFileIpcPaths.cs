@@ -25,6 +25,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public static string BridgeStatePath => Path.Combine(StateDirectory, "bridge_state.json");
         public static string BridgeGenerationStatePath => Path.Combine(StateDirectory, "bridge_generation_state.json");
         public static string PlayModeTransitionStatePath => Path.Combine(StateDirectory, "playmode_transition_state.json");
+        public static string ActiveTestRunStatePath => Path.Combine(StateDirectory, "active_test_run.json");
         public static string CapabilitiesReportPath => Path.Combine(StateDirectory, "capabilities_report.json");
 
         public static void EnsureDirectories()

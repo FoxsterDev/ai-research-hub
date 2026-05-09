@@ -54,6 +54,7 @@ What exists now:
   - `unity.console.tail`
   - `unity.scene.snapshot`
   - `unity.tests.run_editmode`
+  - `unity.tests.run_playmode`
   - `unity.compile.player_scripts`
   - `unity.compile.matrix`
   - host-composed build-config compile matrix routing through `unity.compile.matrix`
@@ -83,9 +84,15 @@ What exists now:
   - `batch-compile-matrix` for non-interactive define-matrix validation when the target project is closed
   - `batch-build-config-compile-matrix` for config-driven non-interactive matrix validation when the target project is closed
   - `batch-editmode-tests` for deterministic non-interactive EditMode tests when the target project is closed
+  - `batch-test-framework-version-regression` for Phase 0 `com.unity.test-framework` version sweeps across the interactive MCP and closed-project batch lanes
   - `batch-build-player` for plain Unity batch builds when the project is closed
 - public reusable smoke runners:
+  - `templates/smoke/run_request_abandoned_fault_suite.sh`
+  - `templates/smoke/run_transport_matrix_suite.sh`
+  - `templates/smoke/run_lifecycle_stress_suite.sh`
+  - `templates/smoke/run_lifecycle_fault_injection_suite.sh`
   - `templates/smoke/run_post_change_validation.sh`
+  - `templates/smoke/run_playmode_settled_state_regression.sh`
   - `templates/smoke/run_smoke_suite.sh`
 - scenario second-wave steps:
   - `compile_player_scripts`
@@ -169,6 +176,50 @@ bash AIRoot/Operations/XUUnityLightUnityMcp/run_unity_version_matrix.sh \
 ```
 
 The runner still needs a valid Unity license for each editor version it opens.
+
+## Runtime Timeout Config
+
+Interactive timeout defaults are now loaded from JSON instead of being fixed in
+code only.
+
+Public default file:
+
+- `AIRoot/Operations/XUUnityLightUnityMcp/templates/xuunity_light_unity_mcp_runtime_defaults.json`
+
+Override precedence, lowest to highest:
+
+1. public defaults in `AIRoot`
+2. repo override:
+   - `AIOutput/Operations/XUUnityLightUnityMcp/runtime_config.json`
+3. project override:
+   - `AIOutput/Projects/<ProjectName>/Operations/XUUnityLightUnityMcp/runtime_config.json`
+4. local mutable project override:
+   - `<Project>/Library/XUUnityLightMcp/config/runtime_config.json`
+5. user override:
+   - `~/.codex/xuunity-light-unity-mcp.runtime_config.json`
+6. explicit environment override file:
+   - `XUUNITY_LIGHT_UNITY_MCP_RUNTIME_CONFIG`
+
+Current public safe defaults when no override is present:
+
+- `unity.project.refresh`: `180000`
+- `unity.compile.player_scripts`: `180000`
+- `unity.compile.matrix`: `300000`
+- `unity.tests.run_editmode`: `300000`
+- `unity.tests.run_playmode`: `300000`
+- `unity.playmode.set`: `180000`
+- `unity.scenario.run`: `600000`
+
+Inspect the merged config actually seen by the installed helper:
+
+```bash
+AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  runtime-config-show \
+  --project-root /path/to/UnityProject
+```
+
+When a request command omits `--timeout-ms`, these merged defaults are now used
+for the host request budget and post-reset recovery budget.
 
 ## License
 
@@ -396,6 +447,7 @@ For compile-only and EditMode-test-only validation, the public host layer now al
 - `batch-compile-matrix`
 - `batch-build-config-compile-matrix`
 - `batch-editmode-tests`
+- `batch-test-framework-version-regression`
 
 That batch lane is intentionally narrower than `interactive_mcp`:
 - valid for compile and deterministic EditMode test claims

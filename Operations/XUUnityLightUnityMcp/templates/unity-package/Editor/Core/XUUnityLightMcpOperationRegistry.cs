@@ -24,6 +24,7 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.console.tail", new XUUnityLightMcpConsoleTailOperation() },
             { "unity.scene.snapshot", new XUUnityLightMcpSceneSnapshotOperation() },
             { "unity.tests.run_editmode", new XUUnityLightMcpEditModeTestsOperation() },
+            { "unity.tests.run_playmode", new XUUnityLightMcpPlayModeTestsOperation() },
             { "unity.playmode.state", new XUUnityLightMcpPlayModeStateOperation() },
             { "unity.playmode.set", new XUUnityLightMcpPlayModeSetOperation() },
             { "unity.game_view.configure", new XUUnityLightMcpGameViewConfigureOperation() },

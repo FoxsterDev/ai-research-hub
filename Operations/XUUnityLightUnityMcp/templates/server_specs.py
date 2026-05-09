@@ -45,6 +45,7 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "retry_on_lifecycle_reset": True,
         "retry_on_transport_response_missing": True,
         "retry_on_transport_connect_failed": True,
+        "post_reset_recovery_cap_ms": 180000,
     },
     "unity.scene.snapshot": {
         "retry_on_lifecycle_reset": True,
@@ -61,24 +62,35 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "wait_for_idle_before": True,
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
+        "post_reset_recovery_cap_ms": 180000,
     },
     "unity.compile.matrix": {
         "activate_unity": True,
         "wait_for_idle_before": True,
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
+        "post_reset_recovery_cap_ms": 300000,
     },
     "unity.tests.run_editmode": {
         "activate_unity": True,
         "wait_for_idle_before": True,
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
+        "post_reset_recovery_cap_ms": 300000,
+    },
+    "unity.tests.run_playmode": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+        "post_reset_recovery_cap_ms": 300000,
     },
     "unity.playmode.set": {
         "activate_unity": True,
         "wait_for_idle_before": True,
         "wait_for_idle_after": True,
         "idle_stable_cycles_after": 2,
+        "post_reset_recovery_cap_ms": 180000,
     },
     "unity.game_view.configure": {
         "activate_unity": True,
@@ -97,6 +109,7 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "wait_for_idle_before": True,
         "wait_for_idle_after": False,
         "idle_stable_cycles_after": 1,
+        "post_reset_recovery_cap_ms": 600000,
     },
 }
 
@@ -119,6 +132,7 @@ SCENARIO_STEP_SCHEMA: dict[str, Any] = {
                 "game_view_screenshot",
                 "compile_player_scripts",
                 "tests_run_editmode",
+                "tests_run_playmode",
                 "game_view_configure",
                 "project_defined_hook",
             ],
@@ -290,7 +304,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "forceAssetRefresh": {"type": "boolean", "default": True},
                 "resolvePackages": {"type": "boolean", "default": True},
                 "rerunHealthProbe": {"type": "boolean", "default": True},
-                "timeoutMs": {"type": "integer", "default": 30000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 180000, "minimum": 1000}
             },
             "required": ["projectRoot"]
         }
@@ -348,7 +362,35 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "type": "array",
                     "items": {"type": "string"}
                 },
-                "timeoutMs": {"type": "integer", "default": 600000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
+            },
+            "required": ["projectRoot"]
+        }
+    },
+    "unity_tests_run_playmode": {
+        "bridgeOperation": "unity.tests.run_playmode",
+        "description": "Run Unity PlayMode tests and return normalized result accounting.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "testNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "groupNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "categoryNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "assemblyNames": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
             },
             "required": ["projectRoot"]
         }
@@ -376,7 +418,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "type": "string",
                     "enum": ["enter", "exit", "pause", "resume"]
                 },
-                "timeoutMs": {"type": "integer", "default": 15000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 180000, "minimum": 1000}
             },
             "required": ["projectRoot", "action"]
         }
@@ -436,7 +478,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                     "description": "Optional extra scripting defines for this compile only."
                 },
                 "name": {"type": "string", "description": "Optional display name for this compile configuration."},
-                "timeoutMs": {"type": "integer", "default": 120000, "minimum": 1000}
+                "timeoutMs": {"type": "integer", "default": 180000, "minimum": 1000}
             },
             "required": ["projectRoot", "target"]
         }
@@ -563,7 +605,7 @@ TOOLS: dict[str, dict[str, Any]] = {
             "properties": {
                 "projectRoot": {"type": "string"},
                 "scenario": SCENARIO_DEFINITION_SCHEMA,
-                "timeoutMs": {"type": "integer", "default": 120000, "minimum": 1000},
+                "timeoutMs": {"type": "integer", "default": 600000, "minimum": 1000},
                 "pollIntervalMs": {"type": "integer", "default": 1000, "minimum": 100},
             },
             "required": ["projectRoot", "scenario"],
