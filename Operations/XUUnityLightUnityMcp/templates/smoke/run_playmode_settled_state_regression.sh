@@ -126,10 +126,6 @@ fi
 
 "${ensure_ready_cmd[@]}" >"$TMP_DIR/ensure_ready.json" || fail_step "ensure_ready"
 
-"$WRAPPER" restore-editor-state \
-  --project-root "$PROJECT_ROOT" \
-  --timeout-ms 60000 >"$TMP_DIR/restore_editor_state.json" || fail_step "restore_editor_state"
-
 python3 - "$SCENARIO_FILE" "$ASSEMBLY_NAME" "$TEST_NAME" <<'PY'
 import json
 import sys

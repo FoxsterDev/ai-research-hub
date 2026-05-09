@@ -113,9 +113,10 @@ fi
 
 CONFIG_PATH="$PROJECT_ROOT/Library/XUUnityLightMcp/config/bridge_config.json"
 PROBE_PATH="$PROJECT_ROOT/$PROBE_RELATIVE_PATH"
+STATE_ROOT="$PROJECT_ROOT/Library/XUUnityLightMcp"
+INBOX_DIR="$STATE_ROOT/inbox"
 
 cleanup() {
-  rm -f "$PROBE_PATH" "$PROBE_PATH.meta"
   if [[ -f "$ORIGINAL_CONFIG_FILE" ]]; then
     cp "$ORIGINAL_CONFIG_FILE" "$CONFIG_PATH"
   fi
@@ -200,6 +201,58 @@ namespace XUUnity.LightMcp.Editor.TransportMatrix
 EOF
 }
 
+run_raw_file_ipc_refresh() {
+  local output_file="$1"
+
+  if ! python3 - "$PROJECT_ROOT" "$INBOX_DIR" "$STATE_ROOT/outbox" "$output_file" <<'PY'; then
+import json
+import sys
+import time
+import uuid
+from pathlib import Path
+
+project_root = sys.argv[1]
+inbox_dir = Path(sys.argv[2])
+outbox_dir = Path(sys.argv[3])
+output_path = Path(sys.argv[4])
+request_timeout_ms = 180000
+request_id = str(uuid.uuid4())
+request = {
+    "request_id": request_id,
+    "operation": "unity.project.refresh",
+    "project_root": project_root,
+    "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "timeout_ms": request_timeout_ms,
+    "args_json": json.dumps({
+        "forceAssetRefresh": True,
+        "resolvePackages": True,
+        "rerunHealthProbe": True,
+    }, ensure_ascii=True, separators=(",", ":")),
+}
+inbox_dir.mkdir(parents=True, exist_ok=True)
+outbox_dir.mkdir(parents=True, exist_ok=True)
+request_path = inbox_dir / f"{request_id}.json"
+response_path = outbox_dir / f"{request_id}.json"
+request_path.write_text(json.dumps(request, ensure_ascii=True, indent=2) + "\n")
+deadline = time.time() + 240
+while time.time() < deadline:
+    if response_path.exists():
+        payload = json.loads(response_path.read_text())
+        output_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2))
+        try:
+            response_path.unlink()
+        except OSError:
+            pass
+        raise SystemExit(0)
+    time.sleep(0.5)
+raise SystemExit(1)
+PY
+    return 1
+  fi
+
+  return 0
+}
+
 run_transport_cycle() {
   local transport="$1"
 
@@ -207,10 +260,17 @@ run_transport_cycle() {
   write_transport_config "$transport"
   touch_reload_probe "$transport"
 
-  run_step "${transport}_refresh" \
-    "$WRAPPER" request-project-refresh \
-    --project-root "$PROJECT_ROOT" \
-    --timeout-ms 180000
+  if [[ "$transport" == "file_ipc" ]]; then
+    LAST_OUTPUT_FILE="$TMP_DIR/${transport}_refresh.json"
+    if ! run_raw_file_ipc_refresh "$LAST_OUTPUT_FILE"; then
+      fail_step "${transport}_refresh"
+    fi
+  else
+    run_step "${transport}_refresh" \
+      "$WRAPPER" request-project-refresh \
+      --project-root "$PROJECT_ROOT" \
+      --timeout-ms 180000
+  fi
   summarize_json \
     "${transport}-refresh" \
     "$TMP_DIR/${transport}_refresh.json" \
@@ -240,6 +300,7 @@ run_transport_cycle() {
     --acceptance-scenario "$ACCEPTANCE_SCENARIO"
     --contract-scenario "$CONTRACT_SCENARIO"
     --compile-mode "$COMPILE_MODE"
+    --no-restore-editor-state
   )
   if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]]; then
     post_change_cmd+=(
@@ -276,8 +337,6 @@ for transport in "${transports[@]}"; do
   esac
   run_transport_cycle "$transport"
 done
-
-rm -f "$PROBE_PATH" "$PROBE_PATH.meta"
 
 run_step final_status \
   "$WRAPPER" request-status \
