@@ -200,10 +200,21 @@ Lifecycle contract:
   recovery path is:
   - `request-status-summary`
   - then `request-latest-status --operation <operation>`
+- after a live-editor `devmode` package-source switch, the smoke contract should
+  require:
+  - `request-project-refresh`
+  - then `request-status-summary`
+  - before compile/test/scenario work claims success on the new package source
 - when a compact summary surface exists, the smoke route should use it before
   raw result polling or large log inspection
 - a lifecycle-reset smoke result is not accepted unless the wrapper exposes one
   obvious follow-up command using that exact `request_id`
+- if the wrapper had already emitted `request_submitted`, a compact recovery
+  result that reports:
+  - `request_observed_in_unity_journal=false`
+  - `bridge_changed_since_submission=true`
+  - `operation_outcome=submitted_lost_after_lifecycle_churn`
+  should be treated as a first-class regression signal for recovery clarity
 
 Token-discipline contract:
 
