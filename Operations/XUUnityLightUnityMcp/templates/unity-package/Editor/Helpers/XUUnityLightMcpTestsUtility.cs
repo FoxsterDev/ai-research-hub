@@ -25,6 +25,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
             filter = null;
             filterSummary = "";
             errorResponse = null;
+            var operationName = testMode == TestMode.PlayMode
+                ? XUUnityLightMcpPlayModeTestRunner.OperationName
+                : XUUnityLightMcpEditModeTestRunner.OperationName;
 
             if (EditorApplication.isCompiling)
             {
@@ -70,7 +73,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 errorResponse = XUUnityLightMcpResponseWriter.Error(
                     request.request_id,
                     "tests_busy",
-                    $"Another test run is already active: {activeState.request_id}");
+                    $"Another test run is already active: {activeState.request_id}. Wait for it to finish or recover it with request-latest-status --operation {operationName} before retrying.");
                 return false;
             }
 

@@ -34,6 +34,20 @@ Pass criteria:
 - `unity.health.probe` reports supported operations without infrastructure failure
 - compact status output should expose whether the bridge is already stabilized enough for retry
 
+### 1a. Closeout Truth Smoke
+
+Run a host-opened validation session and then `restore-editor-state`.
+
+Pass criteria:
+
+- a host-opened editor closes with verified process exit, not only a quit
+  acknowledgement
+- the result exposes `closeout_classification`
+- `closeout_classification=quit_ack_without_exit` is treated as a failure signal
+  for the smoke, not as a passing closeout
+- when closeout proof is incomplete, the wrapper surfaces one obvious follow-up
+  command through `recommended_recovery_command`
+
 ### 2. Compile Gate
 
 Before heavier scenario work on changed scripts, prefer a fast compile gate.
@@ -241,6 +255,8 @@ Lifecycle contract:
 
 - if the host opens Unity for the run, the runner should restore the original
   closed state on exit
+- a closeout run is only considered successful when `restore-editor-state`
+  reaches verified process exit; a plain quit acknowledgement is insufficient
 - project-specific wrappers may opt out only when they intentionally want to
   preserve the interactive editor session for follow-up inspection
 - after lifecycle churn or wrapper-side response loss, the preferred recovery
