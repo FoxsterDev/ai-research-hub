@@ -132,6 +132,30 @@ def emit_request_not_submitted_ack(
         pass
 
 
+def record_request_submission_event(
+    *,
+    project_root: Path,
+    request_id: str,
+    operation: str,
+    transport_name: str,
+    state: dict[str, Any] | None,
+) -> Path:
+    bridge_generation, bridge_session_id = bridge_identity_from_state(state)
+    return write_host_request_journal_event(
+        project_root,
+        "request_submitted",
+        {
+            "request_id": request_id,
+            "operation": operation,
+            "transport": transport_name,
+            "bridge_generation": bridge_generation,
+            "bridge_session_id": bridge_session_id,
+            "request_submitted": True,
+            "request_ownership_acquired": False,
+        },
+    )
+
+
 def bridge_identity_changed(
     initial_generation: int,
     initial_session_id: str,
@@ -278,6 +302,8 @@ def build_request_final_status(
         active_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or current_state or {}
         stabilization = build_bridge_stabilization_summary(active_state)
 
+        submitted_events = [event for event in events if str(event.get("event_type") or "") == "request_submitted"]
+        submitted_event = submitted_events[-1] if submitted_events else None
         started_event = next((event for event in events if str(event.get("event_type") or "") == "request_started"), None)
         completed_events = [event for event in events if str(event.get("event_type") or "") == "request_completed"]
         completed_event = completed_events[-1] if completed_events else None
@@ -289,16 +315,36 @@ def build_request_final_status(
         reclassified_event = reclassified_events[-1] if reclassified_events else None
         last_event = events[-1] if events else None
 
+        request_submitted = submitted_event is not None
         completion_status = str((completed_event or {}).get("operation_status") or "")
         request_started = started_event is not None
         request_completed = completed_event is not None
         reclassified = reclassified_event is not None
         retryable = bool((reclassified_event or {}).get("retryable")) if reclassified else False
+        request_observed_in_unity_journal = request_started or request_completed
+
+        submitted_generation = int((submitted_event or {}).get("bridge_generation") or 0)
+        submitted_session_id = str((submitted_event or {}).get("bridge_session_id") or "")
+        bridge_changed_since_submission = request_submitted and bridge_identity_changed(
+            submitted_generation,
+            submitted_session_id,
+            active_state,
+        )
+        recovery_gap_detected = (
+            request_submitted
+            and not request_observed_in_unity_journal
+            and bridge_changed_since_submission
+            and stabilization["stabilized"]
+        )
 
         if request_completed and completion_status == "ok":
             operation_outcome = "completed_ok"
         elif request_completed:
             operation_outcome = "completed_failed"
+        elif recovery_gap_detected:
+            operation_outcome = "submitted_lost_after_lifecycle_churn"
+        elif request_submitted and not request_observed_in_unity_journal:
+            operation_outcome = "submitted_no_unity_journal_confirmation"
         else:
             operation_outcome = "unknown"
 
@@ -306,6 +352,10 @@ def build_request_final_status(
             recommended_next_action = "none"
         elif operation_outcome == "completed_failed":
             recommended_next_action = "inspect_request_journal"
+        elif operation_outcome == "submitted_lost_after_lifecycle_churn":
+            recommended_next_action = "verify_effect_or_retry"
+        elif operation_outcome == "submitted_no_unity_journal_confirmation" and stabilization["safe_to_retry"]:
+            recommended_next_action = "retry_request"
         elif reclassified and retryable and stabilization["safe_to_retry"]:
             recommended_next_action = "retry_request"
         elif reclassified and not stabilization["safe_to_retry"]:
@@ -319,7 +369,8 @@ def build_request_final_status(
 
         summary = {
             "request_id": request_id,
-            "operation": str((started_event or completed_event or reclassified_event or {}).get("operation") or operation or ""),
+            "operation": str((started_event or completed_event or reclassified_event or submitted_event or {}).get("operation") or operation or ""),
+            "request_submitted": request_submitted,
             "request_started": request_started,
             "request_completed": request_completed,
             "completion_status": completion_status,
@@ -329,18 +380,22 @@ def build_request_final_status(
             "reclassified_reason": str((reclassified_event or {}).get("reason") or ""),
             "retryable": retryable,
             "recommended_next_action": recommended_next_action,
+            "request_submitted_at_utc": str((submitted_event or {}).get("event_at_utc") or ""),
             "request_started_at_utc": str((started_event or {}).get("started_at_utc") or (started_event or {}).get("event_at_utc") or ""),
             "request_completed_at_utc": str((completed_event or {}).get("completed_at_utc") or (completed_event or {}).get("event_at_utc") or ""),
             "last_event_type": str((last_event or {}).get("event_type") or ""),
             "last_event_at_utc": str((last_event or {}).get("event_at_utc") or ""),
             "last_bridge_generation_seen": int((last_event or {}).get("bridge_generation") or active_state.get("bridge_generation") or 0),
             "last_bridge_session_id_seen": str((last_event or {}).get("bridge_session_id") or active_state.get("bridge_session_id") or ""),
+            "request_observed_in_unity_journal": request_observed_in_unity_journal,
+            "bridge_changed_since_submission": bridge_changed_since_submission,
+            "recovery_gap_detected": recovery_gap_detected,
             "journal_event_count": len(events),
             "journal_event_paths": [str(event.get("_path") or "") for event in events],
             "bridge_stabilization": stabilization,
         }
 
-        if request_completed or time.time() >= deadline:
+        if request_completed or recovery_gap_detected or time.time() >= deadline:
             return summary
 
         time.sleep(max(0.05, poll_interval_ms / 1000.0))
@@ -764,6 +819,13 @@ class FileIpcBridgeTransport(BridgeTransportAdapter):
             transport_name=self.name,
             state=initial_state,
         )
+        record_request_submission_event(
+            project_root=project_root,
+            request_id=request_id,
+            operation=operation,
+            transport_name=self.name,
+            state=initial_state,
+        )
 
         deadline = time.time() + (timeout_ms / 1000.0)
         while time.time() < deadline:
@@ -930,6 +992,13 @@ class TcpLoopbackBridgeTransport(BridgeTransportAdapter):
                     project_root=project_root,
                     operation=operation,
                     request_id=request_id,
+                    transport_name=self.name,
+                    state=initial_state,
+                )
+                record_request_submission_event(
+                    project_root=project_root,
+                    request_id=request_id,
+                    operation=operation,
                     transport_name=self.name,
                     state=initial_state,
                 )

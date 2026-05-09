@@ -305,6 +305,22 @@ Behavior:
 - the public wrapper delegates unknown project-specific commands to a host-local
   wrapper when one exists
 
+Already-open editor rule after `devmode`:
+
+- if `ensure-ready` reuses an already-open editor session, that does not by
+  itself prove Unity has re-resolved the package source switch yet
+- in that case, prefer this compact settle path before compile/tests/scenarios:
+  1. `ensure-ready`
+  2. `request-project-refresh`
+  3. `request-status-summary`
+  4. only then continue with compile or smoke work
+- if the refresh request crosses lifecycle churn and the wrapper loses the final
+  payload, recover with:
+  - `request-final-status --project-root <project> --request-id <id>`
+  - if that summary reports `operation_outcome=submitted_lost_after_lifecycle_churn`,
+    verify the effect first, for example bridge health, package resolution, or
+    other direct project evidence, before blind retry
+
 ## Scaffold Install
 
 Install the external scaffold only:
@@ -841,6 +857,13 @@ Operator rule:
   `request_id` before retrying the operation
 - if transport continuity was lost and no request id is known, stabilize the
   bridge first and then recover by operation class with `request-latest-status`
+- if `request-final-status` reports:
+  - `request_submitted=true`
+  - `request_observed_in_unity_journal=false`
+  - `bridge_changed_since_submission=true`
+  - `operation_outcome=submitted_lost_after_lifecycle_churn`
+  treat that as a wrapper recovery gap after real transport submission, not as
+  proof that Unity definitely did nothing
 - a workflow that jumps straight to raw `unity.scenario.result`, `prepare.log`,
   or `build.log` while a compact summary surface already exists is an operator
   experience regression

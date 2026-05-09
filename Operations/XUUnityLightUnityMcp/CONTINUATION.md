@@ -161,6 +161,24 @@ Mini-playbook after wrapper churn:
 7. only retry after the compact recovery step says the original operation did
    not complete
 
+Mini-playbook after `devmode` with an already-open editor:
+
+1. do not assume the package source switch is active yet just because
+   `ensure-ready` reused the live editor
+2. run `request-project-refresh --project-root <project>`
+3. run `request-status-summary --project-root <project>`
+4. if the refresh request crossed lifecycle churn and the wrapper already
+   surfaced a `request_id`, run:
+   `request-final-status --project-root <project> --request-id <id>`
+5. if that compact recovery summary reports:
+   - `request_submitted=true`
+   - `request_observed_in_unity_journal=false`
+   - `bridge_changed_since_submission=true`
+   - `operation_outcome=submitted_lost_after_lifecycle_churn`
+   treat it as transport submission with incomplete lifecycle proof, then verify
+   the effect directly before blind retry
+6. only after that move on to compile, tests, or scenario work
+
 Only after that:
 - compile
 - tests
