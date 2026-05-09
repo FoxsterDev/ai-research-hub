@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 import argparse
+from contextlib import nullcontext
 import json
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from server_build_config import build_compile_matrix_args_from_build_config
+from server_batch_reporting import (
+    attach_batch_summary_to_error,
+    batch_summary_artifact_path,
+    build_batch_execution_summary,
+    build_batch_prepare_failure_summary,
+    first_non_empty_line,
+    write_batch_summary_artifact,
+)
+from server_bridge_payloads import (
+    bridge_response_to_tool_result as bridge_response_to_tool_result_data,
+    normalize_response_payload_from_lifecycle as normalize_response_payload_from_lifecycle_data,
+    scenario_failure_tool_result as scenario_failure_tool_result_data,
+)
 from server_bridge_runtime import (
     DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
     DEFAULT_IDLE_STABLE_CYCLES,
@@ -29,7 +43,6 @@ from server_bridge_runtime import (
     invoke_bridge_transport,
     logs_dir,
     maybe_record_settle_lifecycle_transition,
-    parse_journal_utc_timestamp,
     pid_is_alive,
     read_best_effort_bridge_state,
     request_journal_dir,
@@ -41,26 +54,74 @@ from server_bridge_runtime import (
     wait_for_playmode_state,
 )
 from server_core import ToolInvocationError, read_json, write_json
+from server_discovery import discover_project_context_state
 from server_editor_host import (
     activate_unity_editor,
     bridge_state_is_ready,
     build_batch_validation_command,
     build_plain_batch_build_command,
+    classify_editor_log,
     clear_stale_project_lock,
     default_batch_build_log_path,
     default_batch_operation_log_path,
     default_batch_operation_result_path,
     default_batch_build_result_path,
     detect_unity_app_path_for_project,
+    find_running_unity_editors_for_project,
     list_live_project_editor_pids,
     open_unity_editor,
     read_recent_editor_log,
     resolve_batch_build_output_path,
     resolve_editor_log_path,
     restore_host_opened_editor_state,
+    terminate_editor_pid,
     try_read_host_editor_session_state,
     update_host_editor_session_pid,
     wait_for_ready,
+)
+from server_health import (
+    FRESH_HEARTBEAT_MAX_AGE_SECONDS,
+    build_editor_log_diagnosis,
+    classify_project_health,
+)
+from server_host_platform import current_host_platform_adapter
+from server_mcp_protocol import (
+    JsonRpcError,
+    build_initialize_result as build_initialize_result_base,
+    handle_json_rpc_message as handle_json_rpc_message_base,
+    list_tools_result as list_tools_result_base,
+    serve_stdio as serve_stdio_base,
+)
+from server_mcp_tools import (
+    call_tool as call_tool_base,
+    call_unity_compile_build_config_matrix_tool as call_unity_compile_build_config_matrix_tool_base,
+    call_unity_maintenance_prune_tool as call_unity_maintenance_prune_tool_base,
+    call_unity_request_final_status_tool as call_unity_request_final_status_tool_base,
+    call_unity_scenario_result_summary_tool as call_unity_scenario_result_summary_tool_base,
+    call_unity_scenario_run_and_wait_tool as call_unity_scenario_run_and_wait_tool_base,
+    call_unity_status_summary_tool as call_unity_status_summary_tool_base,
+)
+from server_project_context import (
+    ensure_project_root as ensure_project_root_base,
+    find_latest_request_event,
+    find_repo_local_package_source,
+    inspect_package_dependency_alignment,
+)
+from server_project_reporting import (
+    apply_discovery_to_final_status_summary_data,
+    apply_discovery_to_scenario_payload_data,
+    build_discovery_scenario_result_summary_for_error_data,
+    build_discovery_status_summary_for_error_data,
+    build_project_discovery_report_data,
+    build_registry_context_report_data,
+    build_request_final_status_from_context_data,
+    build_scenario_result_summary_from_context_data,
+    enrich_error_details_with_discovery_data,
+)
+from server_registry import BridgeRegistry, ProjectContext
+from server_scenario_polling import (
+    is_terminal_scenario_status as is_terminal_scenario_status_data,
+    wait_for_scenario_result_data,
 )
 from server_specs import (
     OPERATION_LIFECYCLE_POLICIES,
@@ -89,137 +150,509 @@ SERVER_INFO = {
     "version": "0.3.9",
 }
 LIGHTWEIGHT_PACKAGE_NAME = "com.xuunity.light-mcp"
-LIGHTWEIGHT_PACKAGE_TEMPLATE_MARKER = Path(
-    "AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package/package.json"
-)
-
-def ensure_project_root(project_root: str) -> Path:
-    root = Path(project_root).expanduser().resolve()
-    if not (root / "Assets").is_dir() or not (root / "ProjectSettings" / "ProjectVersion.txt").is_file():
-        raise ToolInvocationError("project_not_found", f"Not a Unity project root: {root}")
-    return root
 
 
-def find_latest_request_event(
+def _build_project_health_details(
+    *,
     project_root: Path,
-    operations: list[str] | None = None,
-) -> dict[str, Any] | None:
-    journal_dir = request_journal_dir(project_root)
-    if not journal_dir.is_dir():
-        return None
-
-    normalized_operations = {
-        str(operation).strip()
-        for operation in (operations or [])
-        if str(operation).strip()
-    }
-
-    matched: list[dict[str, Any]] = []
-    for path in journal_dir.glob("*.json"):
-        try:
-            payload = read_json(path)
-        except Exception:
-            continue
-
-        if not isinstance(payload, dict):
-            continue
-
-        request_id = str(payload.get("request_id") or "").strip()
-        if not request_id:
-            continue
-
-        operation = str(payload.get("operation") or "").strip()
-        if normalized_operations and operation not in normalized_operations:
-            continue
-
-        event = dict(payload)
-        event["_path"] = str(path)
-        matched.append(event)
-
-    matched.sort(
-        key=lambda item: (
-            parse_journal_utc_timestamp(item.get("event_at_utc")),
-            str(item.get("event_id") or ""),
+    bridge_state: dict[str, Any],
+    host_editor_session_state: dict[str, Any],
+    discovery: dict[str, Any],
+) -> dict[str, Any]:
+    startup_policy = str(
+        bridge_state.get("startup_policy")
+        or host_editor_session_state.get("startup_policy")
+        or "fail_fast_on_interactive_compile_block"
+    )
+    heartbeat_age = heartbeat_age_seconds(bridge_state) if bridge_state else None
+    needs_log_diagnosis = bool(
+        not discovery.get("bridge_state_live")
+        or (
+            heartbeat_age is not None
+            and heartbeat_age >= FRESH_HEARTBEAT_MAX_AGE_SECONDS
         )
     )
-    return matched[-1] if matched else None
+    editor_log_diagnosis = (
+        build_editor_log_diagnosis(
+            default_editor_log_path(project_root),
+            startup_policy=startup_policy,
+            classify_editor_log=classify_editor_log,
+        )
+        if needs_log_diagnosis
+        else {}
+    )
+    return classify_project_health(
+        bridge_state=bridge_state,
+        discovery=discovery,
+        editor_log_diagnosis=editor_log_diagnosis,
+        heartbeat_age_seconds=heartbeat_age_seconds,
+        derive_busy_reason=derive_busy_reason,
+    )
 
 
-def find_repo_local_package_source(project_root: Path) -> Path | None:
-    for candidate_root in (project_root, *project_root.parents):
-        marker = candidate_root / LIGHTWEIGHT_PACKAGE_TEMPLATE_MARKER
-        if marker.is_file():
-            return marker.parent.resolve()
-    return None
+def _refresh_project_context_state(project_root: Path) -> dict[str, Any]:
+    platform_adapter = current_host_platform_adapter()
+    discovery = discover_project_context_state(
+        project_root,
+        try_read_bridge_state=try_read_bridge_state,
+        try_read_host_editor_session_state=try_read_host_editor_session_state,
+        find_running_unity_editors_for_project=find_running_unity_editors_for_project,
+        pid_is_alive=platform_adapter.pid_is_alive,
+        bridge_enabled=bridge_enabled,
+        build_project_health=_build_project_health_details,
+    )
+    bridge_state = dict(discovery.get("last_bridge_state") or {})
+    host_editor_session_state = dict(discovery.get("last_host_editor_session_state") or {})
+    bridge_generation, bridge_session_id = bridge_identity_from_state(bridge_state)
 
-
-def inspect_package_dependency_alignment(project_root: Path) -> dict[str, Any]:
-    manifest_path = project_root / "Packages" / "manifest.json"
-    package_source = find_repo_local_package_source(project_root)
-    result: dict[str, Any] = {
-        "package_name": LIGHTWEIGHT_PACKAGE_NAME,
-        "manifest_path": str(manifest_path),
-        "dependency": "",
-        "dependency_mode": "missing",
-        "repo_local_package_source": str(package_source) if package_source else "",
-        "repo_local_package_source_present": package_source is not None,
-        "alignment": "unknown",
-        "warning": "",
+    return {
+        "last_bridge_state": bridge_state,
+        "last_host_editor_session_state": host_editor_session_state,
+        "active_transport": str(discovery.get("active_transport") or ""),
+        "transport_metadata": dict(discovery.get("transport_metadata") or {}),
+        "last_seen_pid": int(discovery.get("last_seen_pid") or 0),
+        "last_seen_generation": bridge_generation,
+        "last_seen_session_id": bridge_session_id,
+        "last_refresh_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "last_refresh_unix": time.time(),
+        "health_classification": str(
+            discovery.get("host_health_classification")
+            or bridge_state.get("health_status")
+            or discovery.get("discovery_classification")
+            or ""
+        ),
+        "discovery_classification": str(discovery.get("discovery_classification") or ""),
+        "discovery_details": discovery,
     }
 
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        result["alignment"] = "manifest_unreadable"
-        result["warning"] = f"Could not inspect manifest dependency: {exc}"
+
+_BRIDGE_REGISTRY = BridgeRegistry(
+    ensure_project_root=ensure_project_root_base,
+    refresh_context_state=_refresh_project_context_state,
+)
+MUTATING_BRIDGE_OPERATIONS = frozenset(
+    {
+        "unity.project.refresh",
+        "unity.compile.player_scripts",
+        "unity.compile.matrix",
+        "unity.tests.run_editmode",
+        "unity.tests.run_playmode",
+        "unity.playmode.set",
+        "unity.build_target.switch",
+        "unity.editor.quit",
+    }
+)
+TProjectOperationResult = TypeVar("TProjectOperationResult")
+
+
+def get_project_context(project_root: str) -> ProjectContext:
+    return _BRIDGE_REGISTRY.get_or_discover(project_root)
+
+
+def refresh_project_context(project_root: str | Path) -> ProjectContext:
+    return _BRIDGE_REGISTRY.refresh_context(str(project_root))
+
+
+def list_active_project_contexts() -> list[ProjectContext]:
+    return _BRIDGE_REGISTRY.list_active_contexts()
+
+
+def forget_project_context(project_root: str) -> None:
+    _BRIDGE_REGISTRY.forget(project_root)
+
+
+def prune_stale_project_contexts(
+    *,
+    offline_context_max_idle_seconds: float | None = None,
+    general_context_max_idle_seconds: float | None = None,
+) -> list[dict[str, Any]]:
+    return _BRIDGE_REGISTRY.prune_stale_contexts(
+        offline_context_max_idle_seconds=offline_context_max_idle_seconds,
+        general_context_max_idle_seconds=general_context_max_idle_seconds,
+    )
+
+
+def build_registry_context_report() -> dict[str, Any]:
+    return build_registry_context_report_data(
+        list_active_project_contexts(),
+        now=time.time(),
+    )
+
+
+def ensure_project_root(project_root: str) -> Path:
+    return get_project_context(project_root).project_root
+
+
+def bridge_operation_requires_request_lock(operation: str) -> bool:
+    return str(operation or "").strip() in MUTATING_BRIDGE_OPERATIONS
+
+
+def run_in_project_request_lock(
+    context: ProjectContext,
+    operation: str,
+    callback: Callable[[], TProjectOperationResult],
+) -> TProjectOperationResult:
+    lock_scope = context.request_lock if bridge_operation_requires_request_lock(operation) else nullcontext()
+    with lock_scope:
+        return callback()
+
+
+def current_project_context_bridge_state(project_root: Path) -> dict[str, Any]:
+    context = refresh_project_context(project_root)
+    return read_best_effort_bridge_state(project_root) or dict(context.last_bridge_state or {})
+
+
+def current_project_context_host_session_state(project_root: Path) -> dict[str, Any]:
+    context = refresh_project_context(project_root)
+    return dict(context.last_host_editor_session_state or {})
+
+
+def current_project_context_discovery_details(project_root: Path) -> dict[str, Any]:
+    context = refresh_project_context(project_root)
+    details = context.discovery_details if isinstance(getattr(context, "discovery_details", None), dict) else {}
+    return dict(details or {})
+
+
+def build_project_discovery_report(project_root: Path) -> dict[str, Any]:
+    context = refresh_project_context(project_root)
+    discovery = current_project_context_discovery_details(project_root)
+    return build_project_discovery_report_data(
+        project_root,
+        context=context,
+        discovery=discovery,
+    )
+
+
+RECOVERY_RECONCILIATION_ACTIONS = frozenset(
+    {
+        "ensure_ready_or_recover_bridge",
+        "open_editor_or_ensure_ready",
+        "start_or_recover_editor",
+        "clear_stale_host_session_and_retry",
+    }
+)
+
+
+def build_status_summary_from_context(
+    project_root: Path,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    return build_status_summary(
+        project_root,
+        payload if isinstance(payload, dict) else {},
+        read_best_effort_bridge_state=current_project_context_bridge_state,
+        try_read_bridge_state=lambda path: dict(refresh_project_context(path).last_bridge_state or {}),
+        pid_is_alive=pid_is_alive,
+        heartbeat_age_seconds=heartbeat_age_seconds,
+        derive_busy_reason=derive_busy_reason,
+        summarize_state_for_error=summarize_state_for_error,
+        discovery_details=current_project_context_discovery_details(project_root),
+    )
+
+
+DISCOVERY_STATUS_FALLBACK_ERROR_CODES = frozenset(
+    {
+        "editor_not_running",
+        "transport_not_ready",
+        "bridge_disabled",
+    }
+)
+
+SCENARIO_RECOVERY_ERROR_CODES = frozenset(
+    {
+        "editor_not_running",
+        "transport_not_ready",
+        "transport_connect_failed",
+        "transport_response_missing",
+        "request_lifecycle_reset",
+        "response_missing_after_lifecycle_reset",
+    }
+)
+
+
+DISCOVERY_NEXT_ACTION_COMMANDS = {
+    "enable_bridge_and_retry": "init_xuunity_light_unity_mcp.sh --project-root {project_root} --enable-project",
+    "open_editor_or_ensure_ready": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
+    "ensure_ready_or_recover_bridge": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
+    "start_or_recover_editor": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
+    "clear_stale_host_session_and_retry": "xuunity_light_unity_mcp.sh restore-editor-state --project-root {project_root} --timeout-ms 15000",
+    "refresh_host_session_if_needed": "xuunity_light_unity_mcp.sh request-status-summary --project-root {project_root} --timeout-ms 5000",
+    "inspect_editor_log": "xuunity_light_unity_mcp.sh project-discovery-report --project-root {project_root}",
+    "inspect_editor_log_and_observe": "xuunity_light_unity_mcp.sh project-discovery-report --project-root {project_root}",
+    "inspect_editor_log_and_consider_graceful_restart": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
+}
+
+
+def recommended_recovery_command_for_project(project_root: Path, next_action: str) -> str:
+    template = DISCOVERY_NEXT_ACTION_COMMANDS.get(str(next_action or "").strip())
+    if not template:
+        return ""
+    return template.format(project_root=str(project_root))
+
+
+def enrich_error_details_with_discovery(project_root: Path, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    return enrich_error_details_with_discovery_data(
+        project_root,
+        details=details,
+        discovery=current_project_context_discovery_details(project_root),
+        recommended_recovery_command_for_project=recommended_recovery_command_for_project,
+    )
+
+
+def enrich_tool_invocation_error_with_discovery(project_root: Path, exc: ToolInvocationError) -> ToolInvocationError:
+    return ToolInvocationError(
+        exc.code,
+        exc.message,
+        enrich_error_details_with_discovery(project_root, exc.details),
+    )
+
+
+def execute_host_health_recovery_policy(
+    project_root: Path,
+    *,
+    timeout_ms: int,
+    startup_policy: str,
+    allow_open_editor: bool,
+    background_open: bool = False,
+) -> dict[str, Any]:
+    discovery = current_project_context_discovery_details(project_root)
+    termination_policy = str(discovery.get("host_health_termination_policy") or "observe_only")
+    health_classification = str(discovery.get("host_health_classification") or "")
+    result: dict[str, Any] = {
+        "host_health_classification": health_classification,
+        "termination_policy": termination_policy,
+        "action": "none",
+    }
+
+    if health_classification not in {"anr", "anr_suspected"}:
         return result
 
-    dependencies = manifest.get("dependencies")
-    if not isinstance(dependencies, dict):
-        result["alignment"] = "dependencies_missing"
-        result["warning"] = "Packages/manifest.json does not contain a dependencies object."
+    if termination_policy == "observe_only":
+        result["action"] = "observe_only"
         return result
 
-    dependency_value = dependencies.get(LIGHTWEIGHT_PACKAGE_NAME)
-    if not isinstance(dependency_value, str) or not dependency_value.strip():
-        result["alignment"] = "dependency_missing"
-        result["warning"] = f"{LIGHTWEIGHT_PACKAGE_NAME} is not declared in Packages/manifest.json."
+    candidate_pid = 0
+    for value in (
+        int(discovery.get("bridge_pid") or 0),
+        int(discovery.get("host_session_pid") or 0),
+    ):
+        if value > 0:
+            candidate_pid = value
+            break
+    if candidate_pid <= 0:
+        detected_pids = list(discovery.get("detected_editor_pids") or [])
+        candidate_pid = int(detected_pids[0] or 0) if detected_pids else 0
+
+    if candidate_pid <= 0:
+        result["action"] = "no_live_pid_for_termination"
         return result
 
-    dependency_value = dependency_value.strip()
-    result["dependency"] = dependency_value
-
-    if dependency_value.startswith("file:"):
-        result["dependency_mode"] = "file"
-        dependency_path = (manifest_path.parent / dependency_value[len("file:"):]).resolve()
-        result["resolved_dependency_path"] = str(dependency_path)
-        if package_source is None:
-            result["alignment"] = "file_no_repo_local_reference"
-        elif dependency_path == package_source:
-            result["alignment"] = "aligned"
-        else:
-            result["alignment"] = "file_mismatch"
-            result["warning"] = (
-                "The project uses a file dependency, but it does not point at the repo-local "
-                "AIRoot XUUnityLightUnityMcp template package."
-            )
+    result["target_editor_pid"] = candidate_pid
+    if not allow_open_editor:
+        result["action"] = "termination_deferred_no_open"
         return result
 
-    if dependency_value.startswith(("http://", "https://", "git@", "ssh://")):
-        result["dependency_mode"] = "git_or_remote"
-    else:
-        result["dependency_mode"] = "other"
+    result["terminated"] = terminate_editor_pid(candidate_pid, min(timeout_ms, 15000))
+    if not bool(result.get("terminated")):
+        result["action"] = "termination_failed"
+        return result
 
-    if package_source is not None:
-        result["alignment"] = "repo_local_source_not_loaded"
-        result["warning"] = (
-            "A repo-local AIRoot XUUnityLightUnityMcp package source exists, but the project manifest "
-            "does not currently load it through a file dependency."
-        )
-    else:
-        result["alignment"] = "external_only"
+    result["action"] = "terminated_editor"
+    refresh_project_context(project_root)
 
+    if not allow_open_editor:
+        return result
+
+    unity_app = detect_unity_app_path_for_project(project_root, None)
+    log_path = default_editor_log_path(project_root)
+    launch = open_unity_editor(project_root, log_path, unity_app, background_open)
+    state = wait_for_ready(
+        project_root=project_root,
+        timeout_ms=timeout_ms,
+        heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+        startup_policy=startup_policy,
+        editor_log_path=log_path,
+    )
+    result["launch"] = launch
+    result["bridge_state"] = state
+    if not bool((launch or {}).get("reused_existing_editor")):
+        update_host_editor_session_pid(project_root, int(state.get("editor_pid") or 0))
+    refresh_project_context(project_root)
+    result["action"] = "terminated_and_reopened"
     return result
+
+
+def recover_project_bridge_for_reconciliation(
+    project_root: Path,
+    *,
+    timeout_ms: int,
+    heartbeat_max_age_seconds: int,
+    startup_policy: str,
+    allow_open_editor: bool,
+    background_open: bool = False,
+) -> dict[str, Any]:
+    current_state = current_project_context_bridge_state(project_root)
+    discovery = current_project_context_discovery_details(project_root)
+    next_action = str(discovery.get("reconciliation_recommended_next_action") or "")
+
+    recovery: dict[str, Any] = {
+        "reconciliation_case": str(discovery.get("reconciliation_case") or ""),
+        "reconciliation_status": str(discovery.get("reconciliation_status") or ""),
+        "reconciliation_recommended_next_action": next_action,
+        "allow_open_editor": allow_open_editor,
+        "action": "none",
+    }
+
+    if bridge_state_is_ready(current_state, heartbeat_max_age_seconds):
+        recovery["action"] = "already_ready"
+        return recovery
+
+    host_health_recovery = execute_host_health_recovery_policy(
+        project_root,
+        timeout_ms=timeout_ms,
+        startup_policy=startup_policy,
+        allow_open_editor=allow_open_editor,
+        background_open=background_open,
+    )
+    recovery["host_health_recovery"] = host_health_recovery
+    if str(host_health_recovery.get("action") or "") in {
+        "terminated_editor",
+        "terminated_and_reopened",
+        "termination_failed",
+        "no_live_pid_for_termination",
+        "termination_deferred_no_open",
+    }:
+        recovery["action"] = str(host_health_recovery.get("action") or "none")
+        return recovery
+
+    if next_action == "enable_bridge_and_retry":
+        raise enrich_tool_invocation_error_with_discovery(
+            project_root,
+            ToolInvocationError(
+                "bridge_disabled",
+                (
+                    "Unity bridge is disabled for this project. "
+                    "Enable it with init_xuunity_light_unity_mcp.sh --project-root <path> --enable-project "
+                    "and reopen Unity."
+                ),
+            ),
+        )
+
+    if next_action == "refresh_host_session_if_needed":
+        refresh_project_context(project_root)
+        recovery["action"] = "refreshed_context"
+        return recovery
+
+    if next_action not in RECOVERY_RECONCILIATION_ACTIONS:
+        return recovery
+
+    detected_editor_count = int(discovery.get("detected_editor_count") or 0)
+    log_path = default_editor_log_path(project_root)
+    if detected_editor_count > 0:
+        recovery["activation"] = activate_unity_editor(project_root)
+        recovery["action"] = "activated_existing_editor"
+    elif allow_open_editor:
+        unity_app = detect_unity_app_path_for_project(project_root, None)
+        launch = open_unity_editor(project_root, log_path, unity_app, background_open)
+        recovery["launch"] = launch
+        recovery["action"] = "opened_editor"
+    else:
+        recovery["action"] = "recovery_deferred_no_open"
+        return recovery
+
+    state = wait_for_ready(
+        project_root=project_root,
+        timeout_ms=timeout_ms,
+        heartbeat_max_age_seconds=heartbeat_max_age_seconds,
+        startup_policy=startup_policy,
+        editor_log_path=log_path,
+    )
+    recovery["bridge_state"] = state
+    launch_payload = recovery.get("launch")
+    if isinstance(launch_payload, dict) and not bool(launch_payload.get("reused_existing_editor")):
+        update_host_editor_session_pid(project_root, int(state.get("editor_pid") or 0))
+    refresh_project_context(project_root)
+    return recovery
+
+
+def build_discovery_status_summary_for_error(
+    project_root: Path,
+    exc: ToolInvocationError | None = None,
+) -> dict[str, Any]:
+    return build_discovery_status_summary_for_error_data(
+        project_root,
+        exc=exc,
+        discovery=current_project_context_discovery_details(project_root),
+        build_status_summary_from_context=build_status_summary_from_context,
+        enrich_error_details_with_discovery=enrich_error_details_with_discovery,
+    )
+
+
+def apply_discovery_to_final_status_summary(
+    summary: dict[str, Any],
+    project_root: Path,
+) -> dict[str, Any]:
+    return apply_discovery_to_final_status_summary_data(
+        summary,
+        discovery=current_project_context_discovery_details(project_root),
+    )
+
+
+def apply_discovery_to_scenario_payload(
+    payload: dict[str, Any],
+    project_root: Path,
+) -> dict[str, Any]:
+    return apply_discovery_to_scenario_payload_data(
+        payload,
+        project_root=project_root,
+        discovery=current_project_context_discovery_details(project_root),
+    )
+
+
+def build_scenario_result_summary_from_context(
+    project_root: Path,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    return build_scenario_result_summary_from_context_data(
+        project_root,
+        payload,
+        discovery=current_project_context_discovery_details(project_root),
+        build_scenario_result_summary=build_scenario_result_summary,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+    )
+
+
+def build_discovery_scenario_result_summary_for_error(
+    project_root: Path,
+    run_id: str,
+    scenario_name: str,
+    exc: ToolInvocationError,
+) -> dict[str, Any]:
+    return build_discovery_scenario_result_summary_for_error_data(
+        project_root,
+        run_id,
+        scenario_name,
+        exc,
+        build_scenario_result_summary_from_context=build_scenario_result_summary_from_context,
+        enrich_error_details_with_discovery=enrich_error_details_with_discovery,
+    )
+
+
+def build_request_final_status_from_context(
+    project_root: Path,
+    request_id: str,
+    operation: str = "",
+    poll_timeout_ms: int = 0,
+) -> dict[str, Any]:
+    return build_request_final_status_from_context_data(
+        project_root,
+        request_id,
+        operation=operation,
+        poll_timeout_ms=poll_timeout_ms,
+        build_request_final_status=build_request_final_status,
+        current_project_context_bridge_state=current_project_context_bridge_state,
+        discovery=current_project_context_discovery_details(project_root),
+    )
 
 def print_json(data: Any) -> None:
     json.dump(data, sys.stdout, indent=2, ensure_ascii=True)
@@ -235,7 +668,7 @@ def emit_tool_error_summary(payload: dict[str, Any]) -> None:
         return
 
     code = str(error.get("code") or "")
-    message = first_non_empty_line(str(error.get("message") or ""), limit=200)
+    message = first_non_empty_line(str(error.get("message") or ""), limit=200, truncate_text=truncate_text)
     request_id = str(payload.get("request_id") or "")
     request_submitted = payload.get("request_submitted")
     request_ownership_acquired = payload.get("request_ownership_acquired")
@@ -309,188 +742,6 @@ def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
             payload[key] = details[key]
     return payload
 
-
-def first_non_empty_line(text: str, *, limit: int = 240) -> str:
-    for line in str(text or "").splitlines():
-        candidate = line.strip()
-        if candidate:
-            return truncate_text(candidate, limit)
-    return ""
-
-
-def batch_summary_artifact_path(result_path: Path) -> Path:
-    suffix = result_path.suffix or ".json"
-    stem = result_path.stem if result_path.suffix else result_path.name
-    return result_path.with_name(f"{stem}_summary{suffix}")
-
-
-def write_batch_summary_artifact(summary_path: Path, summary: dict[str, Any]) -> None:
-    summary_path.parent.mkdir(parents=True, exist_ok=True)
-    with summary_path.open("w", encoding="utf-8") as handle:
-        json.dump(summary, handle, indent=2, ensure_ascii=True)
-        handle.write("\n")
-
-
-def batch_phase_for_action(action: str) -> str:
-    if action == "plain_batch_build":
-        return "build"
-    if action.startswith("batch_"):
-        return "validation"
-    return "batch"
-
-
-def derive_batch_unity_outcome(result_payload: dict[str, Any] | None, succeeded: bool) -> str:
-    if not isinstance(result_payload, dict):
-        return "completed_ok" if succeeded else "unknown"
-
-    for key in ("outcome", "status", "build_result"):
-        value = str(result_payload.get(key) or "").strip()
-        if value:
-            return value
-
-    compile_result = ((result_payload.get("compile") or {}).get("result") or {}) if isinstance(result_payload.get("compile"), dict) else {}
-    if isinstance(compile_result, dict):
-        value = str(compile_result.get("status") or "").strip()
-        if value:
-            return value
-
-    matrix_payload = result_payload.get("matrix") or {}
-    if isinstance(matrix_payload, dict):
-        value = str(matrix_payload.get("status") or "").strip()
-        if value:
-            return value
-
-    tests_payload = result_payload.get("tests") or {}
-    if isinstance(tests_payload, dict):
-        value = str(tests_payload.get("status") or "").strip()
-        if value:
-            return value
-
-    return "completed_ok" if succeeded else "unknown"
-
-
-def summarize_batch_result_payload(result_payload: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(result_payload, dict):
-        return {}
-
-    summary: dict[str, Any] = {}
-    operation = str(result_payload.get("operation") or "")
-    for key in (
-        "action",
-        "operation",
-        "outcome",
-        "succeeded",
-        "build_result",
-        "requested_build_target",
-        "total_errors",
-        "total_warnings",
-        "total_size_bytes",
-        "output_path",
-        "output_directory",
-    ):
-        if key in result_payload:
-            summary[key] = result_payload[key]
-
-    compile_payload = result_payload.get("compile") or {}
-    if operation == "compile-player-scripts" and isinstance(compile_payload, dict) and compile_payload:
-        compile_result = compile_payload.get("result") or {}
-        if isinstance(compile_result, dict) and compile_result:
-            summary["compile"] = {
-                "status": compile_result.get("status"),
-                "compiled_assembly_count": compile_result.get("compiled_assembly_count"),
-                "error_count": compile_result.get("error_count"),
-            }
-            if "warning_count" in compile_result and compile_result.get("warning_count") is not None:
-                summary["compile"]["warning_count"] = compile_result.get("warning_count")
-
-    matrix_payload = result_payload.get("matrix") or {}
-    if operation == "compile-matrix" and isinstance(matrix_payload, dict) and matrix_payload:
-        summary["matrix"] = {
-            "status": matrix_payload.get("status"),
-            "total": matrix_payload.get("total"),
-            "passed": matrix_payload.get("passed"),
-            "failed": matrix_payload.get("failed"),
-            "skipped": matrix_payload.get("skipped"),
-        }
-
-    tests_payload = result_payload.get("tests") or {}
-    if operation == "editmode-tests" and isinstance(tests_payload, dict) and tests_payload:
-        summary["tests"] = {
-            "status": tests_payload.get("status"),
-            "total": tests_payload.get("total"),
-            "passed": tests_payload.get("passed"),
-            "failed": tests_payload.get("failed"),
-            "skipped": tests_payload.get("skipped"),
-        }
-
-    top_actionable_error = first_non_empty_line(result_payload.get("top_actionable_error") or "")
-    if not top_actionable_error:
-        top_actionable_error = first_non_empty_line(result_payload.get("exception_message") or "")
-    if top_actionable_error:
-        summary["top_actionable_error"] = top_actionable_error
-
-    return summary
-
-
-def build_batch_execution_summary(
-    *,
-    action: str,
-    result_payload: dict[str, Any] | None,
-    batch_exit_code: int,
-    succeeded: bool,
-    result_path: Path,
-    log_path: Path,
-    log_excerpt_hint: str,
-) -> dict[str, Any]:
-    summary = {
-        "action": action,
-        "phase": batch_phase_for_action(action),
-        "transport_outcome": "batch_process_exited_cleanly" if batch_exit_code == 0 else "batch_process_failed",
-        "unity_outcome": derive_batch_unity_outcome(result_payload, succeeded),
-        "succeeded": succeeded,
-        "batch_exit_code": batch_exit_code,
-        "result_file": str(result_path),
-        "raw_log_path": str(log_path),
-        "next_step": "Inspect raw_log_path only if result_file and this summary are insufficient.",
-    }
-    summary.update(summarize_batch_result_payload(result_payload))
-    if log_excerpt_hint and "top_actionable_error" not in summary:
-        summary["log_excerpt_hint"] = log_excerpt_hint
-    return summary
-
-
-def build_batch_prepare_failure_summary(
-    *,
-    action: str,
-    result_path: Path,
-    log_path: Path,
-    exc: ToolInvocationError,
-) -> dict[str, Any]:
-    return {
-        "action": action,
-        "phase": "prepare",
-        "transport_outcome": "batch_prepare_blocked",
-        "unity_outcome": "not_started",
-        "succeeded": False,
-        "top_actionable_error": first_non_empty_line(exc.message or exc.code, limit=320),
-        "result_file": str(result_path),
-        "raw_log_path": str(log_path),
-        "next_step": "Resolve the prepare blocker, then rerun the batch command.",
-    }
-
-
-def attach_batch_summary_to_error(
-    exc: ToolInvocationError,
-    *,
-    summary_path: Path,
-    summary: dict[str, Any],
-) -> ToolInvocationError:
-    details = dict(exc.details or {})
-    details["batch_summary_file"] = str(summary_path)
-    details["batch_failure_summary"] = summary
-    return ToolInvocationError(exc.code, exc.message, details)
-
-
 def request_editor_quit(project_root: Path, timeout_ms: int) -> dict[str, Any]:
     return invoke_bridge(project_root, "unity.editor.quit", {}, timeout_ms)
 
@@ -501,232 +752,38 @@ def wait_for_scenario_result(
     timeout_ms: int,
     poll_interval_ms: int,
 ) -> dict[str, Any]:
-    started_at = time.time()
-    deadline = started_at + (timeout_ms / 1000.0)
-    effective_poll_interval = max(0.1, poll_interval_ms / 1000.0)
-    last_payload: dict[str, Any] | None = None
-    transient_poll_error_codes = {
-        "transport_not_ready",
-        "transport_response_missing",
-        "request_lifecycle_reset",
-        "response_missing_after_lifecycle_reset",
-    }
-
-    while time.time() < deadline:
-        live_state = try_read_live_editor_state(project_root)
-        if isinstance(live_state, dict) and bool(live_state.get("playmode_transition_pending")):
-            target_state = str(live_state.get("playmode_transition_target_state") or "")
-            current_state = str(live_state.get("playmode_state") or "")
-            if target_state in {"playing", "paused"} and current_state != target_state:
-                try:
-                    activate_unity_editor(project_root)
-                except ToolInvocationError:
-                    pass
-
-        remaining_ms = max(1000, min(5000, int((deadline - time.time()) * 1000)))
-        bridge_args: dict[str, Any] = {}
-        if run_id:
-            bridge_args["runId"] = run_id
-        if scenario_name:
-            bridge_args["scenarioName"] = scenario_name
-
-        try:
-            response = invoke_bridge(str(project_root), "unity.scenario.result", bridge_args, remaining_ms)
-        except ToolInvocationError as exc:
-            if exc.code in transient_poll_error_codes and time.time() + effective_poll_interval < deadline:
-                time.sleep(effective_poll_interval)
-                continue
-            raise
-
-        tool_result = bridge_response_to_tool_result(response)
-        if tool_result.get("isError"):
-            structured = tool_result.get("structuredContent") or {}
-            error = structured.get("error") or {}
-            raise ToolInvocationError(
-                str(error.get("code") or "scenario_result_failed"),
-                str(error.get("message") or "Scenario result polling failed."),
-            )
-
-        payload = tool_result.get("structuredContent") or {}
-        if isinstance(payload, dict):
-            payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
-        last_payload = payload
-
-        if is_terminal_scenario_status(payload.get("status")):
-            payload["waited_for_terminal_state"] = True
-            payload["wait_duration_seconds"] = round(time.time() - started_at, 3)
-            return payload
-
-        time.sleep(effective_poll_interval)
-
-    scenario_label = scenario_name or run_id or "unknown"
-    suffix = ""
-    if last_payload:
-        suffix = f" Last observed status: {last_payload.get('status') or 'unknown'}."
-    raise ToolInvocationError(
-        "scenario_wait_timeout",
-        f"Timed out waiting for scenario '{scenario_label}' to reach a terminal state.{suffix}",
+    return wait_for_scenario_result_data(
+        project_root,
+        run_id,
+        scenario_name,
+        timeout_ms,
+        poll_interval_ms,
+        scenario_recovery_error_codes=SCENARIO_RECOVERY_ERROR_CODES,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+        default_heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+        try_read_live_editor_state=try_read_live_editor_state,
+        activate_unity_editor=activate_unity_editor,
+        invoke_bridge=invoke_bridge,
+        recover_project_bridge_for_reconciliation=recover_project_bridge_for_reconciliation,
+        current_project_context_bridge_state=current_project_context_bridge_state,
+        enrich_tool_invocation_error_with_discovery=enrich_tool_invocation_error_with_discovery,
+        bridge_response_to_tool_result=bridge_response_to_tool_result,
+        normalize_scenario_payload=normalize_scenario_payload,
+        apply_discovery_to_scenario_payload=apply_discovery_to_scenario_payload,
+        tool_invocation_error_type=ToolInvocationError,
     )
 
 def is_terminal_scenario_status(status: Any) -> bool:
-    return isinstance(status, str) and status in SCENARIO_TERMINAL_STATUSES
-
-
-def normalize_refresh_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    requested_outcome = str(normalized.get("outcome") or "")
-    idle_wait_after = lifecycle.get("idle_wait_after")
-    if not isinstance(idle_wait_after, dict):
-        return normalized
-
-    settled_at_utc = str(idle_wait_after.get("heartbeat_utc") or "")
-    normalized["requested_outcome"] = requested_outcome
-    normalized["outcome"] = (
-        "refresh_and_resolve_completed"
-        if bool(normalized.get("package_resolve_requested"))
-        else "refresh_completed"
-    )
-    normalized["settled_at_utc"] = settled_at_utc
-    if (
-        str(idle_wait_after.get("refresh_settle_phase") or "") == "settled"
-        and str(idle_wait_after.get("refresh_settle_request_id") or "") == str(normalized.get("settle_request_id") or "")
-    ):
-        normalized["completion_basis"] = "unity_refresh_settle_watcher"
-        normalized["settled_at_utc"] = str(idle_wait_after.get("refresh_settle_completed_utc") or settled_at_utc)
-        normalized["settle_phase"] = "settled"
-        normalized["settle_request_id"] = str(idle_wait_after.get("refresh_settle_request_id") or normalized.get("settle_request_id") or "")
-    else:
-        normalized["completion_basis"] = "host_waited_for_editor_idle"
-    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
-    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
-    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
-    return normalized
-
-
-def normalize_compile_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    idle_wait_after = lifecycle.get("idle_wait_after")
-    if not isinstance(idle_wait_after, dict):
-        return normalized
-
-    settled_at_utc = str(idle_wait_after.get("heartbeat_utc") or "")
-    request_id = str(normalized.get("settle_request_id") or "")
-    if (
-        str(idle_wait_after.get("compile_settle_phase") or "") == "settled"
-        and str(idle_wait_after.get("compile_settle_request_id") or "") == request_id
-    ):
-        normalized["completion_basis"] = "unity_compile_settle_watcher"
-        normalized["settled_at_utc"] = str(idle_wait_after.get("compile_settle_completed_utc") or settled_at_utc)
-        normalized["settle_phase"] = "settled"
-        normalized["settle_request_id"] = str(idle_wait_after.get("compile_settle_request_id") or request_id)
-    else:
-        normalized["completion_basis"] = "host_waited_for_editor_idle"
-        normalized["settled_at_utc"] = settled_at_utc
-
-    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
-    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
-    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
-    return normalized
-
-
-def normalize_playmode_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    settled_state = lifecycle.get("playmode_wait_after")
-    if not isinstance(settled_state, dict):
-        return normalized
-
-    settled_at_utc = str(settled_state.get("heartbeat_utc") or "")
-    request_id = str(normalized.get("settle_request_id") or "")
-    if (
-        str(settled_state.get("playmode_transition_phase") or "") == "settled"
-        and str(settled_state.get("playmode_transition_request_id") or "") == request_id
-    ):
-        normalized["completion_basis"] = "unity_playmode_transition_watcher"
-        normalized["settled_at_utc"] = str(settled_state.get("playmode_transition_completed_utc") or settled_at_utc)
-        normalized["settle_phase"] = "settled"
-    else:
-        normalized["completion_basis"] = "host_waited_for_playmode_state"
-        normalized["settled_at_utc"] = settled_at_utc
-
-    normalized["settle_target_state"] = str(
-        settled_state.get("playmode_transition_target_state")
-        or normalized.get("settle_target_state")
-        or settled_state.get("playmode_state")
-        or ""
-    )
-    normalized["settle_request_id"] = str(
-        settled_state.get("playmode_transition_request_id")
-        or request_id
-    )
-    normalized["is_playing"] = bool(settled_state.get("is_playing"))
-    normalized["is_paused"] = bool(settled_state.get("is_paused"))
-    normalized["is_playing_or_will_change_playmode"] = bool(settled_state.get("is_playing_or_will_change_playmode"))
-    normalized["playmode_state"] = str(settled_state.get("playmode_state") or normalized.get("playmode_state") or "")
-    return normalized
-
-
-def normalize_build_target_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    idle_wait_after = lifecycle.get("idle_wait_after")
-    if not isinstance(idle_wait_after, dict):
-        return normalized
-
-    normalized["completion_basis"] = "host_waited_for_editor_idle"
-    normalized["settled_at_utc"] = str(idle_wait_after.get("heartbeat_utc") or normalized.get("settled_at_utc") or "")
-    normalized["editor_is_compiling_after_settle"] = bool(idle_wait_after.get("is_compiling"))
-    normalized["editor_is_updating_after_settle"] = bool(idle_wait_after.get("is_updating"))
-    normalized["playmode_state_after_settle"] = str(idle_wait_after.get("playmode_state") or "")
-    return normalized
-
-
-def normalize_tests_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(payload)
-    idle_wait_after = lifecycle.get("idle_wait_after")
-    if not isinstance(idle_wait_after, dict):
-        return normalized
-
-    normalized["playmode_state_after_settle"] = str(
-        idle_wait_after.get("playmode_state")
-        or normalized.get("playmode_state_after_settle")
-        or ""
-    )
-    return normalized
+    return is_terminal_scenario_status_data(status, SCENARIO_TERMINAL_STATUSES)
 
 
 def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
-    if response.get("status") != "ok":
-        return response
-
-    settled_state = lifecycle.get("playmode_wait_after")
-    payload_json = response.get("payload_json")
-    if not isinstance(payload_json, str) or not payload_json:
-        return response
-
-    try:
-        payload = json.loads(payload_json)
-    except json.JSONDecodeError:
-        return response
-
-    operation = str(lifecycle.get("operation") or "")
-    payload_type = str(response.get("payload_type") or "")
-
-    if operation == "unity.playmode.set" and isinstance(settled_state, dict):
-        payload = normalize_playmode_payload_from_lifecycle(payload, lifecycle)
-    elif operation == "unity.project.refresh":
-        payload = normalize_refresh_payload_from_lifecycle(payload, lifecycle)
-    elif operation in {"unity.compile.player_scripts", "unity.compile.matrix"}:
-        payload = normalize_compile_payload_from_lifecycle(payload, lifecycle)
-    elif operation == "unity.build_target.switch":
-        payload = normalize_build_target_payload_from_lifecycle(payload, lifecycle)
-    elif operation == "unity.tests.run_playmode":
-        payload = normalize_tests_payload_from_lifecycle(payload, lifecycle)
-
-    if payload_type in {"unity.scenario.run", "unity.scenario.result"}:
-        payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
-
-    normalized = dict(response)
-    normalized["payload_json"] = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-    return normalized
+    return normalize_response_payload_from_lifecycle_data(
+        response,
+        lifecycle,
+        normalize_scenario_payload=normalize_scenario_payload,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+    )
 
 
 def resolve_operation_timeout_ms(
@@ -759,66 +816,88 @@ def resolve_operation_lifecycle_policy(project_root: Path, operation: str) -> di
 
 
 def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
-    project_root = ensure_project_root(project_root_value)
-    policy = resolve_operation_lifecycle_policy(project_root, operation)
-    max_attempts = 2 if (
-        bool(policy.get("retry_on_lifecycle_reset"))
-        or bool(policy.get("retry_on_transport_response_missing"))
-        or bool(policy.get("retry_on_transport_connect_failed"))
-    ) else 1
+    context = get_project_context(project_root_value)
+    project_root = context.project_root
 
-    for attempt_index in range(max_attempts):
-        pre_request_state = try_read_live_editor_state(project_root) or try_read_bridge_state(project_root)
-        lifecycle: dict[str, Any] = {
-            "operation": operation,
-            "attempt_index": attempt_index,
-            "max_attempts": max_attempts,
-            "activation_requested": False,
-            "idle_wait_before": None,
-            "idle_wait_after": None,
-            "transport": None,
-            "bridge_identity_before_request": {
-                "bridge_generation": bridge_identity_from_state(pre_request_state)[0],
-                "bridge_session_id": bridge_identity_from_state(pre_request_state)[1],
-            },
-        }
+    def perform_invoke() -> dict[str, Any]:
+        policy = resolve_operation_lifecycle_policy(project_root, operation)
+        max_attempts = 2 if (
+            bool(policy.get("retry_on_lifecycle_reset"))
+            or bool(policy.get("retry_on_transport_response_missing"))
+            or bool(policy.get("retry_on_transport_connect_failed"))
+        ) else 1
 
-        try:
-            if policy["activate_unity"]:
-                lifecycle["activation_requested"] = True
-                lifecycle["activation"] = activate_unity_editor(project_root)
+        for attempt_index in range(max_attempts):
+            pre_request_state = try_read_live_editor_state(project_root) or current_project_context_bridge_state(project_root)
+            lifecycle: dict[str, Any] = {
+                "operation": operation,
+                "attempt_index": attempt_index,
+                "max_attempts": max_attempts,
+                "activation_requested": False,
+                "idle_wait_before": None,
+                "idle_wait_after": None,
+                "transport": None,
+                "bridge_identity_before_request": {
+                    "bridge_generation": bridge_identity_from_state(pre_request_state)[0],
+                    "bridge_session_id": bridge_identity_from_state(pre_request_state)[1],
+                },
+            }
 
-            if policy["wait_for_idle_before"]:
-                lifecycle["idle_wait_before"] = wait_for_editor_idle(
-                    project_root,
-                    timeout_ms,
-                    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                    f"before {operation}",
-                    stable_cycles=1,
-                )
+            try:
+                if policy["activate_unity"]:
+                    lifecycle["activation_requested"] = True
+                    lifecycle["activation"] = recover_project_bridge_for_reconciliation(
+                        project_root,
+                        timeout_ms=min(timeout_ms, 180000),
+                        heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        startup_policy=str(
+                            pre_request_state.get("startup_policy")
+                            or "fail_fast_on_interactive_compile_block"
+                        ),
+                        allow_open_editor=True,
+                    )
 
-            response, request_id, request_started_at, transport_metadata = invoke_bridge_transport(
-                project_root,
-                operation,
-                args,
-                timeout_ms,
-                post_reset_recovery_cap_ms=int(policy.get("post_reset_recovery_cap_ms") or 0),
-            )
-            lifecycle["transport"] = transport_metadata
-
-            if operation == "unity.playmode.set":
-                expected_playmode_state = expected_playmode_state_for_action(str(args.get("action") or ""))
-                if expected_playmode_state:
-                    lifecycle["playmode_wait_after"] = wait_for_playmode_state(
+                if policy["wait_for_idle_before"]:
+                    lifecycle["idle_wait_before"] = wait_for_editor_idle(
                         project_root,
                         timeout_ms,
                         DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                        expected_playmode_state,
-                        f"after {operation}",
-                        after_request_id=request_id,
-                        not_before_unix=request_started_at,
-                        stable_cycles=int(policy["idle_stable_cycles_after"]),
+                        f"before {operation}",
+                        stable_cycles=1,
                     )
+
+                response, request_id, request_started_at, transport_metadata = invoke_bridge_transport(
+                    project_root,
+                    operation,
+                    args,
+                    timeout_ms,
+                    post_reset_recovery_cap_ms=int(policy.get("post_reset_recovery_cap_ms") or 0),
+                )
+                lifecycle["transport"] = transport_metadata
+
+                if operation == "unity.playmode.set":
+                    expected_playmode_state = expected_playmode_state_for_action(str(args.get("action") or ""))
+                    if expected_playmode_state:
+                        lifecycle["playmode_wait_after"] = wait_for_playmode_state(
+                            project_root,
+                            timeout_ms,
+                            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                            expected_playmode_state,
+                            f"after {operation}",
+                            after_request_id=request_id,
+                            not_before_unix=request_started_at,
+                            stable_cycles=int(policy["idle_stable_cycles_after"]),
+                        )
+                    elif policy["wait_for_idle_after"]:
+                        lifecycle["idle_wait_after"] = wait_for_editor_idle(
+                            project_root,
+                            timeout_ms,
+                            DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                            f"after {operation}",
+                            after_request_id=request_id,
+                            not_before_unix=request_started_at,
+                            stable_cycles=int(policy["idle_stable_cycles_after"]),
+                        )
                 elif policy["wait_for_idle_after"]:
                     lifecycle["idle_wait_after"] = wait_for_editor_idle(
                         project_root,
@@ -829,285 +908,122 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
                         not_before_unix=request_started_at,
                         stable_cycles=int(policy["idle_stable_cycles_after"]),
                     )
-            elif policy["wait_for_idle_after"]:
-                lifecycle["idle_wait_after"] = wait_for_editor_idle(
-                    project_root,
-                    timeout_ms,
-                    DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                    f"after {operation}",
-                    after_request_id=request_id,
-                    not_before_unix=request_started_at,
-                    stable_cycles=int(policy["idle_stable_cycles_after"]),
+
+                settled_state = (
+                    lifecycle.get("playmode_wait_after")
+                    if isinstance(lifecycle.get("playmode_wait_after"), dict)
+                    else lifecycle.get("idle_wait_after")
                 )
+                if isinstance(settled_state, dict):
+                    transition = maybe_record_settle_lifecycle_transition(
+                        project_root,
+                        operation,
+                        request_id,
+                        pre_request_state,
+                        settled_state,
+                    )
+                    if transition:
+                        lifecycle["bridge_identity_transition"] = transition
 
-            settled_state = (
-                lifecycle.get("playmode_wait_after")
-                if isinstance(lifecycle.get("playmode_wait_after"), dict)
-                else lifecycle.get("idle_wait_after")
-            )
-            if isinstance(settled_state, dict):
-                transition = maybe_record_settle_lifecycle_transition(
-                    project_root,
-                    operation,
-                    request_id,
-                    pre_request_state,
-                    settled_state,
-                )
-                if transition:
-                    lifecycle["bridge_identity_transition"] = transition
+                if response.get("status") == "ok":
+                    response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
+                    response["_xuunity_lifecycle"] = lifecycle
 
-            if response.get("status") == "ok":
-                response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
-                response["_xuunity_lifecycle"] = lifecycle
+                refresh_project_context(project_root)
+                return response
+            except ToolInvocationError as exc:
+                if exc.code == "request_lifecycle_reset" and attempt_index + 1 < max_attempts:
+                    lifecycle["lifecycle_reset_retry"] = exc.details
+                    lifecycle["lifecycle_reset_recovery"] = recover_project_bridge_for_reconciliation(
+                        project_root,
+                        timeout_ms=min(timeout_ms, 10000),
+                        heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        startup_policy=str(
+                            (current_project_context_bridge_state(project_root) or pre_request_state or {}).get("startup_policy")
+                            or "fail_fast_on_interactive_compile_block"
+                        ),
+                        allow_open_editor=False,
+                    )
+                    continue
+                if (
+                    exc.code == "transport_response_missing"
+                    and bool(policy.get("retry_on_transport_response_missing"))
+                    and attempt_index + 1 < max_attempts
+                    and not bool((exc.details or {}).get("request_processed"))
+                ):
+                    lifecycle["transport_response_missing_retry"] = exc.details
+                    lifecycle["transport_response_missing_recovery"] = recover_project_bridge_for_reconciliation(
+                        project_root,
+                        timeout_ms=min(timeout_ms, 10000),
+                        heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        startup_policy=str(
+                            (current_project_context_bridge_state(project_root) or pre_request_state or {}).get("startup_policy")
+                            or "fail_fast_on_interactive_compile_block"
+                        ),
+                        allow_open_editor=False,
+                    )
+                    continue
+                if (
+                    exc.code == "transport_connect_failed"
+                    and bool(policy.get("retry_on_transport_connect_failed"))
+                    and attempt_index + 1 < max_attempts
+                ):
+                    lifecycle["transport_connect_failed_retry"] = exc.details
+                    retry_state = current_project_context_bridge_state(project_root) or pre_request_state or {}
+                    lifecycle["transport_connect_failed_recovery"] = recover_project_bridge_for_reconciliation(
+                        project_root,
+                        timeout_ms=min(timeout_ms, 10000),
+                        heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
+                        startup_policy=str(
+                            retry_state.get("startup_policy")
+                            or "fail_fast_on_interactive_compile_block"
+                        ),
+                        allow_open_editor=False,
+                    )
+                    continue
+                raise enrich_tool_invocation_error_with_discovery(project_root, exc)
 
-            return response
-        except ToolInvocationError as exc:
-            if exc.code == "request_lifecycle_reset" and attempt_index + 1 < max_attempts:
-                lifecycle["lifecycle_reset_retry"] = exc.details
-                continue
-            if (
-                exc.code == "transport_response_missing"
-                and bool(policy.get("retry_on_transport_response_missing"))
-                and attempt_index + 1 < max_attempts
-                and not bool((exc.details or {}).get("request_processed"))
-            ):
-                lifecycle["transport_response_missing_retry"] = exc.details
-                continue
-            if (
-                exc.code == "transport_connect_failed"
-                and bool(policy.get("retry_on_transport_connect_failed"))
-                and attempt_index + 1 < max_attempts
-            ):
-                lifecycle["transport_connect_failed_retry"] = exc.details
-                retry_state = try_read_bridge_state(project_root) or pre_request_state or {}
-                wait_for_ready(
-                    project_root=project_root,
-                    timeout_ms=min(timeout_ms, 10000),
-                    heartbeat_max_age_seconds=DEFAULT_HEARTBEAT_MAX_AGE_SECONDS,
-                    startup_policy=str(
-                        retry_state.get("startup_policy")
-                        or "fail_fast_on_interactive_compile_block"
-                    ),
-                    editor_log_path=default_editor_log_path(project_root),
-                )
-                continue
-            raise
+        raise ToolInvocationError("unreachable", f"Unexpected lifecycle retry state for {operation}.")
 
-    raise ToolInvocationError("unreachable", f"Unexpected lifecycle retry state for {operation}.")
+    return run_in_project_request_lock(context, operation, perform_invoke)
 
 def bridge_response_to_tool_result(response: dict[str, Any]) -> dict[str, Any]:
-    if response.get("status") == "ok":
-        payload = {}
-        payload_json = response.get("payload_json") or "{}"
-        payload_type = str(response.get("payload_type") or "")
-        try:
-            payload = json.loads(payload_json)
-        except json.JSONDecodeError:
-            payload = {"raw_payload_json": payload_json}
-
-        lifecycle = response.get("_xuunity_lifecycle")
-        if isinstance(lifecycle, dict) and lifecycle:
-            payload["_xuunity_lifecycle"] = lifecycle
-        elif payload_type in {"unity.scenario.run", "unity.scenario.result"} and isinstance(payload, dict):
-            payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
-
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": False
-        }
-
-    error = response.get("error") or {}
-    message = error.get("message") or "Unknown bridge error."
-    code = error.get("code") or "unknown_bridge_error"
-    structured = {
-        "error": {
-            "code": code,
-            "message": message
-        }
-    }
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(structured, ensure_ascii=True)
-            }
-        ],
-        "structuredContent": structured,
-        "isError": True
-    }
+    return bridge_response_to_tool_result_data(
+        response,
+        normalize_scenario_payload=normalize_scenario_payload,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+    )
 
 
 def scenario_failure_tool_result(result_payload: dict[str, Any]) -> dict[str, Any]:
-    scenario_name = str(result_payload.get("scenario_name") or "unknown_scenario")
-    status = str(result_payload.get("status") or result_payload.get("terminal_status") or "failed")
-    structured = {
-        "error": {
-            "code": "scenario_failed",
-            "message": f"Scenario '{scenario_name}' finished with status '{status}'.",
-        },
-        "scenario": result_payload,
-    }
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(structured, ensure_ascii=True)
-            }
-        ],
-        "structuredContent": structured,
-        "isError": True,
-    }
+    return scenario_failure_tool_result_data(result_payload)
 
 
 def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> dict[str, Any]:
-    project_root_value = arguments.get("projectRoot")
-    if not isinstance(project_root_value, str) or not project_root_value.strip():
-        raise JsonRpcError(-32602, "projectRoot is required.")
-
-    project_root = ensure_project_root(project_root_value)
-    timeout_ms = resolve_operation_timeout_ms(
-        project_root,
-        "unity.compile.matrix",
-        arguments.get("timeoutMs"),
-        300000,
+    return call_unity_compile_build_config_matrix_tool_base(
+        arguments,
+        tool_invocation_error_type=ToolInvocationError,
+        ensure_project_root=ensure_project_root,
+        resolve_operation_timeout_ms=resolve_operation_timeout_ms,
+        build_compile_matrix_args_from_build_config=build_compile_matrix_args_from_build_config,
+        invoke_bridge=invoke_bridge,
+        build_tool_error_payload=build_tool_error_payload,
+        bridge_response_to_tool_result=bridge_response_to_tool_result,
     )
-
-    profiles = arguments.get("profiles")
-    if profiles is not None and not isinstance(profiles, list):
-        raise JsonRpcError(-32602, "profiles must be an array of strings when provided.")
-
-    targets = arguments.get("targets")
-    if targets is not None and not isinstance(targets, list):
-        raise JsonRpcError(-32602, "targets must be an array of strings when provided.")
-
-    stop_on_first_failure = arguments.get("stopOnFirstFailure", False)
-    if not isinstance(stop_on_first_failure, bool):
-        raise JsonRpcError(-32602, "stopOnFirstFailure must be a boolean when provided.")
-
-    build_config_asset = arguments.get("buildConfigAsset")
-    if build_config_asset is not None and not isinstance(build_config_asset, str):
-        raise JsonRpcError(-32602, "buildConfigAsset must be a string when provided.")
-
-    try:
-        compile_plan = build_compile_matrix_args_from_build_config(
-            project_root=project_root,
-            build_config_asset=build_config_asset,
-            requested_profiles=profiles,
-            requested_targets=targets,
-            stop_on_first_failure=stop_on_first_failure,
-            tool_error_type=ToolInvocationError,
-        )
-        response = invoke_bridge(
-            str(project_root),
-            "unity.compile.matrix",
-            compile_plan["matrixArgs"],
-            timeout_ms,
-        )
-    except ToolInvocationError as exc:
-        payload = build_tool_error_payload(exc)
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": True
-        }
-
-    tool_result = bridge_response_to_tool_result(response)
-    structured = tool_result.get("structuredContent") or {}
-    if not tool_result.get("isError"):
-        structured = {
-            "build_config_asset": compile_plan["assetPath"],
-            "profiles": compile_plan["profiles"],
-            "matrix": structured,
-        }
-        tool_result["structuredContent"] = structured
-        tool_result["content"] = [
-            {
-                "type": "text",
-                "text": json.dumps(structured, ensure_ascii=True)
-            }
-        ]
-    return tool_result
 
 
 def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str, Any]:
-    project_root_value = arguments.get("projectRoot")
-    if not isinstance(project_root_value, str) or not project_root_value.strip():
-        raise JsonRpcError(-32602, "projectRoot is required.")
-
-    project_root = ensure_project_root(project_root_value)
-    scenario = arguments.get("scenario")
-    if not isinstance(scenario, dict):
-        raise JsonRpcError(-32602, "scenario must be an object.")
-
-    timeout_ms = resolve_operation_timeout_ms(
-        project_root,
-        "unity.scenario.run",
-        arguments.get("timeoutMs"),
-        600000,
+    return call_unity_scenario_run_and_wait_tool_base(
+        arguments,
+        tool_invocation_error_type=ToolInvocationError,
+        ensure_project_root=ensure_project_root,
+        resolve_operation_timeout_ms=resolve_operation_timeout_ms,
+        invoke_bridge=invoke_bridge,
+        bridge_response_to_tool_result=bridge_response_to_tool_result,
+        wait_for_scenario_result=wait_for_scenario_result,
+        build_tool_error_payload=build_tool_error_payload,
+        scenario_failure_tool_result=scenario_failure_tool_result,
     )
-
-    poll_interval_ms = arguments.get("pollIntervalMs", 1000)
-    if not isinstance(poll_interval_ms, int):
-        raise JsonRpcError(-32602, "pollIntervalMs must be an integer.")
-
-    try:
-        run_response = invoke_bridge(
-            str(project_root),
-            "unity.scenario.run",
-            {"scenario": scenario},
-            max(5000, min(timeout_ms, 15000)),
-        )
-        run_tool_result = bridge_response_to_tool_result(run_response)
-        if run_tool_result.get("isError"):
-            return run_tool_result
-
-        run_payload = run_tool_result.get("structuredContent") or {}
-        run_id = str(run_payload.get("run_id") or "")
-        scenario_name = str(run_payload.get("scenario_name") or scenario.get("name") or "")
-        result_payload = wait_for_scenario_result(
-            project_root=project_root,
-            run_id=run_id,
-            scenario_name=scenario_name,
-            timeout_ms=timeout_ms,
-            poll_interval_ms=poll_interval_ms,
-        )
-    except ToolInvocationError as exc:
-        payload = build_tool_error_payload(exc)
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": True
-        }
-
-    result_payload["run_start"] = run_payload
-    if not bool(result_payload.get("succeeded")):
-        return scenario_failure_tool_result(result_payload)
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(result_payload, ensure_ascii=True)
-            }
-        ],
-        "structuredContent": result_payload,
-        "isError": False
-    }
 
 
 def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1123,16 +1039,17 @@ def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         response = invoke_bridge(str(project_root), "unity.status", {}, timeout_ms)
     except ToolInvocationError as exc:
-        payload = build_tool_error_payload(exc)
+        if exc.code in DISCOVERY_STATUS_FALLBACK_ERROR_CODES:
+            summary = build_discovery_status_summary_for_error(project_root, exc)
+            return {
+                "content": [{"type": "text", "text": json.dumps(summary, ensure_ascii=True)}],
+                "structuredContent": summary,
+                "isError": False,
+            }
         return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": True
+            "content": [{"type": "text", "text": json.dumps(build_tool_error_payload(exc), ensure_ascii=True)}],
+            "structuredContent": build_tool_error_payload(exc),
+            "isError": True,
         }
 
     tool_result = bridge_response_to_tool_result(response)
@@ -1140,66 +1057,20 @@ def call_unity_status_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
         return tool_result
 
     payload = tool_result.get("structuredContent") or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    summary = build_status_summary(
-        project_root,
-        payload,
-        read_best_effort_bridge_state=read_best_effort_bridge_state,
-        try_read_bridge_state=try_read_bridge_state,
-        pid_is_alive=pid_is_alive,
-        heartbeat_age_seconds=heartbeat_age_seconds,
-        derive_busy_reason=derive_busy_reason,
-        summarize_state_for_error=summarize_state_for_error,
-    )
+    summary = build_status_summary_from_context(project_root, payload if isinstance(payload, dict) else {})
     return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(summary, ensure_ascii=True)
-            }
-        ],
+        "content": [{"type": "text", "text": json.dumps(summary, ensure_ascii=True)}],
         "structuredContent": summary,
-        "isError": False
+        "isError": False,
     }
 
 
 def call_unity_request_final_status_tool(arguments: dict[str, Any]) -> dict[str, Any]:
-    project_root_value = arguments.get("projectRoot")
-    if not isinstance(project_root_value, str) or not project_root_value.strip():
-        raise JsonRpcError(-32602, "projectRoot is required.")
-
-    request_id = arguments.get("requestId")
-    if not isinstance(request_id, str) or not request_id.strip():
-        raise JsonRpcError(-32602, "requestId is required.")
-
-    timeout_ms = arguments.get("timeoutMs", 2000)
-    if not isinstance(timeout_ms, int):
-        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
-
-    operation = arguments.get("operation")
-    if operation is not None and not isinstance(operation, str):
-        raise JsonRpcError(-32602, "operation must be a string when provided.")
-
-    project_root = ensure_project_root(project_root_value)
-    current_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root)
-    summary = build_request_final_status(
-        project_root,
-        request_id.strip(),
-        operation.strip() if isinstance(operation, str) else "",
-        current_state=current_state,
-        poll_timeout_ms=timeout_ms,
+    return call_unity_request_final_status_tool_base(
+        arguments,
+        ensure_project_root=ensure_project_root,
+        build_request_final_status_summary=build_request_final_status_from_context,
     )
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(summary, ensure_ascii=True)
-            }
-        ],
-        "structuredContent": summary,
-        "isError": False
-    }
 
 
 def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1211,27 +1082,34 @@ def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[s
     if not isinstance(timeout_ms, int):
         raise JsonRpcError(-32602, "timeoutMs must be an integer.")
 
+    project_root = ensure_project_root(project_root_value)
     bridge_args: dict[str, Any] = {}
     run_id = arguments.get("runId")
     if isinstance(run_id, str) and run_id.strip():
-        bridge_args["runId"] = run_id
+        bridge_args["runId"] = run_id.strip()
     scenario_name = arguments.get("scenarioName")
     if isinstance(scenario_name, str) and scenario_name.strip():
-        bridge_args["scenarioName"] = scenario_name
+        bridge_args["scenarioName"] = scenario_name.strip()
 
     try:
-        response = invoke_bridge(project_root_value, "unity.scenario.result", bridge_args, timeout_ms)
+        response = invoke_bridge(str(project_root), "unity.scenario.result", bridge_args, timeout_ms)
     except ToolInvocationError as exc:
-        payload = build_tool_error_payload(exc)
+        if exc.code in DISCOVERY_STATUS_FALLBACK_ERROR_CODES.union(SCENARIO_RECOVERY_ERROR_CODES):
+            summary = build_discovery_scenario_result_summary_for_error(
+                project_root,
+                bridge_args.get("runId", ""),
+                bridge_args.get("scenarioName", ""),
+                exc,
+            )
+            return {
+                "content": [{"type": "text", "text": json.dumps(summary, ensure_ascii=True)}],
+                "structuredContent": summary,
+                "isError": False,
+            }
         return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": True
+            "content": [{"type": "text", "text": json.dumps(build_tool_error_payload(exc), ensure_ascii=True)}],
+            "structuredContent": build_tool_error_payload(exc),
+            "isError": True,
         }
 
     tool_result = bridge_response_to_tool_result(response)
@@ -1239,30 +1117,19 @@ def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[s
         return tool_result
 
     payload = tool_result.get("structuredContent") or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    summary = build_scenario_result_summary(payload, SCENARIO_TERMINAL_STATUSES)
+    summary = build_scenario_result_summary_from_context(project_root, payload if isinstance(payload, dict) else {})
     return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(summary, ensure_ascii=True)
-            }
-        ],
+        "content": [{"type": "text", "text": json.dumps(summary, ensure_ascii=True)}],
         "structuredContent": summary,
-        "isError": False
+        "isError": False,
     }
 
 
 def call_unity_maintenance_prune_tool(arguments: dict[str, Any]) -> dict[str, Any]:
-    project_root_value = arguments.get("projectRoot")
-    if not isinstance(project_root_value, str) or not project_root_value.strip():
-        raise JsonRpcError(-32602, "projectRoot is required.")
-
-    project_root = ensure_project_root(project_root_value)
-    result = prune_project_artifacts(
-        project_root,
+    return call_unity_maintenance_prune_tool_base(
         arguments,
+        ensure_project_root=ensure_project_root,
+        prune_project_artifacts=prune_project_artifacts,
         bridge_root=bridge_root,
         request_journal_dir=request_journal_dir,
         scenario_results_dir=scenario_results_dir,
@@ -1272,211 +1139,58 @@ def call_unity_maintenance_prune_tool(arguments: dict[str, Any]) -> dict[str, An
         default_editor_log_path=default_editor_log_path,
         read_json=read_json,
     )
-    return {
-        "content": [
-            {
-                "type": "text",
-                "text": json.dumps(result, ensure_ascii=True)
-            }
-        ],
-        "structuredContent": result,
-        "isError": False
-    }
 
 
 def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
-    if name not in TOOLS:
-        raise JsonRpcError(-32601, f"Unknown tool: {name}")
-
-    args = arguments or {}
-    if name == "unity_status_summary":
-        return call_unity_status_summary_tool(args)
-    if name == "unity_request_final_status":
-        return call_unity_request_final_status_tool(args)
-    if name == "unity_scenario_result_summary":
-        return call_unity_scenario_result_summary_tool(args)
-    if name == "unity_maintenance_prune":
-        return call_unity_maintenance_prune_tool(args)
-    if name == "unity_compile_build_config_matrix":
-        return call_unity_compile_build_config_matrix_tool(args)
-    if name == "unity_scenario_run_and_wait":
-        return call_unity_scenario_run_and_wait_tool(args)
-
-    tool = TOOLS[name]
-    project_root = args.get("projectRoot")
-    if not isinstance(project_root, str) or not project_root.strip():
-        raise JsonRpcError(-32602, "projectRoot is required.")
-
-    resolved_project_root = ensure_project_root(project_root)
-    timeout_ms = resolve_operation_timeout_ms(
-        resolved_project_root,
-        tool["bridgeOperation"],
-        args.get("timeoutMs"),
-        tool.get("inputSchema", {}).get("properties", {}).get("timeoutMs", {}).get("default", 5000),
+    return call_tool_base(
+        name,
+        arguments,
+        tools=TOOLS,
+        special_tool_handlers={
+            "unity_status_summary": call_unity_status_summary_tool,
+            "unity_request_final_status": call_unity_request_final_status_tool,
+            "unity_scenario_result_summary": call_unity_scenario_result_summary_tool,
+            "unity_maintenance_prune": call_unity_maintenance_prune_tool,
+            "unity_compile_build_config_matrix": call_unity_compile_build_config_matrix_tool,
+            "unity_scenario_run_and_wait": call_unity_scenario_run_and_wait_tool,
+        },
+        tool_invocation_error_type=ToolInvocationError,
+        ensure_project_root=ensure_project_root,
+        resolve_operation_timeout_ms=resolve_operation_timeout_ms,
+        invoke_bridge=invoke_bridge,
+        build_tool_error_payload=build_tool_error_payload,
+        bridge_response_to_tool_result=bridge_response_to_tool_result,
     )
-
-    bridge_args = dict(args)
-    bridge_args.pop("projectRoot", None)
-    bridge_args.pop("timeoutMs", None)
-
-    try:
-        response = invoke_bridge(str(resolved_project_root), tool["bridgeOperation"], bridge_args, timeout_ms)
-    except ToolInvocationError as exc:
-        payload = build_tool_error_payload(exc)
-        return {
-            "content": [
-                {
-                    "type": "text",
-                    "text": json.dumps(payload, ensure_ascii=True)
-                }
-            ],
-            "structuredContent": payload,
-            "isError": True
-        }
-
-    return bridge_response_to_tool_result(response)
-
-
-class JsonRpcError(Exception):
-    def __init__(self, code: int, message: str, data: Any = None):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.data = data
-
-
-def success_response(request_id: Any, result: Any) -> dict[str, Any]:
-    return {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "result": result
-    }
-
-
-def error_response(request_id: Any, code: int, message: str, data: Any = None) -> dict[str, Any]:
-    payload = {
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": {
-            "code": code,
-            "message": message
-        }
-    }
-    if data is not None:
-        payload["error"]["data"] = data
-    return payload
-
-
-def emit_message(message: dict[str, Any]) -> None:
-    sys.stdout.write(json.dumps(message, ensure_ascii=True, separators=(",", ":")) + "\n")
-    sys.stdout.flush()
-
-
-def log_stderr(message: str) -> None:
-    sys.stderr.write(message + "\n")
-    sys.stderr.flush()
 
 
 def build_initialize_result(requested_version: str | None) -> dict[str, Any]:
-    protocol_version = requested_version or PROTOCOL_VERSION
-    if protocol_version != PROTOCOL_VERSION:
-        protocol_version = PROTOCOL_VERSION
-
-    return {
-        "protocolVersion": protocol_version,
-        "capabilities": {
-            "tools": {
-                "listChanged": False
-            }
-        },
-        "serverInfo": SERVER_INFO,
-        "instructions": (
-            "Use these tools for Unity editor validation over a lightweight file-IPC bridge. "
-            "Every tool requires an explicit projectRoot."
-        )
-    }
+    return build_initialize_result_base(
+        requested_version,
+        protocol_version=PROTOCOL_VERSION,
+        server_info=SERVER_INFO,
+    )
 
 
 def list_tools_result() -> dict[str, Any]:
-    tools = []
-    for name, spec in TOOLS.items():
-        tools.append(
-            {
-                "name": name,
-                "title": name.replace("_", " ").title(),
-                "description": spec["description"],
-                "inputSchema": spec["inputSchema"]
-            }
-        )
-    return {"tools": tools}
+    return list_tools_result_base(TOOLS)
 
 
 def handle_json_rpc_message(message: dict[str, Any], session: dict[str, Any]) -> dict[str, Any] | None:
-    request_id = message.get("id")
-    method = message.get("method")
-    params = message.get("params") or {}
-
-    if method == "initialize":
-        if not isinstance(params, dict):
-            raise JsonRpcError(-32602, "initialize params must be an object.")
-        requested_version = params.get("protocolVersion")
-        session["initialized"] = False
-        session["protocolVersion"] = PROTOCOL_VERSION
-        return success_response(request_id, build_initialize_result(requested_version))
-
-    if method == "notifications/initialized":
-        session["initialized"] = True
-        return None
-
-    if method == "ping":
-        return success_response(request_id, {})
-
-    if method == "tools/list":
-        return success_response(request_id, list_tools_result())
-
-    if method == "tools/call":
-        if not isinstance(params, dict):
-            raise JsonRpcError(-32602, "tools/call params must be an object.")
-        name = params.get("name")
-        arguments = params.get("arguments")
-        if not isinstance(name, str) or not name:
-            raise JsonRpcError(-32602, "tools/call requires a non-empty tool name.")
-        if arguments is not None and not isinstance(arguments, dict):
-            raise JsonRpcError(-32602, "tools/call arguments must be an object when provided.")
-        return success_response(request_id, call_tool(name, arguments))
-
-    raise JsonRpcError(-32601, f"Method not found: {method}")
+    return handle_json_rpc_message_base(
+        message,
+        session,
+        protocol_version=PROTOCOL_VERSION,
+        server_info=SERVER_INFO,
+        tools=TOOLS,
+        call_tool=call_tool,
+    )
 
 
 def serve_stdio() -> int:
-    session = {"initialized": False, "protocolVersion": PROTOCOL_VERSION}
-    for raw_line in sys.stdin:
-        line = raw_line.strip()
-        if not line:
-            continue
-
-        message = None
-        try:
-            message = json.loads(line)
-            if not isinstance(message, dict):
-                raise JsonRpcError(-32600, "Invalid JSON-RPC message.")
-
-            response = handle_json_rpc_message(message, session)
-            if response is not None:
-                emit_message(response)
-        except json.JSONDecodeError:
-            emit_message(error_response(None, -32700, "Parse error"))
-        except JsonRpcError as exc:
-            msg_id = message.get("id") if isinstance(message, dict) else None
-            emit_message(error_response(msg_id, exc.code, exc.message, exc.data))
-        except Exception as exc:
-            log_stderr(f"[xuunity-light-unity-mcp] internal error: {exc}")
-            msg_id = None
-            if isinstance(message, dict):
-                msg_id = message.get("id")
-            emit_message(error_response(msg_id, -32603, "Internal error"))
-
-    return 0
+    return serve_stdio_base(
+        protocol_version=PROTOCOL_VERSION,
+        handle_message=handle_json_rpc_message,
+    )
 
 
 def cmd_bridge_state(args):
@@ -1499,33 +1213,31 @@ def cmd_request_status(args):
 
 def cmd_request_status_summary(args):
     project_root = ensure_project_root(args.project_root)
-    response = invoke_bridge(str(project_root), "unity.status", {}, args.timeout_ms)
+    try:
+        response = invoke_bridge(str(project_root), "unity.status", {}, args.timeout_ms)
+    except ToolInvocationError as exc:
+        if exc.code in DISCOVERY_STATUS_FALLBACK_ERROR_CODES:
+            print_json(build_discovery_status_summary_for_error(project_root, exc))
+            return
+        raise
+
     tool_result = bridge_response_to_tool_result(response)
     if tool_result.get("isError"):
         print_json(tool_result.get("structuredContent") or {})
         raise SystemExit(1)
     payload = tool_result.get("structuredContent") or {}
-    print_json(build_status_summary(
-        project_root,
-        payload if isinstance(payload, dict) else {},
-        read_best_effort_bridge_state=read_best_effort_bridge_state,
-        try_read_bridge_state=try_read_bridge_state,
-        pid_is_alive=pid_is_alive,
-        heartbeat_age_seconds=heartbeat_age_seconds,
-        derive_busy_reason=derive_busy_reason,
-        summarize_state_for_error=summarize_state_for_error,
-    ))
+    print_json(build_status_summary_from_context(project_root, payload if isinstance(payload, dict) else {}))
 
 
 def cmd_request_latest_status(args):
     project_root = ensure_project_root(args.project_root)
     operations = [str(operation).strip() for operation in list(args.operation or []) if str(operation).strip()]
-    current_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root)
+    current_state = current_project_context_bridge_state(project_root)
     latest_event = find_latest_request_event(project_root, operations)
 
     if latest_event is None:
         stabilization = build_bridge_stabilization_summary(current_state)
-        print_json({
+        print_json(apply_discovery_to_final_status_summary({
             "lookup_mode": "latest_request_by_operation",
             "lookup_found": False,
             "matched_operations": operations,
@@ -1551,18 +1263,12 @@ def cmd_request_latest_status(args):
             "journal_event_count": 0,
             "journal_event_paths": [],
             "bridge_stabilization": stabilization,
-        })
+        }, project_root))
         return
 
     request_id = str(latest_event.get("request_id") or "").strip()
     operation = str(latest_event.get("operation") or "").strip()
-    summary = build_request_final_status(
-        project_root,
-        request_id,
-        operation,
-        current_state=current_state,
-        poll_timeout_ms=args.timeout_ms,
-    )
+    summary = build_request_final_status_from_context(project_root, request_id, operation, args.timeout_ms)
     summary["lookup_mode"] = "latest_request_by_operation"
     summary["lookup_found"] = True
     summary["matched_operations"] = operations
@@ -1574,13 +1280,7 @@ def cmd_request_latest_status(args):
 
 def cmd_request_final_status(args):
     project_root = ensure_project_root(args.project_root)
-    summary = build_request_final_status(
-        project_root,
-        args.request_id,
-        args.operation or "",
-        current_state=read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root),
-        poll_timeout_ms=args.timeout_ms,
-    )
+    summary = build_request_final_status_from_context(project_root, args.request_id, args.operation or "", args.timeout_ms)
     print_json(summary)
 
 
@@ -1787,9 +1487,15 @@ def run_batch_operation(
             result_path=result_path,
             log_path=log_path,
             exc=exc,
+            truncate_text=truncate_text,
         )
         write_batch_summary_artifact(summary_path, summary)
-        raise attach_batch_summary_to_error(exc, summary_path=summary_path, summary=summary)
+        raise attach_batch_summary_to_error(
+            exc,
+            summary_path=summary_path,
+            summary=summary,
+            tool_invocation_error_type=ToolInvocationError,
+        )
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1821,6 +1527,7 @@ def run_batch_operation(
         result_path=result_path,
         log_path=log_path,
         log_excerpt_hint=log_excerpt_hint,
+        truncate_text=truncate_text,
     )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["result_summary"] = result_summary
@@ -2520,27 +2227,39 @@ def cmd_request_scenario_result(args):
 
 
 def cmd_request_scenario_result_summary(args):
+    project_root = ensure_project_root(args.project_root)
     bridge_args: dict[str, Any] = {}
     if args.run_id:
         bridge_args["runId"] = args.run_id
     if args.scenario_name:
         bridge_args["scenarioName"] = args.scenario_name
 
-    response = invoke_bridge(
-        args.project_root,
-        "unity.scenario.result",
-        bridge_args,
-        args.timeout_ms,
-    )
+    try:
+        response = invoke_bridge(
+            str(project_root),
+            "unity.scenario.result",
+            bridge_args,
+            args.timeout_ms,
+        )
+    except ToolInvocationError as exc:
+        if exc.code in DISCOVERY_STATUS_FALLBACK_ERROR_CODES.union(SCENARIO_RECOVERY_ERROR_CODES):
+            print_json(
+                build_discovery_scenario_result_summary_for_error(
+                    project_root,
+                    bridge_args.get("runId", ""),
+                    bridge_args.get("scenarioName", ""),
+                    exc,
+                )
+            )
+            return
+        raise
+
     tool_result = bridge_response_to_tool_result(response)
     if tool_result.get("isError"):
         print_json(tool_result.get("structuredContent") or {})
         raise SystemExit(1)
     payload = tool_result.get("structuredContent") or {}
-    print_json(build_scenario_result_summary(
-        payload if isinstance(payload, dict) else {},
-        SCENARIO_TERMINAL_STATUSES,
-    ))
+    print_json(build_scenario_result_summary_from_context(project_root, payload if isinstance(payload, dict) else {}))
 
 
 def cmd_maintenance_prune(args):
@@ -2581,6 +2300,7 @@ def cmd_open_editor(args):
     log_path = resolve_editor_log_path(project_root, args.editor_log_path)
     payload = open_unity_editor(project_root, log_path, unity_app, args.background_open)
     payload["project_root"] = str(project_root)
+    refresh_project_context(project_root)
     print_json(payload)
 
 
@@ -2593,30 +2313,37 @@ def cmd_ensure_ready(args):
         "editor_log_path": str(log_path),
         "startup_policy": args.startup_policy,
     }
+    payload["discovery"] = build_project_discovery_report(project_root)
 
-    current_state = try_read_bridge_state(project_root)
+    current_state = current_project_context_bridge_state(project_root)
 
-    if args.open_editor and bridge_state_is_ready(current_state, args.heartbeat_max_age_seconds):
-        payload["launch"] = {
-            "reused_existing_editor": True,
-            "reused_via": "healthy_bridge_state",
-            "editor_pid": int(current_state.get("editor_pid") or 0),
-            "unity_version": str(current_state.get("unity_version") or ""),
-        }
-    elif args.open_editor:
-        unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
-        payload["launch"] = open_unity_editor(project_root, log_path, unity_app, args.background_open)
+    try:
+        if args.open_editor and bridge_state_is_ready(current_state, args.heartbeat_max_age_seconds):
+            payload["launch"] = {
+                "reused_existing_editor": True,
+                "reused_via": "healthy_bridge_state",
+                "editor_pid": int(current_state.get("editor_pid") or 0),
+                "unity_version": str(current_state.get("unity_version") or ""),
+            }
+        elif args.open_editor:
+            unity_app = detect_unity_app_path_for_project(project_root, args.unity_app)
+            payload["launch"] = open_unity_editor(project_root, log_path, unity_app, args.background_open)
 
-    state = wait_for_ready(
-        project_root=project_root,
-        timeout_ms=args.timeout_ms,
-        heartbeat_max_age_seconds=args.heartbeat_max_age_seconds,
-        startup_policy=args.startup_policy,
-        editor_log_path=log_path,
-    )
+        state = wait_for_ready(
+            project_root=project_root,
+            timeout_ms=args.timeout_ms,
+            heartbeat_max_age_seconds=args.heartbeat_max_age_seconds,
+            startup_policy=args.startup_policy,
+            editor_log_path=log_path,
+        )
+    except ToolInvocationError as exc:
+        raise enrich_tool_invocation_error_with_discovery(project_root, exc)
+
     payload["bridge_state"] = state
     if payload.get("launch") and not bool(payload["launch"].get("reused_existing_editor")):
         update_host_editor_session_pid(project_root, int(state.get("editor_pid") or 0))
+    refresh_project_context(project_root)
+    payload["discovery_after_ready"] = build_project_discovery_report(project_root)
     payload["package_dependency"] = inspect_package_dependency_alignment(project_root)
     print_json(payload)
 
@@ -2624,12 +2351,36 @@ def cmd_ensure_ready(args):
 def cmd_restore_editor_state(args):
     project_root = ensure_project_root(args.project_root)
     payload = restore_host_opened_editor_state(project_root, args.timeout_ms, request_editor_quit)
+    refresh_project_context(project_root)
     print_json(payload)
 
 
 def cmd_runtime_config_show(args):
     project_root = ensure_project_root(args.project_root)
     print_json(build_runtime_config_report(project_root))
+
+
+def cmd_project_discovery_report(args):
+    project_root = ensure_project_root(args.project_root)
+    print_json(build_project_discovery_report(project_root))
+
+
+def cmd_registry_context_report(args):
+    print_json(build_registry_context_report())
+
+
+def cmd_registry_prune_contexts(args):
+    pruned = prune_stale_project_contexts(
+        offline_context_max_idle_seconds=args.offline_context_max_idle_seconds,
+        general_context_max_idle_seconds=args.general_context_max_idle_seconds,
+    )
+    print_json(
+        {
+            "pruned_count": len(pruned),
+            "pruned": pruned,
+            "remaining": build_registry_context_report(),
+        }
+    )
 
 
 def cmd_batch_test_framework_version_regression(args):
@@ -2666,7 +2417,7 @@ def cmd_batch_test_framework_version_regression(args):
         raise ToolInvocationError("missing_compile_target", "--compile-target must not be empty.")
 
     live_editor_pids = list_live_project_editor_pids(project_root)
-    host_session = try_read_host_editor_session_state(project_root) or {}
+    host_session = current_project_context_host_session_state(project_root)
     tracked_host_pid = int(host_session.get("editor_pid") or 0)
     host_managed_live_editor = bool(host_session.get("opened_by_host")) and tracked_host_pid > 0 and tracked_host_pid in live_editor_pids
     if live_editor_pids and not host_managed_live_editor:
@@ -3111,9 +2862,15 @@ def cmd_batch_build_player(args):
             result_path=result_path,
             log_path=log_path,
             exc=exc,
+            truncate_text=truncate_text,
         )
         write_batch_summary_artifact(summary_path, summary)
-        raise attach_batch_summary_to_error(exc, summary_path=summary_path, summary=summary)
+        raise attach_batch_summary_to_error(
+            exc,
+            summary_path=summary_path,
+            summary=summary,
+            tool_invocation_error_type=ToolInvocationError,
+        )
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3146,6 +2903,7 @@ def cmd_batch_build_player(args):
         result_path=result_path,
         log_path=log_path,
         log_excerpt_hint=log_excerpt_hint,
+        truncate_text=truncate_text,
     )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["build_result_summary"] = result_summary
@@ -3359,6 +3117,27 @@ def build_parser():
     )
     runtime_config_cmd.add_argument("--project-root", required=True)
     runtime_config_cmd.set_defaults(func=cmd_runtime_config_show)
+
+    discovery_report_cmd = sub.add_parser(
+        "project-discovery-report",
+        help="Print the current project discovery and reconciliation report from the host registry.",
+    )
+    discovery_report_cmd.add_argument("--project-root", required=True)
+    discovery_report_cmd.set_defaults(func=cmd_project_discovery_report)
+
+    registry_report_cmd = sub.add_parser(
+        "registry-context-report",
+        help="Print the current in-memory per-project registry context cache report.",
+    )
+    registry_report_cmd.set_defaults(func=cmd_registry_context_report)
+
+    registry_prune_cmd = sub.add_parser(
+        "registry-prune-contexts",
+        help="Prune stale in-memory per-project registry contexts and print the remaining cache report.",
+    )
+    registry_prune_cmd.add_argument("--offline-context-max-idle-seconds", type=float)
+    registry_prune_cmd.add_argument("--general-context-max-idle-seconds", type=float)
+    registry_prune_cmd.set_defaults(func=cmd_registry_prune_contexts)
 
     batch_compile_cmd = sub.add_parser(
         "batch-compile",

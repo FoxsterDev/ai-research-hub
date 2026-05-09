@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Design
 
-Date: `2026-05-07`
+Date: `2026-05-09`
 Status: `active public design`
 
 ## Goal
@@ -26,11 +26,66 @@ Transport between them:
 No runtime/player package is part of the base service.
 
 Current transport shape:
+- per-project routing now goes through an in-memory registry layer keyed by normalized `projectRoot`
+- transport selection is maintained per project instead of as a single global host assumption
 - host wrapper now uses an internal transport adapter layer
 - `file_ipc` remains the baseline and fallback transport
 - lifecycle orchestration is no longer hard-wired directly to inbox/outbox paths
 - `tcp_loopback` on `127.0.0.1` is now the first stronger same-host transport path
 - this choice is intentionally cross-platform for macOS, Windows, and Linux; the design avoids Unix-domain-socket-only assumptions
+
+## Current Architecture Baseline
+
+The current public baseline is no longer a single flat wrapper around one
+project.
+
+The host side now has an explicit per-project routing layer with:
+
+- `BridgeRegistry`
+- `ProjectContext`
+- normalized `projectRoot` instance keys
+- per-project mutation locking
+- per-project transport metadata and transport selection
+- explicit stale-context pruning
+
+Discovery is now a first-class routing phase instead of an ad hoc side effect of
+reading one state file.
+
+Current discovery inputs:
+
+- bridge state
+- host editor session state
+- process-table verification for the target Unity project
+- bridge-enabled project config state
+
+Current discovery outputs:
+
+- `discovery_classification`
+- `authoritative_state_source`
+- `reconciliation_case`
+- `reconciliation_status`
+- `reconciliation_recommended_next_action`
+
+Current health outputs:
+
+- `host_health_classification`
+- `host_health_reason`
+- `host_health_recommended_next_action`
+- `host_health_termination_policy`
+- `anr_classification`
+- compact editor-log diagnosis when health is stale or degraded
+
+Current public structured state grouping now includes:
+
+- `transport_state`
+- `state_groups.bridge_identity`
+- `state_groups.process_identity`
+- `state_groups.transport`
+- `state_groups.health`
+- `state_groups.editor_state`
+- `state_groups.lifecycle_flags`
+
+Flat compatibility keys are still preserved for existing clients and scripts.
 
 ## Lifecycle Contract
 
@@ -117,6 +172,21 @@ Current reconnect policy:
 - host lifecycle output now records transport metadata for each request attempt
 - mixed-mode response routing is allowed: when `tcp_loopback` is active, direct socket-backed requests use the live connection, while file-IPC requests can still be served as fallback through the same bridge
 
+Current multi-project lifecycle baseline:
+
+- same-project mutating operations are serialized through `ProjectContext.request_lock`
+- different project roots can proceed independently
+- process-table project ownership is matched by exact parsed `-projectPath`
+- the host can classify and recover:
+  - `live_process_only`
+  - `stale_bridge_state`
+  - `stale_host_session`
+  - `bridge_disabled`
+- reconciliation is used not only for diagnostics but also for recovery decisions in:
+  - `ensure-ready`
+  - direct bridge invocation retry
+  - scenario wait/result paths
+
 Current native settle-watcher start:
 
 - `unity.project.refresh` now starts a Unity-side settle tracker
@@ -148,6 +218,16 @@ Validated editor-control additions:
 - `unity.playmode.set`
 - `unity.game_view.configure`
 - `unity.game_view.screenshot`
+
+Compact operator and diagnostic surfaces:
+
+- `request-status-summary`
+- `request-final-status`
+- `request-latest-status`
+- `request-scenario-result-summary`
+- `project-discovery-report`
+- `registry-context-report`
+- `registry-prune-contexts`
 
 ## Compile Validation
 
@@ -233,3 +313,28 @@ Client adapters live under:
 - `templates/clients/claude-code/`
 - `templates/clients/cursor/`
 - `templates/clients/generic/`
+
+## Current Proof Baseline
+
+The public reusable proof layer now includes:
+
+- transport matrix smoke
+- lifecycle fault-injection smoke
+- request-abandoned smoke
+- playmode settled-state regression smoke
+- multi-project acceptance smoke
+- divergence/reconciliation smoke
+- health-policy smoke
+
+These runners live under:
+
+- `templates/smoke/`
+
+The current public design position is:
+
+- Phase 1 registry/context extraction is implemented
+- Phase 2 discovery and reconciliation formalization is implemented
+- Phase 3 host health and ANR classification scaffold is implemented
+- Phase 4 schema and transport hardening is implemented
+- flat compatibility remains intentionally preserved while the structured state
+  contract matures

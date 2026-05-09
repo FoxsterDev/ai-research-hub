@@ -33,6 +33,7 @@ def build_status_summary(
     heartbeat_age_seconds: Callable[[dict[str, Any]], float | None],
     derive_busy_reason: Callable[[dict[str, Any] | None], str],
     summarize_state_for_error: Callable[[dict[str, Any] | None], str],
+    discovery_details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or {}
     effective = dict(state)
@@ -68,6 +69,32 @@ def build_status_summary(
         "request_journal_head": str(effective.get("request_journal_head") or ""),
         "state_summary": summarize_state_for_error(effective),
     }
+    discovery = dict(discovery_details or {})
+    if discovery:
+        summary.update(
+            {
+                "host_health_classification": str(discovery.get("host_health_classification") or ""),
+                "host_health_reason": str(discovery.get("host_health_reason") or ""),
+                "host_health_recommended_next_action": str(discovery.get("host_health_recommended_next_action") or ""),
+                "host_health_termination_policy": str(discovery.get("host_health_termination_policy") or ""),
+                "host_health_heartbeat_age_seconds": discovery.get("host_health_heartbeat_age_seconds"),
+                "host_health_busy_reason": str(discovery.get("host_health_busy_reason") or ""),
+                "host_health_progress_evidence": list(discovery.get("host_health_progress_evidence") or []),
+                "anr_classification": str(discovery.get("anr_classification") or ""),
+                "discovery_classification": str(discovery.get("discovery_classification") or ""),
+                "discovery_reason": str(discovery.get("discovery_reason") or ""),
+                "authoritative_state_source": str(discovery.get("authoritative_state_source") or ""),
+                "reconciliation_case": str(discovery.get("reconciliation_case") or ""),
+                "reconciliation_status": str(discovery.get("reconciliation_status") or ""),
+                "reconciliation_reason": str(discovery.get("reconciliation_reason") or ""),
+                "reconciliation_recommended_next_action": str(discovery.get("reconciliation_recommended_next_action") or ""),
+                "detected_editor_count": int(discovery.get("detected_editor_count") or 0),
+                "detected_editor_pids": list(discovery.get("detected_editor_pids") or []),
+                "editor_log_diagnosis": dict(discovery.get("editor_log_diagnosis") or {}),
+                "transport_state": dict(discovery.get("transport_state") or {}),
+                "state_groups": dict(discovery.get("state_groups") or {}),
+            }
+        )
     summary.update(
         build_bridge_stabilization_summary(
             effective,
@@ -121,7 +148,7 @@ def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_sta
         if index == current_step_index:
             active_step = summarize_scenario_step(raw_step)
 
-    return {
+    summary = {
         "action": "unity_scenario_result_summary",
         "project_root": str(normalized.get("project_root") or ""),
         "run_id": str(normalized.get("run_id") or ""),
@@ -145,6 +172,64 @@ def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_sta
         "first_failed_step": first_failed_step,
     }
 
+    if "recommended_next_action" in normalized:
+        summary["recommended_next_action"] = str(normalized.get("recommended_next_action") or "")
+    if "waited_for_terminal_state" in normalized:
+        summary["waited_for_terminal_state"] = bool(normalized.get("waited_for_terminal_state"))
+    if "wait_duration_seconds" in normalized:
+        summary["wait_duration_seconds"] = round(float(normalized.get("wait_duration_seconds") or 0.0), 3)
+    if "recovery_attempt_count" in normalized:
+        summary["recovery_attempt_count"] = int(normalized.get("recovery_attempt_count") or 0)
+    if "offline_error_code" in normalized:
+        summary["offline_error_code"] = str(normalized.get("offline_error_code") or "")
+    if "offline_error_message" in normalized:
+        summary["offline_error_message"] = truncate_text(normalized.get("offline_error_message") or "", 320)
+
+    for key in (
+        "host_health_classification",
+        "host_health_reason",
+        "host_health_recommended_next_action",
+        "host_health_termination_policy",
+        "host_health_busy_reason",
+        "anr_classification",
+        "discovery_classification",
+        "discovery_reason",
+        "authoritative_state_source",
+        "reconciliation_case",
+        "reconciliation_status",
+        "reconciliation_reason",
+        "reconciliation_recommended_next_action",
+    ):
+        if key in normalized:
+            summary[key] = str(normalized.get(key) or "")
+
+    for key in ("detected_editor_count",):
+        if key in normalized:
+            summary[key] = int(normalized.get(key) or 0)
+
+    for key in ("host_health_heartbeat_age_seconds",):
+        if key in normalized:
+            summary[key] = normalized.get(key)
+
+    if "detected_editor_pids" in normalized:
+        summary["detected_editor_pids"] = list(normalized.get("detected_editor_pids") or [])
+    if "host_health_progress_evidence" in normalized:
+        summary["host_health_progress_evidence"] = list(normalized.get("host_health_progress_evidence") or [])
+    if "editor_log_diagnosis" in normalized:
+        summary["editor_log_diagnosis"] = dict(normalized.get("editor_log_diagnosis") or {})
+    if "transport_state" in normalized:
+        summary["transport_state"] = dict(normalized.get("transport_state") or {})
+    if "state_groups" in normalized:
+        summary["state_groups"] = dict(normalized.get("state_groups") or {})
+
+    error = normalized.get("error")
+    if isinstance(error, dict):
+        summary["error"] = {
+            "code": str(error.get("code") or ""),
+            "message": truncate_text(error.get("message") or "", 320),
+        }
+
+    return summary
 
 def list_files_under(root: Path) -> list[Path]:
     if not root.exists():

@@ -7,7 +7,9 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+from server_host_platform import current_host_platform_adapter
 
 from server_core import ToolInvocationError, read_json, write_json
 
@@ -292,6 +294,7 @@ def build_request_final_status(
     operation: str = "",
     *,
     current_state: dict[str, Any] | None = None,
+    read_current_state: Callable[[Path], dict[str, Any] | None] | None = None,
     poll_timeout_ms: int = 0,
     poll_interval_ms: int = 200,
 ) -> dict[str, Any]:
@@ -299,7 +302,10 @@ def build_request_final_status(
 
     while True:
         events = read_request_journal_events(project_root, request_id)
-        active_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or current_state or {}
+        if read_current_state is not None:
+            active_state = read_current_state(project_root) or current_state or {}
+        else:
+            active_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root) or current_state or {}
         stabilization = build_bridge_stabilization_summary(active_state)
 
         submitted_events = [event for event in events if str(event.get("event_type") or "") == "request_submitted"]
@@ -691,14 +697,7 @@ def try_read_bridge_state(project_root: Path) -> dict[str, Any] | None:
 
 
 def pid_is_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    return current_host_platform_adapter().pid_is_alive(pid)
 
 
 def try_read_live_editor_state(project_root: Path) -> dict[str, Any] | None:

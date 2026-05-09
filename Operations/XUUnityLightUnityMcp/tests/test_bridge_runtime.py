@@ -203,6 +203,49 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertTrue(summary["bridge_changed_since_submission"])
             self.assertTrue(summary["recovery_gap_detected"])
 
+    def test_build_request_final_status_uses_injected_state_reader_when_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            request_id = "req-reader"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-09T15:40:57Z",
+                    "request_id": request_id,
+                    "operation": "unity.project.refresh",
+                    "bridge_generation": 4,
+                    "bridge_session_id": "session-old",
+                },
+            )
+
+            calls: list[str] = []
+
+            def read_current_state(_: Path) -> dict:
+                calls.append("read")
+                return {
+                    "bridge_generation": 9,
+                    "bridge_session_id": "session-new",
+                    "transport": "tcp_loopback",
+                    "transport_listener_state": "listening",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                }
+
+            summary = server_bridge_runtime.build_request_final_status(
+                project_root,
+                request_id,
+                "unity.project.refresh",
+                read_current_state=read_current_state,
+                poll_timeout_ms=0,
+            )
+
+            self.assertEqual(["read"], calls)
+            self.assertEqual("submitted_lost_after_lifecycle_churn", summary["operation_outcome"])
+
 
 if __name__ == "__main__":
     unittest.main()

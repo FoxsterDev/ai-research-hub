@@ -253,6 +253,38 @@ PY
   return 0
 }
 
+editor_process_running() {
+  "$WRAPPER" request-status-summary \
+    --project-root "$PROJECT_ROOT" \
+    --timeout-ms 5000 >"$TMP_DIR/status_summary_transport_preflight.json" 2>/dev/null || return 1
+
+  python3 - "$TMP_DIR/status_summary_transport_preflight.json" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+sys.exit(0 if data.get("editor_running") else 1)
+PY
+}
+
+ensure_editor_open_for_file_ipc_refresh() {
+  local transport="$1"
+
+  if editor_process_running; then
+    return 0
+  fi
+
+  run_step "${transport}_ensure_ready_preflight" \
+    "$WRAPPER" ensure-ready \
+    --project-root "$PROJECT_ROOT" \
+    --timeout-ms 180000 \
+    --open-editor
+  summarize_json \
+    "${transport}-ensure-ready-preflight" \
+    "$TMP_DIR/${transport}_ensure_ready_preflight.json" \
+    "\"bridge=%s health=%s\" % (data['bridge_state'].get('bridge_version'), data['bridge_state'].get('health_status'))"
+}
+
 run_transport_cycle() {
   local transport="$1"
 
@@ -261,6 +293,7 @@ run_transport_cycle() {
   touch_reload_probe "$transport"
 
   if [[ "$transport" == "file_ipc" ]]; then
+    ensure_editor_open_for_file_ipc_refresh "$transport"
     LAST_OUTPUT_FILE="$TMP_DIR/${transport}_refresh.json"
     if ! run_raw_file_ipc_refresh "$LAST_OUTPUT_FILE"; then
       fail_step "${transport}_refresh"

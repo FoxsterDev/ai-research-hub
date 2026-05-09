@@ -151,6 +151,52 @@ Pass criteria:
 - repeated `ensure-ready` works against the same editor session
 - final status returns to healthy `edit`
 
+### 10. Multi-Project Acceptance Smoke
+
+Run the same compact readiness and refresh route against more than one Unity
+project on the same host, with different project roots and transport bindings
+where feasible.
+
+Pass criteria:
+
+- each project resolves to its own editor instance or offline state correctly
+- status and refresh requests do not leak across project roots
+- same-host transport selection stays per project, not global
+- one project's degraded or offline state does not make the second healthy
+  project look degraded
+
+### 11. Discovery Divergence Smoke
+
+Exercise cases where bridge state, host session state, and process-table
+evidence disagree.
+
+Minimum cases:
+
+- `live_process_only`
+- `stale_bridge_state`
+- `stale_host_session`
+- `bridge_disabled`
+
+Pass criteria:
+
+- `project-discovery-report` returns the expected
+  `discovery_classification`
+- summary surfaces return the expected `reconciliation_case`
+- the surfaced `recommended_next_action` is coherent with the detected case
+
+### 12. Health Policy Smoke
+
+Exercise stale and ANR-suspected health classifications without accepting false
+positive termination during normal lifecycle churn.
+
+Pass criteria:
+
+- healthy baseline reports fresh host health
+- stale and ANR-suspected synthetic or live evidence classify correctly
+- the surfaced termination policy is coherent with the health evidence
+- normal compile/import/playmode churn does not escalate to destructive
+  termination policy by default
+
 ## Public Template Assets
 
 Generic example scenario JSON templates live under:
@@ -163,6 +209,9 @@ Generic example scenario JSON templates live under:
 - `templates/smoke/run_transport_matrix_suite.sh`
 - `templates/smoke/run_lifecycle_stress_suite.sh`
 - `templates/smoke/run_lifecycle_fault_injection_suite.sh`
+- `templates/smoke/run_multi_project_acceptance_suite.sh`
+- `templates/smoke/run_phase2_divergence_suite.sh`
+- `templates/smoke/run_phase3_health_policy_suite.sh`
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
 
@@ -200,6 +249,10 @@ Lifecycle contract:
   recovery path is:
   - `request-status-summary`
   - then `request-latest-status --operation <operation>`
+- when discovery and reconciliation surfaces exist, the preferred first
+  diagnostic route is:
+  - `project-discovery-report`
+  - then compact status or final-status follow-up
 - after a live-editor `devmode` package-source switch, the smoke contract should
   require:
   - `request-project-refresh`
@@ -219,6 +272,8 @@ Lifecycle contract:
 Token-discipline contract:
 
 - prefer `request-status-summary` over repeated raw status checks
+- prefer `project-discovery-report` over manual state-file and process-table
+  inspection when routing or recovery is unclear
 - prefer `request-latest-status --operation ...` over manual request-journal
   digging when the request id is not already known
 - prefer persisted scenario-result summaries over tight `unity.scenario.result`
