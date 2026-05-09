@@ -388,6 +388,39 @@ def find_running_unity_editors_for_project(project_root: Path) -> list[dict[str,
     return matches
 
 
+def find_running_unity_hub_launchers_for_project(project_root: Path) -> list[dict[str, Any]]:
+    if host_platform_kind() != "macos":
+        return []
+
+    target_path = str(project_root)
+    target_path_posix = target_path.replace("\\", "/")
+
+    matches: list[dict[str, Any]] = []
+    seen_pids: set[int] = set()
+    for pid, command in list_process_commands():
+        normalized_command = command.replace("\\ ", " ").strip()
+        command_for_match = normalized_command.replace("\\", "/")
+
+        if pid <= 0 or pid in seen_pids or not pid_is_alive(pid):
+            continue
+
+        if "Unity Hub.app/Contents/MacOS/Unity Hub" not in normalized_command:
+            continue
+
+        if target_path not in normalized_command and target_path_posix not in command_for_match:
+            continue
+
+        matches.append(
+            {
+                "pid": pid,
+                "command": normalized_command,
+            }
+        )
+        seen_pids.add(pid)
+
+    return matches
+
+
 def list_live_project_editor_pids(project_root: Path) -> list[int]:
     pids: set[int] = set()
 
@@ -550,12 +583,76 @@ def detect_unity_app_path_for_project(project_root: Path, explicit_path: str | N
 def activate_unity_editor(project_root: Path, explicit_unity_app: Path | None = None) -> dict[str, Any]:
     unity_app = explicit_unity_app or detect_unity_app_path_for_project(project_root, None)
     if host_platform_kind() == "macos":
-        subprocess.run(["open", "-a", str(unity_app)], check=True)
+        try:
+            subprocess.run(["open", str(unity_app)], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            stdout = (exc.stdout or "").strip()
+            detail = stderr or stdout or str(exc)
+            raise ToolInvocationError(
+                "unity_editor_activation_failed",
+                (
+                    f"Failed to activate Unity editor at {unity_app}. "
+                    f"Command: open {unity_app}. Detail: {detail}"
+                ),
+            ) from exc
     time.sleep(ACTIVATION_DELAY_SECONDS)
     return {
         "unity_app": str(unity_app),
         "activation_delay_seconds": ACTIVATION_DELAY_SECONDS,
     }
+
+
+def try_find_matching_editor_process(project_root: Path, unity_app: Path) -> dict[str, Any] | None:
+    requested_version = resolve_unity_app_version(unity_app)
+    matches = find_running_unity_editors_for_project(project_root)
+    if not matches:
+        return None
+
+    if requested_version:
+        for match in matches:
+            if str(match.get("unity_version") or "") == requested_version:
+                return match
+
+    return matches[0]
+
+
+def wait_for_matching_editor_process(
+    project_root: Path,
+    unity_app: Path,
+    timeout_seconds: float,
+) -> dict[str, Any] | None:
+    deadline = time.time() + max(1.0, timeout_seconds)
+    while time.time() < deadline:
+        match = try_find_matching_editor_process(project_root, unity_app)
+        if match is not None:
+            return match
+        time.sleep(0.25)
+    return None
+
+
+def terminate_project_hub_launchers(project_root: Path, timeout_ms: int) -> list[int]:
+    terminated: list[int] = []
+    for launcher in find_running_unity_hub_launchers_for_project(project_root):
+        pid = int(launcher.get("pid") or 0)
+        if pid > 0 and terminate_editor_pid(pid, timeout_ms):
+            terminated.append(pid)
+    return terminated
+
+
+def bridge_state_is_ready(state: dict[str, Any] | None, heartbeat_max_age_seconds: int) -> bool:
+    if not isinstance(state, dict):
+        return False
+
+    pid = int(state.get("editor_pid") or 0)
+    age_seconds = heartbeat_age_seconds(state)
+    return (
+        pid_is_alive(pid)
+        and age_seconds is not None
+        and age_seconds <= heartbeat_max_age_seconds
+        and state.get("health_status") == "healthy"
+        and not bool(state.get("is_compiling"))
+    )
 
 
 def classify_editor_log(log_text: str, startup_policy: str) -> tuple[str, str] | None:
@@ -749,16 +846,17 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
                     "This project has a Unity lock file, but no reusable MCP bridge session is currently available. "
                     f"Project lock: {lock_state['path']}. "
                     "Another Unity instance may already own the project, or the editor may have exited uncleanly. "
-                    "Resolve the running editor or clear the stale lock before retrying."
+                "Resolve the running editor or clear the stale lock before retrying."
                 ),
             )
 
     launched_pid = 0
+    launch_command: list[str]
     if host_platform_kind() == "macos":
-        command = ["open"]
+        launch_command = ["open"]
         if background_open:
-            command.append("-g")
-        command.extend(
+            launch_command.append("-g")
+        launch_command.extend(
             [
                 "-na",
                 str(unity_app),
@@ -769,12 +867,39 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
                 str(log_path),
             ]
         )
-        subprocess.run(command, check=True)
-        launched_editors = find_running_unity_editors_for_project(project_root)
-        launched_pid = int(launched_editors[0]["pid"]) if launched_editors else 0
+        try:
+            subprocess.run(launch_command, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip()
+            stdout = (exc.stdout or "").strip()
+            detail = stderr or stdout or str(exc)
+            raise ToolInvocationError(
+                "unity_editor_launch_failed",
+                (
+                    f"Failed to launch Unity editor at {unity_app}. "
+                    f"Command: {' '.join(launch_command)}. Detail: {detail}"
+                ),
+            ) from exc
+
+        launched_editor = wait_for_matching_editor_process(project_root, unity_app, 15.0)
+        if launched_editor is None:
+            hub_launchers = find_running_unity_hub_launchers_for_project(project_root)
+            terminated_hub_pids = terminate_project_hub_launchers(project_root, 5000) if hub_launchers else []
+            hub_pids = [int(launcher.get("pid") or 0) for launcher in hub_launchers]
+            raise ToolInvocationError(
+                "editor_process_not_observed_after_launch",
+                (
+                    f"Unity launch command completed but no matching editor process was observed for project {project_root}. "
+                    f"Resolved unity_app: {unity_app}. "
+                    f"Command: {' '.join(launch_command)}. "
+                    f"Observed Unity Hub launcher pid(s): {hub_pids or []}. "
+                    f"Terminated stale Hub launcher pid(s): {terminated_hub_pids or []}."
+                ),
+            )
+        launched_pid = int(launched_editor["pid"])
     else:
         unity_executable = resolve_unity_executable(unity_app)
-        command = [
+        launch_command = [
             str(unity_executable),
             "-projectPath",
             str(project_root),
@@ -799,7 +924,7 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
         else:
             popen_kwargs["start_new_session"] = True
 
-        process = subprocess.Popen(command, **popen_kwargs)
+        process = subprocess.Popen(launch_command, **popen_kwargs)
         launched_pid = int(process.pid or 0)
     write_host_editor_session_state(
         project_root,
@@ -811,6 +936,7 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
         "background_open": background_open,
         "opened_by_host": True,
         "editor_pid": launched_pid,
+        "launch_command": [str(part) for part in launch_command],
     }
 
 
@@ -957,9 +1083,11 @@ def restore_host_opened_editor_state(
     if tracked_pid > 0 and not pid_is_alive(tracked_pid):
         live_project_pids = list_live_project_editor_pids(project_root)
         if not live_project_pids:
+            terminated_hub_pids = terminate_project_hub_launchers(project_root, timeout_ms)
             clear_host_editor_session_state(project_root)
             restoration["restored"] = False
             restoration["reason"] = "tracked_editor_already_closed"
+            restoration["terminated_hub_launcher_pids"] = terminated_hub_pids
             return restoration
 
         restoration["reason"] = "project_editor_still_running_untracked"
@@ -993,22 +1121,15 @@ def wait_for_ready(
 
     started_at = time.time()
     deadline = started_at + (timeout_ms / 1000.0)
+    state: dict[str, Any] | None = None
     while time.time() < deadline:
         state = try_read_bridge_state(project_root)
-        if state:
-            pid = int(state.get("editor_pid") or 0)
+        if bridge_state_is_ready(state, heartbeat_max_age_seconds):
             age_seconds = heartbeat_age_seconds(state)
-            if (
-                pid_is_alive(pid)
-                and age_seconds is not None
-                and age_seconds <= heartbeat_max_age_seconds
-                and state.get("health_status") == "healthy"
-                and not bool(state.get("is_compiling"))
-            ):
-                state["startup_policy"] = startup_policy
-                state["editor_log_path"] = str(editor_log_path)
-                state["heartbeat_age_seconds"] = round(age_seconds, 3)
-                return state
+            state["startup_policy"] = startup_policy
+            state["editor_log_path"] = str(editor_log_path)
+            state["heartbeat_age_seconds"] = round(age_seconds or 0.0, 3)
+            return state
 
         classification = classify_editor_log(read_recent_editor_log(editor_log_path, started_at), startup_policy)
         if classification:
@@ -1021,6 +1142,10 @@ def wait_for_ready(
         "editor_ready_timeout",
         (
             "Timed out waiting for a healthy Unity bridge heartbeat. "
-            f"Last inspected log: {editor_log_path}"
+            f"Last inspected log: {editor_log_path}. "
+            f"Bridge state present: {bool(state)}. "
+            f"Running editor pid(s): {[int(editor.get('pid') or 0) for editor in find_running_unity_editors_for_project(project_root)]}. "
+            f"Running Unity Hub launcher pid(s): {[int(launcher.get('pid') or 0) for launcher in find_running_unity_hub_launchers_for_project(project_root)]}. "
+            f"Host session: {try_read_host_editor_session_state(project_root) or {}}"
         ),
     )

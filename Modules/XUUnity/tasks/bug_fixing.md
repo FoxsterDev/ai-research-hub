@@ -29,6 +29,11 @@ Resolve a concrete defect with the minimum safe change while preserving producti
   - focus restore or resume
   - both
 - Do not close a lifecycle-sensitive UX bug after fixing only one technical entry path when the user-visible contract clearly spans the same product surface across multiple entry modes.
+- For popup, modal, or one-shot UX flows on a critical path, explicitly separate:
+  - entry contract
+  - progression contract
+  - data required only for later steps
+- If the first user-visible screen can be rendered truthfully from already-known local state, do not block entry on a downstream network dependency that is only required for later progression.
 
 ## Patch Shape Classification
 - Before patching, classify the fix using the narrowest primary patch shape:
@@ -55,6 +60,10 @@ Resolve a concrete defect with the minimum safe change while preserving producti
   - partial-update semantics
   - compatibility envelope
   - required platform backends
+- For popup or staged UX flows, also restate:
+  - first visible screen contract
+  - progression gate
+  - late-data downgrade behavior
 - Before claiming closure on such a fix, state:
   - why the added complexity is necessary
   - which simpler alternatives were rejected

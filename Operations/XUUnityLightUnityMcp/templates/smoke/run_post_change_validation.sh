@@ -157,7 +157,46 @@ PY
   fi
 }
 
+maybe_reuse_healthy_editor() {
+  local status_summary_file="$TMP_DIR/status_summary_preflight.json"
+
+  if ! "$WRAPPER" request-status-summary \
+    --project-root "$PROJECT_ROOT" \
+    --timeout-ms 5000 >"$status_summary_file" 2>/dev/null; then
+    return 0
+  fi
+
+  if python3 - "$status_summary_file" <<'PY'
+import json
+import sys
+
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+ready = (
+    bool(data.get("editor_running")) and
+    bool(data.get("mcp_reachable")) and
+    data.get("health_status") == "healthy" and
+    int(data.get("pending_request_count") or 0) == 0 and
+    data.get("playmode_state") == "edit"
+)
+sys.exit(0 if ready else 1)
+PY
+  then
+    OPEN_EDITOR="false"
+    echo "[info] reusing healthy editor pid=$(python3 - "$status_summary_file" <<'PY'
+import json
+import sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+print(int(data.get("editor_pid") or 0))
+PY
+)"
+  fi
+}
+
 echo "[mcp-validate] project_root=$PROJECT_ROOT"
+
+if [[ "$OPEN_EDITOR" == "true" ]]; then
+  maybe_reuse_healthy_editor
+fi
 
 ensure_ready_cmd=(
   "$WRAPPER" ensure-ready

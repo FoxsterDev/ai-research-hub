@@ -39,7 +39,10 @@ The wrapper is responsible for the host-local lifecycle gaps that the Unity pack
 Current design intent:
 - use `bridge-state` and `unity.status` as readiness evidence, not only request transport
 - classify stale bridge state with a dead `editor_pid` as offline
+- prefer reusing a healthy editor session before forcing a new editor launch
 - avoid launching a second Unity instance when the project is already open without a reusable bridge
+- distinguish a real Unity editor process from launcher-only helper processes such as Unity Hub
+- fail fast when a launch command completes but no matching editor process appears for the target project
 - surface editor busy reasons explicitly
 - activate Unity before focus-sensitive interactive operations
 - wait for editor idle before and after lifecycle-sensitive synchronous operations
