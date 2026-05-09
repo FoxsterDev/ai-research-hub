@@ -426,16 +426,41 @@ namespace XUUnity.LightMcp.Editor.Core
         public int skipped;
         public double duration_seconds;
         public List<XUUnityLightMcpTestFailure> failures = new();
+        public string started_at_utc = "";
+        public string completed_at_utc = "";
+        public string completion_basis = "";
+        public string playmode_state_after_settle = "";
         public string validation_evidence = "unity_mcp";
     }
 
     [Serializable]
-    internal sealed class XUUnityLightMcpEditModeTestsArgs
+    internal sealed class XUUnityLightMcpTestsArgs
     {
         public string[] testNames = null;
         public string[] groupNames = null;
         public string[] categoryNames = null;
         public string[] assemblyNames = null;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpPersistedTestRunState
+    {
+        public string request_id = "";
+        public string operation = "";
+        public string project_root = "";
+        public string test_mode = "";
+        public string started_at_utc = "";
+        public int request_timeout_ms = 30000;
+        public string completed_at_utc = "";
+        public string filter_summary = "";
+        public string response_handoff_state = "pending";
+        public int total;
+        public int passed;
+        public int failed;
+        public int skipped;
+        public List<XUUnityLightMcpTestFailure> failures = new();
+        public string completion_basis = "";
+        public string playmode_state_after_settle = "";
     }
 
     [Serializable]
@@ -765,6 +790,11 @@ namespace XUUnity.LightMcp.Editor.Core
         public string pendingNestedRequestId = "";
         public string pendingNestedOperation = "";
         public string pendingNestedStartedAtUtc = "";
+        public string pendingNestedResponseStatus = "";
+        public string pendingNestedResponseCompletedAtUtc = "";
+        public string pendingNestedResponsePayloadJson = "";
+        public string pendingNestedResponseErrorCode = "";
+        public string pendingNestedResponseErrorMessage = "";
         public int pendingNestedStableTickCount;
         public List<XUUnityLightMcpScenarioStepResult> steps = new();
     }

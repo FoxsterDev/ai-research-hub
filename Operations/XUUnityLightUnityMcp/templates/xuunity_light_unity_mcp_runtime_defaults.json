@@ -1,0 +1,46 @@
+{
+  "operations": {
+    "unity.project.refresh": {
+      "default_timeout_ms": 180000,
+      "post_reset_recovery_cap_ms": 180000
+    },
+    "unity.compile.player_scripts": {
+      "default_timeout_ms": 180000,
+      "post_reset_recovery_cap_ms": 180000
+    },
+    "unity.compile.matrix": {
+      "default_timeout_ms": 300000,
+      "post_reset_recovery_cap_ms": 300000
+    },
+    "unity.tests.run_editmode": {
+      "default_timeout_ms": 300000,
+      "post_reset_recovery_cap_ms": 300000
+    },
+    "unity.tests.run_playmode": {
+      "default_timeout_ms": 300000,
+      "post_reset_recovery_cap_ms": 300000
+    },
+    "unity.playmode.set": {
+      "default_timeout_ms": 180000,
+      "post_reset_recovery_cap_ms": 180000
+    },
+    "unity.scenario.run": {
+      "default_timeout_ms": 600000,
+      "post_reset_recovery_cap_ms": 600000
+    }
+  },
+  "smoke": {
+    "request_abandoned": {
+      "project_refresh_timeout_ms": 180000,
+      "request_timeout_ms": 300000,
+      "fixture_wait_seconds": 120,
+      "journal_wait_timeout_seconds": 240,
+      "cleanup_refresh_timeout_ms": 180000
+    },
+    "lifecycle_fault_injection": {
+      "refresh_timeout_ms": 180000,
+      "cleanup_refresh_timeout_ms": 180000,
+      "probe_activation_app": "Unity"
+    }
+  }
+}

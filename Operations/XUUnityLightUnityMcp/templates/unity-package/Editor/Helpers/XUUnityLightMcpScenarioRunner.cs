@@ -241,6 +241,8 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     return ProcessCompilePlayerScriptsStep(state, step, stepResult);
                 case "tests_run_editmode":
                     return ProcessEditModeTestsStep(state, step, stepResult);
+                case "tests_run_playmode":
+                    return ProcessPlayModeTestsStep(state, step, stepResult);
                 case "game_view_configure":
                     return ProcessGameViewConfigureStep(step, stepResult);
                 case "project_defined_hook":
@@ -474,13 +476,28 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static bool ProcessEditModeTestsStep(XUUnityLightMcpScenarioRunState state, XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
         {
+            return ProcessTestsStep(state, step, stepResult, "unity.tests.run_editmode", "EditMode");
+        }
+
+        static bool ProcessPlayModeTestsStep(XUUnityLightMcpScenarioRunState state, XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
+        {
+            return ProcessTestsStep(state, step, stepResult, "unity.tests.run_playmode", "PlayMode");
+        }
+
+        static bool ProcessTestsStep(
+            XUUnityLightMcpScenarioRunState state,
+            XUUnityLightMcpScenarioStepDefinition step,
+            XUUnityLightMcpScenarioStepResult stepResult,
+            string operationName,
+            string modeLabel)
+        {
             if (stepResult.status == "pending")
             {
-                var request = BuildNestedRequest("unity.tests.run_editmode", BuildEditModeTestsArgsJson(step), GetTimeoutMs(step, 600.0d));
+                var request = BuildNestedRequest(operationName, XUUnityLightMcpTestsUtility.BuildTestsArgsJson(step), GetTimeoutMs(step, 600.0d));
                 var response = ExecuteNestedOperation(request.operation, request.args_json, request);
                 if (response != null)
                 {
-                    ApplyNestedResponse(stepResult, response, request.created_at_utc);
+                    ApplyTestsResponse(stepResult, response, request.created_at_utc, modeLabel);
                     return true;
                 }
 
@@ -498,11 +515,48 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 return true;
             }
 
-            if (TryTakePendingNestedResponse(state.pendingNestedRequestId, out var pendingResponse))
+            if (TryGetCapturedPendingNestedResponse(state, out var capturedResponse))
             {
-                ApplyTestsResponse(stepResult, pendingResponse, state.pendingNestedStartedAtUtc);
-                ClearPendingNestedOperation(state);
-                return true;
+                if (ShouldWaitForPlayModeTestsSettle(operationName, capturedResponse))
+                {
+                    if (IsEditorIdleForPlayModeTestsSettle())
+                    {
+                        state.pendingNestedStableTickCount++;
+                        if (state.pendingNestedStableTickCount >= 2)
+                        {
+                            ApplyTestsResponse(stepResult, capturedResponse, state.pendingNestedStartedAtUtc, modeLabel);
+                            ClearPendingNestedOperation(state);
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        state.pendingNestedStableTickCount = 0;
+                    }
+
+                    stepResult.outcome = "tests_waiting_for_settle";
+                }
+                else
+                {
+                    ApplyTestsResponse(stepResult, capturedResponse, state.pendingNestedStartedAtUtc, modeLabel);
+                    ClearPendingNestedOperation(state);
+                    return true;
+                }
+            }
+            else if (TryTakePendingNestedResponse(state.pendingNestedRequestId, out var pendingResponse))
+            {
+                if (ShouldWaitForPlayModeTestsSettle(operationName, pendingResponse))
+                {
+                    CapturePendingNestedResponse(state, pendingResponse);
+                    state.pendingNestedStableTickCount = 0;
+                    stepResult.outcome = "tests_waiting_for_settle";
+                }
+                else
+                {
+                    ApplyTestsResponse(stepResult, pendingResponse, state.pendingNestedStartedAtUtc, modeLabel);
+                    ClearPendingNestedOperation(state);
+                    return true;
+                }
             }
 
             if (!TryParseUtc(state.waitingUntilUtc, out var deadlineUtc))
@@ -521,43 +575,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
             stepResult.status = "failed";
             stepResult.error_code = "tests_timeout";
-            stepResult.error_message = "Timed out waiting for EditMode test completion.";
+            stepResult.error_message = $"Timed out waiting for {modeLabel} test completion.";
             ClearPendingNestedOperation(state);
             return true;
-        }
-
-        static string BuildEditModeTestsArgsJson(XUUnityLightMcpScenarioStepDefinition step)
-        {
-            var args = new XUUnityLightMcpEditModeTestsArgs
-            {
-                testNames = NormalizeOptionalStringArray(step.testNames),
-                groupNames = NormalizeOptionalStringArray(step.groupNames),
-                categoryNames = NormalizeOptionalStringArray(step.categoryNames),
-                assemblyNames = NormalizeOptionalStringArray(step.assemblyNames),
-            };
-
-            return args.testNames == null
-                   && args.groupNames == null
-                   && args.categoryNames == null
-                   && args.assemblyNames == null
-                ? "{}"
-                : JsonUtility.ToJson(args);
-        }
-
-        static string[] NormalizeOptionalStringArray(string[] values)
-        {
-            if (values == null || values.Length == 0)
-            {
-                return null;
-            }
-
-            var normalized = values
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => value.Trim())
-                .Distinct()
-                .ToArray();
-
-            return normalized.Length == 0 ? null : normalized;
         }
 
         static bool ProcessGameViewConfigureStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
@@ -718,7 +738,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
             stepResult.error_message = response.error?.message ?? "Nested operation failed.";
         }
 
-        static void ApplyTestsResponse(XUUnityLightMcpScenarioStepResult stepResult, XUUnityLightMcpResponse response, string startedAtUtc)
+        static void ApplyTestsResponse(XUUnityLightMcpScenarioStepResult stepResult, XUUnityLightMcpResponse response, string startedAtUtc, string modeLabel)
         {
             ApplyNestedResponse(stepResult, response, startedAtUtc);
             if (response == null || response.status != "ok")
@@ -730,7 +750,16 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 ? null
                 : JsonUtility.FromJson<XUUnityLightMcpTestsPayload>(response.payload_json);
 
-            stepResult.payload_json = response.payload_json ?? "";
+            if (payload != null)
+            {
+                payload.playmode_state_after_settle = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState();
+                stepResult.payload_json = JsonUtility.ToJson(payload);
+            }
+            else
+            {
+                stepResult.payload_json = response.payload_json ?? "";
+            }
+
             if (payload != null && string.Equals(payload.status, "passed", StringComparison.OrdinalIgnoreCase))
             {
                 stepResult.status = "passed";
@@ -742,7 +771,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
             stepResult.error_code = payload != null && string.Equals(payload.status, "no_tests", StringComparison.OrdinalIgnoreCase)
                 ? "no_tests"
                 : "tests_failed";
-            stepResult.error_message = FormatTestsFailureMessage(payload);
+            stepResult.error_message = FormatTestsFailureMessage(payload, modeLabel);
         }
 
         static void ClearPendingNestedOperation(XUUnityLightMcpScenarioRunState state)
@@ -750,7 +779,60 @@ namespace XUUnity.LightMcp.Editor.Helpers
             state.pendingNestedRequestId = "";
             state.pendingNestedOperation = "";
             state.pendingNestedStartedAtUtc = "";
+            state.pendingNestedResponseStatus = "";
+            state.pendingNestedResponseCompletedAtUtc = "";
+            state.pendingNestedResponsePayloadJson = "";
+            state.pendingNestedResponseErrorCode = "";
+            state.pendingNestedResponseErrorMessage = "";
             state.pendingNestedStableTickCount = 0;
+        }
+
+        static void CapturePendingNestedResponse(XUUnityLightMcpScenarioRunState state, XUUnityLightMcpResponse response)
+        {
+            state.pendingNestedResponseStatus = response?.status ?? "";
+            state.pendingNestedResponseCompletedAtUtc = response?.completed_at_utc ?? "";
+            state.pendingNestedResponsePayloadJson = response?.payload_json ?? "";
+            state.pendingNestedResponseErrorCode = response?.error?.code ?? "";
+            state.pendingNestedResponseErrorMessage = response?.error?.message ?? "";
+        }
+
+        static bool TryGetCapturedPendingNestedResponse(XUUnityLightMcpScenarioRunState state, out XUUnityLightMcpResponse response)
+        {
+            response = null;
+            if (state == null || string.IsNullOrWhiteSpace(state.pendingNestedResponseStatus))
+            {
+                return false;
+            }
+
+            response = new XUUnityLightMcpResponse
+            {
+                request_id = state.pendingNestedRequestId ?? "",
+                status = state.pendingNestedResponseStatus ?? "",
+                completed_at_utc = state.pendingNestedResponseCompletedAtUtc ?? "",
+                payload_json = state.pendingNestedResponsePayloadJson ?? "",
+                error = new XUUnityLightMcpError
+                {
+                    code = state.pendingNestedResponseErrorCode ?? "",
+                    message = state.pendingNestedResponseErrorMessage ?? "",
+                },
+            };
+            return true;
+        }
+
+        static bool ShouldWaitForPlayModeTestsSettle(string operationName, XUUnityLightMcpResponse response)
+        {
+            return string.Equals(operationName, "unity.tests.run_playmode", StringComparison.Ordinal)
+                && response != null
+                && string.Equals(response.status, "ok", StringComparison.OrdinalIgnoreCase);
+        }
+
+        static bool IsEditorIdleForPlayModeTestsSettle()
+        {
+            return !EditorApplication.isCompiling
+                && !EditorApplication.isUpdating
+                && !EditorApplication.isPlaying
+                && !EditorApplication.isPlayingOrWillChangePlaymode
+                && string.Equals(XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState(), "edit", StringComparison.Ordinal);
         }
 
         static int GetTimeoutMs(XUUnityLightMcpScenarioStepDefinition step, double defaultSeconds)
@@ -832,24 +914,24 @@ namespace XUUnity.LightMcp.Editor.Helpers
             return $"Compile status was '{payload.result.status}' for target '{payload.result.target}'.";
         }
 
-        static string FormatTestsFailureMessage(XUUnityLightMcpTestsPayload payload)
+        static string FormatTestsFailureMessage(XUUnityLightMcpTestsPayload payload, string modeLabel)
         {
             if (payload == null)
             {
-                return "EditMode test payload did not report a passed result.";
+                return $"{modeLabel} test payload did not report a passed result.";
             }
 
             if (payload.failures != null && payload.failures.Count > 0)
             {
                 var first = payload.failures[0];
                 return string.IsNullOrWhiteSpace(first.message)
-                    ? $"EditMode tests failed in '{first.name}'."
+                    ? $"{modeLabel} tests failed in '{first.name}'."
                     : first.message;
             }
 
             return payload.status == "no_tests"
-                ? "EditMode test run completed with no discovered tests."
-                : $"EditMode tests finished with status '{payload.status}'.";
+                ? $"{modeLabel} test run completed with no discovered tests."
+                : $"{modeLabel} tests finished with status '{payload.status}'.";
         }
 
         static void CompleteRun(XUUnityLightMcpScenarioRunState state, string finalStatus)
@@ -1380,6 +1462,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     }
                     break;
                 case "tests_run_editmode":
+                case "tests_run_playmode":
                     break;
                 case "game_view_configure":
                     if (step.width <= 0 || step.height <= 0)

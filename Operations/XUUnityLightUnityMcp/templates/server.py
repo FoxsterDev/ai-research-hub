@@ -38,7 +38,7 @@ from server_bridge_runtime import (
     wait_for_editor_idle,
     wait_for_playmode_state,
 )
-from server_core import ToolInvocationError, read_json
+from server_core import ToolInvocationError, read_json, write_json
 from server_editor_host import (
     activate_unity_editor,
     build_batch_validation_command,
@@ -55,6 +55,7 @@ from server_editor_host import (
     resolve_batch_build_output_path,
     resolve_editor_log_path,
     restore_host_opened_editor_state,
+    try_read_host_editor_session_state,
     update_host_editor_session_pid,
     wait_for_ready,
 )
@@ -64,6 +65,11 @@ from server_specs import (
     SCENARIO_TERMINAL_STATUSES,
     STARTUP_POLICIES,
     TOOLS,
+)
+from server_runtime_config import (
+    build_runtime_config_report,
+    resolve_operation_default_timeout_ms,
+    resolve_operation_lifecycle_policy_overrides,
 )
 from server_summaries import (
     build_scenario_result_summary,
@@ -575,6 +581,20 @@ def normalize_build_target_payload_from_lifecycle(payload: dict[str, Any], lifec
     return normalized
 
 
+def normalize_tests_payload_from_lifecycle(payload: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    idle_wait_after = lifecycle.get("idle_wait_after")
+    if not isinstance(idle_wait_after, dict):
+        return normalized
+
+    normalized["playmode_state_after_settle"] = str(
+        idle_wait_after.get("playmode_state")
+        or normalized.get("playmode_state_after_settle")
+        or ""
+    )
+    return normalized
+
+
 def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycle: dict[str, Any]) -> dict[str, Any]:
     if response.get("status") != "ok":
         return response
@@ -600,6 +620,8 @@ def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycl
         payload = normalize_compile_payload_from_lifecycle(payload, lifecycle)
     elif operation == "unity.build_target.switch":
         payload = normalize_build_target_payload_from_lifecycle(payload, lifecycle)
+    elif operation == "unity.tests.run_playmode":
+        payload = normalize_tests_payload_from_lifecycle(payload, lifecycle)
 
     if payload_type in {"unity.scenario.run", "unity.scenario.result"}:
         payload = normalize_scenario_payload(payload, SCENARIO_TERMINAL_STATUSES)
@@ -609,7 +631,20 @@ def normalize_response_payload_from_lifecycle(response: dict[str, Any], lifecycl
     return normalized
 
 
-def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
+def resolve_operation_timeout_ms(
+    project_root: Path,
+    operation: str,
+    explicit_timeout_ms: Any,
+    fallback_timeout_ms: int,
+) -> int:
+    if isinstance(explicit_timeout_ms, int):
+        return explicit_timeout_ms
+    if explicit_timeout_ms is not None:
+        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+    return resolve_operation_default_timeout_ms(project_root, operation, fallback_timeout_ms)
+
+
+def resolve_operation_lifecycle_policy(project_root: Path, operation: str) -> dict[str, Any]:
     policy = {
         "activate_unity": False,
         "wait_for_idle_before": False,
@@ -618,14 +653,16 @@ def resolve_operation_lifecycle_policy(operation: str) -> dict[str, Any]:
         "retry_on_lifecycle_reset": False,
         "retry_on_transport_response_missing": False,
         "retry_on_transport_connect_failed": False,
+        "post_reset_recovery_cap_ms": 0,
     }
     policy.update(OPERATION_LIFECYCLE_POLICIES.get(operation, {}))
+    policy.update(resolve_operation_lifecycle_policy_overrides(project_root, operation))
     return policy
 
 
 def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any], timeout_ms: int) -> dict[str, Any]:
     project_root = ensure_project_root(project_root_value)
-    policy = resolve_operation_lifecycle_policy(operation)
+    policy = resolve_operation_lifecycle_policy(project_root, operation)
     max_attempts = 2 if (
         bool(policy.get("retry_on_lifecycle_reset"))
         or bool(policy.get("retry_on_transport_response_missing"))
@@ -662,7 +699,13 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
                     stable_cycles=1,
                 )
 
-            response, request_id, request_started_at, transport_metadata = invoke_bridge_transport(project_root, operation, args, timeout_ms)
+            response, request_id, request_started_at, transport_metadata = invoke_bridge_transport(
+                project_root,
+                operation,
+                args,
+                timeout_ms,
+                post_reset_recovery_cap_ms=int(policy.get("post_reset_recovery_cap_ms") or 0),
+            )
             lifecycle["transport"] = transport_metadata
 
             if operation == "unity.playmode.set":
@@ -830,9 +873,12 @@ def call_unity_compile_build_config_matrix_tool(arguments: dict[str, Any]) -> di
         raise JsonRpcError(-32602, "projectRoot is required.")
 
     project_root = ensure_project_root(project_root_value)
-    timeout_ms = arguments.get("timeoutMs", 300000)
-    if not isinstance(timeout_ms, int):
-        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+    timeout_ms = resolve_operation_timeout_ms(
+        project_root,
+        "unity.compile.matrix",
+        arguments.get("timeoutMs"),
+        300000,
+    )
 
     profiles = arguments.get("profiles")
     if profiles is not None and not isinstance(profiles, list):
@@ -906,9 +952,12 @@ def call_unity_scenario_run_and_wait_tool(arguments: dict[str, Any]) -> dict[str
     if not isinstance(scenario, dict):
         raise JsonRpcError(-32602, "scenario must be an object.")
 
-    timeout_ms = arguments.get("timeoutMs", 120000)
-    if not isinstance(timeout_ms, int):
-        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+    timeout_ms = resolve_operation_timeout_ms(
+        project_root,
+        "unity.scenario.run",
+        arguments.get("timeoutMs"),
+        600000,
+    )
 
     poll_interval_ms = arguments.get("pollIntervalMs", 1000)
     if not isinstance(poll_interval_ms, int):
@@ -1160,16 +1209,20 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(project_root, str) or not project_root.strip():
         raise JsonRpcError(-32602, "projectRoot is required.")
 
-    timeout_ms = args.get("timeoutMs", 5000)
-    if not isinstance(timeout_ms, int):
-        raise JsonRpcError(-32602, "timeoutMs must be an integer.")
+    resolved_project_root = ensure_project_root(project_root)
+    timeout_ms = resolve_operation_timeout_ms(
+        resolved_project_root,
+        tool["bridgeOperation"],
+        args.get("timeoutMs"),
+        tool.get("inputSchema", {}).get("properties", {}).get("timeoutMs", {}).get("default", 5000),
+    )
 
     bridge_args = dict(args)
     bridge_args.pop("projectRoot", None)
     bridge_args.pop("timeoutMs", None)
 
     try:
-        response = invoke_bridge(project_root, tool["bridgeOperation"], bridge_args, timeout_ms)
+        response = invoke_bridge(str(resolved_project_root), tool["bridgeOperation"], bridge_args, timeout_ms)
     except ToolInvocationError as exc:
         payload = build_tool_error_payload(exc)
         return {
@@ -1384,11 +1437,12 @@ def cmd_request_playmode_state(args):
 
 
 def cmd_request_playmode_set(args):
+    project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.playmode.set",
         {"action": args.action},
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.playmode.set", 180000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
@@ -1424,22 +1478,24 @@ def cmd_request_editor_quit(args):
 
 
 def cmd_request_project_refresh(args):
+    project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.project.refresh",
         {
             "forceAssetRefresh": args.force_asset_refresh,
             "resolvePackages": args.resolve_packages,
             "rerunHealthProbe": args.rerun_health_probe,
         },
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.project.refresh", 180000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
 
 def cmd_request_editmode_tests(args):
+    project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.tests.run_editmode",
         {
             "testNames": args.test_names or None,
@@ -1447,14 +1503,31 @@ def cmd_request_editmode_tests(args):
             "categoryNames": args.category_names or None,
             "assemblyNames": args.assembly_names or None,
         },
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.tests.run_editmode", 300000) if args.timeout_ms is None else args.timeout_ms,
+    )
+    print_json(response)
+
+
+def cmd_request_playmode_tests(args):
+    project_root = ensure_project_root(args.project_root)
+    response = invoke_bridge(
+        str(project_root),
+        "unity.tests.run_playmode",
+        {
+            "testNames": args.test_names or None,
+            "groupNames": args.group_names or None,
+            "categoryNames": args.category_names or None,
+            "assemblyNames": args.assembly_names or None,
+        },
+        resolve_operation_default_timeout_ms(project_root, "unity.tests.run_playmode", 300000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
 
 def cmd_request_compile(args):
+    project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.compile.player_scripts",
         {
             "name": args.name,
@@ -1462,12 +1535,13 @@ def cmd_request_compile(args):
             "optionFlags": args.option_flags,
             "extraDefines": args.extra_defines,
         },
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.compile.player_scripts", 180000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
 
 def cmd_request_compile_matrix(args):
+    project_root = ensure_project_root(args.project_root)
     config_file = Path(args.config_file).expanduser().resolve()
     if not config_file.is_file():
         raise ToolInvocationError("compile_matrix_config_not_found", f"Compile matrix config file not found: {config_file}")
@@ -1478,10 +1552,10 @@ def cmd_request_compile_matrix(args):
         raise ToolInvocationError("compile_matrix_config_invalid", str(exc)) from exc
 
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.compile.matrix",
         matrix_args,
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.compile.matrix", 300000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
@@ -1500,7 +1574,7 @@ def cmd_request_build_config_compile_matrix(args):
         str(project_root),
         "unity.compile.matrix",
         compile_plan["matrixArgs"],
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.compile.matrix", 300000) if args.timeout_ms is None else args.timeout_ms,
     )
 
     payload = {
@@ -1605,6 +1679,638 @@ def run_batch_operation(
         raise SystemExit(1)
 
 
+TEST_FRAMEWORK_PACKAGE_NAME = "com.unity.test-framework"
+TEST_FRAMEWORK_PERFORMANCE_PACKAGE_NAME = "com.unity.test-framework.performance"
+TEST_FRAMEWORK_REGRESSION_LOCK_PACKAGES = [
+    TEST_FRAMEWORK_PACKAGE_NAME,
+    TEST_FRAMEWORK_PERFORMANCE_PACKAGE_NAME,
+    LIGHTWEIGHT_PACKAGE_NAME,
+]
+TEST_FRAMEWORK_REGRESSION_FOCUS_ASSEMBLIES = ["_Hub.AppLoadingSteps.Tests"]
+TEST_FRAMEWORK_REGRESSION_FOCUS_TESTS = ["CheckMinSupportedVersionUpdateLinkRoutingTests"]
+TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET = "Android"
+
+
+def test_framework_regression_result_path(project_root: Path) -> Path:
+    return default_batch_operation_result_path(project_root, "test_framework_version_regression")
+
+
+def test_framework_regression_artifacts_dir(result_path: Path) -> Path:
+    suffix = result_path.suffix or ".json"
+    stem = result_path.stem if result_path.suffix else result_path.name
+    return result_path.with_name(f"{stem}_artifacts")
+
+
+def normalize_requested_versions(raw_versions: list[str], versions_file: str | None) -> list[str]:
+    versions: list[str] = []
+
+    for raw_version in raw_versions:
+        version = str(raw_version or "").strip()
+        if version:
+            versions.append(version)
+
+    if versions_file:
+        path = Path(versions_file).expanduser().resolve()
+        if not path.is_file():
+            raise ToolInvocationError(
+                "versions_file_not_found",
+                f"Version file not found: {path}",
+            )
+
+        text = path.read_text(encoding="utf-8")
+        parsed_versions: list[str] = []
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            payload = None
+
+        if isinstance(payload, list):
+            parsed_versions = [str(item).strip() for item in payload]
+        else:
+            parsed_versions = [
+                line.strip()
+                for line in text.splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        versions.extend(version for version in parsed_versions if version)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for version in versions:
+        if version in seen:
+            continue
+        seen.add(version)
+        deduped.append(version)
+    return deduped
+
+
+def version_slug(version: str) -> str:
+    result = []
+    for character in str(version or "").strip():
+        if character.isalnum():
+            result.append(character)
+        else:
+            result.append("_")
+    return "".join(result).strip("_") or "unknown"
+
+
+def read_declared_dependency_version(path: Path, package_name: str) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ToolInvocationError(
+            "dependency_file_unreadable",
+            f"Could not read dependency file: {path}. {exc}",
+        ) from exc
+
+    dependencies = payload.get("dependencies")
+    if not isinstance(dependencies, dict):
+        raise ToolInvocationError(
+            "dependency_missing",
+            f"Dependencies object not found in: {path}",
+        )
+
+    value = dependencies.get(package_name)
+    if not isinstance(value, str) or not value.strip():
+        raise ToolInvocationError(
+            "dependency_missing",
+            f"{package_name} is not declared in: {path}",
+        )
+
+    return value.strip()
+
+
+def write_declared_dependency_version(path: Path, package_name: str, version: str) -> None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ToolInvocationError(
+            "dependency_file_unreadable",
+            f"Could not update dependency file: {path}. {exc}",
+        ) from exc
+
+    dependencies = payload.get("dependencies")
+    if not isinstance(dependencies, dict):
+        raise ToolInvocationError(
+            "dependency_missing",
+            f"Dependencies object not found in: {path}",
+        )
+
+    dependencies[package_name] = version
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
+def remove_lock_dependencies(path: Path, package_names: list[str]) -> list[str]:
+    if not path.is_file():
+        return []
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ToolInvocationError(
+            "packages_lock_unreadable",
+            f"Could not update packages-lock.json: {path}. {exc}",
+        ) from exc
+
+    dependencies = payload.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return []
+
+    removed: list[str] = []
+    for package_name in package_names:
+        if package_name in dependencies:
+            del dependencies[package_name]
+            removed.append(package_name)
+
+    if removed:
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return removed
+
+
+def read_locked_dependency_state(path: Path, package_name: str) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "package_name": package_name,
+        "present": False,
+        "version": "",
+        "source": "",
+        "depth": None,
+    }
+    if not path.is_file():
+        return result
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        result["error"] = f"Could not read: {path}"
+        return result
+
+    dependencies = payload.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return result
+
+    package_payload = dependencies.get(package_name)
+    if not isinstance(package_payload, dict):
+        return result
+
+    result["present"] = True
+    result["version"] = str(package_payload.get("version") or "")
+    result["source"] = str(package_payload.get("source") or "")
+    result["depth"] = package_payload.get("depth")
+    return result
+
+
+def read_test_framework_state(
+    project_root: Path,
+    project_manifest_path: Path,
+    package_manifest_path: Path,
+    packages_lock_path: Path,
+) -> dict[str, Any]:
+    return {
+        "project_manifest_dependency": read_declared_dependency_version(project_manifest_path, TEST_FRAMEWORK_PACKAGE_NAME),
+        "package_manifest_dependency": read_declared_dependency_version(package_manifest_path, TEST_FRAMEWORK_PACKAGE_NAME),
+        "locked_test_framework": read_locked_dependency_state(packages_lock_path, TEST_FRAMEWORK_PACKAGE_NAME),
+        "locked_test_framework_performance": read_locked_dependency_state(
+            packages_lock_path,
+            TEST_FRAMEWORK_PERFORMANCE_PACKAGE_NAME,
+        ),
+        "locked_lightweight_package": read_locked_dependency_state(packages_lock_path, LIGHTWEIGHT_PACKAGE_NAME),
+        "package_dependency_alignment": inspect_package_dependency_alignment(project_root),
+    }
+
+
+def write_test_framework_step_artifact(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(path, payload)
+
+
+def run_self_json_command(command_args: list[str]) -> dict[str, Any]:
+    completed = subprocess.run(
+        [sys.executable, __file__, *command_args],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    stdout_text = completed.stdout or ""
+    stderr_text = completed.stderr or ""
+    parsed_stdout: dict[str, Any] | None = None
+    parse_error = ""
+    if stdout_text.strip():
+        try:
+            parsed_candidate = json.loads(stdout_text)
+            if isinstance(parsed_candidate, dict):
+                parsed_stdout = parsed_candidate
+        except json.JSONDecodeError as exc:
+            parse_error = str(exc)
+
+    payload: dict[str, Any] = {
+        "command": [sys.executable, __file__, *command_args],
+        "exit_code": completed.returncode,
+        "succeeded": completed.returncode == 0,
+        "stdout_text": stdout_text,
+        "stderr_text": stderr_text,
+    }
+    if parsed_stdout is not None:
+        payload["stdout_json"] = parsed_stdout
+    if parse_error:
+        payload["stdout_parse_error"] = parse_error
+    return payload
+
+
+def decode_bridge_payload(response_payload: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(response_payload, dict):
+        return {}
+    payload_json = response_payload.get("payload_json")
+    if not isinstance(payload_json, str) or not payload_json.strip():
+        return {}
+    try:
+        decoded = json.loads(payload_json)
+    except json.JSONDecodeError:
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
+def extract_test_failure_names(payload: dict[str, Any]) -> list[str]:
+    failures = payload.get("failures")
+    if not isinstance(failures, list):
+        return []
+
+    names: list[str] = []
+    for failure in failures:
+        if not isinstance(failure, dict):
+            continue
+        for key in ("name", "test_name", "fullName", "full_name"):
+            value = str(failure.get(key) or "").strip()
+            if value:
+                names.append(value)
+                break
+    return names
+
+
+def summarize_bridge_step(output: dict[str, Any]) -> dict[str, Any]:
+    response_payload = output.get("stdout_json")
+    decoded = decode_bridge_payload(response_payload if isinstance(response_payload, dict) else None)
+    summary: dict[str, Any] = {
+        "exit_code": output.get("exit_code"),
+        "succeeded": output.get("succeeded"),
+    }
+    if isinstance(response_payload, dict):
+        summary["transport_status"] = response_payload.get("status")
+        error_payload = response_payload.get("error")
+        if isinstance(error_payload, dict) and (error_payload.get("code") or error_payload.get("message")):
+            summary["error"] = {
+                "code": error_payload.get("code"),
+                "message": error_payload.get("message"),
+            }
+    if decoded:
+        summary["payload"] = decoded
+    stderr_text = str(output.get("stderr_text") or "").strip()
+    if stderr_text:
+        summary["stderr_tail"] = truncate_text(stderr_text[-600:], 600)
+    parse_error = str(output.get("stdout_parse_error") or "").strip()
+    if parse_error:
+        summary["stdout_parse_error"] = parse_error
+    return summary
+
+
+def summarize_editmode_step(output: dict[str, Any]) -> dict[str, Any]:
+    summary = summarize_bridge_step(output)
+    payload = summary.get("payload") or {}
+    if isinstance(payload, dict):
+        summary["tests"] = {
+            "status": payload.get("status"),
+            "total": payload.get("total"),
+            "passed": payload.get("passed"),
+            "failed": payload.get("failed"),
+            "skipped": payload.get("skipped"),
+            "completion_basis": payload.get("completion_basis"),
+            "failure_names": extract_test_failure_names(payload),
+        }
+    return summary
+
+
+def summarize_compile_step(output: dict[str, Any]) -> dict[str, Any]:
+    summary = summarize_bridge_step(output)
+    payload = summary.get("payload") or {}
+    if isinstance(payload, dict):
+        compile_payload = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+        summary["compile"] = {
+            "status": compile_payload.get("status"),
+            "compiled_assembly_count": compile_payload.get("compiled_assembly_count"),
+            "error_count": compile_payload.get("error_count"),
+            "warning_count": compile_payload.get("warning_count"),
+        }
+    return summary
+
+
+def summarize_health_probe_step(output: dict[str, Any]) -> dict[str, Any]:
+    summary = summarize_bridge_step(output)
+    payload = summary.get("payload") or {}
+    report = payload.get("report") if isinstance(payload, dict) else {}
+    if isinstance(report, dict):
+        summary["health_probe"] = {
+            "status": report.get("status"),
+            "supported_operation_count": len(report.get("supported_operations") or []),
+            "disabled_operation_count": len(report.get("disabled_operations") or []),
+        }
+    return summary
+
+
+def summarize_project_refresh_step(output: dict[str, Any]) -> dict[str, Any]:
+    summary = summarize_bridge_step(output)
+    payload = summary.get("payload") or {}
+    if isinstance(payload, dict):
+        summary["project_refresh"] = {
+            "outcome": payload.get("outcome"),
+            "refresh_settle_phase": payload.get("refresh_settle_phase"),
+            "package_resolve_requested": payload.get("package_resolve_requested"),
+            "health_probe_status": payload.get("health_probe_status"),
+        }
+    return summary
+
+
+def summarize_batch_editmode_step(output: dict[str, Any]) -> dict[str, Any]:
+    response_payload = output.get("stdout_json")
+    summary: dict[str, Any] = {
+        "exit_code": output.get("exit_code"),
+        "succeeded": output.get("succeeded"),
+    }
+    if isinstance(response_payload, dict):
+        summary["result_summary"] = response_payload.get("result_summary")
+        summary["result_file"] = response_payload.get("result_file")
+        summary["summary_file"] = response_payload.get("summary_file")
+        summary["top_actionable_error"] = response_payload.get("top_actionable_error")
+        result_file = response_payload.get("result_file")
+        if isinstance(result_file, str) and result_file.strip():
+            result_path = Path(result_file).expanduser().resolve()
+            if result_path.is_file():
+                try:
+                    result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    result_payload = None
+                if isinstance(result_payload, dict):
+                    tests_payload = result_payload.get("tests") or {}
+                    if isinstance(tests_payload, dict):
+                        summary["tests"] = {
+                            "status": tests_payload.get("status"),
+                            "total": tests_payload.get("total"),
+                            "passed": tests_payload.get("passed"),
+                            "failed": tests_payload.get("failed"),
+                            "skipped": tests_payload.get("skipped"),
+                            "failure_names": extract_test_failure_names(tests_payload),
+                        }
+    stderr_text = str(output.get("stderr_text") or "").strip()
+    if stderr_text:
+        summary["stderr_tail"] = truncate_text(stderr_text[-600:], 600)
+    parse_error = str(output.get("stdout_parse_error") or "").strip()
+    if parse_error:
+        summary["stdout_parse_error"] = parse_error
+    return summary
+
+
+def evaluate_candidate_contract(candidate_result: dict[str, Any]) -> dict[str, Any]:
+    state_after_open = candidate_result.get("state_after_open") or {}
+    locked_test_framework = state_after_open.get("locked_test_framework") if isinstance(state_after_open, dict) else {}
+
+    direct_focus = (((candidate_result.get("interactive") or {}).get("focused_editmode")) or {}).get("tests") or {}
+    batch_focus = (((candidate_result.get("batch") or {}).get("focused_editmode")) or {}).get("tests") or {}
+    direct_broad = (((candidate_result.get("interactive") or {}).get("broad_editmode")) or {}).get("tests") or {}
+    batch_broad = (((candidate_result.get("batch") or {}).get("broad_editmode")) or {}).get("tests") or {}
+    compile_summary = (((candidate_result.get("interactive") or {}).get("compile")) or {}).get("compile") or {}
+    health_probe = (((candidate_result.get("interactive") or {}).get("health_probe")) or {}).get("health_probe") or {}
+    project_refresh = (((candidate_result.get("interactive") or {}).get("project_refresh")) or {}).get("project_refresh") or {}
+
+    requested_version = str(candidate_result.get("requested_version") or "")
+    resolved_version = str((locked_test_framework or {}).get("version") or "")
+
+    failures: list[str] = []
+    if not requested_version or requested_version != resolved_version:
+        failures.append("resolved_version_mismatch")
+    if str(health_probe.get("status") or "") != "healthy":
+        failures.append("health_probe_not_healthy")
+    if str(project_refresh.get("outcome") or "") not in {
+        "refreshed",
+        "ok",
+        "completed",
+        "refresh_and_resolve_completed",
+    }:
+        failures.append("project_refresh_not_completed")
+    if str(compile_summary.get("status") or "") != "passed":
+        failures.append("compile_regression_failed")
+    if str(direct_focus.get("status") or "") != "passed":
+        failures.append("focused_direct_editmode_failed")
+    if str(batch_focus.get("status") or "") != "passed":
+        failures.append("focused_batch_editmode_failed")
+    if direct_broad.get("total") is None:
+        failures.append("broad_direct_editmode_missing")
+    if batch_broad.get("total") is None:
+        failures.append("broad_batch_editmode_missing")
+
+    return {
+        "requested_version": requested_version,
+        "resolved_version": resolved_version,
+        "broad_direct_failed": direct_broad.get("failed"),
+        "broad_batch_failed": batch_broad.get("failed"),
+        "focused_direct_status": direct_focus.get("status"),
+        "focused_batch_status": batch_focus.get("status"),
+        "compile_status": compile_summary.get("status"),
+        "health_status": health_probe.get("status"),
+        "project_refresh_outcome": project_refresh.get("outcome"),
+        "contract_passed": len(failures) == 0,
+        "contract_failures": failures,
+    }
+
+
+def compare_candidate_to_baseline(
+    baseline_result: dict[str, Any],
+    candidate_result: dict[str, Any],
+) -> dict[str, Any]:
+    baseline_direct = (((baseline_result.get("interactive") or {}).get("broad_editmode")) or {}).get("tests") or {}
+    baseline_batch = (((baseline_result.get("batch") or {}).get("broad_editmode")) or {}).get("tests") or {}
+    candidate_direct = (((candidate_result.get("interactive") or {}).get("broad_editmode")) or {}).get("tests") or {}
+    candidate_batch = (((candidate_result.get("batch") or {}).get("broad_editmode")) or {}).get("tests") or {}
+
+    baseline_direct_failures = set(baseline_direct.get("failure_names") or [])
+    baseline_batch_failures = set(baseline_batch.get("failure_names") or [])
+    candidate_direct_failures = set(candidate_direct.get("failure_names") or [])
+    candidate_batch_failures = set(candidate_batch.get("failure_names") or [])
+
+    return {
+        "baseline_version": baseline_result.get("requested_version"),
+        "direct_failed_delta": (candidate_direct.get("failed") or 0) - (baseline_direct.get("failed") or 0),
+        "batch_failed_delta": (candidate_batch.get("failed") or 0) - (baseline_batch.get("failed") or 0),
+        "direct_new_failures": sorted(candidate_direct_failures - baseline_direct_failures),
+        "batch_new_failures": sorted(candidate_batch_failures - baseline_batch_failures),
+        "direct_missing_failures": sorted(baseline_direct_failures - candidate_direct_failures),
+        "batch_missing_failures": sorted(baseline_batch_failures - candidate_batch_failures),
+    }
+
+
+def run_single_test_framework_candidate(
+    *,
+    project_root: Path,
+    requested_version: str,
+    project_manifest_path: Path,
+    package_manifest_path: Path,
+    packages_lock_path: Path,
+    artifacts_dir: Path,
+    compile_target: str,
+    focus_assemblies: list[str],
+    focus_tests: list[str],
+    broad_assemblies: list[str],
+) -> dict[str, Any]:
+    candidate_slug = version_slug(requested_version)
+    candidate_dir = artifacts_dir / candidate_slug
+    candidate_dir.mkdir(parents=True, exist_ok=True)
+
+    write_declared_dependency_version(project_manifest_path, TEST_FRAMEWORK_PACKAGE_NAME, requested_version)
+    write_declared_dependency_version(package_manifest_path, TEST_FRAMEWORK_PACKAGE_NAME, requested_version)
+    removed_lock_entries = remove_lock_dependencies(packages_lock_path, TEST_FRAMEWORK_REGRESSION_LOCK_PACKAGES)
+
+    result: dict[str, Any] = {
+        "requested_version": requested_version,
+        "candidate_slug": candidate_slug,
+        "candidate_dir": str(candidate_dir),
+        "removed_lock_entries": removed_lock_entries,
+        "state_after_patch": read_test_framework_state(
+            project_root,
+            project_manifest_path,
+            package_manifest_path,
+            packages_lock_path,
+        ),
+        "interactive": {},
+        "batch": {},
+    }
+
+    ensure_ready_output = run_self_json_command(
+        [
+            "ensure-ready",
+            "--project-root",
+            str(project_root),
+            "--open-editor",
+            "--timeout-ms",
+            "180000",
+        ]
+    )
+    write_test_framework_step_artifact(candidate_dir / "interactive_ensure_ready.json", ensure_ready_output)
+    result["interactive"]["ensure_ready"] = summarize_bridge_step(ensure_ready_output)
+
+    if ensure_ready_output.get("succeeded"):
+        result["state_after_open"] = read_test_framework_state(
+            project_root,
+            project_manifest_path,
+            package_manifest_path,
+            packages_lock_path,
+        )
+
+        health_probe_output = run_self_json_command(
+            [
+                "request-health-probe",
+                "--project-root",
+                str(project_root),
+                "--timeout-ms",
+                "30000",
+            ]
+        )
+        write_test_framework_step_artifact(candidate_dir / "interactive_health_probe.json", health_probe_output)
+        result["interactive"]["health_probe"] = summarize_health_probe_step(health_probe_output)
+
+        project_refresh_output = run_self_json_command(
+            [
+                "request-project-refresh",
+                "--project-root",
+                str(project_root),
+                "--timeout-ms",
+                "120000",
+            ]
+        )
+        write_test_framework_step_artifact(candidate_dir / "interactive_project_refresh.json", project_refresh_output)
+        result["interactive"]["project_refresh"] = summarize_project_refresh_step(project_refresh_output)
+
+        compile_output = run_self_json_command(
+            [
+                "request-compile",
+                "--project-root",
+                str(project_root),
+                "--target",
+                compile_target,
+                "--name",
+                f"test_framework_regression_{candidate_slug}",
+                "--timeout-ms",
+                "180000",
+            ]
+        )
+        write_test_framework_step_artifact(candidate_dir / "interactive_compile.json", compile_output)
+        result["interactive"]["compile"] = summarize_compile_step(compile_output)
+
+        focused_editmode_args = [
+            "request-editmode-tests",
+            "--project-root",
+            str(project_root),
+            "--timeout-ms",
+            "600000",
+        ]
+        for assembly_name in focus_assemblies:
+            focused_editmode_args.extend(["--assembly-name", assembly_name])
+        for test_name in focus_tests:
+            focused_editmode_args.extend(["--test-name", test_name])
+        focused_editmode_output = run_self_json_command(focused_editmode_args)
+        write_test_framework_step_artifact(candidate_dir / "interactive_focused_editmode.json", focused_editmode_output)
+        result["interactive"]["focused_editmode"] = summarize_editmode_step(focused_editmode_output)
+
+        broad_editmode_args = [
+            "request-editmode-tests",
+            "--project-root",
+            str(project_root),
+            "--timeout-ms",
+            "600000",
+        ]
+        for assembly_name in broad_assemblies:
+            broad_editmode_args.extend(["--assembly-name", assembly_name])
+        broad_editmode_output = run_self_json_command(broad_editmode_args)
+        write_test_framework_step_artifact(candidate_dir / "interactive_broad_editmode.json", broad_editmode_output)
+        result["interactive"]["broad_editmode"] = summarize_editmode_step(broad_editmode_output)
+
+    close_output = run_self_json_command(
+        [
+            "restore-editor-state",
+            "--project-root",
+            str(project_root),
+            "--timeout-ms",
+            "30000",
+        ]
+    )
+    write_test_framework_step_artifact(candidate_dir / "restore_editor_state.json", close_output)
+    result["restore_editor_state"] = summarize_bridge_step(close_output)
+
+    focused_batch_args = [
+        "batch-editmode-tests",
+        "--project-root",
+        str(project_root),
+    ]
+    for assembly_name in focus_assemblies:
+        focused_batch_args.extend(["--assembly-name", assembly_name])
+    for test_name in focus_tests:
+        focused_batch_args.extend(["--test-name", test_name])
+    focused_batch_output = run_self_json_command(focused_batch_args)
+    write_test_framework_step_artifact(candidate_dir / "batch_focused_editmode.json", focused_batch_output)
+    result["batch"]["focused_editmode"] = summarize_batch_editmode_step(focused_batch_output)
+
+    broad_batch_args = [
+        "batch-editmode-tests",
+        "--project-root",
+        str(project_root),
+    ]
+    for assembly_name in broad_assemblies:
+        broad_batch_args.extend(["--assembly-name", assembly_name])
+    broad_batch_output = run_self_json_command(broad_batch_args)
+    write_test_framework_step_artifact(candidate_dir / "batch_broad_editmode.json", broad_batch_output)
+    result["batch"]["broad_editmode"] = summarize_batch_editmode_step(broad_batch_output)
+
+    result["contract"] = evaluate_candidate_contract(result)
+    return result
+
+
 def cmd_request_scenario_validate(args):
     scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
     response = invoke_bridge(
@@ -1618,20 +2324,22 @@ def cmd_request_scenario_validate(args):
 
 def cmd_request_scenario_run(args):
     scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
+    project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
-        args.project_root,
+        str(project_root),
         "unity.scenario.run",
         {"scenario": scenario},
-        args.timeout_ms,
+        resolve_operation_default_timeout_ms(project_root, "unity.scenario.run", 600000) if args.timeout_ms is None else args.timeout_ms,
     )
     print_json(response)
 
 
 def cmd_request_scenario_run_and_wait(args):
     scenario = load_json_file(args.scenario_file, "scenario_file_invalid")
+    project_root = ensure_project_root(args.project_root)
     result = call_unity_scenario_run_and_wait_tool(
         {
-            "projectRoot": args.project_root,
+            "projectRoot": str(project_root),
             "scenario": scenario,
             "timeoutMs": args.timeout_ms,
             "pollIntervalMs": args.poll_interval_ms,
@@ -1755,6 +2463,194 @@ def cmd_restore_editor_state(args):
     project_root = ensure_project_root(args.project_root)
     payload = restore_host_opened_editor_state(project_root, args.timeout_ms, request_editor_quit)
     print_json(payload)
+
+
+def cmd_runtime_config_show(args):
+    project_root = ensure_project_root(args.project_root)
+    print_json(build_runtime_config_report(project_root))
+
+
+def cmd_batch_test_framework_version_regression(args):
+    project_root = ensure_project_root(args.project_root)
+    project_manifest_path = project_root / "Packages" / "manifest.json"
+    packages_lock_path = project_root / "Packages" / "packages-lock.json"
+
+    package_source = find_repo_local_package_source(project_root)
+    if package_source is None:
+        raise ToolInvocationError(
+            "repo_local_package_source_not_found",
+            (
+                "Could not locate the repo-local XUUnityLightUnityMcp package source from this project root. "
+                "Run devmode first so the project points at the local AIRoot package."
+            ),
+        )
+    package_manifest_path = package_source / "package.json"
+
+    original_state = read_test_framework_state(
+        project_root,
+        project_manifest_path,
+        package_manifest_path,
+        packages_lock_path,
+    )
+    requested_versions = normalize_requested_versions(list(args.version or []), args.versions_file)
+    if not requested_versions:
+        requested_versions = [str(original_state.get("project_manifest_dependency") or "")]
+
+    focus_assemblies = list(args.focus_assembly_name or TEST_FRAMEWORK_REGRESSION_FOCUS_ASSEMBLIES)
+    focus_tests = list(args.focus_test_name or TEST_FRAMEWORK_REGRESSION_FOCUS_TESTS)
+    broad_assemblies = list(args.broad_assembly_name or [])
+    compile_target = str(args.compile_target or TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET).strip()
+    if not compile_target:
+        raise ToolInvocationError("missing_compile_target", "--compile-target must not be empty.")
+
+    live_editor_pids = list_live_project_editor_pids(project_root)
+    host_session = try_read_host_editor_session_state(project_root) or {}
+    tracked_host_pid = int(host_session.get("editor_pid") or 0)
+    host_managed_live_editor = bool(host_session.get("opened_by_host")) and tracked_host_pid > 0 and tracked_host_pid in live_editor_pids
+    if live_editor_pids and not host_managed_live_editor:
+        raise ToolInvocationError(
+            "editor_running_regression_conflict",
+            (
+                "Refusing to start test-framework version regression while this project is open in a non-host-managed "
+                f"Unity editor session. Live editor pid(s): {', '.join(str(pid) for pid in live_editor_pids)}. "
+                "Close the editor first, or reopen it through ensure-ready so the host can restore it safely."
+            ),
+            {
+                "live_editor_pids": live_editor_pids,
+                "tracked_host_pid": tracked_host_pid,
+            },
+        )
+
+    result_path = (
+        Path(args.result_file).expanduser().resolve()
+        if args.result_file
+        else test_framework_regression_result_path(project_root)
+    )
+    artifacts_dir = test_framework_regression_artifacts_dir(result_path)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    overall_result: dict[str, Any] = {
+        "action": "batch_test_framework_version_regression",
+        "project_root": str(project_root),
+        "result_file": str(result_path),
+        "artifacts_dir": str(artifacts_dir),
+        "requested_versions": requested_versions,
+        "initial_editor_state": {
+            "live_editor_pids": live_editor_pids,
+            "host_managed_live_editor": host_managed_live_editor,
+            "tracked_host_pid": tracked_host_pid,
+            "restore_editor_open_state": bool(live_editor_pids),
+        },
+        "focus_assemblies": focus_assemblies,
+        "focus_tests": focus_tests,
+        "broad_assemblies": broad_assemblies,
+        "compile_target": compile_target,
+        "original_state": original_state,
+        "candidates": [],
+        "restoration": {},
+    }
+
+    baseline_result: dict[str, Any] | None = None
+
+    try:
+        if live_editor_pids and host_managed_live_editor:
+            preclose_output = run_self_json_command(
+                [
+                    "restore-editor-state",
+                    "--project-root",
+                    str(project_root),
+                    "--timeout-ms",
+                    "30000",
+                ]
+            )
+            write_test_framework_step_artifact(artifacts_dir / "preclose_editor.json", preclose_output)
+            overall_result["initial_editor_state"]["preclose"] = summarize_bridge_step(preclose_output)
+
+        for requested_version in requested_versions:
+            candidate_result = run_single_test_framework_candidate(
+                project_root=project_root,
+                requested_version=requested_version,
+                project_manifest_path=project_manifest_path,
+                package_manifest_path=package_manifest_path,
+                packages_lock_path=packages_lock_path,
+                artifacts_dir=artifacts_dir,
+                compile_target=compile_target,
+                focus_assemblies=focus_assemblies,
+                focus_tests=focus_tests,
+                broad_assemblies=broad_assemblies,
+            )
+            overall_result["candidates"].append(candidate_result)
+            if requested_version == str(original_state.get("project_manifest_dependency") or ""):
+                baseline_result = candidate_result
+    finally:
+        restoration: dict[str, Any] = {
+            "restore_original_version": bool(args.restore_original_version),
+        }
+        if args.restore_original_version:
+            write_declared_dependency_version(
+                project_manifest_path,
+                TEST_FRAMEWORK_PACKAGE_NAME,
+                str(original_state.get("project_manifest_dependency") or ""),
+            )
+            write_declared_dependency_version(
+                package_manifest_path,
+                TEST_FRAMEWORK_PACKAGE_NAME,
+                str(original_state.get("package_manifest_dependency") or ""),
+            )
+            restoration["removed_lock_entries"] = remove_lock_dependencies(
+                packages_lock_path,
+                TEST_FRAMEWORK_REGRESSION_LOCK_PACKAGES,
+            )
+            restoration["state_after_restore_patch"] = read_test_framework_state(
+                project_root,
+                project_manifest_path,
+                package_manifest_path,
+                packages_lock_path,
+            )
+            if bool(overall_result["initial_editor_state"].get("restore_editor_open_state")):
+                reopen_output = run_self_json_command(
+                    [
+                        "ensure-ready",
+                        "--project-root",
+                        str(project_root),
+                        "--open-editor",
+                        "--timeout-ms",
+                        "180000",
+                    ]
+                )
+                write_test_framework_step_artifact(artifacts_dir / "restore_editor_open_state.json", reopen_output)
+                restoration["reopen_editor"] = summarize_bridge_step(reopen_output)
+                restoration["state_after_reopen"] = read_test_framework_state(
+                    project_root,
+                    project_manifest_path,
+                    package_manifest_path,
+                    packages_lock_path,
+                )
+        overall_result["restoration"] = restoration
+
+    if baseline_result is not None:
+        for candidate_result in overall_result["candidates"]:
+            candidate_result["broad_suite_vs_baseline"] = compare_candidate_to_baseline(
+                baseline_result,
+                candidate_result,
+            )
+
+    overall_result["summary"] = {
+        "candidate_count": len(overall_result["candidates"]),
+        "contract_passed_versions": [
+            candidate_result.get("requested_version")
+            for candidate_result in overall_result["candidates"]
+            if bool(((candidate_result.get("contract") or {}).get("contract_passed")))
+        ],
+        "baseline_version": baseline_result.get("requested_version") if baseline_result else "",
+    }
+
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(result_path, overall_result)
+    print_json(overall_result)
+
+    if any(not bool(((candidate_result.get("contract") or {}).get("contract_passed"))) for candidate_result in overall_result["candidates"]):
+        raise SystemExit(1)
 
 
 def cmd_batch_compile(args):
@@ -2138,7 +3034,7 @@ def build_parser():
     playmode_set_cmd = sub.add_parser("request-playmode-set", help="Send a direct unity.playmode.set request through the active bridge transport.")
     playmode_set_cmd.add_argument("--project-root", required=True)
     playmode_set_cmd.add_argument("--action", required=True, choices=["enter", "exit", "pause", "resume"])
-    playmode_set_cmd.add_argument("--timeout-ms", type=int, default=45000)
+    playmode_set_cmd.add_argument("--timeout-ms", type=int, default=None)
     playmode_set_cmd.set_defaults(func=cmd_request_playmode_set)
 
     capabilities_cmd = sub.add_parser("request-capabilities", help="Send a direct unity.capabilities.get request through the active bridge transport.")
@@ -2172,7 +3068,7 @@ def build_parser():
     project_refresh_cmd.add_argument("--force-asset-refresh", dest="force_asset_refresh", action=argparse.BooleanOptionalAction, default=True)
     project_refresh_cmd.add_argument("--resolve-packages", dest="resolve_packages", action=argparse.BooleanOptionalAction, default=True)
     project_refresh_cmd.add_argument("--rerun-health-probe", dest="rerun_health_probe", action=argparse.BooleanOptionalAction, default=True)
-    project_refresh_cmd.add_argument("--timeout-ms", type=int, default=15000)
+    project_refresh_cmd.add_argument("--timeout-ms", type=int, default=None)
     project_refresh_cmd.set_defaults(func=cmd_request_project_refresh)
 
     editmode_cmd = sub.add_parser("request-editmode-tests", help="Send a direct unity.tests.run_editmode request through the active bridge transport.")
@@ -2181,8 +3077,17 @@ def build_parser():
     editmode_cmd.add_argument("--group-name", dest="group_names", action="append", default=[])
     editmode_cmd.add_argument("--category-name", dest="category_names", action="append", default=[])
     editmode_cmd.add_argument("--assembly-name", dest="assembly_names", action="append", default=[])
-    editmode_cmd.add_argument("--timeout-ms", type=int, default=600000)
+    editmode_cmd.add_argument("--timeout-ms", type=int, default=None)
     editmode_cmd.set_defaults(func=cmd_request_editmode_tests)
+
+    playmode_cmd = sub.add_parser("request-playmode-tests", help="Send a direct unity.tests.run_playmode request through the active bridge transport.")
+    playmode_cmd.add_argument("--project-root", required=True)
+    playmode_cmd.add_argument("--test-name", dest="test_names", action="append", default=[])
+    playmode_cmd.add_argument("--group-name", dest="group_names", action="append", default=[])
+    playmode_cmd.add_argument("--category-name", dest="category_names", action="append", default=[])
+    playmode_cmd.add_argument("--assembly-name", dest="assembly_names", action="append", default=[])
+    playmode_cmd.add_argument("--timeout-ms", type=int, default=None)
+    playmode_cmd.set_defaults(func=cmd_request_playmode_tests)
 
     compile_cmd = sub.add_parser("request-compile", help="Send a direct unity.compile.player_scripts request through the active bridge transport.")
     compile_cmd.add_argument("--project-root", required=True)
@@ -2190,13 +3095,13 @@ def build_parser():
     compile_cmd.add_argument("--name", default="")
     compile_cmd.add_argument("--option-flag", dest="option_flags", action="append", default=[])
     compile_cmd.add_argument("--extra-define", dest="extra_defines", action="append", default=[])
-    compile_cmd.add_argument("--timeout-ms", type=int, default=120000)
+    compile_cmd.add_argument("--timeout-ms", type=int, default=None)
     compile_cmd.set_defaults(func=cmd_request_compile)
 
     compile_matrix_cmd = sub.add_parser("request-compile-matrix", help="Send a direct unity.compile.matrix request using a JSON config file through the active bridge transport.")
     compile_matrix_cmd.add_argument("--project-root", required=True)
     compile_matrix_cmd.add_argument("--config-file", required=True)
-    compile_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
+    compile_matrix_cmd.add_argument("--timeout-ms", type=int, default=None)
     compile_matrix_cmd.set_defaults(func=cmd_request_compile_matrix)
 
     build_config_matrix_cmd = sub.add_parser(
@@ -2208,7 +3113,7 @@ def build_parser():
     build_config_matrix_cmd.add_argument("--profile", action="append", default=[])
     build_config_matrix_cmd.add_argument("--target", action="append", default=[])
     build_config_matrix_cmd.add_argument("--stop-on-first-failure", action="store_true")
-    build_config_matrix_cmd.add_argument("--timeout-ms", type=int, default=300000)
+    build_config_matrix_cmd.add_argument("--timeout-ms", type=int, default=None)
     build_config_matrix_cmd.set_defaults(func=cmd_request_build_config_compile_matrix)
 
     scenario_validate_cmd = sub.add_parser("request-scenario-validate", help="Validate a Unity scenario JSON file through unity.scenario.validate on the active bridge transport.")
@@ -2220,13 +3125,13 @@ def build_parser():
     scenario_run_cmd = sub.add_parser("request-scenario-run", help="Start a Unity scenario JSON file through unity.scenario.run on the active bridge transport.")
     scenario_run_cmd.add_argument("--project-root", required=True)
     scenario_run_cmd.add_argument("--scenario-file", required=True)
-    scenario_run_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scenario_run_cmd.add_argument("--timeout-ms", type=int, default=None)
     scenario_run_cmd.set_defaults(func=cmd_request_scenario_run)
 
     scenario_run_wait_cmd = sub.add_parser("request-scenario-run-and-wait", help="Start a Unity scenario JSON file and wait until it reaches a terminal state.")
     scenario_run_wait_cmd.add_argument("--project-root", required=True)
     scenario_run_wait_cmd.add_argument("--scenario-file", required=True)
-    scenario_run_wait_cmd.add_argument("--timeout-ms", type=int, default=120000)
+    scenario_run_wait_cmd.add_argument("--timeout-ms", type=int, default=None)
     scenario_run_wait_cmd.add_argument("--poll-interval-ms", type=int, default=1000)
     scenario_run_wait_cmd.set_defaults(func=cmd_request_scenario_run_and_wait)
 
@@ -2276,6 +3181,13 @@ def build_parser():
     restore_editor_cmd.add_argument("--project-root", required=True)
     restore_editor_cmd.add_argument("--timeout-ms", type=int, default=15000)
     restore_editor_cmd.set_defaults(func=cmd_restore_editor_state)
+
+    runtime_config_cmd = sub.add_parser(
+        "runtime-config-show",
+        help="Print the merged runtime timeout configuration for this Unity project.",
+    )
+    runtime_config_cmd.add_argument("--project-root", required=True)
+    runtime_config_cmd.set_defaults(func=cmd_runtime_config_show)
 
     batch_compile_cmd = sub.add_parser(
         "batch-compile",
@@ -2332,6 +3244,25 @@ def build_parser():
     batch_editmode_cmd.add_argument("--result-file")
     batch_editmode_cmd.add_argument("--dry-run", action="store_true")
     batch_editmode_cmd.set_defaults(func=cmd_batch_editmode_tests)
+
+    regression_cmd = sub.add_parser(
+        "batch-test-framework-version-regression",
+        help="Run the Phase 0 com.unity.test-framework version sweep against the live MCP and batch EditMode validation lanes.",
+    )
+    regression_cmd.add_argument("--project-root", required=True)
+    regression_cmd.add_argument("--version", action="append", default=[])
+    regression_cmd.add_argument("--versions-file")
+    regression_cmd.add_argument("--compile-target", default=TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET)
+    regression_cmd.add_argument("--focus-assembly-name", action="append", default=[])
+    regression_cmd.add_argument("--focus-test-name", action="append", default=[])
+    regression_cmd.add_argument("--broad-assembly-name", action="append", default=[])
+    regression_cmd.add_argument(
+        "--restore-original-version",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    regression_cmd.add_argument("--result-file")
+    regression_cmd.set_defaults(func=cmd_batch_test_framework_version_regression)
 
     batch_build_cmd = sub.add_parser(
         "batch-build-player",
