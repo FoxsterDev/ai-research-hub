@@ -594,6 +594,9 @@ Bridge version `9` adds host-safe editor closeout support and stronger open-stat
 - `unity.editor.quit` is now a core bridge operation
 - the host can track whether it opened Unity for the current validation session
 - `restore-editor-state` can now return a host-opened project back to closed
+- `restore-editor-state` is bounded on process-exit proof and must surface an
+  explicit closeout classification such as `closed_via_unity_editor_quit`,
+  `quit_ack_without_exit_sigterm_recovered`, or `quit_ack_without_exit`
 - stale bridge state with a dead `editor_pid` is treated as offline instead of reusable
 - open-editor no longer blindly launches a second Unity instance for the same project when a stale bridge or lock is present
 - scenario-result polling now tolerates transient read glitches during terminal-result waits instead of failing the whole scenario on the first closed response
@@ -747,6 +750,17 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
 
 If the wrapper reports a lifecycle reset or response loss, treat that command as
 the default next step. Do not retry blindly before resolving the request id.
+The returned summary is intentionally bounded on incomplete evidence:
+
+- `operation_outcome=submitted_lost_after_lifecycle_churn` means transport
+  submission happened but Unity-journal proof never appeared before the bridge
+  stabilized again
+- `operation_outcome=retryable_after_lifecycle_reset` means a lifecycle reset
+  explicitly reclassified the request as retryable
+- `operation_outcome=abandoned_after_lifecycle_reset` means Unity recorded
+  abandonment rather than completion
+- `recommended_recovery_command` should echo the exact follow-up command for the
+  same `request_id`
 
 Recover the latest matching request when the wrapper stalled before surfacing a
 usable `request_id`:
@@ -767,6 +781,9 @@ Recovery rule:
   operation class before blind retry
 - retry only after the compact recovery summary says the earlier request did not
   complete
+- when a test request returns `tests_busy`, recover the in-flight run with
+  `request-latest-status --operation unity.tests.run_editmode` or
+  `request-latest-status --operation unity.tests.run_playmode` before retrying
 
 Request-ownership rule:
 
@@ -899,6 +916,9 @@ Operator rule:
   `request_id` before retrying the operation
 - if transport continuity was lost and no request id is known, stabilize the
   bridge first and then recover by operation class with `request-latest-status`
+- if `restore-editor-state` reports `quit_ack_without_exit`, do not treat the
+  earlier quit acknowledgement as proof of real shutdown; inspect the surfaced
+  `recommended_recovery_command` and verify the remaining editor PID set
 - if `request-final-status` reports:
   - `request_submitted=true`
   - `request_observed_in_unity_journal=false`

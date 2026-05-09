@@ -57,7 +57,7 @@ namespace XUUnity.LightMcp.Editor.Operations
                     return XUUnityLightMcpResponseWriter.Error(
                         request.request_id,
                         "tests_busy",
-                        $"Another test run is already active: {ActiveRequestId}"
+                        $"Another test run is already active: {ActiveRequestId}. Wait for it to finish or recover it with request-latest-status --operation {OperationName} before retrying."
                     );
                 }
 

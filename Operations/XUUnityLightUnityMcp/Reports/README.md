@@ -26,6 +26,10 @@ Use these reports when:
 - `2026-05-05_progress_status.md`
 - `2026-05-05_xuunity_protocol_integration_status.md`
 - `2026-05-07_unity_version_matrix.md`
+- `2026-05-08_playmode_and_player_tests_design_plan.md`
+- `2026-05-08_playmode_recovery_timeout_and_fault_suite_hardening_plan.md`
+- `2026-05-09_multi_project_architecture_working_design.md`
+- `2026-05-09_cleanup_and_regression_lessons.md`
 
 ## Canonical Supporting Docs
 

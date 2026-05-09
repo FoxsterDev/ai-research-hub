@@ -343,10 +343,18 @@ def build_request_final_status(
             and stabilization["stabilized"]
         )
 
+        reclassified_event_type = str((reclassified_event or {}).get("event_type") or "")
+        reclassified_status = str((reclassified_event or {}).get("reclassified_status") or "")
+        reclassified_reason = str((reclassified_event or {}).get("reason") or "")
+
         if request_completed and completion_status == "ok":
             operation_outcome = "completed_ok"
         elif request_completed:
             operation_outcome = "completed_failed"
+        elif reclassified_event_type == "request_abandoned" and reclassified_status:
+            operation_outcome = reclassified_status
+        elif reclassified_event_type == "request_reclassified" and reclassified_status:
+            operation_outcome = reclassified_status
         elif recovery_gap_detected:
             operation_outcome = "submitted_lost_after_lifecycle_churn"
         elif request_submitted and not request_observed_in_unity_journal:
@@ -358,6 +366,12 @@ def build_request_final_status(
             recommended_next_action = "none"
         elif operation_outcome == "completed_failed":
             recommended_next_action = "inspect_request_journal"
+        elif operation_outcome in {"retryable_after_lifecycle_reset", "abandoned_after_lifecycle_reset"}:
+            recommended_next_action = (
+                "retry_request" if stabilization["safe_to_retry"] else "wait_for_bridge_stabilization"
+            )
+        elif operation_outcome == "settled_after_lifecycle_reset":
+            recommended_next_action = "verify_effect_or_retry"
         elif operation_outcome == "submitted_lost_after_lifecycle_churn":
             recommended_next_action = "verify_effect_or_retry"
         elif operation_outcome == "submitted_no_unity_journal_confirmation" and stabilization["safe_to_retry"]:
@@ -382,10 +396,16 @@ def build_request_final_status(
             "completion_status": completion_status,
             "operation_outcome": operation_outcome,
             "reclassified": reclassified,
-            "reclassified_status": str((reclassified_event or {}).get("reclassified_status") or ""),
-            "reclassified_reason": str((reclassified_event or {}).get("reason") or ""),
+            "reclassified_event_type": reclassified_event_type,
+            "reclassified_status": reclassified_status,
+            "reclassified_reason": reclassified_reason,
             "retryable": retryable,
             "recommended_next_action": recommended_next_action,
+            "recommended_recovery_command": (
+                f"request-final-status --project-root {project_root} --request-id {request_id}"
+                if request_id
+                else ""
+            ),
             "request_submitted_at_utc": str((submitted_event or {}).get("event_at_utc") or ""),
             "request_started_at_utc": str((started_event or {}).get("started_at_utc") or (started_event or {}).get("event_at_utc") or ""),
             "request_completed_at_utc": str((completed_event or {}).get("completed_at_utc") or (completed_event or {}).get("event_at_utc") or ""),

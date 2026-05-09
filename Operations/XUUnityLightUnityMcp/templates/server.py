@@ -147,7 +147,7 @@ from server_summaries import (
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_INFO = {
     "name": "xuunity-light-unity-mcp",
-    "version": "0.3.9",
+    "version": "0.3.10",
 }
 LIGHTWEIGHT_PACKAGE_NAME = "com.xuunity.light-mcp"
 
@@ -676,6 +676,7 @@ def emit_tool_error_summary(payload: dict[str, Any]) -> None:
     recommended_recovery_command = str(payload.get("recommended_recovery_command") or "")
     transport_outcome = str(payload.get("transport_outcome") or "")
     operation_outcome = str(payload.get("operation_outcome") or "")
+    closeout_classification = str(payload.get("closeout_classification") or "")
 
     parts = ["[xuunity-light-unity-mcp] request_failure"]
     if code:
@@ -690,6 +691,8 @@ def emit_tool_error_summary(payload: dict[str, Any]) -> None:
         parts.append(f"transport_outcome={transport_outcome}")
     if operation_outcome:
         parts.append(f"operation_outcome={operation_outcome}")
+    if closeout_classification:
+        parts.append(f"closeout_classification={closeout_classification}")
     if recommended_next_action:
         parts.append(f"recommended_next_action={recommended_next_action}")
 
@@ -724,6 +727,8 @@ def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
         "transport_outcome",
         "operation_outcome",
         "recommended_next_action",
+        "closeout_classification",
+        "closeout_verified",
         "transport",
         "initial_bridge_generation",
         "initial_bridge_session_id",
@@ -735,6 +740,7 @@ def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
         "request_final_status",
         "journal_event_path",
         "recommended_recovery_command",
+        "live_project_editor_pids",
         "batch_summary_file",
         "batch_failure_summary",
     ):
@@ -2352,6 +2358,18 @@ def cmd_restore_editor_state(args):
     project_root = ensure_project_root(args.project_root)
     payload = restore_host_opened_editor_state(project_root, args.timeout_ms, request_editor_quit)
     refresh_project_context(project_root)
+    if bool(payload.get("host_opened_session_found")) and not bool(payload.get("closeout_verified")):
+        closeout_classification = str(payload.get("closeout_classification") or "restore_editor_state_incomplete")
+        recommended_next_action = str(payload.get("recommended_next_action") or "inspect_project_editor_processes")
+        recommended_recovery_command = str(payload.get("recommended_recovery_command") or "")
+        message = (
+            "Host-opened editor closeout did not reach verified process exit. "
+            f"closeout_classification: {closeout_classification} "
+            f"recommended_next_action: {recommended_next_action}"
+        )
+        if recommended_recovery_command:
+            message += f" next_step: {recommended_recovery_command}"
+        raise ToolInvocationError("restore_editor_state_incomplete", message, payload)
     print_json(payload)
 
 

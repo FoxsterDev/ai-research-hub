@@ -995,6 +995,31 @@ def terminate_editor_pid(pid: int, timeout_ms: int) -> bool:
     return not pid_is_alive(pid)
 
 
+def wait_for_project_editor_exit(
+    project_root: Path,
+    *,
+    tracked_pid: int,
+    current_pid: int,
+    timeout_ms: int,
+) -> tuple[bool, list[int]]:
+    deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
+    live_project_pids: list[int] = []
+    while time.time() < deadline:
+        live_project_pids = list_live_project_editor_pids(project_root)
+        tracked_alive = tracked_pid > 0 and pid_is_alive(tracked_pid)
+        current_alive = current_pid > 0 and pid_is_alive(current_pid)
+        if (
+            not tracked_alive
+            and not current_alive
+            and (tracked_pid <= 0 or tracked_pid not in live_project_pids)
+            and (current_pid <= 0 or current_pid not in live_project_pids)
+        ):
+            return True, live_project_pids
+        time.sleep(0.2)
+
+    return False, list_live_project_editor_pids(project_root)
+
+
 def restore_host_opened_editor_state(
     project_root: Path,
     timeout_ms: int,
@@ -1004,63 +1029,144 @@ def restore_host_opened_editor_state(
     if not session or not bool(session.get("opened_by_host")):
         return {
             "project_root": str(project_root),
+            "host_opened_session_found": False,
             "restored": False,
+            "closeout_verified": True,
+            "closeout_classification": "not_opened_by_host",
+            "recommended_next_action": "none",
             "reason": "not_opened_by_host",
         }
 
     tracked_pid = int(session.get("editor_pid") or 0)
     live_state = try_read_live_editor_state(project_root)
+    current_pid = int((live_state or {}).get("editor_pid") or 0)
+    managed_pid = tracked_pid if tracked_pid > 0 else current_pid
+    bounded_timeout_ms = max(1000, timeout_ms)
+    quit_wait_timeout_ms = max(1000, bounded_timeout_ms // 2)
+    sigterm_timeout_ms = max(1000, bounded_timeout_ms - quit_wait_timeout_ms)
     restoration = {
         "project_root": str(project_root),
+        "host_opened_session_found": True,
         "tracked_editor_pid": tracked_pid,
+        "live_state_editor_pid": current_pid,
         "restored": False,
+        "closeout_verified": False,
+        "closeout_classification": "",
+        "recommended_next_action": "inspect_project_editor_processes",
         "reason": "",
         "close_path": "",
     }
 
-    if live_state is not None:
-        current_pid = int(live_state.get("editor_pid") or 0)
-        if current_pid > 0 and (tracked_pid <= 0 or current_pid == tracked_pid):
-            request_editor_quit(str(project_root), timeout_ms)
-            deadline = time.time() + (max(1000, timeout_ms) / 1000.0)
-            while time.time() < deadline:
-                live_project_pids = list_live_project_editor_pids(project_root)
-                if not pid_is_alive(current_pid) and current_pid not in live_project_pids:
-                    clear_host_editor_session_state(project_root)
-                    restoration["restored"] = True
-                    restoration["reason"] = "host_opened_editor_closed"
-                    restoration["close_path"] = "unity.editor.quit"
-                    restoration["closed_editor_pid"] = current_pid
-                    clear_stale_project_lock(project_root)
-                    return restoration
-                time.sleep(0.2)
+    if current_pid > 0 and (tracked_pid <= 0 or current_pid == tracked_pid):
+        restoration["quit_request_attempted"] = True
+        try:
+            quit_response = request_editor_quit(str(project_root), bounded_timeout_ms)
+            restoration["quit_request_accepted"] = quit_response.get("status") == "ok"
+            restoration["quit_request_id"] = str(quit_response.get("request_id") or "")
+            restoration["quit_request_status"] = str(quit_response.get("status") or "")
+        except ToolInvocationError as exc:
+            restoration["quit_request_error"] = {
+                "code": exc.code,
+                "message": exc.message,
+            }
+            if exc.details:
+                restoration["quit_request_error"]["details"] = dict(exc.details)
+            restoration["quit_request_id"] = str((exc.details or {}).get("request_id") or "")
+            restoration["quit_request_status"] = "error"
 
-    if tracked_pid > 0 and terminate_editor_pid(tracked_pid, timeout_ms):
-        live_project_pids = list_live_project_editor_pids(project_root)
-        if tracked_pid not in live_project_pids:
+        quit_request_id = str(restoration.get("quit_request_id") or "")
+        if quit_request_id:
+            restoration["recommended_recovery_command"] = (
+                f"request-final-status --project-root {project_root} --request-id {quit_request_id}"
+            )
+
+        closed_after_quit, live_project_pids = wait_for_project_editor_exit(
+            project_root,
+            tracked_pid=tracked_pid,
+            current_pid=current_pid,
+            timeout_ms=quit_wait_timeout_ms,
+        )
+        if closed_after_quit:
             clear_host_editor_session_state(project_root)
             restoration["restored"] = True
+            restoration["closeout_verified"] = True
+            restoration["closeout_classification"] = "closed_via_unity_editor_quit"
+            restoration["recommended_next_action"] = "none"
             restoration["reason"] = "host_opened_editor_closed"
-            restoration["close_path"] = "host_sigterm"
-            restoration["closed_editor_pid"] = tracked_pid
+            restoration["close_path"] = "unity.editor.quit"
+            restoration["closed_editor_pid"] = current_pid
+            restoration["live_project_editor_pids"] = live_project_pids
             clear_stale_project_lock(project_root)
             return restoration
 
-    if tracked_pid > 0 and not pid_is_alive(tracked_pid):
+    if managed_pid > 0 and terminate_editor_pid(managed_pid, sigterm_timeout_ms):
+        live_project_pids = list_live_project_editor_pids(project_root)
+        if managed_pid not in live_project_pids:
+            clear_host_editor_session_state(project_root)
+            restoration["restored"] = True
+            restoration["closeout_verified"] = True
+            restoration["reason"] = "host_opened_editor_closed"
+            restoration["recommended_next_action"] = "none"
+            if bool(restoration.get("quit_request_attempted")) and bool(restoration.get("quit_request_accepted")):
+                restoration["closeout_classification"] = "quit_ack_without_exit_sigterm_recovered"
+                restoration["close_path"] = "unity.editor.quit+host_sigterm"
+            elif bool(restoration.get("quit_request_attempted")):
+                restoration["closeout_classification"] = "quit_request_failed_host_sigterm_recovered"
+                restoration["close_path"] = "failed_quit_request+host_sigterm"
+            else:
+                restoration["closeout_classification"] = "closed_via_host_sigterm"
+                restoration["close_path"] = "host_sigterm"
+            restoration["closed_editor_pid"] = managed_pid
+            restoration["live_project_editor_pids"] = live_project_pids
+            clear_stale_project_lock(project_root)
+            return restoration
+
+    if managed_pid > 0 and not pid_is_alive(managed_pid):
         live_project_pids = list_live_project_editor_pids(project_root)
         if not live_project_pids:
             terminated_hub_pids = terminate_project_hub_launchers(project_root, timeout_ms)
             clear_host_editor_session_state(project_root)
             restoration["restored"] = False
+            restoration["closeout_verified"] = True
+            restoration["closeout_classification"] = "tracked_editor_already_closed"
+            restoration["recommended_next_action"] = "none"
             restoration["reason"] = "tracked_editor_already_closed"
             restoration["terminated_hub_launcher_pids"] = terminated_hub_pids
             return restoration
 
-        restoration["reason"] = "project_editor_still_running_untracked"
+        if bool(restoration.get("quit_request_attempted")) and bool(restoration.get("quit_request_accepted")):
+            restoration["closeout_classification"] = "quit_ack_without_exit"
+            restoration["reason"] = "quit_request_completed_without_process_exit"
+            restoration["recommended_next_action"] = (
+                "inspect_quit_request_final_status"
+                if restoration.get("recommended_recovery_command")
+                else "manual_editor_close"
+            )
+        else:
+            restoration["closeout_classification"] = "project_editor_still_running_untracked"
+            restoration["reason"] = "project_editor_still_running_untracked"
         restoration["live_project_editor_pids"] = live_project_pids
         return restoration
 
-    restoration["reason"] = "tracked_editor_still_running"
+    if bool(restoration.get("quit_request_attempted")) and bool(restoration.get("quit_request_accepted")):
+        restoration["closeout_classification"] = "quit_ack_without_exit"
+        restoration["reason"] = "quit_request_completed_without_process_exit"
+        restoration["recommended_next_action"] = (
+            "inspect_quit_request_final_status"
+            if restoration.get("recommended_recovery_command")
+            else "manual_editor_close"
+        )
+    elif bool(restoration.get("quit_request_attempted")):
+        restoration["closeout_classification"] = "quit_request_failed_editor_still_running"
+        restoration["reason"] = "quit_request_failed_editor_still_running"
+        restoration["recommended_next_action"] = (
+            "inspect_quit_request_final_status"
+            if restoration.get("recommended_recovery_command")
+            else "manual_editor_close"
+        )
+    else:
+        restoration["closeout_classification"] = "tracked_editor_still_running"
+        restoration["reason"] = "tracked_editor_still_running"
     restoration["live_project_editor_pids"] = list_live_project_editor_pids(project_root)
     return restoration
 

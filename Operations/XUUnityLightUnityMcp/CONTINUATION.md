@@ -160,6 +160,10 @@ Mini-playbook after wrapper churn:
 6. if the recovered request completed, use that disposition and continue
 7. only retry after the compact recovery step says the original operation did
    not complete
+8. if the original failure was `tests_busy`, prefer
+   `request-latest-status --operation unity.tests.run_editmode` or
+   `request-latest-status --operation unity.tests.run_playmode` before starting
+   a second test run
 
 Mini-playbook after `devmode` with an already-open editor:
 
@@ -178,6 +182,15 @@ Mini-playbook after `devmode` with an already-open editor:
    treat it as transport submission with incomplete lifecycle proof, then verify
    the effect directly before blind retry
 6. only after that move on to compile, tests, or scenario work
+
+Mini-playbook for closeout mismatch:
+
+1. run `restore-editor-state --project-root <project>`
+2. if it returns `closeout_classification=quit_ack_without_exit`, treat that as
+   "quit was acknowledged but process exit was not proven"
+3. run the surfaced `recommended_recovery_command` when present
+4. verify remaining project editor PIDs before assuming the editor is gone
+5. only after verified exit treat the validation session as fully closed
 
 Only after that:
 - compile
@@ -224,6 +237,9 @@ For shared protocol integration work:
 - the reusable post-change validation route now runs compile before heavier scenario work
 - the public operator contract now prefers summary-first recovery over repeated
   raw result polling when compact surfaces exist
+- host-opened editor closeout is now expected to distinguish quit acknowledgement
+  from verified process exit instead of treating `unity.editor.quit` success as
+  sufficient shutdown proof
 
 ## What Is Not Yet Proven
 
@@ -249,6 +265,7 @@ For shared protocol integration work:
    - lifecycle fault injection
    - bridge churn recovery proof
    - clearer cancellation and stale-request hygiene
+   - explicit closeout truth for host-opened editor sessions
 2. add scenario-result utilities:
    - last-result fetch
    - result listing

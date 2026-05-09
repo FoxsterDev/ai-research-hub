@@ -33,9 +33,9 @@ This split matches the current package boundary:
 - `AIRoot/Operations/XUUnityLightUnityMcp/README.md` states `editor-only Unity footprint`
 - the same README also states `no runtime/player support in the base package`
 
-## Starting Point For This Project
+## Starting Point For A Live Consumer Project
 
-Verified in `ApperfunHub`:
+Verified against one live Unity consumer project:
 
 - editor version:
   - `ProjectSettings/ProjectVersion.txt` -> `6000.0.58f2`
