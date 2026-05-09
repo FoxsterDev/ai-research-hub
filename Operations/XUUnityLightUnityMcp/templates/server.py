@@ -14,6 +14,7 @@ from server_bridge_runtime import (
     DEFAULT_IDLE_STABLE_CYCLES,
     active_scenario_run_path,
     annotate_bridge_state_with_liveness,
+    build_bridge_stabilization_summary,
     build_request_final_status,
     bridge_enabled,
     bridge_identity_from_state,
@@ -28,6 +29,7 @@ from server_bridge_runtime import (
     invoke_bridge_transport,
     logs_dir,
     maybe_record_settle_lifecycle_transition,
+    parse_journal_utc_timestamp,
     pid_is_alive,
     read_best_effort_bridge_state,
     request_journal_dir,
@@ -96,6 +98,51 @@ def ensure_project_root(project_root: str) -> Path:
     if not (root / "Assets").is_dir() or not (root / "ProjectSettings" / "ProjectVersion.txt").is_file():
         raise ToolInvocationError("project_not_found", f"Not a Unity project root: {root}")
     return root
+
+
+def find_latest_request_event(
+    project_root: Path,
+    operations: list[str] | None = None,
+) -> dict[str, Any] | None:
+    journal_dir = request_journal_dir(project_root)
+    if not journal_dir.is_dir():
+        return None
+
+    normalized_operations = {
+        str(operation).strip()
+        for operation in (operations or [])
+        if str(operation).strip()
+    }
+
+    matched: list[dict[str, Any]] = []
+    for path in journal_dir.glob("*.json"):
+        try:
+            payload = read_json(path)
+        except Exception:
+            continue
+
+        if not isinstance(payload, dict):
+            continue
+
+        request_id = str(payload.get("request_id") or "").strip()
+        if not request_id:
+            continue
+
+        operation = str(payload.get("operation") or "").strip()
+        if normalized_operations and operation not in normalized_operations:
+            continue
+
+        event = dict(payload)
+        event["_path"] = str(path)
+        matched.append(event)
+
+    matched.sort(
+        key=lambda item: (
+            parse_journal_utc_timestamp(item.get("event_at_utc")),
+            str(item.get("event_id") or ""),
+        )
+    )
+    return matched[-1] if matched else None
 
 
 def find_repo_local_package_source(project_root: Path) -> Path | None:
@@ -179,6 +226,54 @@ def print_json(data: Any) -> None:
     sys.stdout.write("\n")
 
 
+def emit_tool_error_summary(payload: dict[str, Any]) -> None:
+    if not isinstance(payload, dict):
+        return
+
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return
+
+    code = str(error.get("code") or "")
+    message = first_non_empty_line(str(error.get("message") or ""), limit=200)
+    request_id = str(payload.get("request_id") or "")
+    request_submitted = payload.get("request_submitted")
+    request_ownership_acquired = payload.get("request_ownership_acquired")
+    recommended_next_action = str(payload.get("recommended_next_action") or "")
+    recommended_recovery_command = str(payload.get("recommended_recovery_command") or "")
+    transport_outcome = str(payload.get("transport_outcome") or "")
+    operation_outcome = str(payload.get("operation_outcome") or "")
+
+    parts = ["[xuunity-light-unity-mcp] request_failure"]
+    if code:
+        parts.append(f"code={code}")
+    if request_submitted is not None:
+        parts.append(f"request_submitted={str(bool(request_submitted)).lower()}")
+    if request_ownership_acquired is not None:
+        parts.append(f"request_ownership_acquired={str(bool(request_ownership_acquired)).lower()}")
+    if request_id:
+        parts.append(f"request_id={request_id}")
+    if transport_outcome:
+        parts.append(f"transport_outcome={transport_outcome}")
+    if operation_outcome:
+        parts.append(f"operation_outcome={operation_outcome}")
+    if recommended_next_action:
+        parts.append(f"recommended_next_action={recommended_next_action}")
+
+    try:
+        sys.stderr.write(" ".join(parts) + "\n")
+        if message:
+            sys.stderr.write(f"[xuunity-light-unity-mcp] error_message {message}\n")
+        if recommended_recovery_command:
+            sys.stderr.write(
+                "[xuunity-light-unity-mcp] recovery_command "
+                f"{recommended_recovery_command}\n"
+            )
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+
 def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
     details = dict(exc.details or {})
     error: dict[str, Any] = {
@@ -191,6 +286,8 @@ def build_tool_error_payload(exc: ToolInvocationError) -> dict[str, Any]:
     payload: dict[str, Any] = {"error": error}
     for key in (
         "request_id",
+        "request_submitted",
+        "request_ownership_acquired",
         "transport_outcome",
         "operation_outcome",
         "recommended_next_action",
@@ -1418,6 +1515,61 @@ def cmd_request_status_summary(args):
         derive_busy_reason=derive_busy_reason,
         summarize_state_for_error=summarize_state_for_error,
     ))
+
+
+def cmd_request_latest_status(args):
+    project_root = ensure_project_root(args.project_root)
+    operations = [str(operation).strip() for operation in list(args.operation or []) if str(operation).strip()]
+    current_state = read_best_effort_bridge_state(project_root) or try_read_bridge_state(project_root)
+    latest_event = find_latest_request_event(project_root, operations)
+
+    if latest_event is None:
+        stabilization = build_bridge_stabilization_summary(current_state)
+        print_json({
+            "lookup_mode": "latest_request_by_operation",
+            "lookup_found": False,
+            "matched_operations": operations,
+            "request_id": "",
+            "operation": operations[-1] if operations else "",
+            "request_started": False,
+            "request_completed": False,
+            "completion_status": "",
+            "operation_outcome": "unknown",
+            "reclassified": False,
+            "reclassified_status": "",
+            "reclassified_reason": "",
+            "retryable": False,
+            "recommended_next_action": (
+                "retry_request" if stabilization["safe_to_retry"] else "wait_for_bridge_stabilization"
+            ),
+            "request_started_at_utc": "",
+            "request_completed_at_utc": "",
+            "last_event_type": "",
+            "last_event_at_utc": "",
+            "last_bridge_generation_seen": int((current_state or {}).get("bridge_generation") or 0),
+            "last_bridge_session_id_seen": str((current_state or {}).get("bridge_session_id") or ""),
+            "journal_event_count": 0,
+            "journal_event_paths": [],
+            "bridge_stabilization": stabilization,
+        })
+        return
+
+    request_id = str(latest_event.get("request_id") or "").strip()
+    operation = str(latest_event.get("operation") or "").strip()
+    summary = build_request_final_status(
+        project_root,
+        request_id,
+        operation,
+        current_state=current_state,
+        poll_timeout_ms=args.timeout_ms,
+    )
+    summary["lookup_mode"] = "latest_request_by_operation"
+    summary["lookup_found"] = True
+    summary["matched_operations"] = operations
+    summary["lookup_event_type"] = str(latest_event.get("event_type") or "")
+    summary["lookup_event_at_utc"] = str(latest_event.get("event_at_utc") or "")
+    summary["lookup_event_path"] = str(latest_event.get("_path") or "")
+    print_json(summary)
 
 
 def cmd_request_final_status(args):
@@ -3029,6 +3181,15 @@ def build_parser():
     status_summary_cmd.add_argument("--timeout-ms", type=int, default=5000)
     status_summary_cmd.set_defaults(func=cmd_request_status_summary)
 
+    latest_status_cmd = sub.add_parser(
+        "request-latest-status",
+        help="Recover the latest request summary from the journal, optionally narrowed by one or more operation names.",
+    )
+    latest_status_cmd.add_argument("--project-root", required=True)
+    latest_status_cmd.add_argument("--operation", action="append", default=[])
+    latest_status_cmd.add_argument("--timeout-ms", type=int, default=2000)
+    latest_status_cmd.set_defaults(func=cmd_request_latest_status)
+
     final_status_cmd = sub.add_parser("request-final-status", help="Summarize final disposition for a request id using the request journal and current bridge state.")
     final_status_cmd.add_argument("--project-root", required=True)
     final_status_cmd.add_argument("--request-id", required=True)
@@ -3325,7 +3486,9 @@ def main():
             raise SystemExit(1)
         args.func(args)
     except ToolInvocationError as exc:
-        print_json(build_tool_error_payload(exc))
+        payload = build_tool_error_payload(exc)
+        emit_tool_error_summary(payload)
+        print_json(payload)
         raise SystemExit(1)
 
 

@@ -690,6 +690,46 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
 If the wrapper reports a lifecycle reset or response loss, treat that command as
 the default next step. Do not retry blindly before resolving the request id.
 
+Recover the latest matching request when the wrapper stalled before surfacing a
+usable `request_id`:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-latest-status \
+  --project-root /path/to/UnityProject \
+  --operation unity.compile.player_scripts \
+  --operation unity.compile.matrix
+```
+
+Recovery rule:
+
+- if you already have a `request_id`, prefer `request-final-status`
+- if you do not have a `request_id`, prefer `request-status-summary` first
+- once the bridge is stable, use `request-latest-status` for the relevant
+  operation class before blind retry
+- retry only after the compact recovery summary says the earlier request did not
+  complete
+
+Request-ownership rule:
+
+- after a request is successfully dispatched, the helper now emits one compact
+  stderr acknowledgement before the long wait:
+  - `request_submitted`
+  - `operation`
+  - `request_id`
+  - `transport`
+  - bridge identity
+- treat that acknowledgement as proof that recovery by `request_id` is now
+  available even if the final response is later delayed or lost
+- if the helper emits `request_not_submitted`, treat that as proof that the
+  request never gained Unity-side ownership and recover by bridge/editor status
+  first instead of searching for a completed request id
+- for CLI failures, the helper also emits a short human-readable stderr summary
+  before the JSON error payload so operators can distinguish:
+  - request dispatched
+  - request not dispatched
+  - next recovery step
+
 Read the persisted capability report:
 
 ```bash
@@ -785,18 +825,22 @@ Preferred order:
 
 1. `request-status-summary`
 2. `request-final-status <request_id>` after lifecycle churn or wrapper-side
-   response loss
-3. `unity_scenario_result_summary` for persisted scenario outcome checks
-4. raw `unity.scenario.result` only when the compact summary is insufficient
-5. raw `prepare.log` and `build.log` only after compact failure summary surfaces
+   response loss when a real request id is already known
+3. `request-latest-status --operation ...` when the wrapper stalled before a
+   usable request id was surfaced
+4. `unity_scenario_result_summary` for persisted scenario outcome checks
+5. raw `unity.scenario.result` only when the compact summary is insufficient
+6. raw `prepare.log` and `build.log` only after compact failure summary surfaces
    are exhausted
 
 Operator rule:
 
 - treat repeated `unity.scenario.result` polling as an expensive fallback, not
   the default steady-state observation path
-- if transport continuity was lost, recover by `request_id` before retrying the
-  operation
+- if transport continuity was lost and a request id is known, recover by
+  `request_id` before retrying the operation
+- if transport continuity was lost and no request id is known, stabilize the
+  bridge first and then recover by operation class with `request-latest-status`
 - a workflow that jumps straight to raw `unity.scenario.result`, `prepare.log`,
   or `build.log` while a compact summary surface already exists is an operator
   experience regression
