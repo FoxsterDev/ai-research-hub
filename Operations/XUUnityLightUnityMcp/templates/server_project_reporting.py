@@ -67,6 +67,8 @@ def build_project_discovery_report_data(
         "bridge_state_live": bool(discovery.get("bridge_state_live")),
         "host_session_live": bool(discovery.get("host_session_live")),
         "bridge_enabled": bool(discovery.get("bridge_enabled")),
+        "stale_request_artifacts": dict(discovery.get("stale_request_artifacts") or {}),
+        "host_prerequisites": dict(discovery.get("host_prerequisites") or {}),
         "transport_metadata": dict(getattr(context, "transport_metadata", {}) or {}),
         "transport_state": dict(discovery.get("transport_state") or getattr(context, "transport_state", {}) or {}),
         "state_groups": dict(discovery.get("state_groups") or getattr(context, "state_groups", {}) or {}),
@@ -111,6 +113,8 @@ def apply_discovery_to_final_status_summary_data(
                 "detected_editor_count": int(discovery.get("detected_editor_count") or 0),
                 "detected_editor_pids": list(discovery.get("detected_editor_pids") or []),
                 "editor_log_diagnosis": dict(discovery.get("editor_log_diagnosis") or {}),
+                "stale_request_artifacts": dict(discovery.get("stale_request_artifacts") or {}),
+                "host_prerequisites": dict(discovery.get("host_prerequisites") or {}),
                 "transport_state": dict(discovery.get("transport_state") or {}),
                 "state_groups": dict(discovery.get("state_groups") or {}),
             }
@@ -166,6 +170,8 @@ def apply_discovery_to_scenario_payload_data(
             "detected_editor_count": int(discovery.get("detected_editor_count") or 0),
             "detected_editor_pids": list(discovery.get("detected_editor_pids") or []),
             "editor_log_diagnosis": dict(discovery.get("editor_log_diagnosis") or {}),
+            "stale_request_artifacts": dict(discovery.get("stale_request_artifacts") or {}),
+            "host_prerequisites": dict(discovery.get("host_prerequisites") or {}),
             "transport_state": dict(discovery.get("transport_state") or {}),
             "state_groups": dict(discovery.get("state_groups") or {}),
         }
@@ -224,6 +230,10 @@ def enrich_error_details_with_discovery_data(
         enriched["host_health_progress_evidence"] = list(discovery.get("host_health_progress_evidence") or [])
     if "editor_log_diagnosis" not in enriched and "editor_log_diagnosis" in discovery:
         enriched["editor_log_diagnosis"] = dict(discovery.get("editor_log_diagnosis") or {})
+    if "stale_request_artifacts" not in enriched and "stale_request_artifacts" in discovery:
+        enriched["stale_request_artifacts"] = dict(discovery.get("stale_request_artifacts") or {})
+    if "host_prerequisites" not in enriched and "host_prerequisites" in discovery:
+        enriched["host_prerequisites"] = dict(discovery.get("host_prerequisites") or {})
     if "transport_state" not in enriched and "transport_state" in discovery:
         enriched["transport_state"] = dict(discovery.get("transport_state") or {})
     if "state_groups" not in enriched and "state_groups" in discovery:

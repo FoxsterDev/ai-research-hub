@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -202,6 +203,283 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertFalse(summary["request_observed_in_unity_journal"])
             self.assertTrue(summary["bridge_changed_since_submission"])
             self.assertTrue(summary["recovery_gap_detected"])
+
+    def test_cancel_request_best_effort_cancels_file_ipc_request_before_unity_start(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            inbox_dir = project_root / "Library" / "XUUnityLightMcp" / "inbox"
+            request_id = "req-cancel-early"
+            request_path = inbox_dir / f"{request_id}.json"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-09T15:40:57Z",
+                    "request_id": request_id,
+                    "operation": "unity.compile.matrix",
+                    "transport": "file_ipc",
+                },
+            )
+            write_json(
+                request_path,
+                {
+                    "request_id": request_id,
+                    "operation": "unity.compile.matrix",
+                },
+            )
+
+            result = server_bridge_runtime.cancel_request_best_effort(
+                project_root,
+                request_id,
+                operation="unity.compile.matrix",
+                current_state={
+                    "transport": "file_ipc",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+            )
+
+            self.assertEqual("request_cancelled", result["cancellation_event_type"])
+            self.assertEqual("cancelled_before_unity_start", result["cancellation_status"])
+            self.assertTrue(result["request_file_deleted"])
+            self.assertFalse(request_path.exists())
+
+            summary = server_bridge_runtime.build_request_final_status(
+                project_root,
+                request_id,
+                "unity.compile.matrix",
+                current_state={
+                    "transport": "file_ipc",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                poll_timeout_ms=0,
+            )
+
+            self.assertTrue(summary["request_cancelled"])
+            self.assertEqual("cancelled_before_unity_start", summary["operation_outcome"])
+            self.assertEqual("retry_request", summary["recommended_next_action"])
+
+    def test_cancel_request_best_effort_marks_in_flight_cancellation_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            request_id = "req-cancel-running"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-09T15:40:57Z",
+                    "request_id": request_id,
+                    "operation": "unity.project.refresh",
+                    "transport": "tcp_loopback",
+                    "bridge_generation": 4,
+                    "bridge_session_id": "session-old",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_id": "02",
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-09T15:40:58Z",
+                    "started_at_utc": "2026-05-09T15:40:58Z",
+                    "request_id": request_id,
+                    "operation": "unity.project.refresh",
+                },
+            )
+
+            result = server_bridge_runtime.cancel_request_best_effort(
+                project_root,
+                request_id,
+                operation="unity.project.refresh",
+                current_state={
+                    "transport": "tcp_loopback",
+                    "transport_listener_state": "listening",
+                    "health_status": "healthy",
+                    "pending_request_count": 1,
+                },
+            )
+
+            self.assertEqual("request_cancel_requested", result["cancellation_event_type"])
+            self.assertEqual("cancellation_requested_in_flight", result["cancellation_status"])
+            self.assertEqual("wait_for_bridge_stabilization", result["recommended_next_action"])
+
+            summary = server_bridge_runtime.build_request_final_status(
+                project_root,
+                request_id,
+                "unity.project.refresh",
+                current_state={
+                    "transport": "tcp_loopback",
+                    "transport_listener_state": "listening",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                poll_timeout_ms=0,
+            )
+
+            self.assertTrue(summary["cancellation_requested"])
+            self.assertEqual("cancellation_requested_in_flight", summary["operation_outcome"])
+            self.assertEqual("verify_effect_or_retry", summary["recommended_next_action"])
+
+    def test_inspect_and_cleanup_stale_request_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            inbox_dir = project_root / "Library" / "XUUnityLightMcp" / "inbox"
+            outbox_dir = project_root / "Library" / "XUUnityLightMcp" / "outbox"
+            request_id = "req-stale-cleanup"
+            inbox_path = inbox_dir / f"{request_id}.json"
+            outbox_path = outbox_dir / f"{request_id}.json"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-09T15:40:57Z",
+                    "request_id": request_id,
+                    "operation": "unity.status",
+                    "transport": "file_ipc",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_completed.json",
+                {
+                    "event_id": "02",
+                    "event_type": "request_completed",
+                    "event_at_utc": "2026-05-09T15:40:58Z",
+                    "completed_at_utc": "2026-05-09T15:40:58Z",
+                    "request_id": request_id,
+                    "operation": "unity.status",
+                    "operation_status": "ok",
+                },
+            )
+            write_json(inbox_path, {"request_id": request_id})
+            write_json(outbox_path, {"request_id": request_id, "status": "ok"})
+            stale_unix = 1_700_000_000
+            os.utime(inbox_path, (stale_unix, stale_unix))
+            os.utime(outbox_path, (stale_unix, stale_unix))
+
+            inspection = server_bridge_runtime.inspect_stale_request_artifacts(
+                project_root,
+                current_state={
+                    "transport": "file_ipc",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                stale_age_seconds=1,
+                max_entries=10,
+            )
+
+            self.assertTrue(inspection["has_stale_request_artifacts"])
+            self.assertEqual(2, inspection["candidate_count"])
+            self.assertEqual(1, inspection["classifications"]["stale_inbox_after_terminal_event"])
+            self.assertEqual(1, inspection["classifications"]["stale_outbox_after_terminal_event"])
+
+            cleanup = server_bridge_runtime.cleanup_stale_request_artifacts(
+                project_root,
+                current_state={
+                    "transport": "file_ipc",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                stale_age_seconds=1,
+                dry_run=False,
+                max_entries=10,
+            )
+
+            self.assertEqual("request_stale_cleanup", cleanup["action"])
+            self.assertEqual(2, cleanup["removed_count"])
+            self.assertFalse(inbox_path.exists())
+            self.assertFalse(outbox_path.exists())
+
+    def test_cleanup_stale_request_artifacts_dry_run_reports_would_remove(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            outbox_dir = project_root / "Library" / "XUUnityLightMcp" / "outbox"
+            request_id = "req-stale-dry-run"
+            outbox_path = outbox_dir / f"{request_id}.json"
+
+            write_json(
+                journal_dir / "01_request_completed.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_completed",
+                    "event_at_utc": "2026-05-09T15:40:58Z",
+                    "completed_at_utc": "2026-05-09T15:40:58Z",
+                    "request_id": request_id,
+                    "operation": "unity.status",
+                    "operation_status": "ok",
+                },
+            )
+            write_json(outbox_path, {"request_id": request_id, "status": "ok"})
+            stale_unix = 1_700_000_000
+            os.utime(outbox_path, (stale_unix, stale_unix))
+
+            cleanup = server_bridge_runtime.cleanup_stale_request_artifacts(
+                project_root,
+                current_state={
+                    "transport": "tcp_loopback",
+                    "transport_listener_state": "listening",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                stale_age_seconds=1,
+                dry_run=True,
+                max_entries=10,
+            )
+
+            self.assertTrue(outbox_path.exists())
+            self.assertEqual(0, cleanup["removed_count"])
+            self.assertEqual(1, cleanup["would_remove_count"])
+            self.assertEqual([str(outbox_path.resolve())], cleanup["would_remove_paths"])
+
+    def test_inspect_stale_request_artifacts_detects_unclaimed_old_inbox_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            inbox_dir = project_root / "Library" / "XUUnityLightMcp" / "inbox"
+            request_id = "req-stale-unclaimed"
+            inbox_path = inbox_dir / f"{request_id}.json"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-09T15:40:57Z",
+                    "request_id": request_id,
+                    "operation": "unity.project.refresh",
+                    "transport": "file_ipc",
+                },
+            )
+            write_json(inbox_path, {"request_id": request_id})
+            stale_unix = 1_700_000_000
+            os.utime(inbox_path, (stale_unix, stale_unix))
+
+            inspection = server_bridge_runtime.inspect_stale_request_artifacts(
+                project_root,
+                current_state={
+                    "transport": "file_ipc",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+                stale_age_seconds=1,
+                max_entries=10,
+            )
+
+            self.assertTrue(inspection["has_stale_request_artifacts"])
+            self.assertEqual(
+                "stale_inbox_without_unity_ownership",
+                inspection["candidates"][0]["classification"],
+            )
 
     def test_build_request_final_status_uses_injected_state_reader_when_provided(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
