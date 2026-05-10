@@ -34,11 +34,14 @@ from server_bridge_runtime import (
     bridge_identity_from_state,
     bridge_root,
     bridge_state_path,
+    cancel_request_best_effort,
     captures_dir,
+    cleanup_stale_request_artifacts,
     default_editor_log_path,
     derive_busy_reason,
     expected_playmode_state_for_action,
     heartbeat_age_seconds,
+    inspect_stale_request_artifacts,
     inspect_bridge_state_liveness,
     invoke_bridge_transport,
     logs_dir,
@@ -210,6 +213,8 @@ def _refresh_project_context_state(project_root: Path) -> dict[str, Any]:
         pid_is_alive=platform_adapter.pid_is_alive,
         bridge_enabled=bridge_enabled,
         build_project_health=_build_project_health_details,
+        inspect_package_dependency_alignment=inspect_package_dependency_alignment,
+        inspect_stale_request_artifacts=inspect_stale_request_artifacts,
     )
     bridge_state = dict(discovery.get("last_bridge_state") or {})
     host_editor_session_state = dict(discovery.get("last_host_editor_session_state") or {})
@@ -1407,6 +1412,31 @@ def cmd_request_final_status(args):
     project_root = ensure_project_root(args.project_root)
     summary = build_request_final_status_from_context(project_root, args.request_id, args.operation or "", args.timeout_ms)
     print_json(summary)
+
+
+def cmd_request_cancel(args):
+    project_root = ensure_project_root(args.project_root)
+    print_json(
+        cancel_request_best_effort(
+            project_root,
+            str(args.request_id or ""),
+            operation=str(args.operation or ""),
+        )
+    )
+
+
+def cmd_request_stale_cleanup(args):
+    project_root = ensure_project_root(args.project_root)
+    current_state = current_project_context_bridge_state(project_root)
+    print_json(
+        cleanup_stale_request_artifacts(
+            project_root,
+            current_state=current_state,
+            stale_age_seconds=max(1, int(args.stale_age_seconds or 600)),
+            dry_run=bool(args.dry_run),
+            max_entries=max(1, int(args.max_entries or 50)),
+        )
+    )
 
 
 def cmd_request_playmode_state(args):
@@ -3124,6 +3154,19 @@ def build_parser():
     final_status_cmd.add_argument("--operation")
     final_status_cmd.add_argument("--timeout-ms", type=int, default=2000)
     final_status_cmd.set_defaults(func=cmd_request_final_status)
+
+    cancel_cmd = sub.add_parser("request-cancel", help="Best-effort host-side cancellation for a submitted request id in the current same-host editor lane.")
+    cancel_cmd.add_argument("--project-root", required=True)
+    cancel_cmd.add_argument("--request-id", required=True)
+    cancel_cmd.add_argument("--operation")
+    cancel_cmd.set_defaults(func=cmd_request_cancel)
+
+    stale_cleanup_cmd = sub.add_parser("request-stale-cleanup", help="Clean up stale inbox/outbox request artifacts for the current same-host editor lane.")
+    stale_cleanup_cmd.add_argument("--project-root", required=True)
+    stale_cleanup_cmd.add_argument("--stale-age-seconds", type=int, default=600)
+    stale_cleanup_cmd.add_argument("--dry-run", action="store_true")
+    stale_cleanup_cmd.add_argument("--max-entries", type=int, default=50)
+    stale_cleanup_cmd.set_defaults(func=cmd_request_stale_cleanup)
 
     playmode_state_cmd = sub.add_parser("request-playmode-state", help="Send a direct unity.playmode.state request through the active bridge transport.")
     playmode_state_cmd.add_argument("--project-root", required=True)

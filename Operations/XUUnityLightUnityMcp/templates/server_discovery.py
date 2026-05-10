@@ -114,6 +114,132 @@ def _state_groups(
     }
 
 
+def _build_host_prerequisites(
+    *,
+    discovery: dict[str, Any],
+    transport_state: dict[str, Any],
+    package_dependency_alignment: dict[str, Any] | None,
+    stale_request_artifacts: dict[str, Any] | None,
+) -> dict[str, Any]:
+    package_dependency = dict(package_dependency_alignment or {})
+    package_alignment = str(package_dependency.get("alignment") or "unknown")
+    package_warning = str(package_dependency.get("warning") or "")
+    package_warning_active = bool(package_warning) and package_alignment in {
+        "file_mismatch",
+        "file_no_repo_local_reference",
+    }
+    live_editor_present = bool(
+        discovery.get("bridge_state_live")
+        or discovery.get("host_session_live")
+        or int(discovery.get("detected_editor_count") or 0) > 0
+        or discovery.get("bridge_pid_alive")
+        or discovery.get("host_session_pid_alive")
+    )
+    transport_ready = bool(transport_state.get("ready")) and bool(discovery.get("bridge_state_live"))
+    stale_requests = dict(stale_request_artifacts or {})
+    stale_request_count = int(stale_requests.get("candidate_count") or 0)
+
+    checks: dict[str, dict[str, Any]] = {
+        "bridge_enabled": {
+            "ready": bool(discovery.get("bridge_enabled")),
+            "status": "ready" if bool(discovery.get("bridge_enabled")) else "missing",
+            "code": "bridge_disabled" if not bool(discovery.get("bridge_enabled")) else "none",
+            "summary": (
+                "Bridge is enabled in the project configuration."
+                if bool(discovery.get("bridge_enabled"))
+                else "Bridge is disabled in the project configuration."
+            ),
+        },
+        "package_dependency": {
+            "ready": package_alignment not in {
+                "manifest_unreadable",
+                "dependencies_missing",
+                "dependency_missing",
+            },
+            "status": (
+                "missing"
+                if package_alignment in {"manifest_unreadable", "dependencies_missing", "dependency_missing"}
+                else "warning"
+                if package_warning_active
+                else "ready"
+            ),
+            "code": (
+                "package_manifest_unreadable"
+                if package_alignment == "manifest_unreadable"
+                else "package_dependencies_missing"
+                if package_alignment == "dependencies_missing"
+                else "package_dependency_missing"
+                if package_alignment == "dependency_missing"
+                else "package_dependency_warning"
+                if package_warning_active
+                else "none"
+            ),
+            "summary": package_warning if package_warning_active else "Unity package dependency is declared.",
+            "alignment": package_alignment,
+            "dependency_mode": str(package_dependency.get("dependency_mode") or ""),
+        },
+        "live_editor": {
+            "ready": live_editor_present,
+            "status": "ready" if live_editor_present else "missing",
+            "code": "none" if live_editor_present else "editor_not_running",
+            "summary": (
+                "A matching Unity editor process is live for this project."
+                if live_editor_present
+                else "No matching Unity editor process is currently live for this project."
+            ),
+            "detected_editor_count": int(discovery.get("detected_editor_count") or 0),
+        },
+        "transport_ready": {
+            "ready": transport_ready,
+            "status": "ready" if transport_ready else "missing",
+            "code": "none" if transport_ready else "transport_not_ready",
+            "summary": (
+                "A live bridge transport is ready for requests."
+                if transport_ready
+                else "No live bridge transport is ready for requests."
+            ),
+            "active_transport": str(transport_state.get("active_transport") or ""),
+            "listener_state": str(transport_state.get("listener_state") or ""),
+        },
+        "stale_requests": {
+            "ready": stale_request_count == 0,
+            "status": "warning" if stale_request_count > 0 else "ready",
+            "code": "stale_request_artifacts_present" if stale_request_count > 0 else "none",
+            "summary": (
+                f"{stale_request_count} stale request artifact(s) are eligible for cleanup."
+                if stale_request_count > 0
+                else "No stale request artifacts were detected."
+            ),
+            "candidate_count": stale_request_count,
+            "classifications": dict(stale_requests.get("classifications") or {}),
+            "recommended_cleanup_command": (
+                f"xuunity_light_unity_mcp.sh request-stale-cleanup --project-root {discovery.get('project_root') or ''}"
+                if stale_request_count > 0
+                else ""
+            ),
+        },
+    }
+
+    blocking_codes = [
+        str(check.get("code") or "")
+        for check in checks.values()
+        if str(check.get("status") or "") == "missing" and str(check.get("code") or "") not in {"", "none"}
+    ]
+    warning_codes = [
+        str(check.get("code") or "")
+        for check in checks.values()
+        if str(check.get("status") or "") == "warning" and str(check.get("code") or "") not in {"", "none"}
+    ]
+
+    return {
+        "lane": "same_host_editor",
+        "ready": not blocking_codes,
+        "blocking_codes": blocking_codes,
+        "warning_codes": warning_codes,
+        "checks": checks,
+    }
+
+
 def _reconciliation_summary(
     *,
     bridge_state: dict[str, Any],
@@ -215,6 +341,8 @@ def discover_project_context_state(
     pid_is_alive: Callable[[int], bool],
     bridge_enabled: Callable[[Path], bool],
     build_project_health: Callable[..., dict[str, Any]] | None = None,
+    inspect_package_dependency_alignment: Callable[[Path], dict[str, Any]] | None = None,
+    inspect_stale_request_artifacts: Callable[[Path], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     bridge_state = _copy_dict(try_read_bridge_state(project_root))
     host_editor_session_state = _copy_dict(try_read_host_editor_session_state(project_root))
@@ -337,11 +465,27 @@ def discover_project_context_state(
         transport_requested=transport_requested,
         transport_metadata=transport_metadata,
     )
+    stale_request_artifacts = (
+        inspect_stale_request_artifacts(project_root)
+        if inspect_stale_request_artifacts is not None
+        else {}
+    )
+    result["stale_request_artifacts"] = dict(stale_request_artifacts or {})
     result["transport_state"] = transport_state
     result["state_groups"] = _state_groups(
         bridge_state=bridge_state,
         host_editor_session_state=host_editor_session_state,
         discovery=result,
         transport_state=transport_state,
+    )
+    result["host_prerequisites"] = _build_host_prerequisites(
+        discovery=result,
+        transport_state=transport_state,
+        package_dependency_alignment=(
+            inspect_package_dependency_alignment(project_root)
+            if inspect_package_dependency_alignment is not None
+            else None
+        ),
+        stale_request_artifacts=stale_request_artifacts,
     )
     return result

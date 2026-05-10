@@ -283,9 +283,22 @@ class ServerProjectHelperTests(unittest.TestCase):
                     "test_outputs": [],
                 },
             }
+            host_prerequisites = {
+                "lane": "same_host_editor",
+                "ready": True,
+                "blocking_codes": [],
+                "warning_codes": [],
+                "checks": {
+                    "bridge_enabled": {"ready": True, "status": "ready", "code": "none"},
+                },
+            }
 
             with (
-                mock.patch.object(server, "current_project_context_discovery_details", return_value={}),
+                mock.patch.object(
+                    server,
+                    "current_project_context_discovery_details",
+                    return_value={"host_prerequisites": host_prerequisites},
+                ),
                 mock.patch.object(
                     server,
                     "current_project_context_bridge_state",
@@ -340,8 +353,10 @@ class ServerProjectHelperTests(unittest.TestCase):
 
             self.assertEqual(structured_timing, status_summary["structured_timing"])
             self.assertEqual(artifact_manifest, status_summary["artifact_manifest"])
+            self.assertEqual(host_prerequisites, status_summary["host_prerequisites"])
             self.assertEqual(structured_timing, scenario_summary["structured_timing"])
             self.assertEqual(artifact_manifest, scenario_summary["artifact_manifest"])
+            self.assertEqual(host_prerequisites, scenario_summary["host_prerequisites"])
 
     def test_bridge_operation_requires_request_lock_matches_mutation_policy(self) -> None:
         self.assertTrue(server.bridge_operation_requires_request_lock("unity.project.refresh"))
@@ -451,6 +466,13 @@ class ServerProjectHelperTests(unittest.TestCase):
                 "bridge_state_live": True,
                 "host_session_live": False,
                 "bridge_enabled": True,
+                "host_prerequisites": {
+                    "lane": "same_host_editor",
+                    "ready": True,
+                    "blocking_codes": [],
+                    "warning_codes": [],
+                    "checks": {},
+                },
                 "transport_state": {"selection_scope": "per_project_context", "active_transport": "tcp_loopback"},
                 "state_groups": {"bridge_identity": {"bridge_generation": 9}},
             },
@@ -465,6 +487,7 @@ class ServerProjectHelperTests(unittest.TestCase):
         self.assertEqual(10.0, report["context_cache"]["created_unix"])
         self.assertEqual(1.25, report["context_cache"]["idle_seconds"])
         self.assertTrue(report["context_cache"]["live_runtime_evidence"])
+        self.assertTrue(report["host_prerequisites"]["ready"])
 
     def test_build_request_final_status_from_context_includes_discovery_and_reconciliation(self) -> None:
         context = types.SimpleNamespace(
@@ -728,6 +751,13 @@ class ServerProjectHelperTests(unittest.TestCase):
                 "reconciliation_recommended_next_action": "enable_bridge_and_retry",
                 "detected_editor_count": 0,
                 "detected_editor_pids": [],
+                "host_prerequisites": {
+                    "lane": "same_host_editor",
+                    "ready": False,
+                    "blocking_codes": ["bridge_disabled"],
+                    "warning_codes": [],
+                    "checks": {},
+                },
             }
         )
         registry = types.SimpleNamespace(refresh_context=lambda _: context)
@@ -741,6 +771,7 @@ class ServerProjectHelperTests(unittest.TestCase):
         self.assertEqual("bridge_disabled", details["discovery_classification"])
         self.assertEqual("enable_bridge_and_retry", details["recommended_next_action"])
         self.assertIn("init_xuunity_light_unity_mcp.sh", details["recommended_recovery_command"])
+        self.assertEqual(["bridge_disabled"], details["host_prerequisites"]["blocking_codes"])
 
     def test_recover_project_bridge_for_reconciliation_raises_guided_bridge_disabled_error(self) -> None:
         context = types.SimpleNamespace(

@@ -96,6 +96,8 @@ What exists now:
   - `project-discovery-report`
   - `request-status-summary`
   - `request-final-status`
+  - `request-cancel`
+  - `request-stale-cleanup`
   - `request-latest-status`
   - `request-scenario-result-summary`
   - `request-scenario-results-list`
@@ -106,6 +108,12 @@ What exists now:
   `request-final-status`:
   - `structured_timing`
   - `artifact_manifest`
+- additive host prerequisite reporting on compact discovery/status/final-status
+  surfaces:
+  - `host_prerequisites`
+- additive stale request artifact surfacing on compact discovery/status/final-status
+  surfaces:
+  - `stale_request_artifacts`
 - host wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - host-side editor session safety helpers:
@@ -714,6 +722,8 @@ Current request-lifecycle event set now includes:
 - `request_completed`
 - `request_abandoned`
 - `request_reclassified`
+- `request_cancelled`
+- `request_cancel_requested`
 
 Operational note:
 
@@ -754,6 +764,24 @@ python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
   --request-id <request-id>
 ```
 
+Request best-effort host-side cancellation for a known request id:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-cancel \
+  --project-root /path/to/UnityProject \
+  --request-id <request-id>
+```
+
+Clean up stale request inbox/outbox artifacts after the lane is stable:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-stale-cleanup \
+  --project-root /path/to/UnityProject \
+  --dry-run
+```
+
 If the wrapper reports a lifecycle reset or response loss, treat that command as
 the default next step. Do not retry blindly before resolving the request id.
 The returned summary is intentionally bounded on incomplete evidence:
@@ -765,14 +793,47 @@ The returned summary is intentionally bounded on incomplete evidence:
   explicitly reclassified the request as retryable
 - `operation_outcome=abandoned_after_lifecycle_reset` means Unity recorded
   abandonment rather than completion
+- `operation_outcome=cancelled_before_unity_start` means the host helper removed
+  a queued `file_ipc` request before Unity journal ownership was observed
+- `operation_outcome=cancellation_requested_in_flight` means the host helper
+  recorded cancellation intent, but this lane does not yet claim Unity-side
+  interruption of an already in-flight request
 - `recommended_recovery_command` should echo the exact follow-up command for the
   same `request_id`
 - when payload evidence is available, the returned summary now also includes:
   - `structured_timing`
   - `artifact_manifest`
+  - `host_prerequisites`
+
+Current cancellation scope is intentionally narrow:
+
+- `request-cancel` is a best-effort host-side helper for the same-host editor lane
+- it can cancel a queued `file_ipc` request before Unity-side `request_started`
+  ownership is observed
+- for already in-flight work, it records structured cancellation intent and
+  relies on `request-final-status` to show whether the request later completed,
+  was abandoned, or remained retryable
+
+Current stale-request cleanup scope is also intentionally narrow:
+
+- compact discovery/status/final-status summaries now surface
+  `stale_request_artifacts`
+- `host_prerequisites.checks.stale_requests` exposes a bounded warning when
+  old inbox/outbox files are eligible for cleanup
+- `request-stale-cleanup` only removes request artifacts that are old and
+  already terminal or clearly unclaimed in the current same-host editor lane
 
 Successful same-host editor operations now add the same two fields directly to
 their JSON payloads without replacing the existing operation-specific contract.
+
+Compact status/discovery/final-status summaries now also include a bounded
+`host_prerequisites` object for the current same-host editor lane. It reports:
+
+- whether the lane is immediately ready
+- blocking prerequisite codes such as `bridge_disabled`, `editor_not_running`,
+  `transport_not_ready`, or package wiring issues
+- per-check details for bridge enablement, package dependency presence, live
+  editor detection, and transport readiness
 
 Recover the latest matching request when the wrapper stalled before surfacing a
 usable `request_id`:

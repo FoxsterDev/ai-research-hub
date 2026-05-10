@@ -1,6 +1,6 @@
 # XUUnity Light Unity MCP Roadmap
 
-Date: `2026-05-09`
+Date: `2026-05-10`
 Status: `active public roadmap`
 
 ## North Star
@@ -85,6 +85,18 @@ Already implemented:
 - host-side editor session restore for host-opened validation runs
 - lifecycle-reset finalization recovery by `request_id`
 - `request-final-status` for operator follow-up after transport churn
+- host-side persisted scenario result browsing:
+  - `request-scenario-results-list`
+  - `request-scenario-result-latest`
+  - `unity_scenario_results_list`
+  - `unity_scenario_result_latest`
+- first cancellation slice for the same-host editor lane:
+  - `request-cancel`
+  - `request_cancelled`
+  - `request_cancel_requested`
+- stale request inspection and cleanup for the same-host editor lane:
+  - `stale_request_artifacts`
+  - `request-stale-cleanup`
 - operator-facing separation of:
   - `transport_outcome`
   - `operation_outcome`
@@ -135,6 +147,33 @@ Near-term emphasis after the architecture milestone:
 - broaden proof across more supported clients and more real consumer projects
 - improve read surfaces so diagnosis needs less shell fallback
 
+## Current Priority Milestone
+
+Current recommendation:
+
+- close the remaining Phase 1 reliability hardening before broadening proof
+
+Most valuable next milestone:
+
+- lifecycle and stale-request reliability closeout for the current same-host
+  editor lane
+
+Why this is next:
+
+- artifact manifests, structured timings, and persisted scenario result
+  browsing are now materially in place
+- the biggest remaining trust gap is now lifecycle churn proof and the limits of
+  host-side-only cancellation semantics
+- broader cross-client proof will be more meaningful after that reliability
+  floor is tighter
+
+Focus:
+
+- broader lifecycle fault-injection proof
+- request cancellation semantics
+- keep the new host prerequisite report stable while closing the remaining
+  lifecycle gaps
+
 ## Phased Plan To Reach 85+
 
 ### Phase 1: Core Reliability Hardening
@@ -148,6 +187,19 @@ Focus:
 - stale request cleanup
 - stronger lifecycle fault-injection proof
 - explicit host prerequisite reporting
+
+Current progress:
+
+- additive host prerequisite reporting is now implemented on compact
+  discovery/status/final-status surfaces through `host_prerequisites`
+- first host-side cancellation slice is now implemented through best-effort
+  `request-cancel` semantics for queued `file_ipc` requests plus structured
+  in-flight cancellation intent reporting
+- stale-request cleanup is now implemented through explicit stale artifact
+  inspection plus `request-stale-cleanup`
+- remaining work is now broader lifecycle fault-injection proof, and possibly
+  deeper Unity-side cancellation behavior if this lane later needs more than
+  host-side cancellation intent
 
 Exit criteria:
 - lifecycle churn is tested, not only reasoned about
@@ -169,6 +221,20 @@ Focus:
 - scenario result listing and last-result fetch
 - clearer artifact path surfacing
 - compact summary enrichment where it reduces operator guesswork
+
+Current progress:
+
+- additive request-scoped `artifact_manifest` is implemented in the current
+  same-host editor lane
+- additive request-scoped `structured_timing` is implemented in the current
+  same-host editor lane
+- host-side persisted scenario result browsing is implemented through:
+  - `request-scenario-results-list`
+  - `request-scenario-result-latest`
+  - `unity_scenario_results_list`
+  - `unity_scenario_result_latest`
+- remaining value in this phase is summary polish, broader proof, and
+  surfacing the evidence consistently across more operator flows
 
 Exit criteria:
 - a failed or timed-out run leaves enough structured evidence for a new chat to continue without journal archaeology
@@ -240,7 +306,13 @@ Current progress:
 - lifecycle-reset ambiguity is materially reduced
 - compact operator recovery by `request_id` is now in place
 - compile-first validation order is now part of the reusable runner baseline
-- remaining work in this wave is broader fault-injection proof, cancellation hygiene, and artifact-manifest depth
+- request-scoped artifact manifests and structured timings are now in place
+- explicit host prerequisite reporting is now in place on compact host-side
+  discovery and recovery surfaces
+- stale request inspection and cleanup are now in place for current same-host
+  request artifacts
+- remaining work in this wave is broader fault-injection proof and
+  cancellation-hygiene polish
 - this wave maps directly to Phase 1 and the beginning of Phase 2 in the `85+` plan
 
 ### Wave 2: Better Read Surface
@@ -283,7 +355,8 @@ Deliverables:
 Current state:
 - initial baseline is implemented
 - current step surface is intentionally small
-- next gap is richer assertions, result browsing, and artifact surfacing rather than first-time scenario bring-up
+- persisted result browsing and artifact surfacing are now in place
+- next gap is richer assertions and sharper failure interpretation rather than first-time scenario bring-up
 - this wave contributes to Phase 2 and Phase 4 of the `85+` plan
 
 Done when:
@@ -380,9 +453,9 @@ Done when:
 
 Highest-value missing capabilities:
 
-1. artifact manifests and structured timings
-2. scenario result browsing and artifact surfacing
-3. deeper scene and asset inspection
+1. deeper scene and asset inspection
+2. broader lifecycle fault-injection proof and deeper cancellation behavior
+3. broader supported-client proof
 4. device deploy and launch
 5. profiler capture and export
 6. runtime screenshot and logs
@@ -411,9 +484,9 @@ Recommended layers:
 
 Do next:
 
-1. finish Phase 1
-2. finish Phase 2
-3. prove Phase 3
+1. close the remaining Phase 1 reliability hardening
+2. broaden supported-client and multi-consumer proof in Phase 3
+3. keep tightening Phase 2 evidence surfacing where operator friction remains
 4. close Phase 4 only after the evidence says the lane is already near `85`
 
 Do not do next:

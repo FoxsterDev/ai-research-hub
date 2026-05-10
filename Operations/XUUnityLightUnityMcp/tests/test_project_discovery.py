@@ -98,6 +98,10 @@ class ProjectDiscoveryTests(unittest.TestCase):
         self.assertEqual("bridge_config", result["authoritative_state_source"])
         self.assertEqual("bridge_disabled", result["reconciliation_case"])
         self.assertEqual("enable_bridge_and_retry", result["reconciliation_recommended_next_action"])
+        self.assertFalse(result["host_prerequisites"]["ready"])
+        self.assertIn("bridge_disabled", result["host_prerequisites"]["blocking_codes"])
+        self.assertIn("editor_not_running", result["host_prerequisites"]["blocking_codes"])
+        self.assertIn("transport_not_ready", result["host_prerequisites"]["blocking_codes"])
 
     def test_discovery_bridge_disabled_overrides_stale_state_when_editor_is_not_live(self) -> None:
         project_root = Path("/tmp/ProjectA")
@@ -151,6 +155,76 @@ class ProjectDiscoveryTests(unittest.TestCase):
         self.assertTrue(result["state_groups"]["process_identity"]["opened_by_host"])
         self.assertEqual("fresh", result["state_groups"]["health"]["host_health_classification"])
         self.assertEqual("edit", result["state_groups"]["editor_state"]["playmode_state"])
+        self.assertTrue(result["host_prerequisites"]["ready"])
+        self.assertEqual([], result["host_prerequisites"]["blocking_codes"])
+
+    def test_discovery_reports_package_dependency_prerequisite_failure(self) -> None:
+        project_root = Path("/tmp/ProjectA")
+        result = discover_project_context_state(
+            project_root,
+            try_read_bridge_state=lambda _: {
+                "editor_pid": 101,
+                "transport": "tcp_loopback",
+                "transport_listener_state": "listening",
+            },
+            try_read_host_editor_session_state=lambda _: {"editor_pid": 101},
+            find_running_unity_editors_for_project=lambda _: [{"pid": 101}],
+            pid_is_alive=lambda pid: pid == 101,
+            bridge_enabled=lambda _: True,
+            inspect_package_dependency_alignment=lambda _: {
+                "alignment": "dependency_missing",
+                "warning": "com.xuunity.light-mcp is not declared in Packages/manifest.json.",
+                "dependency_mode": "missing",
+            },
+            build_project_health=lambda **_: {
+                "host_health_classification": "fresh",
+                "host_health_reason": "heartbeat_fresh",
+                "host_health_recommended_next_action": "none",
+                "host_health_termination_policy": "observe_only",
+                "anr_classification": "none",
+            },
+        )
+
+        self.assertFalse(result["host_prerequisites"]["ready"])
+        self.assertIn("package_dependency_missing", result["host_prerequisites"]["blocking_codes"])
+        self.assertEqual(
+            "dependency_missing",
+            result["host_prerequisites"]["checks"]["package_dependency"]["alignment"],
+        )
+
+    def test_discovery_reports_stale_request_artifacts_as_warning(self) -> None:
+        project_root = Path("/tmp/ProjectA")
+        result = discover_project_context_state(
+            project_root,
+            try_read_bridge_state=lambda _: {
+                "editor_pid": 101,
+                "transport": "tcp_loopback",
+                "transport_listener_state": "listening",
+            },
+            try_read_host_editor_session_state=lambda _: {"editor_pid": 101},
+            find_running_unity_editors_for_project=lambda _: [{"pid": 101}],
+            pid_is_alive=lambda pid: pid == 101,
+            bridge_enabled=lambda _: True,
+            inspect_stale_request_artifacts=lambda _: {
+                "has_stale_request_artifacts": True,
+                "candidate_count": 2,
+                "classifications": {"stale_inbox_after_terminal_event": 1},
+            },
+            build_project_health=lambda **_: {
+                "host_health_classification": "fresh",
+                "host_health_reason": "heartbeat_fresh",
+                "host_health_recommended_next_action": "none",
+                "host_health_termination_policy": "observe_only",
+                "anr_classification": "none",
+            },
+        )
+
+        self.assertTrue(result["stale_request_artifacts"]["has_stale_request_artifacts"])
+        self.assertIn("stale_request_artifacts_present", result["host_prerequisites"]["warning_codes"])
+        self.assertEqual(
+            2,
+            result["host_prerequisites"]["checks"]["stale_requests"]["candidate_count"],
+        )
 
 
 if __name__ == "__main__":

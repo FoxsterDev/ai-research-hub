@@ -29,6 +29,8 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                 "request-status",
                 "request-status-summary",
                 "request-final-status",
+                "request-cancel",
+                "request-stale-cleanup",
                 "request-scenario-results-list",
                 "request-scenario-result-latest",
                 "request-project-refresh",
