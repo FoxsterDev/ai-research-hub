@@ -69,6 +69,8 @@ Already implemented:
 - bridge enable/disable lifecycle
 - status and capability probing
 - compact status summaries with bridge stabilization fields
+- additive request-scoped `structured_timing` and `artifact_manifest` on
+  successful same-host editor responses and `request-final-status`
 - console tail
 - scene snapshot
 - edit-mode tests

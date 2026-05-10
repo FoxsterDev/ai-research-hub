@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from server_host_platform import current_host_platform_adapter
+from server_operation_evidence import attach_operation_evidence_to_final_status
 
 from server_core import ToolInvocationError, read_json, write_json
 
@@ -422,7 +423,12 @@ def build_request_final_status(
         }
 
         if request_completed or recovery_gap_detected or time.time() >= deadline:
-            return summary
+            return attach_operation_evidence_to_final_status(
+                summary,
+                project_root=project_root,
+                payload=peek_response_payload(project_root, request_id),
+                editor_log_path=default_editor_log_path(project_root),
+            )
 
         time.sleep(max(0.05, poll_interval_ms / 1000.0))
 
@@ -439,6 +445,31 @@ def try_take_recovered_response(project_root: Path, request_id: str) -> dict[str
             path.unlink()
         except OSError:
             pass
+
+
+def peek_response_payload(project_root: Path, request_id: str) -> dict[str, Any] | None:
+    path = response_path(project_root, request_id)
+    if not path.is_file():
+        return None
+
+    try:
+        response = read_json(path)
+    except Exception:
+        return None
+
+    if not isinstance(response, dict):
+        return None
+
+    payload_json = response.get("payload_json")
+    if not isinstance(payload_json, str) or not payload_json:
+        return None
+
+    try:
+        payload = json.loads(payload_json)
+    except json.JSONDecodeError:
+        return None
+
+    return payload if isinstance(payload, dict) else None
 
 
 def try_recover_completed_response_after_reset(

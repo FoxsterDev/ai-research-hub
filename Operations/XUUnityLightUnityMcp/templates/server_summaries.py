@@ -69,6 +69,9 @@ def build_status_summary(
         "request_journal_head": str(effective.get("request_journal_head") or ""),
         "state_summary": summarize_state_for_error(effective),
     }
+    for key in ("structured_timing", "artifact_manifest"):
+        if key in payload:
+            summary[key] = payload.get(key)
     discovery = dict(discovery_details or {})
     if discovery:
         summary.update(
@@ -171,6 +174,9 @@ def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_sta
         "last_completed_step": last_completed_step,
         "first_failed_step": first_failed_step,
     }
+    for key in ("structured_timing", "artifact_manifest"):
+        if key in normalized:
+            summary[key] = normalized.get(key)
 
     if "recommended_next_action" in normalized:
         summary["recommended_next_action"] = str(normalized.get("recommended_next_action") or "")
