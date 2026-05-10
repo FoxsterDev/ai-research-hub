@@ -29,6 +29,8 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                 "request-status",
                 "request-status-summary",
                 "request-final-status",
+                "request-scenario-results-list",
+                "request-scenario-result-latest",
                 "request-project-refresh",
                 "project-discovery-report",
                 "registry-context-report",
@@ -55,6 +57,8 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertIn("unity_request_final_status", tool_names)
         self.assertIn("unity_compile_build_config_matrix", tool_names)
         self.assertIn("unity_scenario_run_and_wait", tool_names)
+        self.assertIn("unity_scenario_results_list", tool_names)
+        self.assertIn("unity_scenario_result_latest", tool_names)
 
     def test_tools_call_status_summary_happy_path(self) -> None:
         with (

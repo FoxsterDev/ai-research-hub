@@ -587,6 +587,135 @@ class ServerProjectHelperTests(unittest.TestCase):
         self.assertEqual("stale", summary["host_health_classification"])
         self.assertEqual("ensure_ready_or_recover_bridge", summary["recommended_next_action"])
 
+    def test_call_unity_scenario_results_list_tool_reads_persisted_results_with_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            results_root = project_root / "Library" / "XUUnityLightMcp" / "scenarios" / "results"
+            capture_path = project_root / "Library" / "XUUnityLightMcp" / "captures" / "capture.png"
+            capture_path.parent.mkdir(parents=True, exist_ok=True)
+            capture_path.write_bytes(b"png")
+
+            write_json(
+                results_root / "older.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-older",
+                    "scenario_name": "SampleScenario",
+                    "status": "passed",
+                    "started_at_utc": "2026-05-09T15:40:00Z",
+                    "completed_at_utc": "2026-05-09T15:40:05Z",
+                    "duration_seconds": 5.0,
+                    "result_path": str((results_root / "older.json").resolve()),
+                    "steps": [],
+                },
+            )
+            write_json(
+                results_root / "latest.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-latest",
+                    "scenario_name": "SampleScenario",
+                    "status": "passed",
+                    "started_at_utc": "2026-05-09T15:42:00Z",
+                    "completed_at_utc": "2026-05-09T15:42:08Z",
+                    "duration_seconds": 8.0,
+                    "result_path": str((results_root / "latest.json").resolve()),
+                    "steps": [
+                        {
+                            "stepId": "capture",
+                            "payload_json": json.dumps(
+                                {"capture_source": "game_view", "file_path": str(capture_path.resolve())},
+                                ensure_ascii=True,
+                            ),
+                        }
+                    ],
+                },
+            )
+            write_json(
+                results_root / "other.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-other",
+                    "scenario_name": "OtherScenario",
+                    "status": "failed",
+                    "started_at_utc": "2026-05-09T15:43:00Z",
+                    "completed_at_utc": "2026-05-09T15:43:03Z",
+                    "duration_seconds": 3.0,
+                    "result_path": str((results_root / "other.json").resolve()),
+                    "steps": [],
+                },
+            )
+
+            result = server.call_unity_scenario_results_list_tool(
+                {
+                    "projectRoot": str(project_root),
+                    "scenarioName": "SampleScenario",
+                    "limit": 10,
+                }
+            )
+
+            structured = result["structuredContent"]
+            self.assertFalse(result["isError"])
+            self.assertEqual("unity_scenario_results_list", structured["action"])
+            self.assertEqual(2, structured["total_results"])
+            self.assertEqual(2, structured["returned_results"])
+            self.assertEqual("run-latest", structured["results"][0]["run_id"])
+            self.assertIn("structured_timing", structured["results"][0])
+            self.assertIn("artifact_manifest", structured["results"][0])
+            self.assertEqual(
+                str(capture_path.resolve()),
+                structured["results"][0]["artifact_manifest"]["groups"]["captures"][0]["path"],
+            )
+
+    def test_call_unity_scenario_result_latest_tool_returns_latest_filtered_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            results_root = project_root / "Library" / "XUUnityLightMcp" / "scenarios" / "results"
+            write_json(
+                results_root / "first.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-1",
+                    "scenario_name": "SampleScenario",
+                    "status": "passed",
+                    "started_at_utc": "2026-05-09T15:40:00Z",
+                    "completed_at_utc": "2026-05-09T15:40:05Z",
+                    "duration_seconds": 5.0,
+                    "result_path": str((results_root / "first.json").resolve()),
+                    "steps": [],
+                },
+            )
+            write_json(
+                results_root / "second.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-2",
+                    "scenario_name": "SampleScenario",
+                    "status": "failed",
+                    "started_at_utc": "2026-05-09T15:41:00Z",
+                    "completed_at_utc": "2026-05-09T15:41:07Z",
+                    "duration_seconds": 7.0,
+                    "result_path": str((results_root / "second.json").resolve()),
+                    "steps": [],
+                },
+            )
+
+            result = server.call_unity_scenario_result_latest_tool(
+                {
+                    "projectRoot": str(project_root),
+                    "scenarioName": "SampleScenario",
+                }
+            )
+
+            structured = result["structuredContent"]
+            self.assertFalse(result["isError"])
+            self.assertEqual("unity_scenario_result_latest", structured["action"])
+            self.assertTrue(structured["lookup_found"])
+            self.assertEqual("run-2", structured["run_id"])
+            self.assertEqual("failed", structured["status"])
+            self.assertIn("artifact_manifest", structured)
+            self.assertIn("structured_timing", structured)
+
     def test_enrich_error_details_with_discovery_adds_recovery_command(self) -> None:
         context = types.SimpleNamespace(
             discovery_details={
