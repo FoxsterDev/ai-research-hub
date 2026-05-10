@@ -40,6 +40,8 @@ External server:
 - `restore-editor-state`
 - `request-status-summary`
 - `request-final-status`
+- `request-scenario-results-list`
+- `request-scenario-result-latest`
 - additive request-scoped `structured_timing` and `artifact_manifest` on
   successful same-host editor responses and `request-final-status`
 - host-local package-source mode switching:

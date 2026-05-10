@@ -102,7 +102,11 @@ from server_mcp_tools import (
     call_unity_scenario_run_and_wait_tool as call_unity_scenario_run_and_wait_tool_base,
     call_unity_status_summary_tool as call_unity_status_summary_tool_base,
 )
-from server_operation_evidence import attach_operation_evidence_to_payload
+from server_operation_evidence import (
+    attach_operation_evidence_to_payload,
+    attach_persisted_scenario_result_evidence,
+    parse_utc_timestamp,
+)
 from server_project_context import (
     ensure_project_root as ensure_project_root_base,
     find_latest_request_event,
@@ -136,6 +140,10 @@ from server_runtime_config import (
     build_runtime_config_report,
     resolve_operation_default_timeout_ms,
     resolve_operation_lifecycle_policy_overrides,
+)
+from server_scenario_results import (
+    latest_persisted_scenario_result_summary,
+    list_persisted_scenario_result_summaries,
 )
 from server_summaries import (
     build_scenario_result_summary,
@@ -1181,6 +1189,65 @@ def call_unity_scenario_result_summary_tool(arguments: dict[str, Any]) -> dict[s
     }
 
 
+def call_unity_scenario_results_list_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    scenario_name = arguments.get("scenarioName")
+    if scenario_name is not None and not isinstance(scenario_name, str):
+        raise JsonRpcError(-32602, "scenarioName must be a string when provided.")
+
+    limit = arguments.get("limit", 20)
+    if not isinstance(limit, int):
+        raise JsonRpcError(-32602, "limit must be an integer.")
+
+    project_root = ensure_project_root(project_root_value)
+    result = list_persisted_scenario_result_summaries(
+        project_root,
+        scenario_results_dir=scenario_results_dir,
+        read_json=read_json,
+        parse_utc_timestamp=parse_utc_timestamp,
+        attach_persisted_scenario_result_evidence=attach_persisted_scenario_result_evidence,
+        build_scenario_result_summary=build_scenario_result_summary,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+        scenario_name=scenario_name.strip() if isinstance(scenario_name, str) else "",
+        limit=limit,
+    )
+    return {
+        "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=True)}],
+        "structuredContent": result,
+        "isError": False,
+    }
+
+
+def call_unity_scenario_result_latest_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    project_root_value = arguments.get("projectRoot")
+    if not isinstance(project_root_value, str) or not project_root_value.strip():
+        raise JsonRpcError(-32602, "projectRoot is required.")
+
+    scenario_name = arguments.get("scenarioName")
+    if scenario_name is not None and not isinstance(scenario_name, str):
+        raise JsonRpcError(-32602, "scenarioName must be a string when provided.")
+
+    project_root = ensure_project_root(project_root_value)
+    result = latest_persisted_scenario_result_summary(
+        project_root,
+        scenario_results_dir=scenario_results_dir,
+        read_json=read_json,
+        parse_utc_timestamp=parse_utc_timestamp,
+        attach_persisted_scenario_result_evidence=attach_persisted_scenario_result_evidence,
+        build_scenario_result_summary=build_scenario_result_summary,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+        scenario_name=scenario_name.strip() if isinstance(scenario_name, str) else "",
+    )
+    return {
+        "content": [{"type": "text", "text": json.dumps(result, ensure_ascii=True)}],
+        "structuredContent": result,
+        "isError": False,
+    }
+
+
 def call_unity_maintenance_prune_tool(arguments: dict[str, Any]) -> dict[str, Any]:
     return call_unity_maintenance_prune_tool_base(
         arguments,
@@ -1206,6 +1273,8 @@ def call_tool(name: str, arguments: dict[str, Any] | None) -> dict[str, Any]:
             "unity_status_summary": call_unity_status_summary_tool,
             "unity_request_final_status": call_unity_request_final_status_tool,
             "unity_scenario_result_summary": call_unity_scenario_result_summary_tool,
+            "unity_scenario_results_list": call_unity_scenario_results_list_tool,
+            "unity_scenario_result_latest": call_unity_scenario_result_latest_tool,
             "unity_maintenance_prune": call_unity_maintenance_prune_tool,
             "unity_compile_build_config_matrix": call_unity_compile_build_config_matrix_tool,
             "unity_scenario_run_and_wait": call_unity_scenario_run_and_wait_tool,
@@ -2318,6 +2387,39 @@ def cmd_request_scenario_result_summary(args):
     print_json(build_scenario_result_summary_from_context(project_root, payload if isinstance(payload, dict) else {}))
 
 
+def cmd_request_scenario_results_list(args):
+    project_root = ensure_project_root(args.project_root)
+    print_json(
+        list_persisted_scenario_result_summaries(
+            project_root,
+            scenario_results_dir=scenario_results_dir,
+            read_json=read_json,
+            parse_utc_timestamp=parse_utc_timestamp,
+            attach_persisted_scenario_result_evidence=attach_persisted_scenario_result_evidence,
+            build_scenario_result_summary=build_scenario_result_summary,
+            scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+            scenario_name=str(args.scenario_name or ""),
+            limit=int(args.limit or 20),
+        )
+    )
+
+
+def cmd_request_scenario_result_latest(args):
+    project_root = ensure_project_root(args.project_root)
+    print_json(
+        latest_persisted_scenario_result_summary(
+            project_root,
+            scenario_results_dir=scenario_results_dir,
+            read_json=read_json,
+            parse_utc_timestamp=parse_utc_timestamp,
+            attach_persisted_scenario_result_evidence=attach_persisted_scenario_result_evidence,
+            build_scenario_result_summary=build_scenario_result_summary,
+            scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+            scenario_name=str(args.scenario_name or ""),
+        )
+    )
+
+
 def cmd_maintenance_prune(args):
     project_root = ensure_project_root(args.project_root)
     result = prune_project_artifacts(
@@ -3145,6 +3247,17 @@ def build_parser():
     scenario_result_summary_cmd.add_argument("--scenario-name")
     scenario_result_summary_cmd.add_argument("--timeout-ms", type=int, default=5000)
     scenario_result_summary_cmd.set_defaults(func=cmd_request_scenario_result_summary)
+
+    scenario_results_list_cmd = sub.add_parser("request-scenario-results-list", help="List persisted Unity scenario results with compact summaries.")
+    scenario_results_list_cmd.add_argument("--project-root", required=True)
+    scenario_results_list_cmd.add_argument("--scenario-name")
+    scenario_results_list_cmd.add_argument("--limit", type=int, default=20)
+    scenario_results_list_cmd.set_defaults(func=cmd_request_scenario_results_list)
+
+    scenario_result_latest_cmd = sub.add_parser("request-scenario-result-latest", help="Read the latest persisted Unity scenario result summary, optionally filtered by scenario name.")
+    scenario_result_latest_cmd.add_argument("--project-root", required=True)
+    scenario_result_latest_cmd.add_argument("--scenario-name")
+    scenario_result_latest_cmd.set_defaults(func=cmd_request_scenario_result_latest)
 
     open_editor_cmd = sub.add_parser("open-editor", help="Open a Unity project with a deterministic log file path for MCP startup diagnostics.")
     open_editor_cmd.add_argument("--project-root", required=True)

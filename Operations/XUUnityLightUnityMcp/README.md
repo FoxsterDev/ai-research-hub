@@ -98,6 +98,8 @@ What exists now:
   - `request-final-status`
   - `request-latest-status`
   - `request-scenario-result-summary`
+  - `request-scenario-results-list`
+  - `request-scenario-result-latest`
   - `registry-context-report`
   - `registry-prune-contexts`
 - additive request-scoped evidence on successful same-host editor responses and
@@ -914,8 +916,10 @@ Preferred order:
 3. `request-latest-status --operation ...` when the wrapper stalled before a
    usable request id was surfaced
 4. `unity_scenario_result_summary` for persisted scenario outcome checks
-5. raw `unity.scenario.result` only when the compact summary is insufficient
-6. raw `prepare.log` and `build.log` only after compact failure summary surfaces
+5. `request-scenario-results-list` or `request-scenario-result-latest` for
+   host-side browsing of persisted scenario outputs
+6. raw `unity.scenario.result` only when the compact summary is insufficient
+7. raw `prepare.log` and `build.log` only after compact failure summary surfaces
    are exhausted
 
 Operator rule:
@@ -939,6 +943,34 @@ Operator rule:
 - a workflow that jumps straight to raw `unity.scenario.result`, `prepare.log`,
   or `build.log` while a compact summary surface already exists is an operator
   experience regression
+
+Persisted scenario result browsing now has two host-side read-only utilities:
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-scenario-results-list \
+  --project-root /path/to/UnityProject \
+  --scenario-name acceptance_smoke \
+  --limit 10
+```
+
+```bash
+python3 ~/.codex-tools/xuunity-light-unity-mcp/server.py \
+  request-scenario-result-latest \
+  --project-root /path/to/UnityProject \
+  --scenario-name acceptance_smoke
+```
+
+Those summaries surface at least:
+
+- `run_id`
+- `status`
+- `started_at_utc`
+- `completed_at_utc`
+- `duration_seconds`
+- `result_path`
+- `artifact_manifest`
+- `structured_timing`
 
 Batch rule:
 

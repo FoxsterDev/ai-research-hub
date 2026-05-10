@@ -598,6 +598,29 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["projectRoot"],
         },
     },
+    "unity_scenario_results_list": {
+        "description": "List persisted Unity automation scenario results with compact summaries from Library/XUUnityLightMcp/scenarios/results.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "scenarioName": {"type": "string"},
+                "limit": {"type": "integer", "default": 20, "minimum": 1},
+            },
+            "required": ["projectRoot"],
+        },
+    },
+    "unity_scenario_result_latest": {
+        "description": "Return the latest persisted Unity automation scenario result summary, optionally filtered by scenario name.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "scenarioName": {"type": "string"},
+            },
+            "required": ["projectRoot"],
+        },
+    },
     "unity_scenario_run_and_wait": {
         "description": "Start a Unity automation scenario and wait until it reaches a terminal state.",
         "inputSchema": {

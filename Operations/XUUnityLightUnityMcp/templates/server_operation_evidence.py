@@ -382,3 +382,33 @@ def attach_operation_evidence_to_final_status(
         journal_event_paths=journal_event_paths,
     )
     return enriched
+
+
+def attach_persisted_scenario_result_evidence(
+    payload: dict[str, Any] | None,
+    project_root: Path,
+    result_path: Path,
+) -> dict[str, Any]:
+    enriched = dict(payload or {})
+    enriched["result_path"] = str(enriched.get("result_path") or result_path)
+    enriched["structured_timing"] = build_structured_timing(
+        operation="unity.scenario.result.persisted",
+        request_id="",
+        payload=enriched,
+        request_submitted_at_utc="",
+        request_started_at_utc=str(enriched.get("started_at_utc") or ""),
+        request_completed_at_utc=str(enriched.get("completed_at_utc") or ""),
+        response_completed_at_utc=str(enriched.get("completed_at_utc") or ""),
+        lifecycle=None,
+        host_started_unix=None,
+        host_completed_unix=None,
+    )
+    enriched["artifact_manifest"] = build_artifact_manifest(
+        project_root=project_root,
+        operation="unity.scenario.result.persisted",
+        request_id="",
+        payload=enriched,
+        editor_log_path=None,
+        journal_event_paths=[],
+    )
+    return enriched
