@@ -45,6 +45,7 @@ from server_bridge_runtime import (
     maybe_record_settle_lifecycle_transition,
     pid_is_alive,
     read_best_effort_bridge_state,
+    read_request_journal_events,
     request_journal_dir,
     scenario_results_dir,
     summarize_state_for_error,
@@ -101,6 +102,7 @@ from server_mcp_tools import (
     call_unity_scenario_run_and_wait_tool as call_unity_scenario_run_and_wait_tool_base,
     call_unity_status_summary_tool as call_unity_status_summary_tool_base,
 )
+from server_operation_evidence import attach_operation_evidence_to_payload
 from server_project_context import (
     ensure_project_root as ensure_project_root_base,
     find_latest_request_event,
@@ -933,6 +935,54 @@ def invoke_bridge(project_root_value: str, operation: str, args: dict[str, Any],
 
                 if response.get("status") == "ok":
                     response = normalize_response_payload_from_lifecycle(dict(response), lifecycle)
+                    payload_json = response.get("payload_json")
+                    if isinstance(payload_json, str) and payload_json:
+                        try:
+                            parsed_payload = json.loads(payload_json)
+                        except json.JSONDecodeError:
+                            parsed_payload = None
+                        if isinstance(parsed_payload, dict):
+                            journal_events = read_request_journal_events(project_root, request_id)
+                            response["payload_json"] = json.dumps(
+                                attach_operation_evidence_to_payload(
+                                    parsed_payload,
+                                    project_root=project_root,
+                                    operation=operation,
+                                    request_id=request_id,
+                                    request_submitted_at_utc=next(
+                                        (
+                                            str(event.get("event_at_utc") or "")
+                                            for event in reversed(journal_events)
+                                            if str(event.get("event_type") or "") == "request_submitted"
+                                        ),
+                                        "",
+                                    ),
+                                    request_started_at_utc=next(
+                                        (
+                                            str(event.get("started_at_utc") or event.get("event_at_utc") or "")
+                                            for event in journal_events
+                                            if str(event.get("event_type") or "") == "request_started"
+                                        ),
+                                        "",
+                                    ),
+                                    request_completed_at_utc=next(
+                                        (
+                                            str(event.get("completed_at_utc") or event.get("event_at_utc") or "")
+                                            for event in reversed(journal_events)
+                                            if str(event.get("event_type") or "") == "request_completed"
+                                        ),
+                                        "",
+                                    ),
+                                    response_completed_at_utc=str(response.get("completed_at_utc") or ""),
+                                    editor_log_path=default_editor_log_path(project_root),
+                                    journal_event_paths=[str(event.get("_path") or "") for event in journal_events],
+                                    lifecycle=lifecycle,
+                                    host_started_unix=request_started_at,
+                                    host_completed_unix=time.time(),
+                                ),
+                                ensure_ascii=True,
+                                separators=(",", ":"),
+                            )
                     response["_xuunity_lifecycle"] = lifecycle
 
                 refresh_project_context(project_root)

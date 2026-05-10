@@ -254,6 +254,95 @@ class ServerProjectHelperTests(unittest.TestCase):
             self.assertEqual(1, len(remaining))
             self.assertEqual(str(project_root.resolve()), remaining[0].instance_key)
 
+    def test_status_and_scenario_summaries_preserve_operation_evidence_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            structured_timing = {
+                "operation": "unity.status",
+                "request_id": "req-1",
+                "request_submitted_at_utc": "2026-05-09T15:40:57Z",
+                "request_started_at_utc": "2026-05-09T15:40:58Z",
+                "request_completed_at_utc": "2026-05-09T15:40:59Z",
+                "settled_at_utc": "",
+                "duration_seconds": 1.0,
+                "settle_duration_seconds": None,
+                "host_round_trip_seconds": 1.2,
+                "host_wait_duration_seconds": None,
+            }
+            artifact_manifest = {
+                "operation": "unity.status",
+                "request_id": "req-1",
+                "artifact_count": 1,
+                "existing_artifact_count": 1,
+                "groups": {
+                    "request_journal": [],
+                    "logs": [],
+                    "captures": [],
+                    "scenario_results": [],
+                    "compile_outputs": [],
+                    "test_outputs": [],
+                },
+            }
+
+            with (
+                mock.patch.object(server, "current_project_context_discovery_details", return_value={}),
+                mock.patch.object(
+                    server,
+                    "current_project_context_bridge_state",
+                    return_value={
+                        "bridge_generation": 3,
+                        "bridge_session_id": "session-a",
+                        "transport": "file_ipc",
+                        "transport_listener_state": "",
+                        "pending_request_count": 0,
+                        "health_status": "healthy",
+                    },
+                ),
+                mock.patch.object(
+                    server,
+                    "refresh_project_context",
+                    return_value=mock.Mock(last_bridge_state={}),
+                ),
+                mock.patch.object(server, "pid_is_alive", return_value=True),
+                mock.patch.object(server, "heartbeat_age_seconds", return_value=0.5),
+                mock.patch.object(server, "derive_busy_reason", return_value="idle"),
+                mock.patch.object(server, "summarize_state_for_error", return_value="ok"),
+            ):
+                status_summary = server.build_status_summary_from_context(
+                    project_root,
+                    {
+                        "editor_running": True,
+                        "mcp_reachable": True,
+                        "health_status": "healthy",
+                        "playmode_state": "edit",
+                        "structured_timing": structured_timing,
+                        "artifact_manifest": artifact_manifest,
+                    },
+                )
+                scenario_summary = server.build_scenario_result_summary_from_context(
+                    project_root,
+                    {
+                        "project_root": str(project_root),
+                        "run_id": "run-1",
+                        "scenario_name": "SampleScenario",
+                        "status": "passed",
+                        "terminal": True,
+                        "succeeded": True,
+                        "terminal_status": "passed",
+                        "started_at_utc": "2026-05-09T15:40:58Z",
+                        "completed_at_utc": "2026-05-09T15:40:59Z",
+                        "duration_seconds": 1.0,
+                        "steps": [],
+                        "structured_timing": structured_timing,
+                        "artifact_manifest": artifact_manifest,
+                    },
+                )
+
+            self.assertEqual(structured_timing, status_summary["structured_timing"])
+            self.assertEqual(artifact_manifest, status_summary["artifact_manifest"])
+            self.assertEqual(structured_timing, scenario_summary["structured_timing"])
+            self.assertEqual(artifact_manifest, scenario_summary["artifact_manifest"])
+
     def test_bridge_operation_requires_request_lock_matches_mutation_policy(self) -> None:
         self.assertTrue(server.bridge_operation_requires_request_lock("unity.project.refresh"))
         self.assertTrue(server.bridge_operation_requires_request_lock("unity.compile.matrix"))

@@ -100,6 +100,10 @@ What exists now:
   - `request-scenario-result-summary`
   - `registry-context-report`
   - `registry-prune-contexts`
+- additive request-scoped evidence on successful same-host editor responses and
+  `request-final-status`:
+  - `structured_timing`
+  - `artifact_manifest`
 - host wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - host-side editor session safety helpers:
@@ -761,6 +765,12 @@ The returned summary is intentionally bounded on incomplete evidence:
   abandonment rather than completion
 - `recommended_recovery_command` should echo the exact follow-up command for the
   same `request_id`
+- when payload evidence is available, the returned summary now also includes:
+  - `structured_timing`
+  - `artifact_manifest`
+
+Successful same-host editor operations now add the same two fields directly to
+their JSON payloads without replacing the existing operation-specific contract.
 
 Recover the latest matching request when the wrapper stalled before surfacing a
 usable `request_id`:
