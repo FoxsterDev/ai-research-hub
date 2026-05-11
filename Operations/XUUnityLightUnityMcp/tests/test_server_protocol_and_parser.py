@@ -320,6 +320,132 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertNotIn("reopen_block_reason", payload)
         self.assertFalse(bool(payload.get("reopen_blocked")))
 
+    def test_request_playmode_tests_exits_playmode_and_retries_once(self) -> None:
+        args = argparse.Namespace(
+            project_root="/tmp/FakeProject",
+            timeout_ms=None,
+            test_names=None,
+            group_names=None,
+            category_names=None,
+            assembly_names=None,
+        )
+        emitted_payloads: list[dict[str, object]] = []
+        invoke_calls: list[tuple[str, dict[str, object], int]] = []
+
+        def fake_invoke_bridge(
+            project_root_value: str,
+            operation: str,
+            operation_args: dict[str, object],
+            timeout_ms: int,
+        ) -> dict[str, object]:
+            invoke_calls.append((operation, dict(operation_args), timeout_ms))
+            if operation == "unity.tests.run_playmode" and len([call for call in invoke_calls if call[0] == operation]) == 1:
+                return {
+                    "status": "ok",
+                    "payload_json": (
+                        '{"status":"error","error":{"code":"playmode_state_invalid",'
+                        '"message":"Cannot run PlayMode tests unless Unity is in edit mode. Current state: playing."}}'
+                    ),
+                }
+            if operation == "unity.playmode.set":
+                return {
+                    "status": "ok",
+                    "payload_json": '{"status":"ok","state":"edit"}',
+                }
+            return {
+                "status": "ok",
+                "payload_json": '{"status":"ok","total":47,"passed":47}',
+            }
+
+        def fake_timeout(project_root: Path, operation: str, fallback_timeout_ms: int) -> int:
+            if operation == "unity.tests.run_playmode":
+                return 300000
+            if operation == "unity.playmode.set":
+                return 180000
+            raise AssertionError(f"Unexpected operation: {operation}")
+
+        with (
+            mock.patch.object(server, "ensure_project_root", return_value=Path("/tmp/FakeProject")),
+            mock.patch.object(server, "invoke_bridge", side_effect=fake_invoke_bridge),
+            mock.patch.object(server, "resolve_operation_default_timeout_ms", side_effect=fake_timeout),
+            mock.patch.object(server, "print_json", side_effect=lambda payload: emitted_payloads.append(dict(payload))),
+        ):
+            server.cmd_request_playmode_tests(args)
+
+        self.assertEqual(1, len(emitted_payloads))
+        self.assertEqual("ok", emitted_payloads[0]["status"])
+        self.assertEqual(
+            [
+                ("unity.tests.run_playmode", {"testNames": None, "groupNames": None, "categoryNames": None, "assemblyNames": None}, 300000),
+                ("unity.playmode.set", {"action": "exit"}, 180000),
+                ("unity.tests.run_playmode", {"testNames": None, "groupNames": None, "categoryNames": None, "assemblyNames": None}, 300000),
+            ],
+            invoke_calls,
+        )
+
+    def test_request_playmode_tests_retries_when_bridge_returns_top_level_playmode_error(self) -> None:
+        args = argparse.Namespace(
+            project_root="/tmp/FakeProject",
+            timeout_ms=None,
+            test_names=None,
+            group_names=None,
+            category_names=None,
+            assembly_names=None,
+        )
+        emitted_payloads: list[dict[str, object]] = []
+        invoke_calls: list[tuple[str, dict[str, object], int]] = []
+
+        def fake_invoke_bridge(
+            project_root_value: str,
+            operation: str,
+            operation_args: dict[str, object],
+            timeout_ms: int,
+        ) -> dict[str, object]:
+            invoke_calls.append((operation, dict(operation_args), timeout_ms))
+            if operation == "unity.tests.run_playmode" and len([call for call in invoke_calls if call[0] == operation]) == 1:
+                return {
+                    "request_id": "play-1",
+                    "status": "error",
+                    "completed_at_utc": "2026-05-11T22:40:59Z",
+                    "payload_type": "",
+                    "payload_json": "",
+                    "error": {
+                        "code": "playmode_state_invalid",
+                        "message": "Cannot run PlayMode tests unless Unity is in edit mode. Current state: playing.",
+                    },
+                }
+            if operation == "unity.playmode.set":
+                return {
+                    "status": "ok",
+                    "payload_json": '{"status":"ok","state":"edit"}',
+                }
+            return {
+                "status": "ok",
+                "payload_json": '{"status":"passed","total":47,"passed":47}',
+            }
+
+        def fake_timeout(project_root: Path, operation: str, fallback_timeout_ms: int) -> int:
+            if operation == "unity.tests.run_playmode":
+                return 300000
+            if operation == "unity.playmode.set":
+                return 180000
+            raise AssertionError(f"Unexpected operation: {operation}")
+
+        with (
+            mock.patch.object(server, "ensure_project_root", return_value=Path("/tmp/FakeProject")),
+            mock.patch.object(server, "invoke_bridge", side_effect=fake_invoke_bridge),
+            mock.patch.object(server, "resolve_operation_default_timeout_ms", side_effect=fake_timeout),
+            mock.patch.object(server, "print_json", side_effect=lambda payload: emitted_payloads.append(dict(payload))),
+        ):
+            server.cmd_request_playmode_tests(args)
+
+        self.assertEqual(1, len(emitted_payloads))
+        self.assertEqual("ok", emitted_payloads[0]["status"])
+        self.assertEqual(3, len(invoke_calls))
+        self.assertEqual("unity.tests.run_playmode", invoke_calls[0][0])
+        self.assertEqual("unity.playmode.set", invoke_calls[1][0])
+        self.assertEqual("unity.tests.run_playmode", invoke_calls[2][0])
+
     def test_initialize_returns_protocol_version(self) -> None:
         response = server.handle_json_rpc_message(
             {

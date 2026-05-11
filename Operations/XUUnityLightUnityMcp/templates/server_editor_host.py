@@ -272,6 +272,17 @@ def clear_stale_bridge_state(project_root: Path) -> bool:
     return False
 
 
+def clear_stale_active_test_run_state(project_root: Path) -> bool:
+    path = project_root / "Library" / "XUUnityLightMcp" / "state" / "active_test_run.json"
+    try:
+        if path.exists():
+            path.unlink()
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def _normalized_project_match_key(path_value: str | Path) -> str:
     text = str(path_value or "").strip()
     if not text:
@@ -1116,6 +1127,7 @@ def restore_host_opened_editor_state(
         if closed_after_quit:
             clear_host_editor_session_state(project_root)
             restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
+            restoration["stale_active_test_run_cleared"] = clear_stale_active_test_run_state(project_root)
             restoration["restored"] = True
             restoration["closeout_verified"] = True
             restoration["closeout_classification"] = "closed_via_unity_editor_quit"
@@ -1132,6 +1144,7 @@ def restore_host_opened_editor_state(
         if managed_pid not in live_project_pids:
             clear_host_editor_session_state(project_root)
             restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
+            restoration["stale_active_test_run_cleared"] = clear_stale_active_test_run_state(project_root)
             restoration["restored"] = True
             restoration["closeout_verified"] = True
             restoration["reason"] = "host_opened_editor_closed"
@@ -1156,6 +1169,7 @@ def restore_host_opened_editor_state(
             terminated_hub_pids = terminate_project_hub_launchers(project_root, timeout_ms)
             clear_host_editor_session_state(project_root)
             restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
+            restoration["stale_active_test_run_cleared"] = clear_stale_active_test_run_state(project_root)
             restoration["restored"] = False
             restoration["closeout_verified"] = True
             restoration["closeout_classification"] = "tracked_editor_already_closed"
