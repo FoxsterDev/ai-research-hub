@@ -31,6 +31,7 @@ Use these reports when:
 - `2026-05-09_multi_project_architecture_working_design.md`
 - `2026-05-09_cleanup_and_regression_lessons.md`
 - `2026-05-11_operator_and_backend_lessons.md`
+- `2026-05-11_batch_compile_gate_and_recovery_design_patch.md`
 
 ## Canonical Supporting Docs
 
