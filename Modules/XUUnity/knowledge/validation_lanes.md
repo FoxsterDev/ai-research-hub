@@ -26,6 +26,7 @@ Limits:
 - depends on editor startup health
 - can be blocked by interactive compile errors, package-resolution failures, or Safe Mode
 - should not be treated as physical-device proof
+- should not be the primary correctness waiter for long-running artifact builds when an approved batch build lane exists
 
 ### `batch_compile`
 Use non-interactive Unity automation such as batchmode compile, build, or test execution when the repo allows it.
@@ -35,12 +36,14 @@ Best for:
 - define-matrix verification
 - build-target verification
 - deterministic narrow test execution that does not depend on interactive editor state
+- artifact builds whose correctness should be judged by process exit and generated outputs
 
 Strengths:
 - good for fail-fast compile health
 - good for matrix-style target checks
 - avoids interactive editor focus and lifecycle churn
 - fits build-config-aware compile matrices that drive `unity.compile.matrix` from project profile data without mutating `PlayerSettings`
+- stronger fit for long-running artifact production where success should come from process exit, artifact presence, and generated build evidence
 
 Limits:
 - not suitable for play mode choreography, Game View, screenshots, or scene-state observation
@@ -66,6 +69,8 @@ Limits:
 - slower than narrow one-shot checks
 - still editor-integrated rather than device-native
 - should not replace device profiling, device screenshots, or native observability when those are the real requirement
+- lane is intentionally serialized; treat `scenario_already_running` as a contract signal rather than generic transport flakiness
+- should not be overloaded into the primary data plane for long-running artifact builds
 
 ## Selection Rules
 - Choose one primary validation lane before running tools when the task needs evidence beyond source inspection.
@@ -74,10 +79,16 @@ Limits:
 - Use `interactive_mcp` when the question depends on live editor state, console state, scene state, Game View, play mode, or a host-integrated Unity contract.
 - Use `batch_compile` when the question is mainly compile health, define coverage, target coverage, or deterministic non-interactive test execution and direct shell automation is permitted.
 - Approved batch lanes may also cover deterministic EditMode tests when those tests do not depend on interactive editor state, but that does not extend `batch_compile` to play mode or scene-observation claims.
+- Use `batch_compile` for artifact builds when the real success claim depends on:
+  - process exit
+  - generated artifact presence
+  - generated manifest, plist, Gradle, or Xcode output
+  - compact build result artifacts
 - When a project provides a supported Unity MCP path, prefer an MCP-backed batch compile lane over shell compile or direct Unity CLI.
 - Resolve the Unity editor version for MCP-backed validation from `ProjectSettings/ProjectVersion.txt`.
 - For define-sensitive validation, derive the compile matrix from the project's build-config asset instead of hand-authoring define sets.
 - Use `scenario` when the proof depends on ordered steps, waiting for state transitions, or persisted runtime evidence.
+- Do not choose `scenario` merely because the work is long-running; choose it only when ordered editor-integrated runtime evidence is the real requirement.
 - If repo or project rules require integrated validation, treat that as a hard override against `batch_compile` even if Unity CLI is available.
 - If interactive startup fails because of compile blockers, package-resolution failure, or Safe Mode gating, either:
   - fix the blocker first
@@ -93,11 +104,21 @@ Limits:
   - physical-device performance
   - native profiler truth
   - release-ready store or OEM matrix coverage
+- Do not treat source-only inspection as equivalent to generated-build inspection when the question is about final build output mutation or artifact shaping.
+- Do not treat a lane that cannot provide trustworthy final test totals, terminal artifact completion, or terminal result accounting as a full validation lane for that claim.
 
 ## Output Contract
-When lane selection matters, include these fields in the execution contract or validation plan:
+When lane selection matters, use the exact field names from `knowledge/validation_contract.md` in the execution contract or validation plan:
 - `primary_validation_lane`
 - `secondary_validation_lane`
 - `lane_selection_reason`
+- `expected_evidence_class`
+- `validation_gaps`
 
 Keep them short and concrete.
+
+When the claim is build-sensitive, `expected_evidence_class` should name the expected proof, for example:
+- `generated manifest inspection`
+- `artifact build exit + artifact presence`
+- `interactive scene snapshot`
+- `compile matrix across build-config profiles`

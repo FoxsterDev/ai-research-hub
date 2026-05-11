@@ -30,6 +30,55 @@ Current public host-side batch helpers:
 - `batch-editmode-tests`
 - `batch-build-player`
 
+## Lane Selection Rule
+
+Treat the build and validation surface as two different classes of work:
+
+- interactive control-plane work
+- batch data-plane work
+
+Use the interactive MCP lane for:
+- `ensure-ready`
+- `unity.status`
+- `unity.health.probe`
+- `unity.console.tail`
+- `unity.scene.snapshot`
+- `unity.playmode.*`
+- `unity.game_view.*`
+- compile validation
+- deterministic EditMode tests when the editor must stay open
+- project config inspection
+- project-defined smoke and hook flows that are short-lived and editor-bound
+
+Use the batch lane for:
+- artifact builds
+- signed package generation
+- long-running export pipelines
+- end-to-end build flows where success should be judged by process exit and generated outputs
+
+Do not use the live interactive scenario lane as the primary waiter for
+long-running artifact builds. It is the right control plane for editor-aware
+inspection and short bounded work, but it is the wrong data plane for build
+correctness.
+
+## Scenario Lane Constraint
+
+The interactive scenario lane is intentionally serialized.
+
+Operational implications:
+- do not schedule parallel scenario runs against the same project/editor session
+- treat `scenario_already_running` as a contract signal, not as a flaky transport error
+- wrappers should surface this constraint clearly instead of pretending the lane is fully concurrent
+
+If the workflow needs:
+- parallel work
+- long waits
+- artifact production
+- or transport-independent closeout proof
+
+move that work to a batch helper or to a narrower direct request flow instead of
+stacking more logic onto `unity.scenario.run`.
+
 This means the public layer already covers:
 - current active platform inspection
 - deterministic platform switching
@@ -110,6 +159,7 @@ Expected adapter surface:
 Important rule:
 - the public layer must not assume a specific asset path, profile schema, or profile names
 - the project adapter owns those details
+- the public layer should still own lane selection, timeout posture, artifact collection, and closeout reporting
 
 ### 3. Custom Tool Build
 
@@ -139,7 +189,7 @@ Hook payload shape should stay JSON-only:
 {
   "phase": "pre_build",
   "target": "Android",
-  "profileName": "ReleaseDebug",
+  "profileName": "ProfileA",
   "context": {
     "artifactOnly": true
   }
@@ -173,6 +223,47 @@ Default expectations:
 - emit compact failure summaries for failed prepare/build phases before sending
   callers to raw logs
 
+For profile-aware or custom-tool builds, default automation posture should be
+non-destructive:
+- do not enable autorun by default for artifact automation
+- do not persist version or config mutations by default
+- restore tracked project state unless the caller explicitly opts into persistence
+- record whether the editor was closed and reopened as part of the automation
+
+Recommended generic automation-policy fields:
+- `artifact_only`
+- `allow_autorun`
+- `persist_version_updates`
+- `persist_config_changes`
+- `reopen_editor_after_build`
+
+The exact project flags can vary, but the public orchestration contract should
+preserve these semantics.
+
+## Evidence Hierarchy
+
+For build-sensitive work, trust generated outputs above source-only reasoning.
+
+Preferred evidence order:
+1. process exit code
+2. generated artifact presence
+3. generated manifest / plist / Gradle / Xcode output
+4. compact build summary artifact
+5. source manifest or processor inspection
+
+Practical rule:
+- if the question is whether a build processor or postprocess step changed the
+  produced app correctly, inspect generated output first
+- do not claim artifact correctness from source inspection alone when generated
+  build evidence is available
+
+This matters especially for:
+- Android manifest injection
+- network security config generation
+- plist or entitlement mutation
+- third-party postprocess build hooks
+- signed package/export pipelines
+
 ## Cleanup and Token Discipline
 
 The public surface should avoid forcing callers to inspect large raw logs.
@@ -195,6 +286,13 @@ For batch builds, the same rule applies:
   - paths to the next raw logs only as second-line evidence
 - batch wrapper stdout should surface that summary artifact path directly instead
   of dumping large raw result payloads or large log tails by default
+
+- the compact result should also name the strongest generated evidence that was
+  inspected, for example:
+  - artifact path
+  - build report path
+  - generated manifest/plist path
+  - whether tracked state was restored
 
 This keeps operator diagnosis bounded even when `prepare.log` or `build.log`
 are large.

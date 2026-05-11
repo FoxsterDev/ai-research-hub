@@ -23,6 +23,17 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - When the lightweight `xuunity` MCP wrapper exposes `unity_compile_build_config_matrix` or `request-build-config-compile-matrix`, prefer that route over ad hoc per-profile compile requests.
 - Do not hand-author per-profile define lists in chat when the project already has a build-config source of truth.
 - Do not mutate `PlayerSettings.SetScriptingDefineSymbols*` as the default route for validation when the integrated MCP compile matrix can accept the per-profile define sets directly.
+- Treat artifact-build validation as a different proof class from compile validation.
+- For long-running artifact builds, prefer an approved batch build lane over an interactive scenario lane when the claim depends on:
+  - process exit
+  - generated artifact presence
+  - generated manifest, plist, Gradle, or Xcode output
+  - compact build summary artifacts
+- Do not treat an interactive scenario waiter as the primary correctness proof for artifact builds when an approved batch lane exists.
+- For build-sensitive questions, trust generated outputs above source-only reasoning when both are available.
+- If the issue depends on postprocess mutation or build output shaping, inspect generated outputs first instead of concluding from source manifests, processors, or editor settings alone.
+- Treat `scenario_already_running` or equivalent serialization signals as lane-contract evidence, not as generic flaky transport failure.
+- If a validation lane can start work but cannot provide trustworthy final accounting for the claim, downgrade that lane's evidence strength and keep the validation gap explicit.
 
 ## Preflight
 1. Confirm whether the task actually requires validation now, not merely a validation note.
@@ -46,6 +57,8 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - hand-authored define sets when the project has a build-config source of truth
 - a single-target compile when the real contract requires both `Android` and `iOS`
 - a single-profile compile when the real contract requires the whole project profile matrix
+- a started-but-untrustworthy test run that cannot provide correct final totals or pass/fail accounting
+- a scenario submission that stayed transport-alive but never reached trustworthy artifact or terminal-result proof
 
 ## Output Rule
 - When Unity validation is blocked by MCP-only or project-local rules, say so explicitly.
@@ -53,3 +66,5 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - If confidence depends on Unity/editor validation that was not run, keep that uncertainty visible in the final answer.
 - If MCP was available for the project and not used, state the reason explicitly.
 - If build-profile validation was required but the full target/profile matrix was not executed, do not call the work fully validated.
+- If artifact correctness was the real question and only source inspection was performed, describe that as weaker evidence than generated-build inspection.
+- If a lane lacked trustworthy final accounting for tests, artifact completion, or terminal result state, say so explicitly instead of calling the work validated.

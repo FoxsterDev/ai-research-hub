@@ -47,13 +47,19 @@ Turn an accepted feature design into a concrete execution plan before code chang
    - edge cases
    - lifecycle or async checks
    - platform-specific checks
-6. Identify implementation risks:
+6. Name the validation contract for the implementation slice:
+   - primary validation lane
+   - any justified secondary lane
+   - lane selection reason
+   - expected evidence class
+   - validation gaps
+7. Identify implementation risks:
    - state ownership regressions
    - duplicated side effects
    - ordering or teardown races
    - migration risk
    - platform-specific breakage
-7. Decide the next protocol step:
+8. Decide the next protocol step:
    - `validation_plan.md` if validation coverage should be expanded before coding
    - `delivery_risk_review.md` if delivery risk needs explicit review packaging
    - `feature_development.md` if the implementation path is concrete enough to execute
@@ -65,6 +71,12 @@ Turn an accepted feature design into a concrete execution plan before code chang
 - Likely file or subsystem areas
 - Execution checkpoints
 - Validation expectations
+- Validation contract:
+  - `primary_validation_lane`
+  - `secondary_validation_lane`
+  - `lane_selection_reason`
+  - `expected_evidence_class`
+  - `validation_gaps`
 - Main implementation risks
 - Open execution questions
 - Recommended next protocol step
@@ -74,5 +86,9 @@ Turn an accepted feature design into a concrete execution plan before code chang
 - Do not use this task to hide unresolved architecture decisions behind implementation sequencing.
 - Prefer the smallest safe execution shape over broad simultaneous rewrites.
 - Keep critical-flow checkpoints visible so validation is not deferred until the end.
+- Keep the expected evidence class explicit in the plan instead of collapsing validation into generic QA wording.
+- Use the exact validation-contract field names from `knowledge/validation_contract.md`.
+- Follow the shared lane and build-sensitive evidence rules from `knowledge/validation_lanes.md` and `knowledge/unity_validation_boundaries.md`.
+- If the planned lane cannot provide trustworthy final accounting for the claimed proof surface, keep that as a validation gap in the plan.
 - If the plan depends on stale or uncertain memory, say so and fall back to code-backed planning.
 - If the target shape is still contested, step back to architecture planning or feature design before producing an execution plan.
