@@ -29,6 +29,74 @@ def read_editor_log_tail(log_path: Path, max_chars: int = DEFAULT_LOG_TAIL_MAX_C
     return text
 
 
+def read_editor_log_scope(
+    log_path: Path,
+    *,
+    session_start_offset_bytes: int | None = None,
+    session_start_mtime: float | None = None,
+    max_chars: int = DEFAULT_LOG_TAIL_MAX_CHARS,
+) -> tuple[str, dict[str, Any]]:
+    scope = {
+        "source": "tail_fallback",
+        "start_offset_bytes": 0,
+        "fallback_used": True,
+        "scoped_bytes_available": 0,
+    }
+
+    if not log_path.is_file():
+        scope["missing"] = True
+        return "", scope
+
+    try:
+        stat_result = log_path.stat()
+    except OSError:
+        scope["stat_failed"] = True
+        return "", scope
+
+    try:
+        file_size = int(stat_result.st_size or 0)
+        file_mtime = float(stat_result.st_mtime or 0.0)
+    except (TypeError, ValueError):
+        file_size = 0
+        file_mtime = 0.0
+
+    start_offset = max(0, int(session_start_offset_bytes or 0))
+    start_mtime = float(session_start_mtime or 0.0)
+    can_use_scope = (
+        start_offset > 0
+        and file_size >= start_offset
+        and (start_mtime <= 0.0 or file_mtime >= max(0.0, start_mtime - 1.0))
+    )
+
+    if can_use_scope:
+        try:
+            with log_path.open("r", encoding="utf-8", errors="ignore") as handle:
+                handle.seek(start_offset)
+                scoped_text = handle.read()
+        except OSError:
+            scoped_text = ""
+        if scoped_text:
+            scope.update(
+                {
+                    "source": "host_opened_editor_session",
+                    "start_offset_bytes": start_offset,
+                    "fallback_used": False,
+                    "scoped_bytes_available": max(0, file_size - start_offset),
+                }
+            )
+            if len(scoped_text) > max_chars:
+                scoped_text = scoped_text[-max_chars:]
+            return scoped_text, scope
+        scope["scoped_bytes_available"] = max(0, file_size - start_offset)
+        scope["scoped_text_empty"] = True
+
+    tail_text = read_editor_log_tail(log_path, max_chars=max_chars)
+    if not can_use_scope and start_offset > 0:
+        scope["scope_unusable"] = True
+        scope["requested_start_offset_bytes"] = start_offset
+    return tail_text, scope
+
+
 def _matching_log_lines(log_text: str, patterns: list[str], limit: int = 3) -> list[str]:
     matches: list[str] = []
     for raw_line in log_text.splitlines():
@@ -48,8 +116,15 @@ def build_editor_log_diagnosis(
     startup_policy: str,
     classify_editor_log: Callable[[str, str], tuple[str, str] | None],
     max_chars: int = DEFAULT_LOG_TAIL_MAX_CHARS,
+    session_start_offset_bytes: int | None = None,
+    session_start_mtime: float | None = None,
 ) -> dict[str, Any]:
-    log_text = read_editor_log_tail(log_path, max_chars=max_chars)
+    log_text, log_scope = read_editor_log_scope(
+        log_path,
+        session_start_offset_bytes=session_start_offset_bytes,
+        session_start_mtime=session_start_mtime,
+        max_chars=max_chars,
+    )
     if not log_text:
         return {}
 
@@ -70,6 +145,7 @@ def build_editor_log_diagnosis(
             "severity": "error",
             "summary": summary,
             "evidence_lines": evidence_lines,
+            "scope": log_scope,
         }
 
     runtime_exception_lines = _matching_log_lines(
@@ -87,6 +163,7 @@ def build_editor_log_diagnosis(
             "severity": "warning",
             "summary": "Editor.log contains recent runtime exception markers.",
             "evidence_lines": runtime_exception_lines,
+            "scope": log_scope,
         }
 
     lifecycle_lines = _matching_log_lines(
@@ -107,6 +184,7 @@ def build_editor_log_diagnosis(
             "severity": "info",
             "summary": "Editor.log shows recent lifecycle activity consistent with compile/import/playmode churn.",
             "evidence_lines": lifecycle_lines,
+            "scope": log_scope,
         }
 
     timeout_lines = _matching_log_lines(
@@ -123,6 +201,7 @@ def build_editor_log_diagnosis(
             "severity": "warning",
             "summary": "Editor.log contains recent timeout markers.",
             "evidence_lines": timeout_lines,
+            "scope": log_scope,
         }
 
     last_non_empty_lines = [line.strip() for line in log_text.splitlines() if line.strip()]
@@ -132,6 +211,7 @@ def build_editor_log_diagnosis(
         "severity": "info",
         "summary": "Editor.log is present, but no known startup blocker marker was identified in the recent tail.",
         "evidence_lines": evidence_lines,
+        "scope": log_scope,
     }
 
 
@@ -290,4 +370,5 @@ def classify_project_health(
         "host_health_progress_evidence": progress_evidence,
         "anr_classification": anr_classification,
         "editor_log_diagnosis": dict(editor_log_diagnosis or {}),
+        "editor_log_scope": dict((editor_log_diagnosis or {}).get("scope") or {}),
     }

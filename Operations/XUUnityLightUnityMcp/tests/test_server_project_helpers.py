@@ -500,7 +500,7 @@ class ServerProjectHelperTests(unittest.TestCase):
                 "reconciliation_case": "live_process_only",
                 "reconciliation_status": "degraded",
                 "reconciliation_reason": "process_table_match_without_live_state_authority",
-                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "reconciliation_recommended_next_action": "recover_editor_session",
                 "detected_editor_count": 1,
                 "detected_editor_pids": [777],
             },
@@ -524,7 +524,7 @@ class ServerProjectHelperTests(unittest.TestCase):
 
         self.assertEqual("editor_process_only", summary["discovery_classification"])
         self.assertEqual("live_process_only", summary["reconciliation_case"])
-        self.assertEqual("ensure_ready_or_recover_bridge", summary["recommended_next_action"])
+        self.assertEqual("recover_editor_session", summary["recommended_next_action"])
 
     def test_build_request_final_status_prefers_host_health_next_action_for_anr(self) -> None:
         context = types.SimpleNamespace(
@@ -587,7 +587,7 @@ class ServerProjectHelperTests(unittest.TestCase):
                 "reconciliation_case": "stale_bridge_state",
                 "reconciliation_status": "degraded",
                 "reconciliation_reason": "live_host_session_overrides_stale_bridge_state",
-                "reconciliation_recommended_next_action": "ensure_ready_or_recover_bridge",
+                "reconciliation_recommended_next_action": "recover_editor_session",
                 "detected_editor_count": 1,
                 "detected_editor_pids": [202],
             },

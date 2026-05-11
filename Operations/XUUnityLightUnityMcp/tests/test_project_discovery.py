@@ -49,7 +49,7 @@ class ProjectDiscoveryTests(unittest.TestCase):
         self.assertTrue(result["host_session_live"])
         self.assertEqual(202, result["last_seen_pid"])
         self.assertEqual("stale_bridge_state", result["reconciliation_case"])
-        self.assertEqual("ensure_ready_or_recover_bridge", result["reconciliation_recommended_next_action"])
+        self.assertEqual("recover_editor_session", result["reconciliation_recommended_next_action"])
 
     def test_discovery_uses_process_table_when_state_files_are_missing(self) -> None:
         project_root = Path("/tmp/ProjectA")

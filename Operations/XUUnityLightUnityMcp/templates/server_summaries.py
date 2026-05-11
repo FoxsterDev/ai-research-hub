@@ -94,6 +94,7 @@ def build_status_summary(
                 "detected_editor_count": int(discovery.get("detected_editor_count") or 0),
                 "detected_editor_pids": list(discovery.get("detected_editor_pids") or []),
                 "editor_log_diagnosis": dict(discovery.get("editor_log_diagnosis") or {}),
+                "editor_log_scope": dict(discovery.get("editor_log_scope") or {}),
                 "stale_request_artifacts": dict(discovery.get("stale_request_artifacts") or {}),
                 "host_prerequisites": dict(discovery.get("host_prerequisites") or {}),
                 "transport_state": dict(discovery.get("transport_state") or {}),
@@ -225,6 +226,8 @@ def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_sta
         summary["host_health_progress_evidence"] = list(normalized.get("host_health_progress_evidence") or [])
     if "editor_log_diagnosis" in normalized:
         summary["editor_log_diagnosis"] = dict(normalized.get("editor_log_diagnosis") or {})
+    if "editor_log_scope" in normalized:
+        summary["editor_log_scope"] = dict(normalized.get("editor_log_scope") or {})
     if "stale_request_artifacts" in normalized:
         summary["stale_request_artifacts"] = dict(normalized.get("stale_request_artifacts") or {})
     if "host_prerequisites" in normalized:

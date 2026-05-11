@@ -275,13 +275,13 @@ def _reconciliation_summary(
                 "case": "stale_bridge_state",
                 "status": "degraded",
                 "reason": "live_host_session_overrides_stale_bridge_state",
-                "recommended_next_action": "ensure_ready_or_recover_bridge",
+                "recommended_next_action": "recover_editor_session",
             }
         return {
             "case": "live_host_session_only",
             "status": "degraded",
             "reason": "live_host_session_without_live_bridge_state",
-            "recommended_next_action": "ensure_ready_or_recover_bridge",
+            "recommended_next_action": "recover_editor_session",
         }
 
     if detected_editor_pids:
@@ -289,7 +289,7 @@ def _reconciliation_summary(
             "case": "live_process_only",
             "status": "degraded",
             "reason": "process_table_match_without_live_state_authority",
-            "recommended_next_action": "ensure_ready_or_recover_bridge",
+            "recommended_next_action": "recover_editor_session",
         }
 
     if not bridge_currently_enabled:
@@ -305,7 +305,7 @@ def _reconciliation_summary(
             "case": "stale_bridge_and_host_session",
             "status": "offline",
             "reason": "bridge_state_and_host_session_both_stale",
-            "recommended_next_action": "open_editor_or_ensure_ready",
+            "recommended_next_action": "recover_editor_session",
         }
 
     if bridge_pid > 0 and not bridge_pid_alive:
@@ -313,7 +313,7 @@ def _reconciliation_summary(
             "case": "stale_bridge_state",
             "status": "offline",
             "reason": "bridge_state_present_but_editor_pid_not_alive",
-            "recommended_next_action": "open_editor_or_ensure_ready",
+            "recommended_next_action": "recover_editor_session",
         }
 
     if host_session_pid > 0 and not host_session_pid_alive:
@@ -321,7 +321,7 @@ def _reconciliation_summary(
             "case": "stale_host_session",
             "status": "offline",
             "reason": "host_session_present_but_editor_pid_not_alive",
-            "recommended_next_action": "clear_stale_host_session_and_retry",
+            "recommended_next_action": "recover_editor_session",
         }
 
     return {
