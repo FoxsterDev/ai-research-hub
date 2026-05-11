@@ -256,6 +256,70 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertEqual("recover_editor_session", result["structuredContent"]["recommended_next_action"])
         self.assertEqual("editor_not_running", result["structuredContent"]["offline_error_code"])
 
+    def test_recover_editor_session_reports_batch_lane_conflict_without_claiming_compile_red(self) -> None:
+        args = argparse.Namespace(
+            project_root="/tmp/FakeProject",
+            timeout_ms=180000,
+            close_timeout_ms=45000,
+            open_editor=False,
+            force_compile_probe=True,
+            heartbeat_max_age_seconds=10,
+            startup_policy="fail_fast_on_interactive_compile_block",
+        )
+        discovery_initial = {
+            "reconciliation_case": "stale_bridge_state",
+            "detected_editor_pids": [],
+            "editor_log_diagnosis": {},
+        }
+        discovery_after_clear = {
+            "reconciliation_case": "host_launchable_not_active",
+            "detected_editor_pids": [],
+            "editor_log_diagnosis": {},
+        }
+        emitted_payloads: list[dict[str, object]] = []
+
+        with (
+            mock.patch.object(server, "ensure_project_root", return_value=Path("/tmp/FakeProject")),
+            mock.patch.object(server, "refresh_project_context"),
+            mock.patch.object(
+                server,
+                "build_project_discovery_report",
+                side_effect=[
+                    discovery_initial,
+                    discovery_initial,
+                    discovery_after_clear,
+                    discovery_after_clear,
+                ],
+            ),
+            mock.patch.object(server, "current_project_context_host_session_state", return_value={}),
+            mock.patch.object(server, "clear_stale_bridge_state", return_value=True),
+            mock.patch.object(
+                server,
+                "run_batch_build_config_compile_matrix_probe",
+                return_value={
+                    "succeeded": False,
+                    "batch_probe": {
+                        "error": {
+                            "code": "editor_running_batch_conflict",
+                            "message": "Editor is already running.",
+                        }
+                    },
+                    "top_actionable_error": "Editor is already running.",
+                },
+            ),
+            mock.patch.object(server, "print_json", side_effect=lambda payload: emitted_payloads.append(dict(payload))),
+        ):
+            with self.assertRaises(SystemExit) as ctx:
+                server.cmd_recover_editor_session(args)
+
+        self.assertEqual(1, ctx.exception.code)
+        self.assertEqual(1, len(emitted_payloads))
+        payload = emitted_payloads[0]
+        self.assertEqual("compile_probe_blocked_by_live_editor", payload["recovery_classification"])
+        self.assertEqual("close_editor_or_use_interactive_lane", payload["recovery_recommended_next_action"])
+        self.assertNotIn("reopen_block_reason", payload)
+        self.assertFalse(bool(payload.get("reopen_blocked")))
+
     def test_initialize_returns_protocol_version(self) -> None:
         response = server.handle_json_rpc_message(
             {

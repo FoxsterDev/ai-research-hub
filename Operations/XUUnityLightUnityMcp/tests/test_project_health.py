@@ -158,6 +158,22 @@ class ProjectHealthTests(unittest.TestCase):
         self.assertFalse(diagnosis["scope"]["fallback_used"])
         self.assertEqual(len(prefix), diagnosis["scope"]["start_offset_bytes"])
 
+    def test_build_editor_log_diagnosis_does_not_fallback_to_stale_tail_when_scoped_region_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            log_path = Path(tmp_dir) / "empty_scoped_region.log"
+            stale_tail = "Assets/Foo.cs(12,3): error CS1002: ; expected\n"
+            log_path.write_text(stale_tail, encoding="utf-8")
+
+            diagnosis = build_editor_log_diagnosis(
+                log_path,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                classify_editor_log=classify_editor_log,
+                session_start_offset_bytes=len(stale_tail),
+                session_start_mtime=log_path.stat().st_mtime,
+            )
+
+        self.assertEqual({}, diagnosis)
+
 
 if __name__ == "__main__":
     unittest.main()

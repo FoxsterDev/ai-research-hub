@@ -669,6 +669,25 @@ def run_batch_build_config_compile_matrix_probe(
     return payload
 
 
+def classify_compile_probe_failure(compile_probe: dict[str, Any]) -> tuple[str, str, str]:
+    batch_probe = dict(compile_probe.get("batch_probe") or {})
+    error_payload = dict(batch_probe.get("error") or {})
+    error_code = str(error_payload.get("code") or "")
+
+    if error_code == "editor_running_batch_conflict":
+        return (
+            "compile_probe_blocked_by_live_editor",
+            "close_editor_or_use_interactive_lane",
+            "xuunity_light_unity_mcp.sh request-status-summary --project-root {project_root} --timeout-ms 5000",
+        )
+
+    return (
+        "compile_red_confirmed",
+        "fix_compile_errors_before_gui_reopen",
+        "xuunity_light_unity_mcp.sh project-discovery-report --project-root {project_root}",
+    )
+
+
 def run_self_json_command(args: list[str]) -> tuple[dict[str, Any] | None, subprocess.CompletedProcess[str]]:
     completed = subprocess.run(
         [sys.executable, __file__, *args],
@@ -750,13 +769,13 @@ def cmd_recover_editor_session(args):
         )
         payload["compile_probe"] = compile_probe
         if not bool(compile_probe.get("succeeded")):
-            payload["recovery_classification"] = "compile_red_confirmed"
-            payload["recovery_recommended_next_action"] = "fix_compile_errors_before_gui_reopen"
-            payload["recommended_recovery_command"] = "xuunity_light_unity_mcp.sh project-discovery-report --project-root {project_root}".format(
-                project_root=str(project_root)
-            )
-            payload["reopen_blocked"] = True
-            payload["reopen_block_reason"] = "compile_red_after_batch_restore"
+            recovery_classification, next_action, recovery_command_template = classify_compile_probe_failure(compile_probe)
+            payload["recovery_classification"] = recovery_classification
+            payload["recovery_recommended_next_action"] = next_action
+            payload["recommended_recovery_command"] = recovery_command_template.format(project_root=str(project_root))
+            if recovery_classification == "compile_red_confirmed":
+                payload["reopen_blocked"] = True
+                payload["reopen_block_reason"] = "compile_red_after_batch_restore"
             payload["discovery_after_recovery"] = build_project_discovery_report(project_root)
             print_json(payload)
             raise SystemExit(1)
