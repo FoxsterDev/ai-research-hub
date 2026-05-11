@@ -89,6 +89,10 @@ def read_editor_log_scope(
             return scoped_text, scope
         scope["scoped_bytes_available"] = max(0, file_size - start_offset)
         scope["scoped_text_empty"] = True
+        scope["source"] = "host_opened_editor_session"
+        scope["start_offset_bytes"] = start_offset
+        scope["fallback_used"] = False
+        return "", scope
 
     tail_text = read_editor_log_tail(log_path, max_chars=max_chars)
     if not can_use_scope and start_offset > 0:
