@@ -494,6 +494,29 @@ summarize_json \
   "$TMP_DIR/ensure_ready_after_abandon.json" \
   "\"bridge=%s generation=%s health=%s\" % (data['bridge_state'].get('bridge_version'), data['bridge_state'].get('bridge_generation'), data['bridge_state'].get('health_status'))"
 
+run_step retry_editmode_after_abandon \
+  "$WRAPPER" request-editmode-tests \
+  --project-root "$PROJECT_ROOT" \
+  --test-name XUUnity.LightMcp.Editor.FaultInjection.DoesNotExist \
+  --timeout-ms 30000
+summarize_json \
+  "retry-editmode-after-abandon" \
+  "$TMP_DIR/retry_editmode_after_abandon.json" \
+  "\"status=%s payload_type=%s\" % (data.get('status'), data.get('payload_type'))"
+python3 - "$TMP_DIR/retry_editmode_after_abandon.json" <<'PY' || fail_step "retry-editmode-after-abandon"
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text())
+error = data.get("error") or {}
+if str(error.get("code") or "") == "tests_busy":
+    raise SystemExit(1)
+if str(data.get("status") or "") != "ok":
+    raise SystemExit(1)
+raise SystemExit(0)
+PY
+
 rm -f "$PROBE_SCRIPT" "$PROBE_SCRIPT.meta"
 rm -f "$TEST_FILE" "$TEST_FILE.meta"
 if [[ "$RETAIN_FIXTURES" == "true" ]]; then

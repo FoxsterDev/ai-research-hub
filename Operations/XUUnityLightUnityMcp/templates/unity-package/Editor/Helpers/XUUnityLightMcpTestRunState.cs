@@ -278,6 +278,11 @@ namespace XUUnity.LightMcp.Editor.Helpers
                         return true;
                     }
 
+                    if (string.Equals(payload.event_type, "request_reclassified", StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+
                     if (string.Equals(payload.event_type, "request_abandoned", StringComparison.Ordinal)
                         && !string.Equals(state.operation, XUUnityLightMcpPlayModeTestRunner.OperationName, StringComparison.Ordinal))
                     {
