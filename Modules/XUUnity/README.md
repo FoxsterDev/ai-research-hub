@@ -103,6 +103,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/system_output_cleanup_apply.md`
 - `utilities/system_evaluation_cadence.md`
 - `utilities/external_promotion_checklist.md`
+- `utilities/protocol_consistency_checklist.md`
 - `utilities/report_export.md`
 
 ## Product Coverage
@@ -136,6 +137,8 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/review_quality_scoring.md`
 - `knowledge/severity_matrix.md`
+- `knowledge/unity_validation_boundaries.md`
+- `knowledge/validation_contract.md`
 - `knowledge/validation_lanes.md`
 
 Some reusable SDK version-comparison methodology is intentionally stored in `knowledge/` instead of `skills/` because it is decision support, not direct implementation behavior.

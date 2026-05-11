@@ -28,6 +28,9 @@ Related public docs:
 - `LICENSE.md`
 - `Reports/`
 
+Current distilled lessons:
+- `Reports/2026-05-11_operator_and_backend_lessons.md`
+
 Author:
 - Siarhei Khalandachou
 - LinkedIn: `https://www.linkedin.com/in/khalandachou/`
@@ -177,6 +180,34 @@ Provide one small service that can evolve into the default `xuunity` Unity MCP p
 - clear project targeting
 - easy extension with new tool adapters
 - support for more than one AI client
+
+## Quick Operator Rules
+
+Use this README for the canonical surface.
+Use the supporting docs when you need the deeper rationale:
+- `BUILD_AUTOMATION.md` for lane selection and build-policy rules
+- `COMPARISON.md` for backend selection rules
+- `Reports/2026-05-11_operator_and_backend_lessons.md` for distilled operator lessons
+
+Default operating rules:
+
+1. Use interactive MCP for:
+   - editor status
+   - capability and health probes
+   - scene inspection
+   - compile validation
+   - bounded smoke flows
+   - play mode and Game View control
+2. Use batch helpers for:
+   - artifact builds
+   - long-running export flows
+   - deterministic closed-project compile or EditMode validation
+3. For build-sensitive questions, trust:
+   - process exit
+   - generated artifact and generated manifest/plist output
+   - compact build summary artifacts
+   over source-only reasoning
+4. Prefer backends that produce trustworthy final validation accounting over backends that merely expose more tools
 
 ## Files
 
@@ -446,6 +477,12 @@ Optional Unity project scaffold:
 
 ## Safety Notes
 
+- operator lane-selection and build-evidence rules are defined in:
+  - `BUILD_AUTOMATION.md`
+- backend-comparison and validation-trust rules are defined in:
+  - `COMPARISON.md`
+- distilled public lessons from earlier evaluation and onboarding work live in:
+  - `Reports/2026-05-11_operator_and_backend_lessons.md`
 - the init script does not install a Codex MCP config block by default
 - the current external server implements a minimal stdio MCP layer, but should still be treated as early-stage
 - client config templates are still intentionally conservative
@@ -501,6 +538,15 @@ What this does:
 
 The host-side wrapper now treats some operations as lifecycle-sensitive instead of fire-and-forget.
 
+Keep one operating distinction explicit:
+
+- the interactive lane is the control plane for editor-aware work
+- the batch lane is the data plane for long-running artifact production
+
+Do not treat `unity.scenario.run` as the primary correctness waiter for
+artifact builds. Use batch helpers when success should be judged by process exit
+and generated outputs rather than transport survival.
+
 Current behavior:
 - `unity.project.refresh`
 - `unity.compile.player_scripts`
@@ -526,6 +572,12 @@ For compile-only and EditMode-test-only validation, the public host layer now al
 That batch lane is intentionally narrower than `interactive_mcp`:
 - valid for compile and deterministic EditMode test claims
 - not valid for Play Mode, Game View, scene-state inspection, or interactive smoke
+
+Operational note:
+- the scenario lane is intentionally serialized
+- if a workflow needs parallel long-running work or transport-independent build
+  closeout proof, move it to batch helpers instead of stacking more waiting
+  logic onto scenarios
 
 Bridge state now exposes additional lifecycle fields under `bridge-state` and `unity.status`:
 - `bridge_session_id`

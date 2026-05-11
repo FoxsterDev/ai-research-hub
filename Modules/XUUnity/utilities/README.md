@@ -103,6 +103,18 @@ Files:
 - `knowledge/review_quality_scoring.md`
 - `utilities/review_scoring_output_template.md`
 
+### Protocol Consistency Check
+Use when the user wants a cleanup pass after changing shared `xuunity` prompts so canonical owners, field names, and output schemas do not drift.
+
+Flow:
+1. `protocol_consistency_checklist.md`
+2. targeted prompt cleanup in the touched `knowledge/`, `tasks/`, or `reviews/` files
+3. optional `knowledge_integration.md` if the pass also promotes newly extracted doctrine
+
+Short commands:
+- `xuunity system protocol consistency check`
+- `xuunity system prompt cleanup review`
+
 ### Knowledge Intake Review
 Use when the user wants one command that evaluates whether new knowledge is worth integrating at all.
 

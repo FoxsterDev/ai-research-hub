@@ -56,7 +56,13 @@ Convert an accepted feature request into the safest implementation shape before 
    - duplicated rewards or duplicated side effects
    - navigation regressions
    - platform-specific breakage
-7. Decide the next planning step:
+7. Define the validation contract early when it affects the design shape:
+   - primary validation lane, or `none` if still genuinely undecided
+   - secondary validation lane, or `none`
+   - lane selection reason, or `none`
+   - expected evidence class
+   - validation gaps
+8. Decide the next planning step:
    - `implementation_plan.md` if the design shape is defendable
    - `project_memory_freshness.md` if stale memory blocks safe design decisions
    - `project_health_audit.md` if project context is too weak for dependable planning
@@ -70,6 +76,12 @@ Convert an accepted feature request into the safest implementation shape before 
 - Critical flows touched
 - Dependencies and prerequisites
 - Main failure modes to guard against
+- Validation contract:
+  - `primary_validation_lane`
+  - `secondary_validation_lane`
+  - `lane_selection_reason`
+  - `expected_evidence_class`
+  - `validation_gaps`
 - Open questions
 - Recommended next protocol step
 
@@ -80,4 +92,8 @@ Convert an accepted feature request into the safest implementation shape before 
 - Keep shared versus project-local boundaries explicit.
 - If code and memory disagree about current ownership, trust code for current behavior and note the memory drift.
 - If the change touches critical flows, make the risk visible now instead of deferring it to implementation.
+- If the design implies a specific proof surface, make that visible now as part of the validation contract instead of deferring all validation-lane thinking to implementation.
+- Use the exact validation-contract field names from `knowledge/validation_contract.md`.
+- Do not hide unresolved lane choice behind vague wording such as `probably` or `later`; use `none` explicitly when the design stage still cannot justify a lane.
+- If the feature is likely to depend on generated build outputs, manifest or plist mutation, or other build-sensitive evidence, call that out in the design brief.
 - If the main uncertainty is long-term boundary or ownership design, step back to architecture planning.

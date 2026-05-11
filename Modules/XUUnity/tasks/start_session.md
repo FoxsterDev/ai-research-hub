@@ -64,6 +64,11 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
   - `matched_skills`
   - `matched_policy_packs`
   - `trigger_reasons`
+  - `primary_validation_lane`
+  - `secondary_validation_lane`
+  - `lane_selection_reason`
+  - `expected_evidence_class`
+  - `validation_gaps`
   - `required_validation`
   - `required_self_review`
 20c. Keep the execution contract short and concrete. Use `none` when a field is intentionally empty instead of omitting it.
@@ -82,10 +87,13 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
   - `interactive_mcp`
   - `batch_compile`
   - `scenario`
-24b. Use `interactive_mcp` for editor-state, console, scene, Game View, play mode, integrated test, or integrated compile evidence, and prefer it as the default first lane whenever the project has a supported Unity MCP path.
-24c. Use `batch_compile` for non-interactive compile, define-matrix, build-target, or narrow deterministic test evidence. When Unity MCP is available for the project, prefer the MCP compile lane over shell compile or direct Unity CLI.
-24d. Use `scenario` when the proof depends on ordered runtime steps, waits, play mode transitions, screenshots, or project-defined validation hooks.
-24e. If no permitted lane can produce representative evidence for the claim, keep the validation gap explicit instead of silently substituting a weaker lane.
+24b. Use `knowledge/validation_lanes.md` and `knowledge/unity_validation_boundaries.md` as the canonical lane and evidence doctrine instead of re-deriving lane rules ad hoc inside the session.
+24c. Keep the session-level lane reminder compact:
+  - `interactive_mcp` for integrated editor evidence
+  - `batch_compile` for compile, matrix, and approved build-sensitive artifact proof
+  - `scenario` for ordered runtime evidence
+24d. Set the validation-contract fields using the exact schema from `knowledge/validation_contract.md`.
+24e. If no permitted lane can produce representative evidence, or if the chosen lane cannot provide trustworthy final accounting, keep the validation gap explicit instead of silently weakening the proof target.
 24f. When opening Unity for MCP-backed validation, resolve the Unity editor version from the target project's `ProjectSettings/ProjectVersion.txt` instead of defaulting to the latest installed editor.
 25. Before emitting a clickable local file link, verify the exact absolute path that exists in the active workspace.
 26. If the exact absolute path is not verified, prefer plain text paths over markdown file links.
@@ -121,6 +129,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
 - Load `knowledge/validation_lanes.md` when validation strategy depends on choosing between integrated editor tooling, batch compile automation, or ordered scenario automation.
 - Load `knowledge/unity_validation_boundaries.md` when validation strategy depends on MCP versus direct Unity CLI, representative Unity-aware evidence, build-config-backed define matrices, or whether shell compile is only a partial signal.
+- Load `knowledge/validation_contract.md` when the task must produce or update a stable validation schema across session routing, planning, implementation, or review.
 - Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, UI-heavy, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
@@ -215,10 +224,14 @@ If the active repo router, project router, or project registry declares a differ
   - `matched_policy_packs`
   - `trigger_reasons`
   - `primary_validation_lane`
+  - `secondary_validation_lane`
+  - `lane_selection_reason`
+  - `expected_evidence_class`
+  - `validation_gaps`
   - `required_validation`
   - `required_self_review`
 - `required_validation` should name the narrowest representative proof currently required, such as affected assembly compile, representative build target, explicit runtime validation gap, or a review-only limitation.
-- `primary_validation_lane` should name the lane that is expected to produce that proof, such as `interactive_mcp`, `batch_compile`, or `scenario`.
+- The validation-contract fields should use the exact schema from `knowledge/validation_contract.md`.
 - When a supported Unity MCP path exists for the project, prefer `interactive_mcp` or MCP-backed `batch_compile` over non-MCP substitutes.
 - For `tasks/bug_fixing.md`, update `required_validation` after patch-shape classification so it reflects patch shape and bug family rather than generic session risk alone.
 - `required_self_review` should say what must still be re-checked before closure, such as hidden behavior drift, queue cleanup, ownership fallout, or contract fallout from moved call paths.
@@ -628,14 +641,19 @@ Use these utilities when the task is about the protocol system itself:
 - Selected stack
 - Inferred risk class, if any
 - Derived execution contract:
-  - resolved project
-  - primary task
-  - overlay tasks
-  - matched skill packs
-  - matched policy packs
-  - trigger reasons
-  - required validation
-  - required self-review
+  - `resolved_project`
+  - `primary_task`
+  - `overlay_tasks`
+  - `matched_skills`
+  - `matched_policy_packs`
+  - `trigger_reasons`
+  - `primary_validation_lane`
+  - `secondary_validation_lane`
+  - `lane_selection_reason`
+  - `expected_evidence_class`
+  - `validation_gaps`
+  - `required_validation`
+  - `required_self_review`
 - Missing project memory, if any
 - Main risk areas for the session
 - Critical flows that must not regress

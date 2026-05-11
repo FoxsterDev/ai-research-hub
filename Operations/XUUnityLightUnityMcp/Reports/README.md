@@ -30,6 +30,7 @@ Use these reports when:
 - `2026-05-08_playmode_recovery_timeout_and_fault_suite_hardening_plan.md`
 - `2026-05-09_multi_project_architecture_working_design.md`
 - `2026-05-09_cleanup_and_regression_lessons.md`
+- `2026-05-11_operator_and_backend_lessons.md`
 
 ## Canonical Supporting Docs
 

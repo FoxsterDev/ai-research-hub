@@ -128,6 +128,48 @@ That is a strength when the real need is:
 - inspect scene/editor state
 - recover cleanly from bridge churn without collapsing transport failure into Unity operation failure
 
+## Backend Selection Rules
+
+Use these rules when comparing the lightweight path against other Unity MCP
+backends.
+
+### 1. Prefer trustworthy final accounting over broad feature claims
+
+A backend is a stronger default validation path when it can:
+- open the intended project predictably
+- expose a stable ready state
+- run tests
+- report correct final totals and pass/fail accounting
+
+If it can launch work but cannot report trustworthy final accounting, treat that
+as a validation reliability weakness, not as a cosmetic issue.
+
+### 2. Count operator friction as part of the backend cost
+
+The following should count against a default path:
+- token requirements for local-only setup
+- hidden runtime downloads
+- implicit network behavior during first startup
+- multi-stage setup flows that are hard to automate deterministically
+
+The backend may still be powerful, but a conservative same-host default should
+prefer explainable operator behavior.
+
+### 3. Separate extensibility wins from validation wins
+
+Some backends are better for:
+- custom tool registration
+- broad extension experiments
+- thin adapter prototyping
+
+Others are better for:
+- repeatable install/open/wait/test loops
+- validation-first local workflows
+- compact operator commands
+
+Do not assume the backend with the best extensibility story is also the right
+default validation backend.
+
 ## Main Disadvantages Of The Lightweight MCP
 
 ### 1. Smaller raw tool surface
@@ -184,10 +226,13 @@ Pros:
 - broad tool and resource surface
 - strong operational maturity
 - good extensibility story
+- stronger direct signal for custom-tool style extension experiments
 
 Cons:
 - larger power surface than needed for a conservative default
 - weaker built-in gating/trust boundary for risky operations
+- hands-on evaluation showed weaker final test-accounting trust than the
+  strongest validation-first path
 
 ### IvanMurzak/Unity-MCP
 
@@ -195,11 +240,13 @@ Pros:
 - very broad capability set
 - strong custom extension path
 - strong CLI/operator flow
+- stronger hands-on signal for repeatable open/wait/test loops
 
 Cons:
 - heavy dependency and runtime footprint
 - larger blast radius
 - broader than needed for the base workflow
+- local-only bootstrap and runtime behavior can still introduce operator friction
 
 ### CoderGamester/mcp-unity
 
