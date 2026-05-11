@@ -65,6 +65,9 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `reviews/policy_packs/sdk_changes.md`
 - `reviews/policy_packs/startup_changes.md`
 - `reviews/policy_packs/manifest_native_changes.md`
+- `reviews/policy_packs/monetization_changes.md`
+- `reviews/policy_packs/save_load_changes.md`
+- `reviews/policy_packs/ui_heavy_changes.md`
 
 ## Utility Coverage
 - `utilities/README.md`
@@ -143,10 +146,13 @@ Load them only when `tasks/start_session.md` or a narrower review or utility fil
 ## Risk Routing
 `XUUnity` can strengthen the stack for risky work without turning every task into a broad review bundle.
 
-The initial shared policy-pack surface is:
+The current shared policy-pack surface is:
 - `reviews/policy_packs/sdk_changes.md`
 - `reviews/policy_packs/startup_changes.md`
 - `reviews/policy_packs/manifest_native_changes.md`
+- `reviews/policy_packs/monetization_changes.md`
+- `reviews/policy_packs/save_load_changes.md`
+- `reviews/policy_packs/ui_heavy_changes.md`
 
 These policy packs are review-routing overlays.
 They compose existing `reviews/`, `skills/`, `knowledge/`, and `platforms/` files.
