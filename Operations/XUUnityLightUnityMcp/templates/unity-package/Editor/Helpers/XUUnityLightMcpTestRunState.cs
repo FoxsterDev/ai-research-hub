@@ -252,10 +252,14 @@ namespace XUUnity.LightMcp.Editor.Helpers
         {
             if (state == null
                 || string.IsNullOrWhiteSpace(state.request_id)
-                || !string.Equals(state.response_handoff_state, "pending", StringComparison.Ordinal)
-                || !string.IsNullOrWhiteSpace(state.completed_at_utc))
+                || string.Equals(state.response_handoff_state, "written", StringComparison.Ordinal))
             {
                 return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.completed_at_utc))
+            {
+                return true;
             }
 
             try

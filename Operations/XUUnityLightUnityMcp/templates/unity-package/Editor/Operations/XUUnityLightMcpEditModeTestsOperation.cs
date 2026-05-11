@@ -54,6 +54,17 @@ namespace XUUnity.LightMcp.Editor.Operations
             {
                 if (!string.IsNullOrWhiteSpace(ActiveRequestId))
                 {
+                    if (!XUUnityLightMcpTestRunState.TryRestoreActiveForOperation(OperationName, out var activeState)
+                        || activeState == null
+                        || !string.Equals(activeState.request_id, ActiveRequestId, StringComparison.Ordinal))
+                    {
+                        ActiveRequestId = null;
+                        Callbacks?.Clear();
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(ActiveRequestId))
+                {
                     return XUUnityLightMcpResponseWriter.Error(
                         request.request_id,
                         "tests_busy",
