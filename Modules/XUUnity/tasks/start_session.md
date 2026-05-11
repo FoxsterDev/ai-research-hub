@@ -15,7 +15,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 2. Detect whether the user requested a specific role.
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
-3b. If the task touches SDK initialization, consent sequencing, attribution identity, ad revenue reporting, startup ownership, or third-party wrapper code, require root-cause tracing before proposing a source-level fix.
+3b. If the task touches SDK initialization, consent sequencing, attribution identity, ad revenue reporting, reward integrity, startup ownership, or third-party wrapper code, require root-cause tracing before proposing a source-level fix.
 3c. If investigation or the patch plan shows that a bug-fix task will move ownership between layers or introduce non-trivial state orchestration such as queues, flush paths, cache fallbacks, helper wrappers, or duplicated triggers, keep `tasks/bug_fixing.md` as the primary task but also load `tasks/refactoring.md` as a behavior-preserving overlay.
 4. Decide whether the task needs one role or a small role group.
 5. Select the primary role file and only the minimum useful supporting role files.
@@ -121,7 +121,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
 - Load `knowledge/validation_lanes.md` when validation strategy depends on choosing between integrated editor tooling, batch compile automation, or ordered scenario automation.
 - Load `knowledge/unity_validation_boundaries.md` when validation strategy depends on MCP versus direct Unity CLI, representative Unity-aware evidence, build-config-backed define matrices, or whether shell compile is only a partial signal.
-- Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, or other critical-flow-sensitive work.
+- Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, UI-heavy, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
@@ -137,6 +137,9 @@ If the active repo router, project router, or project registry declares a differ
   - `reviews/policy_packs/sdk_changes.md`
   - `reviews/policy_packs/startup_changes.md`
   - `reviews/policy_packs/manifest_native_changes.md`
+  - `reviews/policy_packs/monetization_changes.md`
+  - `reviews/policy_packs/save_load_changes.md`
+  - `reviews/policy_packs/ui_heavy_changes.md`
 - If more than one family clearly matches, keep one primary pack and load only the extra overlays the second family contributes.
 - Use `knowledge/risk_classification.md` to infer:
   - `low`
@@ -152,10 +155,13 @@ If the active repo router, project router, or project registry declares a differ
   - SDK wrapper, version, connector, or vendor-boundary change -> `reviews/policy_packs/sdk_changes.md`
   - startup sequence, first interactive flow, or startup-blocking consent/init change -> `reviews/policy_packs/startup_changes.md`
   - manifest, plist, entitlement, privacy-manifest, JNI, or native bridge contract change -> `reviews/policy_packs/manifest_native_changes.md`
+  - ads, rewarded flows, reward grants, purchase-adjacent monetization hooks, ad revenue callbacks, or monetization rollout/config changes -> `reviews/policy_packs/monetization_changes.md`
+  - save/load, persistence ownership, serialization boundary, migration, startup restore, cache/local/remote merge, stale-write, or destructive reset changes -> `reviews/policy_packs/save_load_changes.md`
+  - long-lived screens, popup or modal flows, first-visible state, async UI gating, duplicate open/close, lifecycle re-entry, or view-versus-backing-state ownership changes -> `reviews/policy_packs/ui_heavy_changes.md`
 
 ## Critical Bug Escalation Rules
-- Do not keep a bug on generic `tasks/bug_fixing.md` only when the request touches SDK startup, consent sequencing, attribution identity, ad revenue reporting, or third-party wrappers.
-- Automatically escalate a bug-fix task into SDK-sensitive and startup-sensitive routing when the request, code paths, or referenced files mention signals such as:
+- Do not keep a bug on generic `tasks/bug_fixing.md` only when the request touches SDK startup, consent sequencing, attribution identity, ad revenue reporting, reward integrity, ads, purchase-adjacent monetization, or third-party wrappers.
+- Automatically escalate a bug-fix task into matched SDK-sensitive, startup-sensitive, and/or monetization-sensitive routing when the request, code paths, or referenced files mention signals such as:
   - `AppsFlyer`
   - `Firebase`
   - `OneSignal`
@@ -163,6 +169,13 @@ If the active repo router, project router, or project registry declares a differ
   - `setCustomerUserId`
   - `af_ad_revenue`
   - `logAdRevenue`
+  - `rewarded`
+  - `RewardedAd`
+  - `interstitial`
+  - `no-fill`
+  - `reward grant`
+  - `IAP`
+  - `purchase`
   - `initSDK`
   - `startSDK`
   - `consent`
@@ -171,6 +184,7 @@ If the active repo router, project router, or project registry declares a differ
 - For these signals, add the minimum relevant stack from:
   - `reviews/policy_packs/sdk_changes.md`
   - `reviews/policy_packs/startup_changes.md`
+  - `reviews/policy_packs/monetization_changes.md` when ads, rewards, purchase-adjacent hooks, ad revenue callbacks, or monetization rollout behavior are the main breakage surface
   - `skills/sdk/`
   - `skills/async/`
   - `skills/mobile/startup.md`
@@ -179,12 +193,13 @@ If the active repo router, project router, or project registry declares a differ
 - If investigation or the patch plan shows that the fix also includes moving code across layers, merging duplicated orchestration, or introducing state machinery such as queues, flushes, or cache-backed fallback behavior, also load `tasks/refactoring.md` as an overlay so the final patch is simplified after it works.
 
 ## Root Cause Before Patch
-- For SDK, startup, consent, attribution, identity-bound, and ad-revenue bugs, do not propose or implement a callsite-only fix before tracing the full ownership path.
+- For SDK, startup, consent, attribution, identity-bound, ad-revenue, and reward-integrity bugs, do not propose or implement a callsite-only fix before tracing the full ownership path.
 - Trace at minimum:
   - the user-visible symptom
   - the wrapper or adapter that emits the event
   - the startup or consent owner that initializes the SDK
   - the identity owner for user or customer ids
+  - the reward, entitlement, or revenue owner when monetization correctness is involved
   - any queueing, delay, or retry path between initialization and delivery
 - If the reported symptom is a missing or empty field on an SDK event, inspect where that field is owned and when the event can be emitted relative to consent, startup readiness, and identity assignment.
 - Prefer ownership and sequencing fixes over payload-only patching when the bug touches startup, consent, async delivery, or SDK state.
@@ -258,6 +273,9 @@ Interpret short commands by intent:
     - `reviews/policy_packs/sdk_changes.md`
     - `reviews/policy_packs/startup_changes.md`
     - `reviews/policy_packs/manifest_native_changes.md`
+    - `reviews/policy_packs/monetization_changes.md`
+    - `reviews/policy_packs/save_load_changes.md`
+    - `reviews/policy_packs/ui_heavy_changes.md`
   - prefer one aggregate report with canonical merged findings unless the user explicitly asks for per-protocol reports
 - `xuunity review ...` -> `tasks/code_review.md`
 - `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build or review

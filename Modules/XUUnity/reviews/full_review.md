@@ -41,6 +41,9 @@ Use:
 - `sdk_sensitive`
 - `startup_sensitive`
 - `manifest_native_sensitive`
+- `monetization_sensitive`
+- `save_load_sensitive`
+- `ui_heavy_sensitive`
 - `core_flow_sensitive`
 - `release_sensitive`
 
@@ -56,6 +59,9 @@ Activate:
 - `reviews/policy_packs/sdk_changes.md` when `sdk_sensitive` is active
 - `reviews/policy_packs/startup_changes.md` when `startup_sensitive` is active
 - `reviews/policy_packs/manifest_native_changes.md` when `manifest_native_sensitive` is active
+- `reviews/policy_packs/monetization_changes.md` when `monetization_sensitive` is active
+- `reviews/policy_packs/save_load_changes.md` when `save_load_sensitive` is active
+- `reviews/policy_packs/ui_heavy_changes.md` when `ui_heavy_sensitive` is active
 
 Policy-pack rules:
 - use the packs to strengthen stack assembly and validation expectations
@@ -65,7 +71,7 @@ Policy-pack rules:
 
 If no policy pack is active:
 - state that explicitly
-- explain why the target does not justify SDK, startup, or manifest-native escalation
+- explain why the target does not justify SDK, startup, manifest-native, monetization, save/load, or UI-heavy escalation
 
 ## Review Assembly Rules
 Full review means all relevant review protocols for the target, not blind loading of every review file.
