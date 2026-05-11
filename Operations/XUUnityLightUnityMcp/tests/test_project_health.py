@@ -117,6 +117,8 @@ class ProjectHealthTests(unittest.TestCase):
 
         self.assertEqual("interactive_compile_block_detected", diagnosis["code"])
         self.assertEqual("error", diagnosis["severity"])
+        self.assertEqual("tail_fallback", diagnosis["scope"]["source"])
+        self.assertTrue(diagnosis["scope"]["fallback_used"])
 
     def test_build_editor_log_diagnosis_detects_lifecycle_activity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -135,6 +137,26 @@ class ProjectHealthTests(unittest.TestCase):
 
         self.assertEqual("lifecycle_activity_observed", diagnosis["code"])
         self.assertEqual("info", diagnosis["severity"])
+
+    def test_build_editor_log_diagnosis_uses_session_scope_when_offset_is_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            log_path = Path(tmp_dir) / "scoped_compile_blocker.log"
+            prefix = "old stale line\n"
+            scoped = "Assets/Foo.cs(12,3): error CS1002: ; expected\n"
+            log_path.write_text(prefix + scoped, encoding="utf-8")
+
+            diagnosis = build_editor_log_diagnosis(
+                log_path,
+                startup_policy="fail_fast_on_interactive_compile_block",
+                classify_editor_log=classify_editor_log,
+                session_start_offset_bytes=len(prefix),
+                session_start_mtime=log_path.stat().st_mtime,
+            )
+
+        self.assertEqual("interactive_compile_block_detected", diagnosis["code"])
+        self.assertEqual("host_opened_editor_session", diagnosis["scope"]["source"])
+        self.assertFalse(diagnosis["scope"]["fallback_used"])
+        self.assertEqual(len(prefix), diagnosis["scope"]["start_offset_bytes"])
 
 
 if __name__ == "__main__":

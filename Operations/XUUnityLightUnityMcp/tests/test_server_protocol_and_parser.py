@@ -40,6 +40,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                 "request-compile",
                 "request-editmode-tests",
                 "ensure-ready",
+                "recover-editor-session",
                 "batch-compile",
                 "maintenance-prune",
             }.issubset(choices)
@@ -168,7 +169,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                         "reconciliation_case": "stale_bridge_state",
                         "reconciliation_status": "offline",
                         "reconciliation_reason": "bridge_state_present_but_editor_pid_not_alive",
-                        "reconciliation_recommended_next_action": "open_editor_or_ensure_ready",
+                        "reconciliation_recommended_next_action": "recover_editor_session",
                         "detected_editor_count": 0,
                         "detected_editor_pids": [],
                         "bridge_state_live": False,
@@ -199,7 +200,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertFalse(result["isError"])
         self.assertEqual("stale_bridge_state", result["structuredContent"]["reconciliation_case"])
         self.assertEqual("offline", result["structuredContent"]["reconciliation_status"])
-        self.assertEqual("open_editor_or_ensure_ready", result["structuredContent"]["reconciliation_recommended_next_action"])
+        self.assertEqual("recover_editor_session", result["structuredContent"]["reconciliation_recommended_next_action"])
 
     def test_tools_call_scenario_result_summary_falls_back_to_discovery_when_editor_is_offline(self) -> None:
         with (
@@ -224,7 +225,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                         "reconciliation_case": "stale_bridge_state",
                         "reconciliation_status": "offline",
                         "reconciliation_reason": "bridge_state_present_but_editor_pid_not_alive",
-                        "reconciliation_recommended_next_action": "open_editor_or_ensure_ready",
+                        "reconciliation_recommended_next_action": "recover_editor_session",
                         "detected_editor_count": 0,
                         "detected_editor_pids": [],
                     },
@@ -252,7 +253,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertFalse(result["isError"])
         self.assertEqual("offline", result["structuredContent"]["status"])
         self.assertEqual("stale_bridge_state", result["structuredContent"]["reconciliation_case"])
-        self.assertEqual("open_editor_or_ensure_ready", result["structuredContent"]["recommended_next_action"])
+        self.assertEqual("recover_editor_session", result["structuredContent"]["recommended_next_action"])
         self.assertEqual("editor_not_running", result["structuredContent"]["offline_error_code"])
 
     def test_initialize_returns_protocol_version(self) -> None:

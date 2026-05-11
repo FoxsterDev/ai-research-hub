@@ -65,6 +65,7 @@ from server_editor_host import (
     build_batch_validation_command,
     build_plain_batch_build_command,
     classify_editor_log,
+    clear_stale_bridge_state,
     clear_stale_project_lock,
     default_batch_build_log_path,
     default_batch_operation_log_path,
@@ -178,11 +179,20 @@ def _build_project_health_details(
         or "fail_fast_on_interactive_compile_block"
     )
     heartbeat_age = heartbeat_age_seconds(bridge_state) if bridge_state else None
+    has_active_editor_context = bool(
+        discovery.get("bridge_state_live")
+        or discovery.get("host_session_live")
+        or int(discovery.get("detected_editor_count") or 0) > 0
+        or bool(host_editor_session_state.get("opened_by_host"))
+    )
     needs_log_diagnosis = bool(
-        not discovery.get("bridge_state_live")
-        or (
-            heartbeat_age is not None
-            and heartbeat_age >= FRESH_HEARTBEAT_MAX_AGE_SECONDS
+        has_active_editor_context
+        and (
+            not discovery.get("bridge_state_live")
+            or (
+                heartbeat_age is not None
+                and heartbeat_age >= FRESH_HEARTBEAT_MAX_AGE_SECONDS
+            )
         )
     )
     editor_log_diagnosis = (
@@ -190,6 +200,8 @@ def _build_project_health_details(
             default_editor_log_path(project_root),
             startup_policy=startup_policy,
             classify_editor_log=classify_editor_log,
+            session_start_offset_bytes=host_editor_session_state.get("log_session_start_offset_bytes"),
+            session_start_mtime=host_editor_session_state.get("log_session_start_mtime"),
         )
         if needs_log_diagnosis
         else {}
@@ -341,6 +353,7 @@ def build_project_discovery_report(project_root: Path) -> dict[str, Any]:
 RECOVERY_RECONCILIATION_ACTIONS = frozenset(
     {
         "ensure_ready_or_recover_bridge",
+        "recover_editor_session",
         "open_editor_or_ensure_ready",
         "start_or_recover_editor",
         "clear_stale_host_session_and_retry",
@@ -389,6 +402,7 @@ DISCOVERY_NEXT_ACTION_COMMANDS = {
     "enable_bridge_and_retry": "init_xuunity_light_unity_mcp.sh --project-root {project_root} --enable-project",
     "open_editor_or_ensure_ready": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
     "ensure_ready_or_recover_bridge": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
+    "recover_editor_session": "xuunity_light_unity_mcp.sh recover-editor-session --project-root {project_root} --timeout-ms 180000",
     "start_or_recover_editor": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
     "clear_stale_host_session_and_retry": "xuunity_light_unity_mcp.sh restore-editor-state --project-root {project_root} --timeout-ms 15000",
     "refresh_host_session_if_needed": "xuunity_light_unity_mcp.sh request-status-summary --project-root {project_root} --timeout-ms 5000",
@@ -601,6 +615,193 @@ def build_discovery_status_summary_for_error(
         build_status_summary_from_context=build_status_summary_from_context,
         enrich_error_details_with_discovery=enrich_error_details_with_discovery,
     )
+
+
+def run_batch_build_config_compile_matrix_probe(
+    project_root: Path,
+    *,
+    timeout_ms: int,
+) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        __file__,
+        "batch-build-config-compile-matrix",
+        "--project-root",
+        str(project_root),
+    ]
+    completed = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    stdout = str(completed.stdout or "").strip()
+    stderr = str(completed.stderr or "").strip()
+    payload: dict[str, Any] = {
+        "action": "batch_build_config_compile_matrix_probe",
+        "command": command,
+        "batch_exit_code": completed.returncode,
+        "timeout_ms": timeout_ms,
+    }
+
+    if stdout:
+        try:
+            payload["batch_probe"] = json.loads(stdout)
+        except json.JSONDecodeError:
+            payload["batch_probe_stdout"] = truncate_text(stdout, 1200)
+    if stderr:
+        payload["batch_probe_stderr"] = truncate_text(stderr, 1200)
+
+    batch_probe = payload.get("batch_probe")
+    if isinstance(batch_probe, dict):
+        payload["succeeded"] = bool(batch_probe.get("succeeded"))
+        payload["summary_file"] = str(batch_probe.get("summary_file") or "")
+        payload["result_file"] = str(batch_probe.get("result_file") or "")
+        payload["log_path"] = str(batch_probe.get("log_path") or "")
+        result_summary = batch_probe.get("result_summary")
+        if isinstance(result_summary, dict):
+            payload["compile_gate_summary"] = result_summary
+            payload["top_actionable_error"] = str(result_summary.get("top_actionable_error") or "")
+    else:
+        payload["succeeded"] = completed.returncode == 0
+
+    return payload
+
+
+def run_self_json_command(args: list[str]) -> tuple[dict[str, Any] | None, subprocess.CompletedProcess[str]]:
+    completed = subprocess.run(
+        [sys.executable, __file__, *args],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    payload: dict[str, Any] | None = None
+    stdout = str(completed.stdout or "").strip()
+    if stdout:
+        try:
+            parsed = json.loads(stdout)
+            if isinstance(parsed, dict):
+                payload = parsed
+        except json.JSONDecodeError:
+            payload = None
+    return payload, completed
+
+
+def cmd_recover_editor_session(args):
+    project_root = ensure_project_root(args.project_root)
+    refresh_project_context(project_root)
+    initial_discovery = build_project_discovery_report(project_root)
+
+    payload: dict[str, Any] = {
+        "action": "recover_editor_session",
+        "project_root": str(project_root),
+        "dialog_policy": "observe_only",
+        "recovery_classification": "inspection_only",
+        "initial_discovery": initial_discovery,
+        "closeout_attempted": False,
+        "compile_probe_attempted": False,
+    }
+
+    host_session_state = current_project_context_host_session_state(project_root)
+    if bool(host_session_state.get("opened_by_host")):
+        payload["closeout_attempted"] = True
+        closeout = restore_host_opened_editor_state(project_root, args.close_timeout_ms, request_editor_quit)
+        payload["closeout"] = closeout
+        refresh_project_context(project_root)
+        if not bool(closeout.get("closeout_verified")):
+            payload["recovery_classification"] = "closeout_incomplete"
+            payload["recovery_recommended_next_action"] = str(
+                closeout.get("recommended_next_action")
+                or "manual_editor_close"
+            )
+            payload["recommended_recovery_command"] = str(closeout.get("recommended_recovery_command") or "")
+            payload["discovery_after_recovery"] = build_project_discovery_report(project_root)
+            print_json(payload)
+            raise SystemExit(1)
+
+    refresh_project_context(project_root)
+    discovery_after_closeout = build_project_discovery_report(project_root)
+    payload["discovery_after_closeout"] = discovery_after_closeout
+
+    detected_editor_pids = list(discovery_after_closeout.get("detected_editor_pids") or [])
+    if (
+        not detected_editor_pids
+        and str(discovery_after_closeout.get("reconciliation_case") or "") in {"stale_bridge_state", "stale_bridge_and_host_session"}
+    ):
+        payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
+        refresh_project_context(project_root)
+        discovery_after_closeout = build_project_discovery_report(project_root)
+        payload["discovery_after_closeout"] = discovery_after_closeout
+
+    diagnosis = dict(discovery_after_closeout.get("editor_log_diagnosis") or {})
+    diagnosis_code = str(diagnosis.get("code") or "")
+    compile_block_detected = diagnosis_code in {
+        "interactive_compile_block_detected",
+        "safe_mode_manual_required",
+        "package_resolution_failed",
+    }
+
+    if compile_block_detected or bool(args.force_compile_probe):
+        payload["compile_probe_attempted"] = True
+        compile_probe = run_batch_build_config_compile_matrix_probe(
+            project_root,
+            timeout_ms=args.timeout_ms,
+        )
+        payload["compile_probe"] = compile_probe
+        if not bool(compile_probe.get("succeeded")):
+            payload["recovery_classification"] = "compile_red_confirmed"
+            payload["recovery_recommended_next_action"] = "fix_compile_errors_before_gui_reopen"
+            payload["recommended_recovery_command"] = "xuunity_light_unity_mcp.sh project-discovery-report --project-root {project_root}".format(
+                project_root=str(project_root)
+            )
+            payload["reopen_blocked"] = True
+            payload["reopen_block_reason"] = "compile_red_after_batch_restore"
+            payload["discovery_after_recovery"] = build_project_discovery_report(project_root)
+            print_json(payload)
+            raise SystemExit(1)
+
+    if args.open_editor:
+        ensure_payload, ensure_completed = run_self_json_command(
+            [
+                "ensure-ready",
+                "--project-root",
+                str(project_root),
+                "--open-editor",
+                "--timeout-ms",
+                str(args.timeout_ms),
+                "--heartbeat-max-age-seconds",
+                str(args.heartbeat_max_age_seconds),
+                "--startup-policy",
+                str(args.startup_policy),
+            ]
+        )
+        payload["ensure_ready"] = ensure_payload or {}
+        if ensure_completed.returncode != 0:
+            payload["recovery_classification"] = "reopen_failed"
+            error_payload = dict((ensure_payload or {}).get("error") or {})
+            details = dict(error_payload.get("details") or {})
+            payload["recovery_recommended_next_action"] = str(
+                details.get("recommended_next_action")
+                or "inspect_editor_log"
+            )
+            payload["recommended_recovery_command"] = str(
+                details.get("recommended_recovery_command")
+                or recommended_recovery_command_for_project(project_root, payload["recovery_recommended_next_action"])
+            )
+            payload["reopen_error"] = {
+                "code": str(error_payload.get("code") or "ensure_ready_failed"),
+                "message": str(error_payload.get("message") or truncate_text(ensure_completed.stderr or "", 400)),
+                "details": details,
+            }
+            payload["discovery_after_recovery"] = build_project_discovery_report(project_root)
+            print_json(payload)
+            raise SystemExit(1)
+
+    payload["recovery_classification"] = "recovered"
+    payload["recovery_recommended_next_action"] = "none"
+    payload["discovery_after_recovery"] = build_project_discovery_report(project_root)
+    print_json(payload)
 
 
 def apply_discovery_to_final_status_summary(
@@ -1686,6 +1887,7 @@ def run_batch_operation(
     )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["result_summary"] = result_summary
+    payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
     if "top_actionable_error" in result_summary:
         payload["top_actionable_error"] = result_summary["top_actionable_error"]
 
@@ -2540,6 +2742,7 @@ def cmd_restore_editor_state(args):
     project_root = ensure_project_root(args.project_root)
     payload = restore_host_opened_editor_state(project_root, args.timeout_ms, request_editor_quit)
     refresh_project_context(project_root)
+    payload["post_close_discovery"] = build_project_discovery_report(project_root)
     if bool(payload.get("host_opened_session_found")) and not bool(payload.get("closeout_verified")):
         closeout_classification = str(payload.get("closeout_classification") or "restore_editor_state_incomplete")
         recommended_next_action = str(payload.get("recommended_next_action") or "inspect_project_editor_processes")
@@ -3107,6 +3310,7 @@ def cmd_batch_build_player(args):
     )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["build_result_summary"] = result_summary
+    payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
     if "top_actionable_error" in result_summary:
         payload["top_actionable_error"] = result_summary["top_actionable_error"]
 
@@ -3334,6 +3538,23 @@ def build_parser():
     restore_editor_cmd.add_argument("--project-root", required=True)
     restore_editor_cmd.add_argument("--timeout-ms", type=int, default=15000)
     restore_editor_cmd.set_defaults(func=cmd_restore_editor_state)
+
+    recover_editor_cmd = sub.add_parser(
+        "recover-editor-session",
+        help="Attempt host-side editor closeout recovery, optional batch compile probe, and optional GUI reopen for the target project.",
+    )
+    recover_editor_cmd.add_argument("--project-root", required=True)
+    recover_editor_cmd.add_argument("--timeout-ms", type=int, default=180000)
+    recover_editor_cmd.add_argument("--close-timeout-ms", type=int, default=45000)
+    recover_editor_cmd.add_argument("--open-editor", action="store_true")
+    recover_editor_cmd.add_argument("--force-compile-probe", action="store_true")
+    recover_editor_cmd.add_argument("--heartbeat-max-age-seconds", type=int, default=10)
+    recover_editor_cmd.add_argument(
+        "--startup-policy",
+        default="fail_fast_on_interactive_compile_block",
+        choices=sorted(STARTUP_POLICIES),
+    )
+    recover_editor_cmd.set_defaults(func=cmd_recover_editor_session)
 
     runtime_config_cmd = sub.add_parser(
         "runtime-config-show",

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from server_bridge_runtime import (
+    bridge_state_path,
     bridge_enabled,
     default_editor_log_path,
     heartbeat_age_seconds,
@@ -260,6 +261,17 @@ def clear_host_editor_session_state(project_root: Path) -> None:
         pass
 
 
+def clear_stale_bridge_state(project_root: Path) -> bool:
+    path = bridge_state_path(project_root)
+    try:
+        if path.exists():
+            path.unlink()
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def _normalized_project_match_key(path_value: str | Path) -> str:
     text = str(path_value or "").strip()
     if not text:
@@ -476,6 +488,17 @@ def build_host_editor_session_state(
     background_open: bool,
     editor_pid: int = 0,
 ) -> dict[str, Any]:
+    log_session_start_offset_bytes = 0
+    log_session_start_mtime = 0.0
+    try:
+        if log_path.is_file():
+            stat_result = log_path.stat()
+            log_session_start_offset_bytes = int(stat_result.st_size or 0)
+            log_session_start_mtime = float(stat_result.st_mtime or 0.0)
+    except OSError:
+        log_session_start_offset_bytes = 0
+        log_session_start_mtime = 0.0
+
     return {
         "project_root": str(project_root),
         "unity_app": str(unity_app),
@@ -484,6 +507,10 @@ def build_host_editor_session_state(
         "opened_by_host": True,
         "opened_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "editor_pid": max(0, int(editor_pid or 0)),
+        "log_session_started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "log_session_start_offset_bytes": log_session_start_offset_bytes,
+        "log_session_start_mtime": round(log_session_start_mtime, 6),
+        "log_scope_source": "host_opened_editor_session",
     }
 
 
@@ -1088,6 +1115,7 @@ def restore_host_opened_editor_state(
         )
         if closed_after_quit:
             clear_host_editor_session_state(project_root)
+            restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
             restoration["restored"] = True
             restoration["closeout_verified"] = True
             restoration["closeout_classification"] = "closed_via_unity_editor_quit"
@@ -1103,6 +1131,7 @@ def restore_host_opened_editor_state(
         live_project_pids = list_live_project_editor_pids(project_root)
         if managed_pid not in live_project_pids:
             clear_host_editor_session_state(project_root)
+            restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
             restoration["restored"] = True
             restoration["closeout_verified"] = True
             restoration["reason"] = "host_opened_editor_closed"
@@ -1126,6 +1155,7 @@ def restore_host_opened_editor_state(
         if not live_project_pids:
             terminated_hub_pids = terminate_project_hub_launchers(project_root, timeout_ms)
             clear_host_editor_session_state(project_root)
+            restoration["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
             restoration["restored"] = False
             restoration["closeout_verified"] = True
             restoration["closeout_classification"] = "tracked_editor_already_closed"
