@@ -757,7 +757,13 @@ def build_request_final_status(
             "bridge_stabilization": stabilization,
         }
 
-        if request_completed or recovery_gap_detected or time.time() >= deadline:
+        reclassified_terminal = (
+            reclassified
+            and bool(reclassified_status)
+            and recommended_next_action != "wait_for_bridge_stabilization"
+        )
+
+        if request_completed or recovery_gap_detected or reclassified_terminal or time.time() >= deadline:
             return attach_operation_evidence_to_final_status(
                 summary,
                 project_root=project_root,

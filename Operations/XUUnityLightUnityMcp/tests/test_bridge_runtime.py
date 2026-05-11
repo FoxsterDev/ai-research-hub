@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -625,6 +626,83 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertEqual(str(scenario_result_path.resolve()), summary["artifact_manifest"]["groups"]["scenario_results"][0]["path"])
             self.assertEqual("capture", summary["artifact_manifest"]["groups"]["captures"][0]["step_id"])
             self.assertTrue(summary["artifact_manifest"]["groups"]["captures"][0]["exists"])
+
+    def test_build_request_final_status_returns_immediately_for_stable_request_abandoned_reclassification(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            request_id = "req-abandoned"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-11T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 3,
+                    "bridge_session_id": "session-old",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_id": "02",
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-11T10:00:01Z",
+                    "started_at_utc": "2026-05-11T10:00:01Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 3,
+                    "bridge_session_id": "session-old",
+                },
+            )
+            write_json(
+                journal_dir / "03_request_abandoned.json",
+                {
+                    "event_id": "03",
+                    "event_type": "request_abandoned",
+                    "event_at_utc": "2026-05-11T10:00:08Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "reason": "domain_reload_before_request_completion",
+                    "retryable": True,
+                    "reclassified_status": "retryable_after_lifecycle_reset",
+                    "bridge_generation": 4,
+                    "bridge_session_id": "session-new",
+                },
+            )
+
+            current_state = {
+                "bridge_generation": 4,
+                "bridge_session_id": "session-new",
+                "transport": "tcp_loopback",
+                "transport_listener_state": "listening",
+                "health_status": "healthy",
+                "pending_request_count": 0,
+                "domain_reload_in_progress": False,
+                "asset_import_in_progress": False,
+                "package_operation_in_progress": False,
+                "compile_settle_pending": False,
+                "refresh_settle_pending": False,
+                "playmode_transition_pending": False,
+            }
+
+            with mock.patch.object(server_bridge_runtime.time, "sleep", side_effect=AssertionError("unexpected sleep")):
+                summary = server_bridge_runtime.build_request_final_status(
+                    project_root,
+                    request_id,
+                    "unity.tests.run_playmode",
+                    current_state=current_state,
+                    poll_timeout_ms=5000,
+                )
+
+            self.assertTrue(summary["reclassified"])
+            self.assertEqual("request_abandoned", summary["reclassified_event_type"])
+            self.assertEqual("retryable_after_lifecycle_reset", summary["operation_outcome"])
+            self.assertEqual("retry_request", summary["recommended_next_action"])
+            self.assertTrue(summary["bridge_stabilization"]["safe_to_retry"])
 
 
 if __name__ == "__main__":
