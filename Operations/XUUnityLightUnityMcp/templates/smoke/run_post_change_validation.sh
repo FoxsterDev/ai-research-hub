@@ -13,6 +13,9 @@ PLAYMODE_REGRESSION_ASSEMBLY_NAME=""
 PLAYMODE_REGRESSION_TEST_NAME=""
 RESTORE_EDITOR_STATE="true"
 OPEN_EDITOR="true"
+COMPILE_MATRIX_TIMEOUT_MS="300000"
+ACCEPTANCE_SCENARIO_TIMEOUT_MS="180000"
+CONTRACT_SCENARIO_TIMEOUT_MS="180000"
 TMP_DIR=""
 LAST_OUTPUT_FILE=""
 
@@ -24,6 +27,9 @@ Usage:
     --acceptance-scenario /path/to/acceptance.json \
     --contract-scenario /path/to/contract.json \
     [--compile-mode build-config-matrix|none] \
+    [--compile-matrix-timeout-ms 300000] \
+    [--acceptance-scenario-timeout-ms 180000] \
+    [--contract-scenario-timeout-ms 180000] \
     [--playmode-regression-assembly-name PlayMode.Tests] \
     [--playmode-regression-test-name MyPlayModeTest] \
     [--no-open-editor] \
@@ -58,6 +64,21 @@ while [[ $# -gt 0 ]]; do
       shift
       [[ $# -gt 0 ]] || fail_usage "--compile-mode requires a value"
       COMPILE_MODE="$1"
+      ;;
+    --compile-matrix-timeout-ms)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--compile-matrix-timeout-ms requires a value"
+      COMPILE_MATRIX_TIMEOUT_MS="$1"
+      ;;
+    --acceptance-scenario-timeout-ms)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--acceptance-scenario-timeout-ms requires a value"
+      ACCEPTANCE_SCENARIO_TIMEOUT_MS="$1"
+      ;;
+    --contract-scenario-timeout-ms)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--contract-scenario-timeout-ms requires a value"
+      CONTRACT_SCENARIO_TIMEOUT_MS="$1"
       ;;
     --playmode-regression-assembly-name)
       shift
@@ -235,7 +256,7 @@ if [[ "$COMPILE_MODE" == "build-config-matrix" ]]; then
   run_step compile_matrix \
     "$WRAPPER" request-build-config-compile-matrix \
     --project-root "$PROJECT_ROOT" \
-    --timeout-ms 300000
+    --timeout-ms "$COMPILE_MATRIX_TIMEOUT_MS"
   summarize_json \
     "compile-matrix" \
     "$TMP_DIR/compile_matrix.json" \
@@ -248,7 +269,7 @@ run_step acceptance_scenario \
   "$WRAPPER" request-scenario-run-and-wait \
   --project-root "$PROJECT_ROOT" \
   --scenario-file "$ACCEPTANCE_SCENARIO" \
-  --timeout-ms 120000 \
+  --timeout-ms "$ACCEPTANCE_SCENARIO_TIMEOUT_MS" \
   --poll-interval-ms 500
 summarize_json \
   "acceptance-scenario" \
@@ -259,7 +280,7 @@ run_step contract_scenario \
   "$WRAPPER" request-scenario-run-and-wait \
   --project-root "$PROJECT_ROOT" \
   --scenario-file "$CONTRACT_SCENARIO" \
-  --timeout-ms 90000 \
+  --timeout-ms "$CONTRACT_SCENARIO_TIMEOUT_MS" \
   --poll-interval-ms 500
 summarize_json \
   "contract-scenario" \

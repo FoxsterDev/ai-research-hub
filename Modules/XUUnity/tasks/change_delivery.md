@@ -96,6 +96,8 @@ If the command specifically says `publish the work`, treat change delivery as th
 6. Stage and verify one commit unit at a time:
    - stage only the intended files or hunks
    - inspect the staged diff before committing
+   - compare `git diff --staged --name-only` to the current commit unit file set before committing
+   - if unrelated files are staged, unstage them or move them into a separate commit unit before committing
    - commit only when the staged diff still matches the commit map
 7. Publish in dependency order:
    - push nested repos or submodules first
@@ -236,4 +238,5 @@ For repo-wide cascade work, pointer-update host commits should also name the adv
 - If risky code has no validation evidence, either block publication or make the gap explicit in the output and the commit body.
 - Prefer a dedicated pointer-only root commit such as `chore(submodule): advance <path> to <sha>` when the root repo itself has no other first-class change.
 - If generated files or lockfiles are included, state why they belong to the same commit unit.
+- If unrelated files are already staged from prior work, do not carry them into the current commit by accident; preserve them unstaged or split them into their own reviewed commit unit.
 - If hunk splitting would make the history misleading, create a preparatory refactor or mechanical commit first, then the behavior change commit.

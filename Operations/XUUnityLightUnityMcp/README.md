@@ -1132,7 +1132,10 @@ Generic shell runners are provided under:
 - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
 - `templates/smoke/run_smoke_suite.sh`
 
-The compact post-change runner now applies compile-first discipline:
+The compact post-change runner now applies compile-first discipline. When C#
+scripts changed, the fast compile gate is a precondition before EditMode,
+PlayMode, scenario, or GUI smoke validation unless the task is explicitly
+investigating a compile failure:
 
 1. `ensure-ready`
 2. `request-status`
@@ -1141,6 +1144,12 @@ The compact post-change runner now applies compile-first discipline:
 5. interactive and contract scenarios
 6. optional PlayMode parity and lifecycle-retry smokes when a representative
    PlayMode test is supplied
+
+If a closed-project batch command reports `editor_running_batch_conflict`, treat
+that as `unity_outcome=not_started`, not as product or validation failure. Run
+the surfaced recovery command, verify the editor process has exited with
+`restore-editor-state` or `recover-editor-session`, then rerun the batch compile
+gate before starting tests or heavier smoke work.
 
 ## Token Discipline
 
