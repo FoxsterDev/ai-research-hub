@@ -1,0 +1,143 @@
+schemaVersion: xuunity.reference-sources.v1
+
+defaults:
+  issueWatch:
+    enabled: true
+    bugOnly: false
+    openIssueSampleLimit: 20
+    labelsOfInterest:
+      - bug
+      - enhancement
+      - question
+    keywords:
+      - ui
+      - playmode
+      - build
+      - transport
+      - crash
+      - lifecycle
+      - setup
+
+sources:
+  - id: unity_mcp_ivanmurzak
+    kind: github_repo
+    url: https://github.com/IvanMurzak/Unity-MCP
+    defaultBranch: main
+    enabled: true
+    tier: tier_1
+    candidateStrength: overall
+    watchMode: full
+    tags: [unity, mcp, cli, runtime]
+    focusAreas: [transport, runtime_analysis, scene_read_write, tool_surface]
+    leadingCapabilities: [tool_surface, runtime_analysis]
+    extractionTargets:
+      - README.md
+      - package.json
+      - server entrypoints
+      - tool registration files
+      - Unity package source
+
+  - id: unity_mcp_coplay
+    kind: github_repo
+    url: https://github.com/CoplayDev/unity-mcp
+    defaultBranch: main
+    enabled: true
+    tier: tier_1
+    candidateStrength: overall
+    watchMode: full
+    tags: [unity, mcp, ui, build]
+    focusAreas: [ui_primitives, build_profiles, transport, tool_surface]
+    leadingCapabilities: [ui_primitives, build_profiles]
+    extractionTargets:
+      - README.md
+      - docs/
+      - package.json
+      - tool schemas
+      - operation registry files
+      - Unity package source
+
+  - id: mcp_unity_codergamester
+    kind: github_repo
+    url: https://github.com/codergamester/mcp-unity
+    defaultBranch: master
+    enabled: true
+    tier: tier_2
+    candidateStrength: specialist
+    watchMode: focused
+    tags: [unity, mcp, scene]
+    focusAreas: [scene_read_write, component_mutation]
+    leadingCapabilities: [scene_read_write]
+    extractionTargets:
+      - README.md
+      - tool registration files
+      - server entrypoints
+
+  - id: unified_unity_mcp
+    kind: github_repo
+    url: https://github.com/AndreySkyFoxSidorov/UnifiedUnityMCP
+    defaultBranch: main
+    enabled: true
+    tier: tier_2
+    candidateStrength: specialist
+    watchMode: focused
+    tags: [unity, mcp, ui, layout]
+    focusAreas: [ui_primitives, agent_workflow]
+    leadingCapabilities: [ui_primitives]
+    extractionTargets:
+      - README.md
+      - docs/
+      - Unity package source
+      - operation registry files
+
+  - id: unity_agent_team
+    kind: github_repo
+    url: https://github.com/AlexMerzlikin/unity-agent-team
+    defaultBranch: main
+    enabled: true
+    tier: tier_2
+    candidateStrength: specialist
+    watchMode: focused
+    tags: [unity, agents, workflow, orchestration]
+    focusAreas: [agent_workflow, operator_experience]
+    leadingCapabilities: [agent_workflow]
+    extractionTargets:
+      - README.md
+      - docs/
+      - prompts/
+      - workflows/
+
+  - id: locus
+    kind: github_repo
+    url: https://github.com/r1n7aro/Locus
+    defaultBranch: main
+    enabled: true
+    tier: tier_3
+    candidateStrength: specialist
+    watchMode: parking
+    tags: [unity, runtime-analysis, editor-agent]
+    focusAreas: [runtime_analysis, editor_semantics]
+    leadingCapabilities: [runtime_analysis]
+
+  - id: uniclaude
+    kind: github_repo
+    url: https://github.com/TheArcForge/UniClaude
+    defaultBranch: main
+    enabled: true
+    tier: tier_3
+    candidateStrength: specialist
+    watchMode: parking
+    tags: [unity, typed-tools, workflow]
+    focusAreas: [tool_surface, editor_workflow]
+    leadingCapabilities: [tool_surface]
+
+  - id: claude_code_game_studios
+    kind: github_repo
+    url: https://github.com/Donchitos/Claude-Code-Game-Studios
+    defaultBranch: main
+    enabled: true
+    tier: tier_3
+    candidateStrength: specialist
+    watchMode: parking
+    tags: [unity, orchestration, workflow]
+    focusAreas: [agent_workflow, orchestration]
+    leadingCapabilities: [orchestration]
