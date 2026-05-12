@@ -9,6 +9,8 @@ PROJECT_ROOT=""
 ACCEPTANCE_SCENARIO=""
 CONTRACT_SCENARIO=""
 COMPILE_MODE="build-config-matrix"
+PLAYMODE_REGRESSION_ASSEMBLY_NAME=""
+PLAYMODE_REGRESSION_TEST_NAME=""
 RESTORE_EDITOR_STATE="true"
 OPEN_EDITOR="true"
 
@@ -20,6 +22,8 @@ Usage:
     --acceptance-scenario /path/to/acceptance.json \
     --contract-scenario /path/to/contract.json \
     [--compile-mode build-config-matrix|none] \
+    [--playmode-regression-assembly-name PlayMode.Tests] \
+    [--playmode-regression-test-name MyPlayModeTest] \
     [--no-open-editor] \
     [--no-restore-editor-state]
 EOF
@@ -53,6 +57,16 @@ while [[ $# -gt 0 ]]; do
       [[ $# -gt 0 ]] || fail_usage "--compile-mode requires a value"
       COMPILE_MODE="$1"
       ;;
+    --playmode-regression-assembly-name)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--playmode-regression-assembly-name requires a value"
+      PLAYMODE_REGRESSION_ASSEMBLY_NAME="$1"
+      ;;
+    --playmode-regression-test-name)
+      shift
+      [[ $# -gt 0 ]] || fail_usage "--playmode-regression-test-name requires a value"
+      PLAYMODE_REGRESSION_TEST_NAME="$1"
+      ;;
     --no-open-editor)
       OPEN_EDITOR="false"
       ;;
@@ -73,6 +87,10 @@ done
 [[ -n "$PROJECT_ROOT" ]] || fail_usage "missing required argument: --project-root"
 [[ -n "$ACCEPTANCE_SCENARIO" ]] || fail_usage "missing required argument: --acceptance-scenario"
 [[ -n "$CONTRACT_SCENARIO" ]] || fail_usage "missing required argument: --contract-scenario"
+if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" || -n "$PLAYMODE_REGRESSION_TEST_NAME" ]]; then
+  [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]] || fail_usage "--playmode-regression-test-name requires --playmode-regression-assembly-name"
+  [[ -n "$PLAYMODE_REGRESSION_TEST_NAME" ]] || fail_usage "--playmode-regression-assembly-name requires --playmode-regression-test-name"
+fi
 
 case "$COMPILE_MODE" in
   build-config-matrix|none)
@@ -128,6 +146,22 @@ if [[ "$COMPILE_MODE" == "build-config-matrix" ]]; then
   "$WRAPPER" request-build-config-compile-matrix \
     --project-root "$PROJECT_ROOT" \
     --timeout-ms 300000
+fi
+
+if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]]; then
+  "$SCRIPT_DIR/run_playmode_settled_state_regression.sh" \
+    --project-root "$PROJECT_ROOT" \
+    --assembly-name "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" \
+    --test-name "$PLAYMODE_REGRESSION_TEST_NAME" \
+    --no-open-editor \
+    --no-restore-editor-state
+
+  "$SCRIPT_DIR/run_playmode_lifecycle_retry_smoke.sh" \
+    --project-root "$PROJECT_ROOT" \
+    --assembly-name "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" \
+    --test-name "$PLAYMODE_REGRESSION_TEST_NAME" \
+    --no-open-editor \
+    --no-restore-editor-state
 fi
 
 echo "[mcp-smoke] suite passed"

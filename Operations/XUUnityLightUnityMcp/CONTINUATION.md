@@ -168,6 +168,9 @@ Mini-playbook after wrapper churn:
    `request-latest-status --operation unity.tests.run_editmode` or
    `request-latest-status --operation unity.tests.run_playmode` before starting
    a second test run
+9. for lifecycle-reset recovery, base retry decisions on structured JSON truth
+   such as `recommended_next_action`, `result_trust_class`, and
+   `bridge_stabilization.safe_to_retry`, not only shell exit behavior
 
 Mini-playbook after `devmode` with an already-open editor:
 
@@ -186,6 +189,15 @@ Mini-playbook after `devmode` with an already-open editor:
    treat it as transport submission with incomplete lifecycle proof, then verify
    the effect directly before blind retry
 6. only after that move on to compile, tests, or scenario work
+
+PlayMode churn note:
+
+- stale persisted and in-memory test ownership can now be released after
+  `request_abandoned` and `request_reclassified`, but the safer operator rule is
+  still:
+  - recover the last request by `request_id`
+  - inspect `result_trust_class`
+  - only then decide whether one bounded retry is warranted
 
 Mini-playbook for closeout mismatch:
 

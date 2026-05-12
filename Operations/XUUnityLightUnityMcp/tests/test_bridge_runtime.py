@@ -151,6 +151,7 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertTrue(summary["request_completed"])
             self.assertTrue(summary["reclassified"])
             self.assertEqual("completed_ok", summary["operation_outcome"])
+            self.assertEqual("unity_completed_confirmed", summary["result_trust_class"])
             self.assertEqual("settled_after_lifecycle_reset", summary["reclassified_status"])
             self.assertEqual("none", summary["recommended_next_action"])
             self.assertTrue(summary["request_observed_in_unity_journal"])
@@ -200,6 +201,7 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertFalse(summary["request_started"])
             self.assertFalse(summary["request_completed"])
             self.assertEqual("submitted_lost_after_lifecycle_churn", summary["operation_outcome"])
+            self.assertEqual("wrapper_failed_unity_unproven", summary["result_trust_class"])
             self.assertEqual("verify_effect_or_retry", summary["recommended_next_action"])
             self.assertFalse(summary["request_observed_in_unity_journal"])
             self.assertTrue(summary["bridge_changed_since_submission"])
@@ -701,8 +703,190 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertTrue(summary["reclassified"])
             self.assertEqual("request_abandoned", summary["reclassified_event_type"])
             self.assertEqual("retryable_after_lifecycle_reset", summary["operation_outcome"])
+            self.assertEqual("wrapper_failed_unity_unproven", summary["result_trust_class"])
             self.assertEqual("retry_request", summary["recommended_next_action"])
+            self.assertEqual(1, summary["safe_retry_budget_total"])
+            self.assertEqual(1, summary["safe_retry_budget_remaining"])
+            self.assertFalse(summary["safe_retry_budget_exhausted"])
             self.assertTrue(summary["bridge_stabilization"]["safe_to_retry"])
+
+    def test_recovered_response_waits_past_reclassification_until_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            request_id = "req-playmode-reset"
+            response_path = (
+                project_root
+                / "Library"
+                / "XUUnityLightMcp"
+                / "outbox"
+                / f"{request_id}.json"
+            )
+            write_json(
+                response_path,
+                {
+                    "request_id": request_id,
+                    "status": "ok",
+                    "completed_at_utc": "2026-05-12T00:09:46Z",
+                    "payload_type": "unity.tests.run_playmode",
+                    "payload_json": json.dumps(
+                        {
+                            "status": "passed",
+                            "total": 1,
+                            "passed": 1,
+                            "failed": 0,
+                            "skipped": 0,
+                        }
+                    ),
+                },
+            )
+
+            base_events = [
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-12T00:09:34Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 151,
+                    "bridge_session_id": "session-old",
+                },
+                {
+                    "event_id": "02",
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-12T00:09:35Z",
+                    "started_at_utc": "2026-05-12T00:09:35Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 151,
+                    "bridge_session_id": "session-old",
+                },
+                {
+                    "event_id": "03",
+                    "event_type": "request_reclassified",
+                    "event_at_utc": "2026-05-12T00:09:45Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "reason": "bridge_generation_changed_before_response",
+                    "retryable": True,
+                    "reclassified_status": "retryable_after_lifecycle_reset",
+                    "bridge_generation": 152,
+                    "bridge_session_id": "session-new",
+                },
+            ]
+            completed_event = {
+                "event_id": "04",
+                "event_type": "request_completed",
+                "event_at_utc": "2026-05-12T00:09:46Z",
+                "completed_at_utc": "2026-05-12T00:09:46Z",
+                "operation_status": "ok",
+                "request_id": request_id,
+                "operation": "unity.tests.run_playmode",
+                "bridge_generation": 152,
+                "bridge_session_id": "session-new",
+            }
+            current_state = {
+                "bridge_generation": 152,
+                "bridge_session_id": "session-new",
+                "transport": "tcp_loopback",
+                "transport_listener_state": "listening",
+                "health_status": "healthy",
+                "pending_request_count": 0,
+            }
+            calls = {"count": 0}
+
+            def fake_events(project_root_value: Path, request_id_value: str) -> list[dict[str, object]]:
+                calls["count"] += 1
+                if calls["count"] == 1:
+                    return list(base_events)
+                return [*base_events, completed_event]
+
+            with (
+                mock.patch.object(server_bridge_runtime, "read_request_journal_events", side_effect=fake_events),
+                mock.patch.object(server_bridge_runtime.time, "sleep", return_value=None),
+            ):
+                response, final_status = server_bridge_runtime.try_recover_completed_response_after_reset(
+                    project_root,
+                    request_id=request_id,
+                    operation="unity.tests.run_playmode",
+                    current_state=current_state,
+                    poll_timeout_ms=5000,
+                )
+
+            self.assertIsNotNone(response)
+            self.assertEqual("ok", response["status"])
+            self.assertEqual("completed_ok", final_status["operation_outcome"])
+            self.assertEqual("unity_completed_confirmed", final_status["result_trust_class"])
+            self.assertGreaterEqual(calls["count"], 2)
+            self.assertFalse(response_path.exists())
+
+    def test_build_lifecycle_reset_tool_error_carries_result_trust_class(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            request_id = "req-reset"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_id": "01",
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-11T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 2,
+                    "bridge_session_id": "session-old",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_id": "02",
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-11T10:00:01Z",
+                    "started_at_utc": "2026-05-11T10:00:01Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "bridge_generation": 2,
+                    "bridge_session_id": "session-old",
+                },
+            )
+            write_json(
+                journal_dir / "03_request_abandoned.json",
+                {
+                    "event_id": "03",
+                    "event_type": "request_abandoned",
+                    "event_at_utc": "2026-05-11T10:00:04Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "reason": "domain_reload_before_request_completion",
+                    "retryable": True,
+                    "reclassified_status": "retryable_after_lifecycle_reset",
+                    "bridge_generation": 3,
+                    "bridge_session_id": "session-new",
+                },
+            )
+
+            error = server_bridge_runtime.build_lifecycle_reset_tool_error(
+                project_root,
+                request_id=request_id,
+                operation="unity.tests.run_playmode",
+                transport="tcp_loopback",
+                initial_bridge_generation=2,
+                initial_bridge_session_id="session-old",
+                current_state={
+                    "bridge_generation": 3,
+                    "bridge_session_id": "session-new",
+                    "transport": "tcp_loopback",
+                    "transport_listener_state": "listening",
+                    "health_status": "healthy",
+                    "pending_request_count": 0,
+                },
+            )
+
+            self.assertEqual("request_lifecycle_reset", error.code)
+            self.assertEqual("wrapper_failed_unity_unproven", error.details["result_trust_class"])
+            self.assertEqual("wrapper_failed_unity_unproven", error.details["request_final_status"]["result_trust_class"])
+            self.assertEqual(1, error.details["safe_retry_budget_total"])
 
 
 if __name__ == "__main__":

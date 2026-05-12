@@ -124,7 +124,10 @@ namespace XUUnity.LightMcp.Editor.Helpers
             }
         }
 
-        public static XUUnityLightMcpResponse CompleteAndBuildResponse(string completionBasis, string playmodeStateAfterSettle)
+        public static XUUnityLightMcpResponse CompleteAndBuildResponse(
+            string completionBasis,
+            string playmodeStateAfterSettle,
+            XUUnityLightMcpTestRunSummary finalSummary)
         {
             lock (Gate)
             {
@@ -133,6 +136,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     return XUUnityLightMcpResponseWriter.Error("", "missing_test_run_state", "Test run state was lost before completion.");
                 }
 
+                ApplyFinalSummaryLocked(state, finalSummary);
                 state.completed_at_utc = UtcNow();
                 state.completion_basis = completionBasis ?? "";
                 state.playmode_state_after_settle = playmodeStateAfterSettle ?? "";
@@ -140,6 +144,22 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 PersistLocked(state);
                 return BuildResponseLocked(state);
             }
+        }
+
+        static void ApplyFinalSummaryLocked(XUUnityLightMcpPersistedTestRunState state, XUUnityLightMcpTestRunSummary summary)
+        {
+            if (state == null || summary == null)
+            {
+                return;
+            }
+
+            state.total = Math.Max(0, summary.total);
+            state.passed = Math.Max(0, summary.passed);
+            state.failed = Math.Max(0, summary.failed);
+            state.skipped = Math.Max(0, summary.skipped);
+            state.failures = summary.failures == null
+                ? new System.Collections.Generic.List<XUUnityLightMcpTestFailure>()
+                : new System.Collections.Generic.List<XUUnityLightMcpTestFailure>(summary.failures);
         }
 
         public static bool TryWritePendingCompletedResponse()
@@ -438,7 +458,8 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
             var response = XUUnityLightMcpTestRunState.CompleteAndBuildResponse(
                 "unity_test_runner_callbacks",
-                XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState());
+                XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState(),
+                XUUnityLightMcpTestRunSummary.FromResult(result));
             _onCompleted(response);
         }
 
@@ -472,6 +493,64 @@ namespace XUUnity.LightMcp.Editor.Helpers
             }
 
             return test.IsSuite ? 0 : 1;
+        }
+    }
+
+    internal sealed class XUUnityLightMcpTestRunSummary
+    {
+        public int total;
+        public int passed;
+        public int failed;
+        public int skipped;
+        public System.Collections.Generic.List<XUUnityLightMcpTestFailure> failures = new();
+
+        public static XUUnityLightMcpTestRunSummary FromResult(ITestResultAdaptor result)
+        {
+            var summary = new XUUnityLightMcpTestRunSummary();
+            AddResult(summary, result);
+            return summary;
+        }
+
+        static void AddResult(XUUnityLightMcpTestRunSummary summary, ITestResultAdaptor result)
+        {
+            if (summary == null || result == null)
+            {
+                return;
+            }
+
+            if (result.HasChildren && result.Children != null)
+            {
+                foreach (var child in result.Children)
+                {
+                    AddResult(summary, child);
+                }
+
+                return;
+            }
+
+            if (result.Test != null && result.Test.IsSuite)
+            {
+                return;
+            }
+
+            summary.total++;
+            switch (result.TestStatus)
+            {
+                case TestStatus.Passed:
+                    summary.passed++;
+                    break;
+                case TestStatus.Failed:
+                    summary.failed++;
+                    summary.failures.Add(new XUUnityLightMcpTestFailure
+                    {
+                        name = result.Test?.FullName ?? result.Test?.Name ?? "",
+                        message = result.Message ?? ""
+                    });
+                    break;
+                case TestStatus.Skipped:
+                    summary.skipped++;
+                    break;
+            }
         }
     }
 }

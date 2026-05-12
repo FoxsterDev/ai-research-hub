@@ -118,7 +118,30 @@ Pass criteria:
 - for the common single-test happy path, the final value should normally be
   `edit`
 
-### 6. Lifecycle Reclassification Fault Smoke
+### 6. PlayMode Lifecycle Retry Smoke
+
+Use a representative direct `unity.tests.run_playmode` request while the editor
+is already in Play Mode so the host must:
+
+- observe `playmode_state_invalid`
+- issue `unity.playmode.set exit`
+- retry the PlayMode test request
+
+Pass criteria:
+
+- the terminal operator verdict exposes `result_trust_class`
+- accepted terminal trust classes are:
+  - `unity_completed_confirmed`
+  - `unity_completed_after_lifecycle_reset`
+  - `wrapper_failed_unity_unproven`
+- a terminal `request_lifecycle_reset` without `result_trust_class` is a smoke
+  failure
+- a reclassified PlayMode request must not leave stale test ownership behind:
+  a follow-up PlayMode request may fail for other reasons, but it must not fail
+  with `tests_busy`
+- final status returns to healthy `edit`
+
+### 7. Lifecycle Reclassification Fault Smoke
 
 Use a temporary editor script change that forces a real compile or bridge
 rebootstrap while a top-level refresh request is in flight.
@@ -130,7 +153,7 @@ Pass criteria:
 - the transition includes a host-written `request_reclassified` journal event
 - a cleanup refresh returns the editor to healthy `edit` idle state
 
-### 7. Request-Abandoned Fault Smoke
+### 8. Request-Abandoned Fault Smoke
 
 Use an in-flight async request plus an injected editor reload to prove Unity-side
 `request_abandoned` journaling.
@@ -142,7 +165,7 @@ Pass criteria:
 - Unity writes `request_abandoned` journal evidence for the same `request_id`
 - cleanup restores healthy `edit` idle state
 
-### 8. Transport Matrix Smoke
+### 9. Transport Matrix Smoke
 
 Switch the bridge transport across the supported transport set and rerun the
 compact post-change validation route on each transport.
@@ -154,7 +177,7 @@ Pass criteria:
 - the compact post-change validation route passes on each transport
 - cleanup restores the original bridge config
 
-### 9. Lifecycle Stress Smoke
+### 10. Lifecycle Stress Smoke
 
 Run a short resilience route while another desktop app is frontmost, then verify
 the bridge still handles refresh, scenario, and playmode lifecycle operations.
@@ -165,7 +188,7 @@ Pass criteria:
 - repeated `ensure-ready` works against the same editor session
 - final status returns to healthy `edit`
 
-### 10. Multi-Project Acceptance Smoke
+### 11. Multi-Project Acceptance Smoke
 
 Run the same compact readiness and refresh route against more than one Unity
 project on the same host, with different project roots and transport bindings
@@ -179,7 +202,7 @@ Pass criteria:
 - one project's degraded or offline state does not make the second healthy
   project look degraded
 
-### 11. Discovery Divergence Smoke
+### 12. Discovery Divergence Smoke
 
 Exercise cases where bridge state, host session state, and process-table
 evidence disagree.
@@ -198,7 +221,7 @@ Pass criteria:
 - summary surfaces return the expected `reconciliation_case`
 - the surfaced `recommended_next_action` is coherent with the detected case
 
-### 12. Health Policy Smoke
+### 13. Health Policy Smoke
 
 Exercise stale and ANR-suspected health classifications without accepting false
 positive termination during normal lifecycle churn.
@@ -219,6 +242,7 @@ Generic example scenario JSON templates live under:
 - `templates/scenarios/refresh_contract_smoke.json`
 - `templates/scenarios/compile_contract_smoke.json`
 - `templates/smoke/run_playmode_settled_state_regression.sh`
+- `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
 - `templates/smoke/run_request_abandoned_fault_suite.sh`
 - `templates/smoke/run_transport_matrix_suite.sh`
 - `templates/smoke/run_lifecycle_stress_suite.sh`
@@ -250,6 +274,16 @@ Optional post-change parity inputs:
 
 - `--playmode-regression-assembly-name`
 - `--playmode-regression-test-name`
+
+PlayMode troubleshooting branch:
+
+- if the first direct PlayMode request returns `playmode_state_invalid`, allow
+  the host to exit Play Mode and retry once
+- if the retry returns `request_lifecycle_reset`, recover by
+  `request-final-status --request-id <id>` and inspect `result_trust_class`
+  before concluding the test failed
+- if the follow-up request returns `tests_busy`, treat that as stale test
+  ownership and fail the smoke
 
 Lifecycle contract:
 

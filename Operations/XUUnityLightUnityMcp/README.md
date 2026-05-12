@@ -117,7 +117,7 @@ What exists now:
 - additive stale request artifact surfacing on compact discovery/status/final-status
   surfaces:
   - `stale_request_artifacts`
-- host wrapper auto-sync of the installed local helper before launch:
+- public wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - host-side editor session safety helpers:
   - `request-editor-quit`
@@ -131,6 +131,7 @@ What exists now:
   - `batch-editmode-tests` for deterministic non-interactive EditMode tests when the target project is closed
   - `batch-test-framework-version-regression` for Phase 0 `com.unity.test-framework` version sweeps across the interactive MCP and closed-project batch lanes
   - `batch-build-player` for plain Unity batch builds when the project is closed
+  - `arrange-unity-windows` for best-effort macOS tiling of running Unity editor windows
 - public reusable smoke runners:
   - `templates/smoke/run_request_abandoned_fault_suite.sh`
   - `templates/smoke/run_transport_matrix_suite.sh`
@@ -141,6 +142,7 @@ What exists now:
   - `templates/smoke/run_phase3_health_policy_suite.sh`
   - `templates/smoke/run_post_change_validation.sh`
   - `templates/smoke/run_playmode_settled_state_regression.sh`
+  - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
   - `templates/smoke/run_smoke_suite.sh`
 - scenario second-wave steps:
   - `compile_player_scripts`
@@ -209,11 +211,48 @@ Default operating rules:
    over source-only reasoning
 4. Prefer backends that produce trustworthy final validation accounting over backends that merely expose more tools
 
+## macOS Window Arrangement
+
+`arrange-unity-windows` is a host-side helper for tiling already-running Unity
+editor windows on the main macOS display. It is intentionally outside the Unity
+package because it uses AppleScript and host process inspection.
+
+Run through the wrapper:
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  arrange-unity-windows \
+  --include-all-running
+```
+
+Focus one editor after tiling:
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh \
+  arrange-unity-windows \
+  --include-all-running \
+  --focus-pid 12345
+```
+
+Use `--required` when a caller should fail if the windows cannot be moved.
+Without `--required`, unsupported platforms, no running Unity editors, or missing
+macOS Accessibility permission are reported as JSON without failing the command.
+
+On macOS, the process that launches the wrapper must have Accessibility access:
+
+1. Open System Settings.
+2. Go to Privacy & Security -> Accessibility.
+3. Enable the terminal or IDE process that runs the wrapper.
+4. Rerun `arrange-unity-windows`.
+
 ## Files
 
 - `init_xuunity_light_unity_mcp.sh`
+- `run_multi_project_batch_compile_matrix.sh`
+- `run_multi_project_gui_test_subset.sh`
 - `run_unity_version_matrix.sh`
 - `xuunity_light_unity_mcp.sh`
+- `arrange_unity_windows.py`
 - `SMOKE_TESTS.md`
 - `templates/run.sh`
 - `templates/server.py`
@@ -265,6 +304,77 @@ bash AIRoot/Operations/XUUnityLightUnityMcp/run_unity_version_matrix.sh \
 ```
 
 The runner still needs a valid Unity license for each editor version it opens.
+
+## Multi-Project Batch Compile Runner
+
+Use the public batch compile runner when the goal is throughput across multiple
+Unity projects without paying GUI startup cost per project.
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/run_multi_project_batch_compile_matrix.sh \
+  --repo-root /path/to/repo-with-unity-projects \
+  --parallelism 4
+```
+
+Current behavior:
+
+- auto-discovers direct child Unity projects under `--repo-root`
+- filters to projects that already declare `com.xuunity.light-mcp`
+- optionally recovers/closes live editors first
+- runs `batch-build-config-compile-matrix` in parallel
+- emits compact per-project summaries plus an aggregate final result
+- keeps `results_dir` on disk by default so later runners can reuse it
+
+Use explicit selection when the batch should target only a subset:
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/run_multi_project_batch_compile_matrix.sh \
+  --repo-root /path/to/repo-with-unity-projects \
+  --parallelism 2 \
+  --project-root BallSort \
+  --project-root Sudoku
+```
+
+## Multi-Project GUI Test Subset Runner
+
+Use the GUI subset runner after a green batch compile pass when the remaining
+work needs a live editor lane.
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/run_multi_project_gui_test_subset.sh \
+  --repo-root /path/to/repo-with-unity-projects \
+  --parallelism 3
+```
+
+Recommended route for a true green subset:
+
+1. run `run_multi_project_batch_compile_matrix.sh`
+2. reuse its `results_dir`
+3. feed that into the GUI subset runner:
+
+```bash
+AIRoot/Operations/XUUnityLightUnityMcp/run_multi_project_gui_test_subset.sh \
+  --repo-root /path/to/repo-with-unity-projects \
+  --from-batch-results /absolute/path/to/results_dir \
+  --parallelism 3
+```
+
+Current behavior:
+
+- selects projects from explicit roots, a prior batch results dir, or auto-discovery
+- runs per project:
+  - `recover-editor-session`
+  - `ensure-ready --open-editor`
+  - `request-editmode-tests`
+  - `request-playmode-tests`
+  - `restore-editor-state`
+- keeps test requests strictly sequential inside each project
+- defaults to `--parallelism 3`
+- keeps cross-project GUI work parallel while preserving per-project request
+  serialization inside each editor session
+- auto-arranges Unity editor windows on macOS after `ensure-ready`; override
+  with `--window-arrangement off` or make it strict with
+  `--window-arrangement required`
 
 ## Runtime Timeout Config
 
@@ -389,8 +499,8 @@ Behavior:
   so Unity is forced to re-resolve the package honestly on the next refresh/reopen
 - `prodmode` intentionally pins committed state only; uncommitted local `AIRoot`
   changes are not part of the resolved package
-- the public wrapper delegates unknown project-specific commands to a host-local
-  wrapper when one exists
+- project-specific commands should live in a host-local wrapper or adapter
+  outside public `AIRoot`
 
 Already-open editor rule after `devmode`:
 
@@ -464,8 +574,10 @@ External scaffold:
 Public convenience wrapper:
 - `AIRoot/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh`
   - directly supports the public `devmode` and `prodmode` package-source switches
-  - delegates unknown project-specific commands to `AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh` when that host-local wrapper exists
-  - otherwise falls back to the installed helper in `~/.codex-tools/`
+  - directly supports `arrange-unity-windows`
+  - auto-syncs the installed helper from the local `AIRoot` templates when this
+    checkout has git metadata
+  - falls back to the installed helper in `~/.codex-tools/` for request commands
 
 Optional Unity project scaffold:
 - manifest entry:
@@ -906,6 +1018,9 @@ Recovery rule:
   operation class before blind retry
 - retry only after the compact recovery summary says the earlier request did not
   complete
+- `request-final-status` is the canonical truth source for lifecycle-reset
+  incidents; do not treat the original wrapper error as the final verdict when a
+  real `request_id` exists
 - when a test request returns `tests_busy`, recover the in-flight run with
   `request-latest-status --operation unity.tests.run_editmode` or
   `request-latest-status --operation unity.tests.run_playmode` before retrying
@@ -924,6 +1039,14 @@ Request-ownership rule:
 - if the helper emits `request_not_submitted`, treat that as proof that the
   request never gained Unity-side ownership and recover by bridge/editor status
   first instead of searching for a completed request id
+- if a wrapper-side lifecycle-reset path surfaces `result_trust_class`:
+  - `unity_completed_confirmed` means Unity completed and the wrapper has direct
+    proof
+  - `unity_completed_after_lifecycle_reset` means Unity completed across bridge
+    churn and the host recovered that truth by `request_id`
+  - `wrapper_failed_unity_unproven` means the wrapper/session lost trust in the
+    result after Unity accepted the request; that is not equivalent to a
+    Unity-side test failure
 - for CLI failures, the helper also emits a short human-readable stderr summary
   before the JSON error payload so operators can distinguish:
   - request dispatched
@@ -1006,6 +1129,7 @@ Generic example scenario templates are provided under:
 Generic shell runners are provided under:
 
 - `templates/smoke/run_post_change_validation.sh`
+- `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
 - `templates/smoke/run_smoke_suite.sh`
 
 The compact post-change runner now applies compile-first discipline:
@@ -1015,6 +1139,8 @@ The compact post-change runner now applies compile-first discipline:
 3. `request-health-probe`
 4. fast compile gate
 5. interactive and contract scenarios
+6. optional PlayMode parity and lifecycle-retry smokes when a representative
+   PlayMode test is supplied
 
 ## Token Discipline
 
@@ -1053,6 +1179,9 @@ Operator rule:
   - `operation_outcome=submitted_lost_after_lifecycle_churn`
   treat that as a wrapper recovery gap after real transport submission, not as
   proof that Unity definitely did nothing
+- if `request-final-status` reports
+  `result_trust_class=wrapper_failed_unity_unproven`, treat that as "Unity
+  accepted the request, but the wrapper lost trustworthy completion proof"
 - a workflow that jumps straight to raw `unity.scenario.result`, `prepare.log`,
   or `build.log` while a compact summary surface already exists is an operator
   experience regression
