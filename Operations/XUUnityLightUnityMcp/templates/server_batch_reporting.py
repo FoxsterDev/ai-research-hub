@@ -181,7 +181,8 @@ def build_batch_prepare_failure_summary(
     exc: Any,
     truncate_text: Callable[[Any, int], str],
 ) -> dict[str, Any]:
-    return {
+    details = dict(getattr(exc, "details", None) or {})
+    summary = {
         "action": action,
         "phase": "prepare",
         "transport_outcome": "batch_prepare_blocked",
@@ -196,6 +197,19 @@ def build_batch_prepare_failure_summary(
         "raw_log_path": str(log_path),
         "next_step": "Resolve the prepare blocker, then rerun the batch command.",
     }
+    for key in (
+        "recommended_next_action",
+        "recommended_recovery_command",
+        "closeout_verification_required",
+        "closeout_verification_note",
+    ):
+        if key in details:
+            summary[key] = details[key]
+    if summary.get("recommended_recovery_command"):
+        summary["next_step"] = (
+            "Run recommended_recovery_command, verify editor process exit, then rerun the batch command."
+        )
+    return summary
 
 
 def attach_batch_summary_to_error(

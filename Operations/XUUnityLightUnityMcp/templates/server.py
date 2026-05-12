@@ -403,6 +403,7 @@ DISCOVERY_NEXT_ACTION_COMMANDS = {
     "open_editor_or_ensure_ready": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
     "ensure_ready_or_recover_bridge": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
     "recover_editor_session": "xuunity_light_unity_mcp.sh recover-editor-session --project-root {project_root} --timeout-ms 180000",
+    "close_same_project_editor_or_use_interactive_lane": "xuunity_light_unity_mcp.sh request-editor-quit --project-root {project_root} --timeout-ms 30000",
     "start_or_recover_editor": "xuunity_light_unity_mcp.sh ensure-ready --project-root {project_root} --open-editor",
     "clear_stale_host_session_and_retry": "xuunity_light_unity_mcp.sh restore-editor-state --project-root {project_root} --timeout-ms 15000",
     "refresh_host_session_if_needed": "xuunity_light_unity_mcp.sh request-status-summary --project-root {project_root} --timeout-ms 5000",
@@ -434,6 +435,17 @@ def enrich_tool_invocation_error_with_discovery(project_root: Path, exc: ToolInv
         exc.message,
         enrich_error_details_with_discovery(project_root, exc.details),
     )
+
+
+def build_batch_editor_conflict_details(project_root: Path, live_editor_pids: list[int]) -> dict[str, Any]:
+    next_action = "close_same_project_editor_or_use_interactive_lane"
+    return {
+        "live_editor_pids": live_editor_pids,
+        "recommended_next_action": next_action,
+        "recommended_recovery_command": recommended_recovery_command_for_project(project_root, next_action),
+        "closeout_verification_required": True,
+        "closeout_verification_note": "Verify editor process exit before rerunning the closed-project batch lane.",
+    }
 
 
 def execute_host_health_recovery_policy(
@@ -677,8 +689,8 @@ def classify_compile_probe_failure(compile_probe: dict[str, Any]) -> tuple[str, 
     if error_code == "editor_running_batch_conflict":
         return (
             "compile_probe_blocked_by_live_editor",
-            "close_editor_or_use_interactive_lane",
-            "xuunity_light_unity_mcp.sh request-status-summary --project-root {project_root} --timeout-ms 5000",
+            "close_same_project_editor_or_use_interactive_lane",
+            "xuunity_light_unity_mcp.sh request-editor-quit --project-root {project_root} --timeout-ms 30000",
         )
 
     return (
@@ -912,6 +924,7 @@ def emit_tool_error_summary(payload: dict[str, Any]) -> None:
     transport_outcome = str(payload.get("transport_outcome") or "")
     operation_outcome = str(payload.get("operation_outcome") or "")
     closeout_classification = str(payload.get("closeout_classification") or "")
+    closeout_verified = payload.get("closeout_verified")
 
     parts = ["[xuunity-light-unity-mcp] request_failure"]
     if code:
@@ -928,6 +941,8 @@ def emit_tool_error_summary(payload: dict[str, Any]) -> None:
         parts.append(f"operation_outcome={operation_outcome}")
     if closeout_classification:
         parts.append(f"closeout_classification={closeout_classification}")
+    if closeout_verified is not None:
+        parts.append(f"closeout_verified={str(bool(closeout_verified)).lower()}")
     if recommended_next_action:
         parts.append(f"recommended_next_action={recommended_next_action}")
 
@@ -1888,7 +1903,7 @@ def ensure_batch_project_closed(project_root: Path, action_label: str):
                 f"Live editor pid(s): {', '.join(str(pid) for pid in live_editor_pids)}. "
                 "Close the same project editor instance first or use the interactive MCP lane."
             ),
-            {"live_editor_pids": live_editor_pids},
+            build_batch_editor_conflict_details(project_root, live_editor_pids),
         )
 
 
@@ -1900,7 +1915,12 @@ def run_batch_operation(
     log_path: Path,
     result_path: Path,
     dry_run: bool,
+    timeout_ms: int | None = None,
 ):
+    if timeout_ms is not None and timeout_ms <= 0:
+        timeout_ms = None
+    payload["timeout_ms"] = timeout_ms
+
     if dry_run:
         print_json(payload)
         return
@@ -1931,19 +1951,32 @@ def run_batch_operation(
     payload["stale_lock"] = clear_stale_project_lock(project_root)
 
     command_started_at = time.time()
-    completed = subprocess.run(command, check=False)
-    payload["batch_exit_code"] = completed.returncode
+    timed_out = False
+    batch_exit_code = 0
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            timeout=(timeout_ms / 1000.0) if timeout_ms is not None else None,
+        )
+        batch_exit_code = completed.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        batch_exit_code = 124
+
+    payload["batch_exit_code"] = batch_exit_code
+    payload["timed_out"] = timed_out
 
     result_payload = try_read_json_dict(result_path, read_json)
     payload["result_payload_present"] = result_payload is not None
     payload["succeeded"] = (
-        bool(result_payload.get("succeeded", False)) and completed.returncode == 0
+        bool(result_payload.get("succeeded", False)) and batch_exit_code == 0 and not timed_out
         if result_payload is not None
-        else completed.returncode == 0
+        else batch_exit_code == 0 and not timed_out
     )
 
     log_excerpt_hint = ""
-    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+    if batch_exit_code != 0 or not bool(payload.get("succeeded")):
         log_excerpt = read_recent_editor_log(log_path, command_started_at)
         if log_excerpt:
             log_excerpt_hint = truncate_text(log_excerpt[-600:], 600)
@@ -1951,13 +1984,20 @@ def run_batch_operation(
     result_summary = build_batch_execution_summary(
         action=str(payload.get("action") or "batch operation"),
         result_payload=result_payload,
-        batch_exit_code=completed.returncode,
+        batch_exit_code=batch_exit_code,
         succeeded=bool(payload.get("succeeded")),
         result_path=result_path,
         log_path=log_path,
         log_excerpt_hint=log_excerpt_hint,
         truncate_text=truncate_text,
     )
+    if timed_out:
+        result_summary["timed_out"] = True
+        result_summary["timeout_ms"] = timeout_ms
+        result_summary.setdefault(
+            "top_actionable_error",
+            f"Unity batch operation timed out after {timeout_ms} ms.",
+        )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["result_summary"] = result_summary
     payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
@@ -1965,7 +2005,7 @@ def run_batch_operation(
         payload["top_actionable_error"] = result_summary["top_actionable_error"]
 
     print_json(payload)
-    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+    if batch_exit_code != 0 or not bool(payload.get("succeeded")):
         raise SystemExit(1)
 
 
@@ -3100,6 +3140,7 @@ def cmd_batch_compile(args):
         log_path=log_path,
         result_path=result_path,
         dry_run=args.dry_run,
+        timeout_ms=args.timeout_ms,
     )
 
 
@@ -3146,6 +3187,7 @@ def cmd_batch_compile_matrix(args):
         log_path=log_path,
         result_path=result_path,
         dry_run=args.dry_run,
+        timeout_ms=args.timeout_ms,
     )
 
 
@@ -3207,6 +3249,7 @@ def cmd_batch_build_config_compile_matrix(args):
             log_path=log_path,
             result_path=result_path,
             dry_run=False,
+            timeout_ms=args.timeout_ms,
         )
     finally:
         try:
@@ -3267,6 +3310,7 @@ def cmd_batch_editmode_tests(args):
         log_path=log_path,
         result_path=result_path,
         dry_run=args.dry_run,
+        timeout_ms=args.timeout_ms,
     )
 
 
@@ -3317,6 +3361,8 @@ def cmd_batch_build_player(args):
     }
     summary_path = batch_summary_artifact_path(result_path)
     payload["summary_file"] = str(summary_path)
+    timeout_ms = args.timeout_ms if args.timeout_ms and args.timeout_ms > 0 else None
+    payload["timeout_ms"] = timeout_ms
 
     if args.dry_run:
         print_json(payload)
@@ -3331,7 +3377,7 @@ def cmd_batch_build_player(args):
                 f"Live editor pid(s): {', '.join(str(pid) for pid in live_editor_pids)}. "
                 "Close the editor first or use a host-local wrapper that manages editor shutdown/reopen explicitly."
             ),
-            {"live_editor_pids": live_editor_pids},
+            build_batch_editor_conflict_details(project_root, live_editor_pids),
         )
         summary = build_batch_prepare_failure_summary(
             action="plain_batch_build",
@@ -3354,19 +3400,31 @@ def cmd_batch_build_player(args):
     payload["stale_lock"] = stale_lock
 
     command_started_at = time.time()
-    completed = subprocess.run(command, check=False)
-    payload["batch_exit_code"] = completed.returncode
+    timed_out = False
+    batch_exit_code = 0
+    try:
+        completed = subprocess.run(
+            command,
+            check=False,
+            timeout=(timeout_ms / 1000.0) if timeout_ms is not None else None,
+        )
+        batch_exit_code = completed.returncode
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        batch_exit_code = 124
+    payload["batch_exit_code"] = batch_exit_code
+    payload["timed_out"] = timed_out
 
     result_payload = try_read_json_dict(result_path, read_json)
     if result_payload is not None:
         payload["build_result_payload_present"] = True
-        payload["succeeded"] = bool(result_payload.get("succeeded", False)) and completed.returncode == 0
+        payload["succeeded"] = bool(result_payload.get("succeeded", False)) and batch_exit_code == 0 and not timed_out
     else:
         payload["build_result_payload_present"] = False
-        payload["succeeded"] = completed.returncode == 0
+        payload["succeeded"] = batch_exit_code == 0 and not timed_out
 
     log_excerpt_hint = ""
-    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+    if batch_exit_code != 0 or not bool(payload.get("succeeded")):
         log_excerpt = read_recent_editor_log(log_path, command_started_at)
         if log_excerpt:
             log_excerpt_hint = truncate_text(log_excerpt[-600:], 600)
@@ -3374,13 +3432,20 @@ def cmd_batch_build_player(args):
     result_summary = build_batch_execution_summary(
         action="plain_batch_build",
         result_payload=result_payload,
-        batch_exit_code=completed.returncode,
+        batch_exit_code=batch_exit_code,
         succeeded=bool(payload.get("succeeded")),
         result_path=result_path,
         log_path=log_path,
         log_excerpt_hint=log_excerpt_hint,
         truncate_text=truncate_text,
     )
+    if timed_out:
+        result_summary["timed_out"] = True
+        result_summary["timeout_ms"] = timeout_ms
+        result_summary.setdefault(
+            "top_actionable_error",
+            f"Unity batch operation timed out after {timeout_ms} ms.",
+        )
     write_batch_summary_artifact(summary_path, result_summary)
     payload["build_result_summary"] = result_summary
     payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
@@ -3388,7 +3453,7 @@ def cmd_batch_build_player(args):
         payload["top_actionable_error"] = result_summary["top_actionable_error"]
 
     print_json(payload)
-    if completed.returncode != 0 or not bool(payload.get("succeeded")):
+    if batch_exit_code != 0 or not bool(payload.get("succeeded")):
         raise SystemExit(1)
 
 
@@ -3669,6 +3734,7 @@ def build_parser():
     batch_compile_cmd.add_argument("--unity-app")
     batch_compile_cmd.add_argument("--batch-log-path")
     batch_compile_cmd.add_argument("--result-file")
+    batch_compile_cmd.add_argument("--timeout-ms", type=int)
     batch_compile_cmd.add_argument("--dry-run", action="store_true")
     batch_compile_cmd.set_defaults(func=cmd_batch_compile)
 
@@ -3681,6 +3747,7 @@ def build_parser():
     batch_compile_matrix_cmd.add_argument("--unity-app")
     batch_compile_matrix_cmd.add_argument("--batch-log-path")
     batch_compile_matrix_cmd.add_argument("--result-file")
+    batch_compile_matrix_cmd.add_argument("--timeout-ms", type=int)
     batch_compile_matrix_cmd.add_argument("--dry-run", action="store_true")
     batch_compile_matrix_cmd.set_defaults(func=cmd_batch_compile_matrix)
 
@@ -3696,6 +3763,7 @@ def build_parser():
     batch_build_config_matrix_cmd.add_argument("--unity-app")
     batch_build_config_matrix_cmd.add_argument("--batch-log-path")
     batch_build_config_matrix_cmd.add_argument("--result-file")
+    batch_build_config_matrix_cmd.add_argument("--timeout-ms", type=int)
     batch_build_config_matrix_cmd.set_defaults(func=cmd_batch_build_config_compile_matrix)
 
     batch_editmode_cmd = sub.add_parser(
@@ -3710,6 +3778,7 @@ def build_parser():
     batch_editmode_cmd.add_argument("--unity-app")
     batch_editmode_cmd.add_argument("--batch-log-path")
     batch_editmode_cmd.add_argument("--result-file")
+    batch_editmode_cmd.add_argument("--timeout-ms", type=int)
     batch_editmode_cmd.add_argument("--dry-run", action="store_true")
     batch_editmode_cmd.set_defaults(func=cmd_batch_editmode_tests)
 
@@ -3744,6 +3813,7 @@ def build_parser():
     batch_build_cmd.add_argument("--unity-app")
     batch_build_cmd.add_argument("--batch-log-path")
     batch_build_cmd.add_argument("--result-file")
+    batch_build_cmd.add_argument("--timeout-ms", type=int)
     batch_build_cmd.add_argument("--dry-run", action="store_true")
     batch_build_cmd.set_defaults(func=cmd_batch_build_player)
 

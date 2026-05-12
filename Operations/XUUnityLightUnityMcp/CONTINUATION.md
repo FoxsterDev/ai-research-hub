@@ -208,6 +208,17 @@ Mini-playbook for closeout mismatch:
 4. verify remaining project editor PIDs before assuming the editor is gone
 5. only after verified exit treat the validation session as fully closed
 
+Compile-first closeout recipe for changed C# scripts:
+
+1. inspect editor state with `request-status-summary --project-root <project>`
+2. if the same project editor blocks the batch lane, run the surfaced recovery
+   command, usually `request-editor-quit --project-root <project>`
+3. verify process exit with `restore-editor-state --project-root <project>` or
+   `recover-editor-session --project-root <project>`
+4. run the fast batch compile gate
+5. only after compile passes, run batch EditMode tests, PlayMode, scenario, or
+   GUI smoke validation
+
 Only after that:
 - compile
 - tests

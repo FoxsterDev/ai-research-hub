@@ -50,7 +50,9 @@ Pass criteria:
 
 ### 2. Compile Gate
 
-Before heavier scenario work on changed scripts, prefer a fast compile gate.
+Changed C# scripts require a fast compile gate before EditMode, PlayMode,
+scenario, or GUI smoke validation unless the task is explicitly investigating a
+compile failure.
 
 Preferred routes:
 
@@ -63,6 +65,9 @@ Pass criteria:
 - all required target/profile entries pass for the project contract
 - when Unity-side settle evidence is available, compile payloads should report
   `completion_basis: unity_compile_settle_watcher`
+- if the compile gate is blocked because the same project editor is open, the
+  batch summary reports `unity_outcome: not_started` and surfaces a concrete
+  recovery command before any heavier validation is attempted
 
 ### 3. Interactive Acceptance Scenario
 

@@ -12,6 +12,10 @@ RESTORE_EDITOR_STATE="true"
 OPEN_EDITOR="true"
 PROJECT_REFRESH_TIMEOUT_MS=""
 REQUEST_TIMEOUT_MS=""
+FIXTURE_WAIT_SECONDS=""
+JOURNAL_WAIT_TIMEOUT_SECONDS=""
+CLEANUP_REFRESH_TIMEOUT_MS=""
+PROBE_ACTIVATION_APP=""
 TMP_DIR=""
 LAST_OUTPUT_FILE=""
 FAULT_DIR_PREEXISTED="false"
@@ -337,10 +341,14 @@ run_step runtime_config \
   --project-root "$PROJECT_ROOT"
 PROJECT_REFRESH_TIMEOUT_MS="${PROJECT_REFRESH_TIMEOUT_MS:-$(resolve_runtime_setting 180000 smoke request_abandoned project_refresh_timeout_ms)}"
 REQUEST_TIMEOUT_MS="${REQUEST_TIMEOUT_MS:-$(resolve_runtime_setting 300000 smoke request_abandoned request_timeout_ms)}"
+FIXTURE_WAIT_SECONDS="${FIXTURE_WAIT_SECONDS:-$(resolve_runtime_setting 120 smoke request_abandoned fixture_wait_seconds)}"
+JOURNAL_WAIT_TIMEOUT_SECONDS="${JOURNAL_WAIT_TIMEOUT_SECONDS:-$(resolve_runtime_setting 240 smoke request_abandoned journal_wait_timeout_seconds)}"
+CLEANUP_REFRESH_TIMEOUT_MS="${CLEANUP_REFRESH_TIMEOUT_MS:-$(resolve_runtime_setting "$PROJECT_REFRESH_TIMEOUT_MS" smoke request_abandoned cleanup_refresh_timeout_ms)}"
+PROBE_ACTIVATION_APP="${PROBE_ACTIVATION_APP:-$(resolve_runtime_setting Unity smoke request_abandoned probe_activation_app)}"
 
 mkdir -p "$TEST_DIR"
 mkdir -p "$FAULT_DIR"
-cat > "$TEST_FILE" <<'EOF'
+cat > "$TEST_FILE" <<EOF
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -353,7 +361,7 @@ namespace XUUnity.LightMcp.Editor.FaultInjection
         [UnityTest]
         public IEnumerator RequestRemainsActiveLongEnoughForReload()
         {
-            yield return new WaitForSecondsRealtime(120f);
+            yield return new WaitForSecondsRealtime(${FIXTURE_WAIT_SECONDS}f);
             Assert.Pass();
         }
     }
@@ -447,9 +455,9 @@ namespace XUUnity.LightMcp.Editor.FaultInjection
 }
 EOF
 echo "[pass] injected-reload-probe path=$PROBE_SCRIPT"
-activate_app "Unity"
+activate_app "$PROBE_ACTIVATION_APP"
 
-if ! wait_for_journal_event "$REQUEST_ID" "request_abandoned" 240 "$ABANDONED_EVENT_FILE"; then
+if ! wait_for_journal_event "$REQUEST_ID" "request_abandoned" "$JOURNAL_WAIT_TIMEOUT_SECONDS" "$ABANDONED_EVENT_FILE"; then
   LAST_OUTPUT_FILE="$ABANDONED_EVENT_FILE"
   fail_step "request-abandoned"
 fi
@@ -533,6 +541,7 @@ else
   purge_generated_compilation_artifacts
 
   LAST_OUTPUT_FILE="$TMP_DIR/cleanup_refresh.json"
+  PROJECT_REFRESH_TIMEOUT_MS="$CLEANUP_REFRESH_TIMEOUT_MS"
   if ! run_raw_file_ipc_refresh "$LAST_OUTPUT_FILE"; then
     fail_step "cleanup_refresh"
   fi

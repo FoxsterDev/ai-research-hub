@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import io
 import sys
 import unittest
 from pathlib import Path
@@ -316,9 +318,92 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertEqual(1, len(emitted_payloads))
         payload = emitted_payloads[0]
         self.assertEqual("compile_probe_blocked_by_live_editor", payload["recovery_classification"])
-        self.assertEqual("close_editor_or_use_interactive_lane", payload["recovery_recommended_next_action"])
+        self.assertEqual("close_same_project_editor_or_use_interactive_lane", payload["recovery_recommended_next_action"])
+        self.assertEqual(
+            "xuunity_light_unity_mcp.sh request-editor-quit --project-root /tmp/FakeProject --timeout-ms 30000",
+            payload["recommended_recovery_command"],
+        )
         self.assertNotIn("reopen_block_reason", payload)
         self.assertFalse(bool(payload.get("reopen_blocked")))
+
+    def test_batch_editor_conflict_includes_concrete_recovery_command(self) -> None:
+        project_root = Path("/tmp/FakeProject")
+
+        with mock.patch.object(server, "list_live_project_editor_pids", return_value=[1234]):
+            with self.assertRaises(server.ToolInvocationError) as ctx:
+                server.ensure_batch_project_closed(project_root, "batch compile")
+
+        exc = ctx.exception
+        self.assertEqual("editor_running_batch_conflict", exc.code)
+        self.assertEqual([1234], exc.details["live_editor_pids"])
+        self.assertEqual(
+            "close_same_project_editor_or_use_interactive_lane",
+            exc.details["recommended_next_action"],
+        )
+        self.assertEqual(
+            "xuunity_light_unity_mcp.sh request-editor-quit --project-root /tmp/FakeProject --timeout-ms 30000",
+            exc.details["recommended_recovery_command"],
+        )
+        self.assertTrue(exc.details["closeout_verification_required"])
+
+        summary = server.build_batch_prepare_failure_summary(
+            action="batch_compile",
+            result_path=Path("/tmp/result.json"),
+            log_path=Path("/tmp/editor.log"),
+            exc=exc,
+            truncate_text=server.truncate_text,
+        )
+
+        self.assertEqual("batch_prepare_blocked", summary["transport_outcome"])
+        self.assertEqual("not_started", summary["unity_outcome"])
+        self.assertEqual(exc.details["recommended_next_action"], summary["recommended_next_action"])
+        self.assertEqual(exc.details["recommended_recovery_command"], summary["recommended_recovery_command"])
+        self.assertTrue(summary["closeout_verification_required"])
+        self.assertIn("verify editor process exit", summary["next_step"])
+
+    def test_batch_commands_accept_timeout_ms(self) -> None:
+        parser = server.build_parser()
+
+        matrix_args = parser.parse_args(
+            [
+                "batch-build-config-compile-matrix",
+                "--project-root",
+                "/tmp/FakeProject",
+                "--timeout-ms",
+                "900000",
+            ]
+        )
+        self.assertEqual(900000, matrix_args.timeout_ms)
+
+        editmode_args = parser.parse_args(
+            [
+                "batch-editmode-tests",
+                "--project-root",
+                "/tmp/FakeProject",
+                "--timeout-ms",
+                "900000",
+                "--dry-run",
+            ]
+        )
+        self.assertEqual(900000, editmode_args.timeout_ms)
+
+    def test_error_summary_includes_closeout_verified_false(self) -> None:
+        payload = {
+            "error": {"code": "restore_editor_state_incomplete", "message": "closeout incomplete"},
+            "closeout_classification": "quit_ack_without_exit",
+            "closeout_verified": False,
+            "recommended_next_action": "manual_editor_close",
+            "recommended_recovery_command": "xuunity_light_unity_mcp.sh recover-editor-session --project-root /tmp/FakeProject",
+        }
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            server.emit_tool_error_summary(payload)
+
+        output = stderr.getvalue()
+        self.assertIn("closeout_classification=quit_ack_without_exit", output)
+        self.assertIn("closeout_verified=false", output)
+        self.assertIn("recovery_command xuunity_light_unity_mcp.sh recover-editor-session", output)
 
     def test_request_playmode_tests_exits_playmode_and_retries_once(self) -> None:
         args = argparse.Namespace(
