@@ -16,7 +16,7 @@ Context:
   - AIRoot/Modules/XUUnity/reviews/policy_packs/manifest_native_changes.md
 - Align with roadmap/execution-plan intent for a UI-heavy policy-pack family.
 - Keep it public-core safe and reusable, not tied to monorepo-private presenter implementation details.
-- You may use relevant existing Apperfun monorepo review artifacts, audits, SDK reviews, code reviews, knowledge drafts, and all already-existing XUUnity shared/internal skills when they help derive stronger public-safe policy-pack logic.
+- You may use relevant existing host monorepo review artifacts, audits, SDK reviews, code reviews, knowledge drafts, and all already-existing XUUnity shared/internal skills when they help derive stronger public-safe policy-pack logic.
 - Reuse proven review patterns, but do not copy project-private details into AIRoot.
 
 The pack should cover at minimum:

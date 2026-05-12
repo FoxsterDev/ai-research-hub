@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -386,6 +387,43 @@ class ServerProtocolAndParserTests(unittest.TestCase):
             ]
         )
         self.assertEqual(900000, editmode_args.timeout_ms)
+
+    def test_test_framework_regression_defaults_are_public_safe(self) -> None:
+        parser = server.build_parser()
+        args = parser.parse_args(
+            [
+                "batch-test-framework-version-regression",
+                "--project-root",
+                "/tmp/FakeProject",
+            ]
+        )
+
+        self.assertEqual("active", args.compile_target)
+        self.assertEqual([], args.focus_assembly_name)
+        self.assertEqual([], args.focus_test_name)
+        self.assertFalse(args.no_generated_focus_test)
+
+    def test_generated_test_framework_focus_fixture_cleans_up(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            (project_root / "Assets").mkdir()
+
+            fixture = server.deploy_test_framework_regression_focus_fixture(
+                project_root,
+                server.TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_RELATIVE_DIR,
+            )
+
+            fixture_path = Path(fixture["fixture_path"])
+            self.assertTrue(fixture_path.is_file())
+            self.assertIn(
+                server.TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_TEST_NAME,
+                fixture["test_name"],
+            )
+
+            cleanup = server.cleanup_test_framework_regression_focus_fixture(fixture)
+
+            self.assertTrue(cleanup["removed_file"])
+            self.assertFalse(fixture_path.exists())
 
     def test_error_summary_includes_closeout_verified_false(self) -> None:
         payload = {

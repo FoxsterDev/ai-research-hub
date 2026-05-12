@@ -16,7 +16,7 @@ Context:
   - AIRoot/Modules/XUUnity/reviews/policy_packs/manifest_native_changes.md
 - Align with the roadmap and execution plan, which explicitly call for a monetization policy-pack family.
 - This is a shared reusable file in AIRoot, so keep it public-safe and project-agnostic.
-- You may use relevant existing Apperfun monorepo review artifacts, audits, SDK reviews, code reviews, knowledge drafts, and all already-existing XUUnity shared/internal skills when they help derive stronger public-safe policy-pack logic.
+- You may use relevant existing host monorepo review artifacts, audits, SDK reviews, code reviews, knowledge drafts, and all already-existing XUUnity shared/internal skills when they help derive stronger public-safe policy-pack logic.
 - Reuse proven review patterns, but do not copy project-private details into AIRoot.
 
 The pack should cover at minimum:

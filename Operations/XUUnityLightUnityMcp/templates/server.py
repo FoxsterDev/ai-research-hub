@@ -2016,9 +2016,31 @@ TEST_FRAMEWORK_REGRESSION_LOCK_PACKAGES = [
     TEST_FRAMEWORK_PERFORMANCE_PACKAGE_NAME,
     LIGHTWEIGHT_PACKAGE_NAME,
 ]
-TEST_FRAMEWORK_REGRESSION_FOCUS_ASSEMBLIES = ["_Hub.AppLoadingSteps.Tests"]
-TEST_FRAMEWORK_REGRESSION_FOCUS_TESTS = ["CheckMinSupportedVersionUpdateLinkRoutingTests"]
-TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET = "Android"
+TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET = "active"
+TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_RELATIVE_DIR = (
+    "Assets/XUUnityLightMcpGenerated/TestFrameworkRegression/Editor"
+)
+TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_FILE_NAME = (
+    "XUUnityLightMcpTestFrameworkRegressionSelfTest.cs"
+)
+TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_TEST_NAME = (
+    "XUUnity.LightMcp.GeneratedTests."
+    "XUUnityLightMcpTestFrameworkRegressionSelfTest.FrameworkSmokePasses"
+)
+TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_SOURCE = """using NUnit.Framework;
+
+namespace XUUnity.LightMcp.GeneratedTests
+{
+    public sealed class XUUnityLightMcpTestFrameworkRegressionSelfTest
+    {
+        [Test]
+        public void FrameworkSmokePasses()
+        {
+            Assert.That(1 + 1, Is.EqualTo(2));
+        }
+    }
+}
+"""
 
 
 def test_framework_regression_result_path(project_root: Path) -> Path:
@@ -2213,6 +2235,103 @@ def write_test_framework_step_artifact(path: Path, payload: dict[str, Any]) -> N
     write_json(path, payload)
 
 
+def deploy_test_framework_regression_focus_fixture(
+    project_root: Path,
+    relative_dir: str,
+) -> dict[str, Any]:
+    relative_dir = str(relative_dir or TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_RELATIVE_DIR).strip()
+    fixture_dir = (project_root / relative_dir).resolve()
+    fixture_path = fixture_dir / TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_FILE_NAME
+    project_root_resolved = project_root.resolve()
+    assets_root = project_root_resolved / "Assets"
+
+    if project_root_resolved not in fixture_path.parents:
+        raise ToolInvocationError(
+            "generated_focus_fixture_path_outside_project",
+            f"Generated focus fixture path must stay inside the Unity project: {fixture_path}",
+        )
+    if assets_root not in fixture_path.parents:
+        raise ToolInvocationError(
+            "generated_focus_fixture_path_outside_assets",
+            f"Generated focus fixture path must stay under Assets: {fixture_path}",
+        )
+
+    existing_file = fixture_path.is_file()
+    if existing_file:
+        try:
+            existing_source = fixture_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ToolInvocationError(
+                "generated_focus_fixture_unreadable",
+                f"Could not read generated focus fixture: {fixture_path}. {exc}",
+            ) from exc
+        if existing_source != TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_SOURCE:
+            raise ToolInvocationError(
+                "generated_focus_fixture_conflict",
+                (
+                    "Refusing to overwrite an existing project file while deploying "
+                    f"the generated focus fixture: {fixture_path}"
+                ),
+            )
+
+    created_directories: list[str] = []
+    current = fixture_dir
+    while current != project_root_resolved and current != assets_root and not current.exists():
+        created_directories.append(str(current))
+        current = current.parent
+
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    if not existing_file:
+        fixture_path.write_text(TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_SOURCE, encoding="utf-8")
+
+    return {
+        "deployed": True,
+        "relative_dir": relative_dir,
+        "fixture_path": str(fixture_path),
+        "test_name": TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_TEST_NAME,
+        "created_file": not existing_file,
+        "created_directories": created_directories,
+    }
+
+
+def cleanup_test_framework_regression_focus_fixture(fixture: dict[str, Any]) -> dict[str, Any]:
+    if not fixture or not bool(fixture.get("deployed")):
+        return {"attempted": False}
+
+    result: dict[str, Any] = {
+        "attempted": True,
+        "removed_file": False,
+        "removed_meta": False,
+        "removed_directories": [],
+        "failed_paths": [],
+    }
+    fixture_path = Path(str(fixture.get("fixture_path") or ""))
+    if bool(fixture.get("created_file")):
+        for path in [fixture_path, Path(str(fixture_path) + ".meta")]:
+            try:
+                if path.is_file():
+                    path.unlink()
+                    if path.suffix == ".meta":
+                        result["removed_meta"] = True
+                    else:
+                        result["removed_file"] = True
+            except OSError:
+                result["failed_paths"].append(str(path))
+
+    for directory_value in list(fixture.get("created_directories") or []):
+        directory = Path(str(directory_value))
+        try:
+            meta_path = Path(str(directory) + ".meta")
+            if meta_path.is_file():
+                meta_path.unlink()
+            directory.rmdir()
+            result["removed_directories"].append(str(directory))
+        except OSError:
+            pass
+
+    return result
+
+
 def run_self_json_command(command_args: list[str]) -> dict[str, Any]:
     completed = subprocess.run(
         [sys.executable, __file__, *command_args],
@@ -2329,6 +2448,18 @@ def summarize_compile_step(output: dict[str, Any]) -> dict[str, Any]:
             "compiled_assembly_count": compile_payload.get("compiled_assembly_count"),
             "error_count": compile_payload.get("error_count"),
             "warning_count": compile_payload.get("warning_count"),
+        }
+    return summary
+
+
+def summarize_build_target_step(output: dict[str, Any]) -> dict[str, Any]:
+    summary = summarize_bridge_step(output)
+    payload = summary.get("payload") or {}
+    if isinstance(payload, dict):
+        summary["build_target"] = {
+            "active_build_target": payload.get("active_build_target"),
+            "active_build_target_group": payload.get("active_build_target_group"),
+            "target_support_loaded": payload.get("target_support_loaded"),
         }
     return summary
 
@@ -2557,13 +2688,35 @@ def run_single_test_framework_candidate(
         write_test_framework_step_artifact(candidate_dir / "interactive_project_refresh.json", project_refresh_output)
         result["interactive"]["project_refresh"] = summarize_project_refresh_step(project_refresh_output)
 
+        compile_target_for_candidate = compile_target
+        if compile_target_for_candidate.lower() == "active":
+            build_target_output = run_self_json_command(
+                [
+                    "request-build-target-get",
+                    "--project-root",
+                    str(project_root),
+                    "--timeout-ms",
+                    "30000",
+                ]
+            )
+            write_test_framework_step_artifact(candidate_dir / "interactive_build_target_get.json", build_target_output)
+            result["interactive"]["build_target"] = summarize_build_target_step(build_target_output)
+            build_target_payload = ((result["interactive"]["build_target"] or {}).get("build_target") or {})
+            compile_target_for_candidate = str(build_target_payload.get("active_build_target") or "").strip()
+            if not compile_target_for_candidate:
+                raise ToolInvocationError(
+                    "active_compile_target_unresolved",
+                    "Could not resolve the active Unity build target for test-framework regression compile validation.",
+                )
+
+        result["compile_target"] = compile_target_for_candidate
         compile_output = run_self_json_command(
             [
                 "request-compile",
                 "--project-root",
                 str(project_root),
                 "--target",
-                compile_target,
+                compile_target_for_candidate,
                 "--name",
                 f"test_framework_regression_{candidate_slug}",
                 "--timeout-ms",
@@ -2925,12 +3078,19 @@ def cmd_batch_test_framework_version_regression(args):
     if not requested_versions:
         requested_versions = [str(original_state.get("project_manifest_dependency") or "")]
 
-    focus_assemblies = list(args.focus_assembly_name or TEST_FRAMEWORK_REGRESSION_FOCUS_ASSEMBLIES)
-    focus_tests = list(args.focus_test_name or TEST_FRAMEWORK_REGRESSION_FOCUS_TESTS)
+    focus_assemblies = list(args.focus_assembly_name or [])
+    focus_tests = list(args.focus_test_name or [])
+    generated_focus_fixture: dict[str, Any] = {}
+    if not focus_assemblies and not focus_tests and not bool(args.no_generated_focus_test):
+        generated_focus_fixture = deploy_test_framework_regression_focus_fixture(
+            project_root,
+            args.generated_focus_relative_dir,
+        )
+        focus_tests = [TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_TEST_NAME]
     broad_assemblies = list(args.broad_assembly_name or [])
     compile_target = str(args.compile_target or TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET).strip()
     if not compile_target:
-        raise ToolInvocationError("missing_compile_target", "--compile-target must not be empty.")
+        compile_target = TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET
 
     live_editor_pids = list_live_project_editor_pids(project_root)
     host_session = current_project_context_host_session_state(project_root)
@@ -2972,6 +3132,7 @@ def cmd_batch_test_framework_version_regression(args):
         },
         "focus_assemblies": focus_assemblies,
         "focus_tests": focus_tests,
+        "generated_focus_fixture": generated_focus_fixture,
         "broad_assemblies": broad_assemblies,
         "compile_target": compile_target,
         "original_state": original_state,
@@ -3055,6 +3216,10 @@ def cmd_batch_test_framework_version_regression(args):
                     package_manifest_path,
                     packages_lock_path,
                 )
+        if generated_focus_fixture:
+            restoration["generated_focus_fixture_cleanup"] = cleanup_test_framework_regression_focus_fixture(
+                generated_focus_fixture
+            )
         overall_result["restoration"] = restoration
 
     if baseline_result is not None:
@@ -3792,6 +3957,11 @@ def build_parser():
     regression_cmd.add_argument("--compile-target", default=TEST_FRAMEWORK_REGRESSION_COMPILE_TARGET)
     regression_cmd.add_argument("--focus-assembly-name", action="append", default=[])
     regression_cmd.add_argument("--focus-test-name", action="append", default=[])
+    regression_cmd.add_argument(
+        "--generated-focus-relative-dir",
+        default=TEST_FRAMEWORK_REGRESSION_GENERATED_FOCUS_RELATIVE_DIR,
+    )
+    regression_cmd.add_argument("--no-generated-focus-test", action="store_true")
     regression_cmd.add_argument("--broad-assembly-name", action="append", default=[])
     regression_cmd.add_argument(
         "--restore-original-version",

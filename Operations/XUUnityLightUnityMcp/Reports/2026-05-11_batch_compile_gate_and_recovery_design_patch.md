@@ -52,7 +52,7 @@ pieces:
 
 The remaining gap is orchestration quality.
 
-Today `AIOutput/Projects/ApperfunHub/Operations/XUUnityLightUnityMcp/apperfunhub_wrapper_commands.sh`
+Today a host-local project wrapper
 still reopens the GUI directly after batch work and snapshot restore. That is
 the wrong default for a validation wrapper.
 
@@ -270,7 +270,7 @@ explicit artifact, not hidden behavior.
 
 Primary files:
 
-- `AIOutput/Projects/ApperfunHub/Operations/XUUnityLightUnityMcp/apperfunhub_wrapper_commands.sh`
+- a host-local project wrapper
 - `templates/server.py`
 - `templates/server_build_config.py`
 
@@ -278,7 +278,7 @@ Patch:
 
 1. Change the project wrapper reopen path to use a compile gate instead of
    direct `ensure-ready --open-editor`.
-2. For `ApperfunHub`, use:
+2. For a representative project, use:
    - `batch-build-config-compile-matrix`
 3. On failure:
    - return a compact `compile_gate_summary`
@@ -407,7 +407,7 @@ With assertions for:
 
 Project-local smoke extension:
 
-- `AIOutput/Projects/ApperfunHub/Operations/XUUnityLightUnityMcp/smoke/ApperfunHub/run_mcp_post_change_validation.sh`
+- a host-local project post-change validation wrapper
 
 Should inherit the same compile-first behavior without custom divergence.
 
@@ -423,7 +423,7 @@ Public-core candidates:
 
 Host-local wrapper candidate:
 
-- `ApperfunHub` choosing `batch-build-config-compile-matrix` as the reopen
+- a host-local project choosing `batch-build-config-compile-matrix` as the reopen
   gate default for build-hook flows
 
 This is the right split:
