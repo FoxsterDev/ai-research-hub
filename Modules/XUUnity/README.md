@@ -136,6 +136,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/review_quality_scoring.md`
+- `knowledge/request_recovery.md`
 - `knowledge/severity_matrix.md`
 - `knowledge/unity_validation_boundaries.md`
 - `knowledge/validation_contract.md`

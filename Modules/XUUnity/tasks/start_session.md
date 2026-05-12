@@ -133,6 +133,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, UI-heavy, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
+- Load `knowledge/request_recovery.md` when task text or inspected code mentions structured error bodies on non-2xx responses, `HttpResponseCode`, `RawResponse`, application error codes, request retry after auth/session recovery, response cache invalidation, stale persisted identity/session state, idempotency keys, safe replay, or full transport/application error contracts.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
 
