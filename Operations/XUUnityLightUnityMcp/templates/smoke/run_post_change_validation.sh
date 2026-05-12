@@ -275,6 +275,15 @@ if [[ -n "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" ]]; then
     --no-open-editor \
     --no-restore-editor-state
   echo "[pass] playmode-settled-state-regression"
+
+  run_step playmode_lifecycle_retry_smoke \
+    "$SCRIPT_DIR/run_playmode_lifecycle_retry_smoke.sh" \
+    --project-root "$PROJECT_ROOT" \
+    --assembly-name "$PLAYMODE_REGRESSION_ASSEMBLY_NAME" \
+    --test-name "$PLAYMODE_REGRESSION_TEST_NAME" \
+    --no-open-editor \
+    --no-restore-editor-state
+  echo "[pass] playmode-lifecycle-retry-smoke"
 fi
 
 echo "[pass] suite overall"

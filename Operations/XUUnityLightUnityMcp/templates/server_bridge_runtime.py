@@ -592,6 +592,71 @@ def build_bridge_stabilization_summary(
     }
 
 
+def classify_result_trust_class(
+    *,
+    operation_outcome: str,
+    request_started: bool,
+    request_completed: bool,
+    request_observed_in_unity_journal: bool,
+) -> str:
+    if operation_outcome == "completed_ok":
+        return "unity_completed_confirmed"
+    if operation_outcome == "completed_failed":
+        return "unity_failed_confirmed"
+    if operation_outcome == "settled_after_lifecycle_reset":
+        return "unity_completed_after_lifecycle_reset"
+    if operation_outcome in {
+        "retryable_after_lifecycle_reset",
+        "abandoned_after_lifecycle_reset",
+        "submitted_lost_after_lifecycle_churn",
+        "cancellation_requested_in_flight",
+    }:
+        return "wrapper_failed_unity_unproven"
+    if operation_outcome in {
+        "cancelled_before_unity_start",
+        "submitted_no_unity_journal_confirmation",
+    }:
+        return "request_not_observed"
+    if request_completed:
+        return "unity_failed_confirmed"
+    if request_started or request_observed_in_unity_journal:
+        return "wrapper_failed_unity_unproven"
+    return "request_not_observed"
+
+
+def build_safe_retry_budget(
+    *,
+    operation_outcome: str,
+    recommended_next_action: str,
+    retryable: bool,
+) -> dict[str, Any]:
+    retry_budget_total = 1 if (
+        retryable
+        or operation_outcome in {
+            "retryable_after_lifecycle_reset",
+            "abandoned_after_lifecycle_reset",
+            "submitted_lost_after_lifecycle_churn",
+            "submitted_no_unity_journal_confirmation",
+            "cancelled_before_unity_start",
+            "cancellation_requested_in_flight",
+        }
+    ) else 0
+    retry_budget_remaining = 1 if (
+        retry_budget_total > 0
+        and recommended_next_action in {
+            "retry_request",
+            "wait_for_bridge_stabilization",
+            "verify_effect_or_retry",
+        }
+    ) else 0
+    return {
+        "safe_retry_budget_total": retry_budget_total,
+        "safe_retry_budget_remaining": retry_budget_remaining,
+        "safe_retry_budget_exhausted": retry_budget_total > 0 and retry_budget_remaining == 0,
+        "safe_retry_budget_blocked": retry_budget_total > 0 and recommended_next_action == "wait_for_bridge_stabilization",
+    }
+
+
 def build_request_final_status(
     project_root: Path,
     request_id: str,
@@ -601,6 +666,7 @@ def build_request_final_status(
     read_current_state: Callable[[Path], dict[str, Any] | None] | None = None,
     poll_timeout_ms: int = 0,
     poll_interval_ms: int = 200,
+    return_reclassified_terminal_immediately: bool = True,
 ) -> dict[str, Any]:
     deadline = time.time() + max(0.0, poll_timeout_ms / 1000.0)
 
@@ -718,6 +784,18 @@ def build_request_final_status(
         else:
             recommended_next_action = "inspect_request_journal"
 
+        result_trust_class = classify_result_trust_class(
+            operation_outcome=operation_outcome,
+            request_started=request_started,
+            request_completed=request_completed,
+            request_observed_in_unity_journal=request_observed_in_unity_journal,
+        )
+        retry_budget = build_safe_retry_budget(
+            operation_outcome=operation_outcome,
+            recommended_next_action=recommended_next_action,
+            retryable=retryable,
+        )
+
         summary = {
             "request_id": request_id,
             "operation": str((started_event or completed_event or reclassified_event or submitted_event or {}).get("operation") or operation or ""),
@@ -737,6 +815,7 @@ def build_request_final_status(
             "reclassified_reason": reclassified_reason,
             "retryable": retryable,
             "recommended_next_action": recommended_next_action,
+            "result_trust_class": result_trust_class,
             "recommended_recovery_command": (
                 f"request-final-status --project-root {project_root} --request-id {request_id}"
                 if request_id
@@ -755,10 +834,12 @@ def build_request_final_status(
             "journal_event_count": len(events),
             "journal_event_paths": [str(event.get("_path") or "") for event in events],
             "bridge_stabilization": stabilization,
+            **retry_budget,
         }
 
         reclassified_terminal = (
-            reclassified
+            return_reclassified_terminal_immediately
+            and reclassified
             and bool(reclassified_status)
             and recommended_next_action != "wait_for_bridge_stabilization"
         )
@@ -827,6 +908,7 @@ def try_recover_completed_response_after_reset(
         operation,
         current_state=current_state,
         poll_timeout_ms=poll_timeout_ms,
+        return_reclassified_terminal_immediately=False,
     )
 
     if bool(final_status.get("request_completed")):
@@ -879,6 +961,7 @@ def build_lifecycle_reset_tool_error(
     current_session_id = str(stabilization.get("bridge_session_id") or "")
     operation_outcome = str(final_status.get("operation_outcome") or "unknown")
     recommended_next_action = str(final_status.get("recommended_next_action") or "inspect_request_journal")
+    result_trust_class = str(final_status.get("result_trust_class") or "")
     recommended_recovery_command = (
         f"request-final-status --project-root {project_root} --request-id {request_id}"
     )
@@ -888,6 +971,7 @@ def build_lifecycle_reset_tool_error(
         f"request_id: {request_id} "
         "transport_outcome: reset_before_response_commit "
         f"operation_outcome: {operation_outcome} "
+        f"result_trust_class: {result_trust_class or 'unknown'} "
         f"recommended_next_action: {recommended_next_action} "
         f"next_step: {recommended_recovery_command}"
     )
@@ -899,6 +983,7 @@ def build_lifecycle_reset_tool_error(
             f"request_id: {request_id} "
             "transport_outcome: reset_before_response_commit "
             "operation_outcome: completed_ok "
+            "result_trust_class: unity_completed_confirmed "
             "recommended_next_action: none "
             f"next_step: {recommended_recovery_command}"
         )
@@ -910,6 +995,7 @@ def build_lifecycle_reset_tool_error(
             f"request_id: {request_id} "
             "transport_outcome: reset_before_response_commit "
             "operation_outcome: completed_failed "
+            "result_trust_class: unity_failed_confirmed "
             "recommended_next_action: inspect_request_journal "
             f"next_step: {recommended_recovery_command}"
         )
@@ -926,6 +1012,7 @@ def build_lifecycle_reset_tool_error(
         "transport_outcome": "reset_before_response_commit",
         "operation_outcome": operation_outcome,
         "recommended_next_action": recommended_next_action,
+        "result_trust_class": result_trust_class,
         "recommended_recovery_command": recommended_recovery_command,
         "initial_bridge_generation": initial_bridge_generation,
         "initial_bridge_session_id": initial_bridge_session_id,
@@ -935,6 +1022,10 @@ def build_lifecycle_reset_tool_error(
         "request_processed": bool(request_processed_hint if request_processed_hint is not None else final_status.get("request_completed")),
         "request_final_status": final_status,
         "bridge_stabilization": stabilization,
+        "safe_retry_budget_total": int(final_status.get("safe_retry_budget_total") or 0),
+        "safe_retry_budget_remaining": int(final_status.get("safe_retry_budget_remaining") or 0),
+        "safe_retry_budget_exhausted": bool(final_status.get("safe_retry_budget_exhausted")),
+        "safe_retry_budget_blocked": bool(final_status.get("safe_retry_budget_blocked")),
     }
     if journal_event_path is not None:
         details["journal_event_path"] = str(journal_event_path)
@@ -965,6 +1056,7 @@ def build_transport_response_missing_tool_error(
     )
     stabilization = final_status.get("bridge_stabilization") or {}
     operation_outcome = str(final_status.get("operation_outcome") or "unknown")
+    result_trust_class = str(final_status.get("result_trust_class") or "")
     request_processed = bool(final_status.get("request_started") or final_status.get("request_completed"))
     recommended_next_action = str(final_status.get("recommended_next_action") or "retry_request")
     recommended_recovery_command = (
@@ -977,6 +1069,7 @@ def build_transport_response_missing_tool_error(
             f"request_id: {request_id} "
             "transport_outcome: response_missing_without_reset_signal "
             f"operation_outcome: {operation_outcome} "
+            f"result_trust_class: {result_trust_class or 'unknown'} "
             f"recommended_next_action: {recommended_next_action} "
             f"next_step: {recommended_recovery_command}"
         )
@@ -997,11 +1090,16 @@ def build_transport_response_missing_tool_error(
         "transport_outcome": "response_missing_without_reset_signal",
         "operation_outcome": operation_outcome,
         "recommended_next_action": recommended_next_action,
+        "result_trust_class": result_trust_class,
         "recommended_recovery_command": recommended_recovery_command,
         "retryable": bool(final_status.get("retryable")) if request_processed else True,
         "request_processed": request_processed,
         "request_final_status": final_status,
         "bridge_stabilization": stabilization,
+        "safe_retry_budget_total": int(final_status.get("safe_retry_budget_total") or 0),
+        "safe_retry_budget_remaining": int(final_status.get("safe_retry_budget_remaining") or 0),
+        "safe_retry_budget_exhausted": bool(final_status.get("safe_retry_budget_exhausted")),
+        "safe_retry_budget_blocked": bool(final_status.get("safe_retry_budget_blocked")),
     }
     if transport_host:
         details["host"] = transport_host

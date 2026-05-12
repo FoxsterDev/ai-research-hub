@@ -3,12 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-HOST_WRAPPER_PATH="$REPO_ROOT/AIOutput/Operations/XUUnityLightUnityMcp/xuunity_light_unity_mcp.sh"
-AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$REPO_ROOT/AIRoot}"
+AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$REPO_ROOT}"
 INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
 SERVER_PATH="${XUUNITY_LIGHT_UNITY_MCP_SERVER:-$INSTALL_DIR/server.py}"
+RUN_PATH="$INSTALL_DIR/run.sh"
+SERVER_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/server.py"
+RUN_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/run.sh"
+SERVER_MODULES_TEMPLATE_RELATIVE_GLOB="Operations/XUUnityLightUnityMcp/templates/server_*.py"
+RUNTIME_DEFAULTS_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/xuunity_light_unity_mcp_runtime_defaults.json"
 PACKAGE_NAME="com.xuunity.light-mcp"
 PACKAGE_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/unity-package"
+COMPACT_SUMMARY="false"
 
 require_command() {
   local command_name="$1"
@@ -16,6 +21,145 @@ require_command() {
     echo "required command not found: $command_name" >&2
     exit 1
   fi
+}
+
+emit_compact_summary_from_json_file() {
+  local json_file="$1"
+  local exit_code="$2"
+
+  python3 - "$json_file" "$exit_code" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+exit_code = int(sys.argv[2])
+if not path.is_file():
+    raise SystemExit(0)
+try:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+if not isinstance(payload, dict):
+    raise SystemExit(0)
+
+def line(*parts):
+    sys.stderr.write("[xuunity-light-unity-mcp] compact " + " ".join(str(p) for p in parts if str(p)) + "\n")
+
+if str(payload.get("reason") or "") == "assistive_access_not_granted":
+    line("outcome=window_arrangement", "reason=assistive_access_not_granted", "remediation=grant_accessibility_permission_then_rerun")
+    raise SystemExit(0)
+
+error = payload.get("error") if isinstance(payload.get("error"), dict) else {}
+error_code = str(error.get("code") or "")
+if exit_code != 0 or error_code:
+    parts = ["outcome=error", f"exit_code={exit_code}", f"code={error_code}"]
+    if payload.get("request_id"):
+        parts.append(f"request_id={payload.get('request_id')}")
+    next_action = payload.get("recommended_next_action") or error.get("recommended_next_action")
+    if next_action:
+        parts.append(f"next={next_action}")
+    line(*parts)
+    raise SystemExit(0)
+
+if payload.get("action") == "unity_status_summary" or "health_status" in payload:
+    line(
+        "outcome=status",
+        f"health={payload.get('health_status', '')}",
+        f"editor_running={str(bool(payload.get('editor_running'))).lower()}",
+        f"mcp_reachable={str(bool(payload.get('mcp_reachable'))).lower()}",
+        f"pending={int(payload.get('pending_request_count') or 0)}",
+        f"busy_reason={payload.get('busy_reason', '')}",
+        f"playmode={payload.get('playmode_state', '')}",
+    )
+    raise SystemExit(0)
+
+if payload.get("request_id") and payload.get("payload_type"):
+    parts = [
+        "outcome=ok",
+        f"request_id={payload.get('request_id')}",
+        f"payload_type={payload.get('payload_type')}",
+        f"status={payload.get('status', '')}",
+    ]
+    decoded = {}
+    raw = payload.get("payload_json")
+    if isinstance(raw, str) and raw:
+        try:
+            decoded = json.loads(raw)
+        except Exception:
+            decoded = {}
+    payload_type = str(payload.get("payload_type") or "")
+    if payload_type == "unity.compile.matrix":
+        parts.extend([
+            f"matrix_status={decoded.get('status', '')}",
+            f"total={int(decoded.get('total') or 0)}",
+            f"passed={int(decoded.get('passed') or 0)}",
+            f"failed={int(decoded.get('failed') or 0)}",
+        ])
+    elif payload_type.startswith("unity.tests."):
+        parts.extend([
+            f"test_status={decoded.get('status', '')}",
+            f"total={int(decoded.get('total') or 0)}",
+            f"passed={int(decoded.get('passed') or 0)}",
+            f"failed={int(decoded.get('failed') or 0)}",
+        ])
+    line(*parts)
+PY
+}
+
+run_server_with_optional_compact_summary() {
+  if [[ "$COMPACT_SUMMARY" != "true" ]]; then
+    exec python3 "$SERVER_PATH" "$@"
+  fi
+
+  local stdout_file
+  stdout_file="$(mktemp)"
+  local exit_code=0
+
+  if python3 "$SERVER_PATH" "$@" >"$stdout_file"; then
+    exit_code=0
+  else
+    exit_code=$?
+  fi
+
+  cat "$stdout_file"
+  emit_compact_summary_from_json_file "$stdout_file" "$exit_code"
+  rm -f "$stdout_file"
+  return "$exit_code"
+}
+
+sync_file_from_source() {
+  local destination_path="$1"
+  local relative_source_path="$2"
+  local temp_path
+  temp_path="$(mktemp)"
+  cp "$AIROOT_PATH/$relative_source_path" "$temp_path"
+
+  if [[ -f "$destination_path" ]] && cmp -s "$temp_path" "$destination_path"; then
+    rm -f "$temp_path"
+    return 0
+  fi
+
+  mv "$temp_path" "$destination_path"
+}
+
+sync_installed_helper_if_needed() {
+  if [[ ! -e "$AIROOT_PATH/.git" || ! -f "$AIROOT_PATH/$SERVER_TEMPLATE_RELATIVE_PATH" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$INSTALL_DIR"
+
+  sync_file_from_source "$SERVER_PATH" "$SERVER_TEMPLATE_RELATIVE_PATH"
+  sync_file_from_source "$RUN_PATH" "$RUN_TEMPLATE_RELATIVE_PATH"
+  sync_file_from_source "$INSTALL_DIR/$(basename "$RUNTIME_DEFAULTS_TEMPLATE_RELATIVE_PATH")" "$RUNTIME_DEFAULTS_TEMPLATE_RELATIVE_PATH"
+
+  local module_source_path=""
+  for module_source_path in "$AIROOT_PATH"/$SERVER_MODULES_TEMPLATE_RELATIVE_GLOB; do
+    [[ -f "$module_source_path" ]] || continue
+    sync_file_from_source "$INSTALL_DIR/$(basename "$module_source_path")" "${module_source_path#"$AIROOT_PATH/"}"
+  done
+  chmod 755 "$RUN_PATH"
 }
 
 require_project_root_argument() {
@@ -234,7 +378,34 @@ switch_project_to_prodmode() {
   fi
 }
 
+dispatch_arrange_unity_windows() {
+  local arrange_script_path="$AIROOT_PATH/Operations/XUUnityLightUnityMcp/arrange_unity_windows.py"
+  if [[ ! -f "$arrange_script_path" ]]; then
+    echo "arrange_unity_windows.py not found: $arrange_script_path" >&2
+    exit 1
+  fi
+
+  exec python3 "$arrange_script_path" "$@"
+}
+
+filtered_args=()
+for arg in "$@"; do
+  if [[ "$arg" == "--compact-summary" ]]; then
+    COMPACT_SUMMARY="true"
+    continue
+  fi
+  filtered_args+=("$arg")
+done
+set -- "${filtered_args[@]}"
+
+sync_installed_helper_if_needed
+
 case "${1:-}" in
+  arrange-unity-windows)
+    shift
+    dispatch_arrange_unity_windows "$@"
+    exit 0
+    ;;
   devmode)
     shift
     switch_project_to_devmode "$@"
@@ -247,14 +418,10 @@ case "${1:-}" in
     ;;
 esac
 
-if [[ -x "$HOST_WRAPPER_PATH" ]]; then
-  exec "$HOST_WRAPPER_PATH" "$@"
-fi
-
 if [[ ! -f "$SERVER_PATH" ]]; then
   echo "xuunity-light-unity-mcp server not found: $SERVER_PATH" >&2
   echo "Install it with AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh" >&2
   exit 1
 fi
 
-exec python3 "$SERVER_PATH" "$@"
+run_server_with_optional_compact_summary "$@"

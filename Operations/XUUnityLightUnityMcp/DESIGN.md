@@ -165,6 +165,12 @@ Current reconnect policy:
   - `transport_outcome`
   - `operation_outcome`
   - `recommended_next_action`
+- lifecycle-reset recovery now also classifies `result_trust_class` so the
+  operator can distinguish:
+  - Unity completed and the host has proof
+  - Unity completed across lifecycle churn
+  - wrapper/session failed after Unity accepted the request, leaving the Unity
+    result unproven
 - compact operator recovery is available through `request-final-status <request_id>`
 - explicitly idempotent operations can be retried once automatically
 - non-idempotent operations stay fail-fast and surface the lifecycle-reset evidence instead of retrying blindly
@@ -199,6 +205,10 @@ Current native settle-watcher start:
 - successful playmode payloads can now report `completion_basis: unity_playmode_transition_watcher`
 - pending playmode transition state persists through bridge rebootstrap so `enter` can still complete on the native watcher path after Play Mode recreates the bridge session
 - `unity.editor.quit` is now part of the core bridge surface so the host can close a host-opened editor session without GUI automation
+- direct PlayMode test requests still have a stricter trust boundary than
+  compile or refresh under lifecycle churn: bridge generation can change after
+  request acceptance and before response commit, so a PlayMode retry may end
+  with `wrapper_failed_unity_unproven` instead of a clean pass/fail result
 
 ## Stable Surface
 
