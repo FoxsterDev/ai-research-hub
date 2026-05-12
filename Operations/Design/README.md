@@ -9,4 +9,8 @@ Use this folder for:
 - plans that should not depend on `AIOutput/`, host-local wrappers, or private
   monorepo conventions
 
+Use narrower public operation folders when the design belongs to one operation.
+For `XUUnity Light Unity MCP`, place MCP-specific feature and tool-surface
+designs under `AIRoot/Operations/XUUnityLightUnityMcp/Designs/`.
+
 Keep host-local or project-specific plans in `AIOutput/Operations/Design/`.

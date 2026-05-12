@@ -6,6 +6,10 @@ Status: `active public report index`
 This folder holds point-in-time public-safe reports for the lightweight
 `xuunity` Unity MCP effort.
 
+Use sibling folders for narrower document classes:
+- `../Designs/` for MCP-specific design notes
+- `../Retros/` for public-safe retrospectives, lessons, and retro action plans
+
 These baseline reports were refreshed on `2026-05-07` to match the current
 lifecycle-recovery, compile-first smoke-runner, operator-summary surface, and
 clean-project Unity-version validation baseline.
@@ -29,10 +33,7 @@ Use these reports when:
 - `2026-05-08_playmode_and_player_tests_design_plan.md`
 - `2026-05-08_playmode_recovery_timeout_and_fault_suite_hardening_plan.md`
 - `2026-05-09_multi_project_architecture_working_design.md`
-- `2026-05-09_cleanup_and_regression_lessons.md`
-- `2026-05-11_operator_and_backend_lessons.md`
 - `2026-05-11_batch_compile_gate_and_recovery_design_patch.md`
-- `2026-05-11_chat_retro_playmode_lifecycle_reset.md`
 
 ## Canonical Supporting Docs
 
@@ -42,3 +43,5 @@ Use these reports when:
 - `../COMPARISON.md`
 - `../AI_INTEGRATION.md`
 - `../LICENSE.md`
+- `../Designs/README.md`
+- `../Retros/README.md`

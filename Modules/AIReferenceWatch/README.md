@@ -52,7 +52,7 @@ Right now this module is responsible for:
 
 Downstream consumer design currently using this module:
 
-- `AIRoot/Operations/XUUnityLightUnityMcp/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
+- `AIRoot/Operations/XUUnityLightUnityMcp/Designs/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 
 ## Module Direction
 

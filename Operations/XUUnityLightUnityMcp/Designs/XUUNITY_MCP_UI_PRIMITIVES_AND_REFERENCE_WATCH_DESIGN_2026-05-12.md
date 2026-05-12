@@ -6,7 +6,7 @@ Status: split into two documents
 This combined design was split to separate concerns:
 
 - `AIRoot/Modules/AIReferenceWatch/design/XUUNITY_MCP_REFERENCE_WATCH_DESIGN_2026-05-12.md`
-- `AIRoot/Operations/XUUnityLightUnityMcp/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
+- `AIRoot/Operations/XUUnityLightUnityMcp/Designs/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 
 Use the `Reference Watch` design for:
 

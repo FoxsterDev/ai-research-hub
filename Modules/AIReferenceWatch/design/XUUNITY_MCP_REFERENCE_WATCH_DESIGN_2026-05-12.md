@@ -26,7 +26,7 @@ This document defines how to watch, normalize, compare, and consume references.
 The sibling UI primitives design consumes those outputs.
 
 Related design:
-- `AIRoot/Operations/XUUnityLightUnityMcp/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
+- `AIRoot/Operations/XUUnityLightUnityMcp/Designs/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 
 Authoritative durable doctrine:
 - `AIRoot/Modules/AIReferenceWatch/knowledge/reference_selection_doctrine.md`

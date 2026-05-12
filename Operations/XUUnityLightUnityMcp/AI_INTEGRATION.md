@@ -249,4 +249,6 @@ extension model.
 - `ROADMAP.md`
 - `COMPARISON.md`
 - `LICENSE.md`
+- `Designs/`
+- `Retros/`
 - `Reports/`

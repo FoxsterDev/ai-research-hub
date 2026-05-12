@@ -232,13 +232,15 @@ For reusable MCP work:
 
 1. `README.md`
 2. `DESIGN.md`
-3. `CHAT_RETRO_PROMPT.md` when the source is a real failure or weak operator session
+3. `Retros/CHAT_RETRO_PROMPT.md` when the source is a real failure or weak operator session
 4. `ROADMAP.md`
 5. `AI_INTEGRATION.md`
 6. `COMPARISON.md`
-7. `Reports/2026-05-05_progress_status.md`
-8. `Reports/2026-05-05_xuunity_protocol_integration_status.md`
-9. this continuation note
+7. `Designs/` for MCP-specific feature and tool-surface designs
+8. `Retros/` for public-safe feature retros and reusable lessons without project specificity
+9. `Reports/2026-05-05_progress_status.md`
+10. `Reports/2026-05-05_xuunity_protocol_integration_status.md`
+11. this continuation note
 
 For shared protocol integration work:
 

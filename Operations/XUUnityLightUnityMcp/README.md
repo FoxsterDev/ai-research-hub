@@ -19,17 +19,18 @@ Canonical location:
 Related public docs:
 - `DESIGN.md`
 - `CONTINUATION.md`
-- `CHAT_RETRO_PROMPT.md`
 - `COMPARISON.md`
 - `ROADMAP.md`
 - `AI_INTEGRATION.md`
 - `BUILD_AUTOMATION.md`
 - `SMOKE_TESTS.md`
 - `LICENSE.md`
+- `Designs/`
+- `Retros/`
 - `Reports/`
 
 Current distilled lessons:
-- `Reports/2026-05-11_operator_and_backend_lessons.md`
+- `Retros/2026-05-11_operator_and_backend_lessons.md`
 
 Author:
 - Siarhei Khalandachou
@@ -149,6 +150,8 @@ What exists now:
   - `tests_run_editmode`
   - `game_view_configure`
   - `project_defined_hook`
+- public project-action support helpers:
+  - `Editor/ProjectActions/XUUnityLightMcpLocalDataCleaner.cs` for reusable editor-side clearing of `PlayerPrefs` and `Application.persistentDataPath`
 
 What does not exist yet:
 - production-hardening of the stdio server
@@ -189,7 +192,7 @@ Use this README for the canonical surface.
 Use the supporting docs when you need the deeper rationale:
 - `BUILD_AUTOMATION.md` for lane selection and build-policy rules
 - `COMPARISON.md` for backend selection rules
-- `Reports/2026-05-11_operator_and_backend_lessons.md` for distilled operator lessons
+- `Retros/2026-05-11_operator_and_backend_lessons.md` for distilled operator lessons
 
 Default operating rules:
 
@@ -261,6 +264,8 @@ On macOS, the process that launches the wrapper must have Accessibility access:
 - `templates/clients/`
 - `templates/package-manifests/`
 - `templates/unity-package/`
+- `Designs/`
+- `Retros/`
 - `Reports/`
 
 ## Unity Version Matrix Runner
@@ -594,7 +599,7 @@ Optional Unity project scaffold:
 - backend-comparison and validation-trust rules are defined in:
   - `COMPARISON.md`
 - distilled public lessons from earlier evaluation and onboarding work live in:
-  - `Reports/2026-05-11_operator_and_backend_lessons.md`
+  - `Retros/2026-05-11_operator_and_backend_lessons.md`
 - the init script does not install a Codex MCP config block by default
 - the current external server implements a minimal stdio MCP layer, but should still be treated as early-stage
 - client config templates are still intentionally conservative
