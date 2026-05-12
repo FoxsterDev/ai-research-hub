@@ -134,6 +134,7 @@ A good run should usually yield some combination of:
 When the retrospective finds reusable value, prefer promoting into:
 
 - docs and operator contracts under `AIRoot/Operations/XUUnityLightUnityMcp/`
+- public-safe feature retros and lessons under `AIRoot/Operations/XUUnityLightUnityMcp/Retros/`
 - wrapper/runtime templates under `AIRoot/Operations/XUUnityLightUnityMcp/templates/`
 - project-local audit/output folders only for one-off evidence and historical trace
 

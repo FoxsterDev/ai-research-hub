@@ -2,7 +2,7 @@
 
 Date: `2026-05-12`
 Status: `public-safe intake review package`
-Source prompt: `CHAT_RETRO_PROMPT.md`
+Source prompt: `Retros/CHAT_RETRO_PROMPT.md`
 
 ## Executive Summary
 
@@ -88,4 +88,3 @@ product test names, and private source paths were intentionally omitted.
 This retro is useful as a public MCP operator workflow refinement. It should not
 promote product-specific validation paths, test names, request ids, local log
 paths, branch names, or private source details.
-

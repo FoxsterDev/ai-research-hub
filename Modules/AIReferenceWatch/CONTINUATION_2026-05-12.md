@@ -48,9 +48,10 @@ Current ownership:
   - reference-first design gate
   - durable reference-selection doctrine
 - `XUUnity Light Unity MCP` owns:
-  - `AIRoot/Operations/XUUnityLightUnityMcp/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
+  - `AIRoot/Operations/XUUnityLightUnityMcp/Designs/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 
-Compatibility pointer files remain in `AIRoot/Operations/Design/`.
+MCP-specific compatibility and split notes now live with the MCP operation under
+`AIRoot/Operations/XUUnityLightUnityMcp/Designs/`.
 
 ### Durable Knowledge Added
 
@@ -118,7 +119,7 @@ Public source registry:
 
 Downstream MCP consumer design:
 
-- `AIRoot/Operations/XUUnityLightUnityMcp/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
+- `AIRoot/Operations/XUUnityLightUnityMcp/Designs/XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 
 ## Current Gaps
 

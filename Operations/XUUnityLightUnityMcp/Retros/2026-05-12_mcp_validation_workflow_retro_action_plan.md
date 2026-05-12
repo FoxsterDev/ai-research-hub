@@ -3,7 +3,7 @@
 Date: `2026-05-12`
 Status: `implemented`
 Source artifact:
-`Operations/XUUnityLightUnityMcp/Reports/2026-05-12_mcp_validation_workflow_chat_retro.md`
+`Operations/XUUnityLightUnityMcp/Retros/2026-05-12_mcp_validation_workflow_chat_retro.md`
 
 ## Purpose
 
@@ -177,4 +177,3 @@ Result:
 
 - Focused protocol tests passed.
 - Full Python test suite passed.
-
