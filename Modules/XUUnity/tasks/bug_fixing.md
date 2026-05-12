@@ -34,6 +34,8 @@ Resolve a concrete defect with the minimum safe change while preserving producti
   - progression contract
   - data required only for later steps
 - If the first user-visible screen can be rendered truthfully from already-known local state, do not block entry on a downstream network dependency that is only required for later progression.
+- For request recovery bugs where non-2xx responses can include structured error bodies, load `knowledge/request_recovery.md`; do not design recovery until the endpoint-specific error contract, replay safety, and local-state invalidation boundary are known.
+- For recovery bugs that cross shared response parsing and domain-level orchestration, plan coverage at both boundaries: response contract tests and service recovery behavior tests.
 
 ## Patch Shape Classification
 - Before patching, classify the fix using the narrowest primary patch shape:
@@ -99,6 +101,7 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 - Minimum bug-family overlays:
   - startup, consent, SDK initialization, attribution identity, or ad-revenue work -> list the expected logs, callbacks, readiness markers, or observable state transitions that would prove the fix at runtime
   - analytics or reporting work -> list the event names, required fields, ordering assumptions, or observable markers that would prove the fix
+  - request recovery work -> validate structured non-2xx error-body parsing, cache invalidation before retry, recovery failure behavior, safe replay boundaries, and correlated trigger/recovery/retry diagnostics
   - editor-only work -> verify the editor path explicitly rather than treating generic compile success as full proof
   - manifest, resolver, native, or vendor-managed build-time work -> validate same-build generated artifacts and same-build `Editor.log` evidence before treating the root cause as proven
 - If available evidence is weaker than the derived validation obligation, report that as a validation gap instead of silently weakening the requirement.

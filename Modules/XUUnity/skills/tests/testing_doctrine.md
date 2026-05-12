@@ -172,6 +172,7 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
   - stale or conflicting persisted state
   - recovery, reset, or migration path where applicable
 - Do not treat fresh-state coverage as sufficient for persisted-state-sensitive runtime code.
+- For request recovery bugs, pair response-contract coverage with service recovery behavior coverage; use `knowledge/request_recovery.md` for replay safety, cache invalidation, and diagnostic expectations.
 
 ## Mobile Validation Ladder
 
