@@ -135,6 +135,6 @@ When bootstrap is needed:
 ## Handoff
 
 After setup is done:
-- for normal product-facing work, use `AI_PRODUCT_OWNER_SETUP.md`
+- for normal product-facing work, use `../AI_PRODUCT_FACING_GUIDE.md`
 - for deeper script-level bootstrap details, use `SETUP_INDEX.md`
 - for full setup contract details, use `AI_SETUP.md`

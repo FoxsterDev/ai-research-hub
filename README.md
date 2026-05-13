@@ -75,7 +75,7 @@ Post-validation rule:
 - the expected routing files and `AIOutput/Registry/` status files must exist
 
 After setup:
-- generic product-facing usage -> [Operations/AI_PRODUCT_OWNER_SETUP.md](./Operations/AI_PRODUCT_OWNER_SETUP.md)
+- generic product-facing usage -> [Operations/AI_PRODUCT_FACING_GUIDE.md](./Operations/AI_PRODUCT_FACING_GUIDE.md)
 - operator rules -> [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
 - topology -> [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 
@@ -261,7 +261,6 @@ Do not use `AIRoot` for:
   - [AI_SETUP.md](./Operations/Setup/AI_SETUP.md)
   - [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
   - [AI_PRODUCT_FACING_GUIDE.md](./Operations/AI_PRODUCT_FACING_GUIDE.md)
-  - [AI_PRODUCT_OWNER_SETUP.md](./Operations/AI_PRODUCT_OWNER_SETUP.md)
   - [AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md](./Operations/AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md)
   - [XUUNITY_KNOWLEDGE_EXTRACTION_EVALUATION.md](./Operations/XUUNITY_KNOWLEDGE_EXTRACTION_EVALUATION.md)
 - integration:

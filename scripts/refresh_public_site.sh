@@ -34,7 +34,7 @@ render_page "Operations/Setup/AI_EASY_SETUP.md" "docs/easy-setup.html"
 render_page "Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md" "docs/assisted-setup-prompt.html"
 render_page "Operations/Setup/SETUP_INDEX.md" "docs/setup-index.html"
 render_page "INTEGRATION.md" "docs/integration.html"
-render_page "Operations/AI_PRODUCT_OWNER_SETUP.md" "docs/product-facing-guide.html"
+render_page "Operations/AI_PRODUCT_FACING_GUIDE.md" "docs/product-facing-guide.html"
 render_page "Operations/AI_PRODUCT_OWNER_QUICKSTART.md" "docs/product-owner-quickstart.html"
 
 echo "Refreshing premium consulting page..."

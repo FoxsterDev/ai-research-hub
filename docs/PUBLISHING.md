@@ -184,6 +184,7 @@ This refreshes:
 - `docs/visual-map.html` from `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
 - `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
 - `docs/operations.html` from `Operations/README.md`
+- `docs/product-facing-guide.html` from `Operations/AI_PRODUCT_FACING_GUIDE.md`
 - `docs/setup-index.html` from `Operations/Setup/SETUP_INDEX.md`
 - `docs/integration.html` from `INTEGRATION.md`
 - `docs/consulting.html` from `Operations/AI_PREMIUM_CONSULTING_OFFER_PAGE.html`
