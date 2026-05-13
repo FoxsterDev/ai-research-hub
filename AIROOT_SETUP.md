@@ -8,6 +8,8 @@ This file is intentionally kept at `AIRoot/AIROOT_SETUP.md` so an agent or a
 human can find setup from the repo root quickly.
 
 The actual setup documentation lives under `AIRoot/Operations/Setup/`.
+Treat this file as a discovery alias from the repo root, not as the main
+shareable setup prompt.
 
 ## Command Phrases
 - `airoot setup`

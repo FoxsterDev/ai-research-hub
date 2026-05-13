@@ -1,6 +1,10 @@
 # AI Setup Index
 
-Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.
+Use this file as the script-level bootstrap index for initializing a new host
+repo or project.
+
+This file is not the main shareable AI handoff prompt.
+Use `AI_ASSISTED_SETUP_PROMPT.md` for that.
 
 For most people, do not start here.
 Start with:
@@ -13,6 +17,11 @@ Start with:
 - AI-assisted setup prompt: `AI_ASSISTED_SETUP_PROMPT.md`
 - Main setup guide: `AI_SETUP.md`
 - Host/module integration guide: `../INTEGRATION.md`
+
+Boundary:
+- this index is only for host bootstrap and project bootstrap
+- optional tool installers and tool-specific operation packages live one level
+  up under `../`
 
 ## Repo-Level Setup
 
@@ -134,75 +143,6 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode monor
 
 - `../../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md`
 
-## Codex Slack MCP
-
-Use this when a teammate needs Slack MCP in Codex clients that do not expose
-the Slack connector UI.
-
-### Preview target
-
-```bash
-bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
-```
-
-### Apply target
-
-```bash
-bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
-```
-
-### Script
-
-- `AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh`
-
-### Guide
-
-- `AIRoot/Operations/CodexSlackMcp/README.md`
-
-### Prompt Templates
-
-- `AIRoot/Templates/CodexSlackMcp/README.md`
-
-## XUUnity Light Unity MCP
-
-Use this when a teammate wants the lightweight `xuunity`-oriented Unity MCP service instead of the heavier community packages.
-
-### Preview target
-
-```bash
-bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
-  --project-root /path/to/UnityProject \
-  --dry-run
-```
-
-### Apply target
-
-```bash
-bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
-  --project-root /path/to/UnityProject
-```
-
-### Script
-
-- `AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh`
-
-### Guide
-
-- `AIRoot/Operations/XUUnityLightUnityMcp/README.md`
-
-### Status
-
-- minimal stdio MCP service and editor-only Unity bridge are implemented
-- still early-stage and not yet production-hardened
-
-## XUUnity Task Registry
-
-Use this when a teammate wants a public-safe overview of the `xuunity` task-registry feature set, lifecycle model, CLI surface, and supported use cases.
-
-### Report
-
-- `AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
-
 ## Existing Router Safety Rules
 
 - Existing repo `Agents.md` is not rewritten silently.
@@ -213,3 +153,11 @@ Use this when a teammate wants a public-safe overview of the `xuunity` task-regi
 ## Monorepo Alias Wiring
 
 Use this only for multi-project hosts that already have a prepared repo router and maintain host-specific alias-refresh tooling outside `AIRoot`.
+
+## Related Operations
+
+These are intentionally outside the bootstrap index:
+- `../README.md`
+- `../CodexSlackMcp/README.md`
+- `../XUUnityLightUnityMcp/README.md`
+- `../XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`

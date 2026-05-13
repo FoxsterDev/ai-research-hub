@@ -3,6 +3,7 @@
 This folder contains the public setup surface for `AIRoot`.
 
 The root-level discovery alias for this setup surface is `../../AIROOT_SETUP.md`.
+The canonical shareable AI handoff file is `AI_ASSISTED_SETUP_PROMPT.md`.
 
 Start here:
 - `AI_ASSISTED_SETUP_PROMPT.md` for the one-file AI-driven setup handoff
@@ -17,3 +18,5 @@ Boundary rule:
 - setup docs live here
 - product-facing docs stay one level up in `../`
 - protocol handbooks stay one level up in `../`
+- optional tool installers and tool-specific operation packages stay one level
+  up in `../<ToolOrSurface>/`

@@ -68,13 +68,15 @@ If you are new to this repo, use this reading order:
 3. [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
 4. [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 5. [Operations/Setup/SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
-6. [INTEGRATION.md](./INTEGRATION.md)
+6. [Operations/README.md](./Operations/README.md)
+7. [INTEGRATION.md](./INTEGRATION.md)
 
 If you want the shortest possible path:
 
 - if you already have any AI agent with local folder access, start with: [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
 - if you need the simplest human-friendly setup path, start with: [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
 - use [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) only when you need the script-level bootstrap entrypoints
+- use [Operations/README.md](./Operations/README.md) to browse optional operation and tool surfaces after setup
 
 ## Quick Intro
 
@@ -144,6 +146,7 @@ Inside `xuunity` you get:
   Setup guides, handbooks, exporter workflows, and generic operational docs.
 
 Main entrypoints:
+- [README.md](./Operations/README.md)
 - [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
 - [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
 - [AI_SETUP.md](./Operations/Setup/AI_SETUP.md)
