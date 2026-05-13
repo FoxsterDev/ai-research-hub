@@ -314,10 +314,10 @@ h1 {
     <section class="hero">
       <p class="eyebrow">Codex Markdown View</p>
       <h1>AI Setup Index</h1>
-      <p class="lead">Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
+      <p class="lead">Use this file as the script-level bootstrap index for initializing a new host repo or project.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>SETUP_INDEX.md</code></span>
-        <span class="pill">Generated: 2026-05-13 13:09:53 UTC</span>
+        <span class="pill">Generated: 2026-05-13 13:42:02 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./SETUP_INDEX.md">Open Markdown Source</a>
@@ -327,17 +327,18 @@ h1 {
         <a href="#start-here">Start Here</a>
         <a href="#repo-level-setup">Repo-Level Setup</a>
         <a href="#project-level-setup">Project-Level Setup</a>
-        <a href="#codex-slack-mcp">Codex Slack MCP</a>
-        <a href="#xuunity-light-unity-mcp">XUUnity Light Unity MCP</a>
-        <a href="#xuunity-task-registry">XUUnity Task Registry</a>
         <a href="#existing-router-safety-rules">Existing Router Safety Rules</a>
         <a href="#monorepo-alias-wiring">Monorepo Alias Wiring</a>
+        <a href="#related-operations">Related Operations</a>
       </div>
     </section>
 
     <main class="content">
       <article>
-<p>Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.</p>
+<p>Use this file as the script-level bootstrap index for initializing a new host
+repo or project.</p>
+<p>This file is not the main shareable AI handoff prompt.
+Use <code>AI_ASSISTED_SETUP_PROMPT.md</code> for that.</p>
 <p>For most people, do not start here.
 Start with:</p>
 <ul>
@@ -350,6 +351,12 @@ Start with:</p>
 <li>AI-assisted setup prompt: <code>AI_ASSISTED_SETUP_PROMPT.md</code></li>
 <li>Main setup guide: <code>AI_SETUP.md</code></li>
 <li>Host/module integration guide: <code>../INTEGRATION.md</code></li>
+</ul>
+<p>Boundary:</p>
+<ul>
+<li>this index is only for host bootstrap and project bootstrap</li>
+<li>optional tool installers and tool-specific operation packages live one level
+up under <code>../</code></li>
 </ul>
 <h2 id="repo-level-setup">Repo-Level Setup</h2>
 <p>Use this when the host repo itself does not have an AI router yet.
@@ -433,57 +440,6 @@ The agent should resolve it through:</p>
 <ul>
 <li><code>../../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md</code></li>
 </ul>
-<h2 id="codex-slack-mcp">Codex Slack MCP</h2>
-<p>Use this when a teammate needs Slack MCP in Codex clients that do not expose
-the Slack connector UI.</p>
-<h3 id="preview-target-3">Preview target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
-</code></pre>
-<h3 id="apply-target-3">Apply target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh
-</code></pre>
-<h3 id="script-3">Script</h3>
-<ul>
-<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
-</ul>
-<h3 id="guide">Guide</h3>
-<ul>
-<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
-</ul>
-<h3 id="prompt-templates">Prompt Templates</h3>
-<ul>
-<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
-</ul>
-<h2 id="xuunity-light-unity-mcp">XUUnity Light Unity MCP</h2>
-<p>Use this when a teammate wants the lightweight <code>xuunity</code>-oriented Unity MCP service instead of the heavier community packages.</p>
-<h3 id="preview-target-4">Preview target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
-  --project-root /path/to/UnityProject \
-  --dry-run
-</code></pre>
-<h3 id="apply-target-4">Apply target</h3>
-<pre><code class="language-bash">bash AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh \
-  --project-root /path/to/UnityProject
-</code></pre>
-<h3 id="script-4">Script</h3>
-<ul>
-<li><code>AIRoot/Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh</code></li>
-</ul>
-<h3 id="guide-2">Guide</h3>
-<ul>
-<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code></li>
-</ul>
-<h3 id="status">Status</h3>
-<ul>
-<li>minimal stdio MCP service and editor-only Unity bridge are implemented</li>
-<li>still early-stage and not yet production-hardened</li>
-</ul>
-<h2 id="xuunity-task-registry">XUUnity Task Registry</h2>
-<p>Use this when a teammate wants a public-safe overview of the <code>xuunity</code> task-registry feature set, lifecycle model, CLI surface, and supported use cases.</p>
-<h3 id="report">Report</h3>
-<ul>
-<li><code>AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md</code></li>
-</ul>
 <h2 id="existing-router-safety-rules">Existing Router Safety Rules</h2>
 <ul>
 <li>Existing repo <code>Agents.md</code> is not rewritten silently.</li>
@@ -493,6 +449,14 @@ the Slack connector UI.</p>
 </ul>
 <h2 id="monorepo-alias-wiring">Monorepo Alias Wiring</h2>
 <p>Use this only for multi-project hosts that already have a prepared repo router and maintain host-specific alias-refresh tooling outside <code>AIRoot</code>.</p>
+<h2 id="related-operations">Related Operations</h2>
+<p>These are intentionally outside the bootstrap index:</p>
+<ul>
+<li><code>../README.md</code></li>
+<li><code>../CodexSlackMcp/README.md</code></li>
+<li><code>../XUUnityLightUnityMcp/README.md</code></li>
+<li><code>../XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md</code></li>
+</ul>
 
       </article>
     </main>

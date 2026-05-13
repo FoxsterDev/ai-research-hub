@@ -17,7 +17,7 @@ For new host setup:
 
 For normal operator usage after setup:
 - `AI_PROTOCOL_HANDBOOK.md`
-- `AI_PRODUCT_OWNER_SETUP.md`
+- `AI_PRODUCT_FACING_GUIDE.md`
 
 ## Tool And Surface Packages
 
