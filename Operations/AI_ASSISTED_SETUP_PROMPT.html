@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Product Owner Quickstart</title>
+  <title>AI Assisted Setup Prompt</title>
   <style>
 :root {
   --bg: #efe5d7;
@@ -313,28 +313,72 @@ h1 {
   <div class="page">
     <section class="hero">
       <p class="eyebrow">Codex Markdown View</p>
-      <h1>AI Product Owner Quickstart</h1>
-      <p class="lead">This file remains only as a compatibility alias.</p>
+      <h1>AI Assisted Setup Prompt</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
-        <span class="pill">Source: <code>AI_PRODUCT_OWNER_QUICKSTART.md</code></span>
-        <span class="pill">Generated: 2026-05-13 12:49:45 UTC</span>
+        <span class="pill">Source: <code>AI_ASSISTED_SETUP_PROMPT.md</code></span>
+        <span class="pill">Generated: 2026-05-13 12:45:30 UTC</span>
       </div>
       <div class="hero-links">
-        <a href="./AI_PRODUCT_OWNER_QUICKSTART.md">Open Markdown Source</a>
+        <a href="./AI_ASSISTED_SETUP_PROMPT.md">Open Markdown Source</a>
       </div>
 
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#prompt">Prompt</a>
+        <a href="#main-rule">Main Rule</a>
+      </div>
     </section>
 
     <main class="content">
       <article>
-<p>This file remains only as a compatibility alias.</p>
-<p>Canonical post-setup product-facing guide:</p>
+<h2 id="purpose">Purpose</h2>
+<p>Use this copy-paste prompt when an AI assistant should drive setup or repo inspection for an <code>AIRoot</code>-based host.</p>
+<p>This is the canonical AI-driven setup entrypoint.</p>
+<h2 id="prompt">Prompt</h2>
+<pre><code class="language-text">We are working with an AIRoot-based repo.
+
+Read first:
+- AIRoot/AIROOT_SETUP.md
+- Agents.md when it exists
+
+Task:
+1. Detect whether this repo is already initialized for AIRoot-based routing.
+2. If it is already initialized, do not re-run setup scripts unless I explicitly ask for repair or new-project onboarding.
+3. If it is not initialized, classify the topology as:
+   - single-project
+   - monorepo / multi-project
+4. Show the exact dry-run command first.
+5. Explain what setup will create at a high level:
+   - repo router
+   - AIOutput scaffold
+   - setup status
+   - host topology
+   - project router
+   - ProjectMemory baseline
+6. Ask for confirmation before applying mutating commands.
+7. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
+8. If the repo structure is ambiguous, ask instead of guessing.
+
+Fallback references only when needed:
+- AIRoot/Operations/SETUP_INDEX.md
+- AIRoot/Operations/AI_SETUP.md
+- AIRoot/Operations/AIROOT_SETUP_PROTOCOL.md
+
+Rules:
+- If project memory and code disagree, code wins for current behavior.
+- For startup, SDK, manifest, plist, entitlement, privacy, or compliance-sensitive questions, use code-first verification.
+</code></pre>
+<h2 id="main-rule">Main Rule</h2>
+<p>If the repo is already initialized, normal use is:</p>
 <ul>
-<li><code>AI_PRODUCT_OWNER_SETUP.md</code></li>
+<li>open repo root</li>
+<li>load <code>Agents.md</code></li>
+<li>continue with the host&#39;s runtime protocol</li>
 </ul>
-<p>If you still need first-time setup help instead of product-facing repo usage, start here:</p>
+<p>It is not:</p>
 <ul>
-<li><code>AI_EASY_SETUP.md</code></li>
+<li>re-run bootstrap on every new machine</li>
 </ul>
 
       </article>

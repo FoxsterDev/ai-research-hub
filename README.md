@@ -63,16 +63,29 @@ The important boundary is simple:
 
 If you are new to this repo, use this reading order:
 
-1. [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
-2. [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
-3. [Operations/SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
-4. [INTEGRATION.md](./INTEGRATION.md)
+1. [Operations/AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
+2. [Operations/AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+3. [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
+4. [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
+5. [Operations/SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
+6. [INTEGRATION.md](./INTEGRATION.md)
 
 If you want the shortest possible path:
 
-- understand the protocol surface: [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
-- understand the architecture: [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
-- attach it to a real repo: [INTEGRATION.md](./INTEGRATION.md)
+- if you already have any AI agent with local folder access, start with: [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+- if you need the simplest human-friendly setup path, start with: [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
+- use [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) only when you need the script-level bootstrap entrypoints
+
+## One Simple Path
+
+Use this as the default workflow:
+
+1. If you already have an AI agent that can open a local repo, give it [Operations/AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md).
+2. If you do not have an AI tool yet, use [Operations/AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md) to choose the simplest setup path.
+3. Open the repo root.
+4. Let the AI detect whether the repo is already initialized.
+5. If it is initialized, continue with normal work.
+6. If it is not initialized, let the AI propose the dry-run bootstrap command first.
 
 ## What You Get
 
@@ -96,6 +109,8 @@ Inside `xuunity` you get:
   Setup guides, handbooks, exporter workflows, and generic operational docs.
 
 Main entrypoints:
+- [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
+- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
 - [AI_SETUP.md](./Operations/AI_SETUP.md)
 - [SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
 - [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
@@ -202,6 +217,8 @@ HostRepo/
 ```
 
 Use:
+- [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md) for the simplest first-use path
+- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md) when an AI agent should drive setup
 - [INTEGRATION.md](./INTEGRATION.md) for the host contract
 - [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) for setup entrypoints
 
@@ -238,11 +255,13 @@ Do not use `AIRoot` for:
 - visuals:
   - [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 - operations:
+  - [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
+  - [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
   - [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
   - [AI_SETUP.md](./Operations/AI_SETUP.md)
   - [SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
+  - [AI_PRODUCT_FACING_GUIDE.md](./Operations/AI_PRODUCT_FACING_GUIDE.md)
   - [AI_PRODUCT_OWNER_SETUP.md](./Operations/AI_PRODUCT_OWNER_SETUP.md)
-  - [AI_PRODUCT_OWNER_QUICKSTART.md](./Operations/AI_PRODUCT_OWNER_QUICKSTART.md)
   - [AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md](./Operations/AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md)
   - [XUUNITY_KNOWLEDGE_EXTRACTION_EVALUATION.md](./Operations/XUUNITY_KNOWLEDGE_EXTRACTION_EVALUATION.md)
 - integration:
@@ -252,7 +271,8 @@ Do not use `AIRoot` for:
 
 If you are evaluating this repo for adoption:
 
-1. Read [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
-2. Read [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
-3. Read [INTEGRATION.md](./INTEGRATION.md)
-4. Use [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) to bootstrap a host repo
+1. Read [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
+2. If an AI agent will drive setup, use [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+3. Read [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
+4. Read [INTEGRATION.md](./INTEGRATION.md)
+5. Use [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) only when you need the concrete bootstrap scripts

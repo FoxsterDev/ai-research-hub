@@ -4,6 +4,11 @@
 This guide defines the setup contract for AI agents, MCP tools, and automation layers that initialize a host repo using `AIRoot`.
 It is written as reusable setup guidance, not as host-specific mutable state.
 
+It is not the best first read for most people.
+Use:
+- `AI_EASY_SETUP.md` for the simplest setup path
+- `AI_ASSISTED_SETUP_PROMPT.md` when an AI agent should drive setup
+
 For the shortest setup map, see:
 - `SETUP_INDEX.md`
 
