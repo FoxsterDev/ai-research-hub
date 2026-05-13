@@ -1,7 +1,13 @@
 # AIRoot Setup Entry
 
 ## Purpose
-Use this file only for setup and onboarding of a new host repo that embeds `AIRoot/`.
+Use this file only as the root-level setup entry for onboarding a new host repo
+that embeds `AIRoot/`.
+
+This file is intentionally kept at `AIRoot/AIROOT_SETUP.md` so an agent or a
+human can find setup from the repo root quickly.
+
+The actual setup documentation lives under `AIRoot/Operations/Setup/`.
 
 ## Command Phrases
 - `airoot setup`
@@ -24,6 +30,13 @@ When an agent sees this command, it should:
 - `scripts/init_ai_topology.sh`
 - `scripts/init_ai_repo.sh`
 - `scripts/init_ai_project.sh`
+
+## Canonical Setup Docs
+- `Operations/Setup/README.md`
+- `Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md`
+- `Operations/Setup/AI_EASY_SETUP.md`
+- `Operations/Setup/SETUP_INDEX.md`
+- `Operations/Setup/AI_SETUP.md`
 
 ## Rules
 - Do not treat this file as part of normal `xuunity` runtime routing.
