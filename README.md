@@ -196,6 +196,11 @@ Main bootstrap entrypoints:
 - `AIRoot/scripts/init_ai_repo.sh`
 - `AIRoot/scripts/init_ai_project.sh`
 
+Design placement rules:
+- cross-cutting public designs -> `AIRoot/Design/`
+- operation-specific public designs -> `AIRoot/Operations/<Operation>/Designs/`
+- host-local or private designs -> host repo `AIOutput/Operations/Design/`
+
 ## Repository Map
 
 - `Modules/`

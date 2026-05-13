@@ -12,7 +12,7 @@ Use this folder for MCP-specific design material such as:
 - MCP validation-suite design
 - public-safe split notes for designs that moved into a narrower module
 
-Keep broad, non-MCP operation designs in `AIRoot/Operations/Design/`.
+Keep cross-cutting public designs in `AIRoot/Design/`.
 Keep project-specific implementation notes and evidence outside public `AIRoot`.
 
 ## Current Designs
@@ -20,4 +20,3 @@ Keep project-specific implementation notes and evidence outside public `AIRoot`.
 - `XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 - `XUUNITY_MCP_UI_PRIMITIVES_AND_REFERENCE_WATCH_DESIGN_2026-05-12.md`
 - `XUUNITY_MCP_REFERENCE_WATCH_DESIGN_2026-05-12.md`
-
