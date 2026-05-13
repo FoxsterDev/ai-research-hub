@@ -63,29 +63,64 @@ The important boundary is simple:
 
 If you are new to this repo, use this reading order:
 
-1. [Operations/AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
-2. [Operations/AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+1. [Operations/Setup/AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+2. [Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
 3. [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
 4. [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
-5. [Operations/SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
+5. [Operations/Setup/SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
 6. [INTEGRATION.md](./INTEGRATION.md)
 
 If you want the shortest possible path:
 
-- if you already have any AI agent with local folder access, start with: [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
-- if you need the simplest human-friendly setup path, start with: [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
-- use [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) only when you need the script-level bootstrap entrypoints
+- if you already have any AI agent with local folder access, start with: [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
+- if you need the simplest human-friendly setup path, start with: [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+- use [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) only when you need the script-level bootstrap entrypoints
+
+## Quick Intro
+
+Use `AIRoot` when:
+- you want a reusable public AI layer for a host repo
+- you want AI to bootstrap or inspect repo routing safely
+- you want a generic `xuunity`-based Unity workflow without host-private prompts inside `AIRoot`
+
+Do not use `AIRoot` as:
+- the runtime router of the host repo
+- the place for project-specific memory
+- the place for host-local mutable operational state
 
 ## One Simple Path
 
 Use this as the default workflow:
 
-1. If you already have an AI agent that can open a local repo, give it [Operations/AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md).
-2. If you do not have an AI tool yet, use [Operations/AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md) to choose the simplest setup path.
+1. If you already have an AI agent that can open a local repo, give it [Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md).
+2. If you do not have an AI tool yet, use [Operations/Setup/AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md) to choose the simplest setup path.
 3. Open the repo root.
 4. Let the AI detect whether the repo is already initialized.
 5. If it is initialized, continue with normal work.
 6. If it is not initialized, let the AI propose the dry-run bootstrap command first.
+
+## How To Set Up A New Host Repo
+
+Use this order:
+
+1. [Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
+   - one-file AI-driven setup handoff
+2. [Operations/Setup/AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+   - shortest human-friendly setup path
+3. [Operations/Setup/SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
+   - script-level bootstrap entrypoints
+4. [Operations/Setup/AI_SETUP.md](./Operations/Setup/AI_SETUP.md)
+   - deeper setup contract
+
+Post-validation rule:
+- do not call the host `xuunity-ready` only because files were created
+- the setup flow should pass the matching `--check` path
+- the expected routing files and `AIOutput/Registry/` status files must exist
+
+After setup:
+- generic product-facing usage -> [Operations/AI_PRODUCT_OWNER_SETUP.md](./Operations/AI_PRODUCT_OWNER_SETUP.md)
+- operator rules -> [Operations/AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
+- topology -> [Visuals/AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 
 ## What You Get
 
@@ -109,10 +144,10 @@ Inside `xuunity` you get:
   Setup guides, handbooks, exporter workflows, and generic operational docs.
 
 Main entrypoints:
-- [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
-- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
-- [AI_SETUP.md](./Operations/AI_SETUP.md)
-- [SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
+- [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
+- [AI_SETUP.md](./Operations/Setup/AI_SETUP.md)
+- [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
 - [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
 
 ### XUUnity Light Unity MCP
@@ -156,7 +191,7 @@ Reusable MCP assets:
 
 Main bootstrap entrypoints:
 - `AIRoot/AIROOT_SETUP.md`
-- `AIRoot/Operations/AIROOT_SETUP_PROTOCOL.md`
+- `AIRoot/Operations/Setup/AIROOT_SETUP_PROTOCOL.md`
 - `AIRoot/scripts/init_ai_topology.sh`
 - `AIRoot/scripts/init_ai_repo.sh`
 - `AIRoot/scripts/init_ai_project.sh`
@@ -217,10 +252,10 @@ HostRepo/
 ```
 
 Use:
-- [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md) for the simplest first-use path
-- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md) when an AI agent should drive setup
+- [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md) for the simplest first-use path
+- [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md) when an AI agent should drive setup
 - [INTEGRATION.md](./INTEGRATION.md) for the host contract
-- [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) for setup entrypoints
+- [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) for setup entrypoints
 
 Do not:
 - add `AIRoot/Agents.md`
@@ -255,11 +290,11 @@ Do not use `AIRoot` for:
 - visuals:
   - [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 - operations:
-  - [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
-  - [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+  - [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+  - [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
   - [AI_PROTOCOL_HANDBOOK.md](./Operations/AI_PROTOCOL_HANDBOOK.md)
-  - [AI_SETUP.md](./Operations/AI_SETUP.md)
-  - [SETUP_INDEX.md](./Operations/SETUP_INDEX.md)
+  - [AI_SETUP.md](./Operations/Setup/AI_SETUP.md)
+  - [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md)
   - [AI_PRODUCT_FACING_GUIDE.md](./Operations/AI_PRODUCT_FACING_GUIDE.md)
   - [AI_PRODUCT_OWNER_SETUP.md](./Operations/AI_PRODUCT_OWNER_SETUP.md)
   - [AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md](./Operations/AI_EXTERNAL_REPO_PATH_MIGRATION_RUNBOOK.md)
@@ -271,8 +306,8 @@ Do not use `AIRoot` for:
 
 If you are evaluating this repo for adoption:
 
-1. Read [AI_EASY_SETUP.md](./Operations/AI_EASY_SETUP.md)
-2. If an AI agent will drive setup, use [AI_ASSISTED_SETUP_PROMPT.md](./Operations/AI_ASSISTED_SETUP_PROMPT.md)
+1. Read [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md)
+2. If an AI agent will drive setup, use [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md)
 3. Read [AI_PROTOCOL_VISUAL_MAP.md](./Visuals/AI_PROTOCOL_VISUAL_MAP.md)
 4. Read [INTEGRATION.md](./INTEGRATION.md)
-5. Use [SETUP_INDEX.md](./Operations/SETUP_INDEX.md) only when you need the concrete bootstrap scripts
+5. Use [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) only when you need the concrete bootstrap scripts

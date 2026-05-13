@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Easy Setup Guide</title>
+  <title>AI Assisted Setup Prompt</title>
   <style>
 :root {
   --bg: #efe5d7;
@@ -313,174 +313,132 @@ h1 {
   <div class="page">
     <section class="hero">
       <p class="eyebrow">Codex Markdown View</p>
-      <h1>AI Easy Setup Guide</h1>
+      <h1>AI Assisted Setup Prompt</h1>
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
-        <span class="pill">Source: <code>AI_EASY_SETUP.md</code></span>
-        <span class="pill">Generated: 2026-05-13 12:45:30 UTC</span>
+        <span class="pill">Source: <code>AI_ASSISTED_SETUP_PROMPT.md</code></span>
+        <span class="pill">Generated: 2026-05-13 13:09:53 UTC</span>
       </div>
       <div class="hero-links">
-        <a href="./AI_EASY_SETUP.md">Open Markdown Source</a>
+        <a href="./AI_ASSISTED_SETUP_PROMPT.md">Open Markdown Source</a>
       </div>
 
       <div class="hero-nav">
         <a href="#purpose">Purpose</a>
-        <a href="#the-only-decision-you-need">The Only Decision You Need</a>
-        <a href="#preferred-path-let-ai-drive-setup">Preferred Path: Let AI Drive Setup</a>
-        <a href="#if-you-do-not-have-an-ai-tool-yet">If You Do Not Have An AI Tool Yet</a>
-        <a href="#ai-client-guidance">AI Client Guidance</a>
-        <a href="#clone-first-ask-questions-second">Clone First, Ask Questions Second</a>
-        <a href="#the-only-working-rule-that-matters">The Only Working Rule That Matters</a>
-        <a href="#when-bootstrap-is-actually-needed">When Bootstrap Is Actually Needed</a>
-        <a href="#handoff">Handoff</a>
+        <a href="#fill-these-before-sending">Fill These Before Sending</a>
+        <a href="#useful-client-links">Useful Client Links</a>
+        <a href="#prompt">Prompt</a>
+        <a href="#main-rule">Main Rule</a>
+        <a href="#post-validation-rule">Post-Validation Rule</a>
+        <a href="#recommended-send-order">Recommended Send Order</a>
       </div>
     </section>
 
     <main class="content">
       <article>
 <h2 id="purpose">Purpose</h2>
-<p>Use this guide when someone wants the simplest practical way to start working with an <code>AIRoot</code>-based repo.</p>
-<p>Audience:</p>
+<p>Use this copy-paste prompt when an AI assistant should drive setup or repo inspection for an <code>AIRoot</code>-based host.</p>
+<p>This is the canonical AI-driven setup entrypoint.</p>
+<h2 id="fill-these-before-sending">Fill These Before Sending</h2>
+<p>Use or replace these fields before you paste the prompt into an AI chat:</p>
 <ul>
-<li>teammates with little or no repo-tooling experience</li>
-<li>founders, product-facing teammates, QA, and operators</li>
-<li>anyone who needs a clean first-use path before deeper technical setup docs</li>
+<li><code>Repo Clone URL: &lt;PASTE_URL_HERE&gt;</code></li>
+<li><code>Preferred local folder: &lt;PASTE_FOLDER_HERE&gt;</code></li>
+<li><code>Preferred AI client: &lt;VS Code | ChatGPT desktop | Claude Desktop | Codex CLI | Claude Code&gt;</code></li>
 </ul>
-<p>Verified against the public <code>AIRoot</code> setup surface on <code>2026-05-13</code>.</p>
-<h2 id="the-only-decision-you-need">The Only Decision You Need</h2>
-<p>Choose one path:</p>
-<ol>
-<li>You already have an AI agent or AI app with local folder access.<ul>
-<li>Use <code>AI_ASSISTED_SETUP_PROMPT.md</code></li>
-</ul>
-</li>
-<li>You do not have an AI tool yet.<ul>
-<li>Install <code>VS Code + Git</code></li>
-<li>Then use any AI surface you prefer from the repo root</li>
-</ul>
-</li>
-<li>You prefer terminal-first work.<ul>
-<li>Use a CLI agent only if you are already comfortable in a shell</li>
-</ul>
-</li>
-</ol>
-<h2 id="preferred-path-let-ai-drive-setup">Preferred Path: Let AI Drive Setup</h2>
-<p>If you already have any AI agent that can open a local repo or project folder:</p>
-<ol>
-<li>Open the repo root.</li>
-<li>Give the AI <code>AI_ASSISTED_SETUP_PROMPT.md</code>.</li>
-<li>Let the AI decide whether the repo is already initialized.</li>
-<li>If it is initialized, continue with normal work.</li>
-<li>If it is not initialized, let the AI show the dry-run bootstrap command first.</li>
-</ol>
-<p>That is the canonical setup path.</p>
-<h2 id="if-you-do-not-have-an-ai-tool-yet">If You Do Not Have An AI Tool Yet</h2>
-<p>Use this default:</p>
+<p>If you do not know the clone URL yet, keep the placeholder and let the AI ask for it explicitly.</p>
+<h2 id="useful-client-links">Useful Client Links</h2>
+<p>Default local setup:</p>
 <ul>
-<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">Visual Studio Code</a></li>
-<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git</a></li>
+<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">VS Code download</a></li>
+<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git download</a></li>
+<li><a href="https://code.visualstudio.com/docs/sourcecontrol/repos-remotes" target="_blank" rel="noreferrer">VS Code clone workflow</a></li>
 </ul>
-<p>Then:</p>
-<ol>
-<li>Clone the repo.</li>
-<li>Open the repo root in VS Code.</li>
-<li>Start the AI chat from that workspace.</li>
-<li>Give the AI <code>AI_ASSISTED_SETUP_PROMPT.md</code>.</li>
-</ol>
-<p>Why this is the default:</p>
-<ul>
-<li>cloning is straightforward</li>
-<li>repo-root context is visible</li>
-<li>local file access is easier to reason about</li>
-<li>you can switch AI tools later without redoing repo setup</li>
-</ul>
-<h2 id="ai-client-guidance">AI Client Guidance</h2>
-<h3 id="best-default-for-most-people">Best default for most people</h3>
-<p>Use:</p>
-<ul>
-<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">VS Code</a></li>
-<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git</a></li>
-<li>any AI surface that can read the opened repo</li>
-</ul>
-<h3 id="if-you-already-use-chatgpt">If you already use ChatGPT</h3>
-<p>Good paths:</p>
+<p>AI client options:</p>
 <ul>
 <li><a href="https://chatgpt.com/features/desktop/" target="_blank" rel="noreferrer">ChatGPT desktop</a></li>
 <li><a href="https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan" target="_blank" rel="noreferrer">Codex with ChatGPT plans</a></li>
 <li><a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex CLI</a></li>
-</ul>
-<p>Recommendation:</p>
-<ul>
-<li>use desktop or IDE-adjacent flows first</li>
-<li>use CLI only if terminal-based workflow is acceptable</li>
-</ul>
-<h3 id="if-you-already-use-claude">If you already use Claude</h3>
-<p>Good paths:</p>
-<ul>
 <li><a href="https://support.claude.com/en/articles/10065433-install-claude-desktop" target="_blank" rel="noreferrer">Claude Desktop</a></li>
 <li><a href="https://code.claude.com/docs/en/overview" target="_blank" rel="noreferrer">Claude Code</a></li>
 </ul>
-<p>Recommendation:</p>
+<h2 id="prompt">Prompt</h2>
+<pre><code class="language-text">We are working with an AIRoot-based repo.
+
+Known inputs:
+- Repo Clone URL: &lt;PASTE_URL_HERE&gt;
+- Preferred local folder: &lt;PASTE_FOLDER_HERE&gt;
+- Preferred AI client: &lt;VS Code | ChatGPT desktop | Claude Desktop | Codex CLI | Claude Code&gt;
+
+Read first:
+- AIRoot/AIROOT_SETUP.md
+- Agents.md when it exists
+
+Task:
+1. Detect whether this repo is already initialized for AIRoot-based routing.
+2. If it is already initialized, do not re-run setup scripts unless I explicitly ask for repair or new-project onboarding.
+3. If it is not initialized, classify the topology as:
+   - single-project
+   - monorepo / multi-project
+4. Show the exact dry-run command first.
+5. Explain what setup will create at a high level:
+   - repo router
+   - AIOutput scaffold
+   - setup status
+   - host topology
+   - project router
+   - ProjectMemory baseline
+6. Ask for confirmation before applying mutating commands.
+7. After setup, run the matching `--check` validation path before declaring success.
+8. Confirm these post-validation signals explicitly:
+   - `AIOutput/Registry/setup_status.yaml` exists
+   - `AIOutput/Registry/host_topology.yaml` exists when repo-level topology setup was used
+   - expected `Agents.md` routers exist
+   - expected `Assets/AIOutput/ProjectMemory/` roots exist for initialized projects
+9. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
+10. If the repo structure is ambiguous, ask instead of guessing.
+11. If the clone URL or local folder is still missing, ask for the missing value immediately before giving long instructions.
+12. Only call the repo `xuunity-ready` when setup has passed post-validation and the next runtime entrypoint is clear.
+
+Fallback references only when needed:
+- AIRoot/Operations/Setup/SETUP_INDEX.md
+- AIRoot/Operations/Setup/AI_SETUP.md
+- AIRoot/Operations/Setup/AIROOT_SETUP_PROTOCOL.md
+
+Rules:
+- If project memory and code disagree, code wins for current behavior.
+- For startup, SDK, manifest, plist, entitlement, privacy, or compliance-sensitive questions, use code-first verification.
+</code></pre>
+<h2 id="main-rule">Main Rule</h2>
+<p>If the repo is already initialized, normal use is:</p>
 <ul>
-<li>use desktop or IDE flows first</li>
-<li>use CLI only if terminal-based workflow is acceptable</li>
-</ul>
-<h3 id="terminal-first-warning">Terminal-first warning</h3>
-<p>CLI agents are powerful, but they are not the best first step for low-experience users.</p>
-<p>Main drawbacks:</p>
-<ul>
-<li>more moving parts</li>
-<li>harder clone and auth debugging</li>
-<li>easier to start from the wrong directory</li>
-<li>lower confidence when the AI asks to run commands</li>
-</ul>
-<h2 id="clone-first-ask-questions-second">Clone First, Ask Questions Second</h2>
-<p>Do not make first-time users rely on the AI app itself to solve Bitbucket auth and local clone at the same time.</p>
-<p>Safer order:</p>
-<ol>
-<li>get repo access</li>
-<li>clone repo</li>
 <li>open repo root</li>
-<li>start AI work</li>
-</ol>
-<p>Useful links:</p>
-<ul>
-<li><a href="https://code.visualstudio.com/docs/sourcecontrol/repos-remotes" target="_blank" rel="noreferrer">VS Code clone workflow</a></li>
-<li><a href="https://support.atlassian.com/bitbucket-cloud/docs/clone-a-repository/" target="_blank" rel="noreferrer">Bitbucket clone guide</a></li>
-</ul>
-<h2 id="the-only-working-rule-that-matters">The Only Working Rule That Matters</h2>
-<p>If the repo already has:</p>
-<ul>
-<li><code>Agents.md</code></li>
-<li><code>AIRoot/</code></li>
-<li>working project routing</li>
-</ul>
-<p>then do not bootstrap it again just because you are on a new machine.</p>
-<p>Normal use is:</p>
-<ul>
-<li>open repo root</li>
-<li>let the AI inspect the repo</li>
+<li>load <code>Agents.md</code></li>
 <li>continue with the host&#39;s runtime protocol</li>
 </ul>
-<h2 id="when-bootstrap-is-actually-needed">When Bootstrap Is Actually Needed</h2>
-<p>Bootstrap is needed only when:</p>
+<p>It is not:</p>
 <ul>
-<li>the repo is new and not initialized yet</li>
-<li>routing is broken and needs repair</li>
-<li>a truly new project is being added and has not been initialized</li>
+<li>re-run bootstrap on every new machine</li>
 </ul>
-<p>When bootstrap is needed:</p>
+<h2 id="post-validation-rule">Post-Validation Rule</h2>
+<p>Do not say setup is complete only because files were created.</p>
+<p>Setup is complete only after:</p>
 <ul>
-<li>show a dry-run first</li>
-<li>review the plan</li>
-<li>apply only after confirmation</li>
+<li>the matching setup script <code>--check</code> path passes</li>
+<li>the expected routing files exist</li>
+<li>the expected <code>AIOutput/Registry/</code> status files exist</li>
+<li>the next <code>xuunity</code> entrypoint is clear</li>
 </ul>
-<h2 id="handoff">Handoff</h2>
-<p>After setup is done:</p>
+<p>If the host already has initialized projects, recommend the first readiness checks after setup:</p>
 <ul>
-<li>for normal product-facing work, use <code>AI_PRODUCT_OWNER_SETUP.md</code></li>
-<li>for deeper script-level bootstrap details, use <code>SETUP_INDEX.md</code></li>
-<li>for full setup contract details, use <code>AI_SETUP.md</code></li>
+<li><code>xuunity product health this project</code></li>
+<li><code>xuunity project memory freshness this project</code></li>
+</ul>
+<h2 id="recommended-send-order">Recommended Send Order</h2>
+<p>If you are sending only one file to a teammate for a generic <code>AIRoot</code>-based repo, send this one first.</p>
+<p>If they need a more human-readable fallback after that:</p>
+<ul>
+<li><code>AI_EASY_SETUP.md</code></li>
 </ul>
 
       </article>

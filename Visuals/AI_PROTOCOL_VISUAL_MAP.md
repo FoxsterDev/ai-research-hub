@@ -12,7 +12,7 @@ It focuses on:
 It is a navigation aid, not the source of truth.
 
 Suggested public reading order:
-1. `../Operations/AI_EASY_SETUP.md` when you need the simplest first-use setup path
+1. `../Operations/Setup/AI_EASY_SETUP.md` when you need the simplest first-use setup path
 2. `../Operations/AI_PROTOCOL_HANDBOOK.md` for operator rules and command guidance
 3. this visual map for topology and layer relationships
 4. `AIRoot/Operations/XUUnityLightUnityMcp/README.md` or `AIRoot/Operations/CodexSlackMcp/README.md` when you need the concrete MCP package surface
@@ -185,7 +185,7 @@ flowchart LR
 | Check project-memory freshness | `xuunity project memory freshness ...` |
 | Need Unity-aware validation evidence | `xuunity ...` plus the host's Unity MCP lane when available |
 | Need delivery/reporting closeout | host-local delivery/reporting MCP route when the host provides one |
-| Need the simplest first-use setup path | `AIRoot/Operations/AI_EASY_SETUP.md` |
+| Need the simplest first-use setup path | `AIRoot/Operations/Setup/AI_EASY_SETUP.md` |
 | Extract reusable knowledge | `xuunity extract knowledge` |
 | Convert a long chat into reusable engineering context | `xuunity system extract review artifact from this chat` |
 | Use private host-local flows | host-specific protocol selected by the host router |

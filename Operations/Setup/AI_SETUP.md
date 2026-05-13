@@ -13,7 +13,7 @@ For the shortest setup map, see:
 - `SETUP_INDEX.md`
 
 For host/module integration details, see:
-- `../INTEGRATION.md`
+- `../../INTEGRATION.md`
 
 ## First Setup Decision
 
@@ -103,7 +103,7 @@ Command phrase:
 
 Interpretation rule:
 - treat `airoot setup` as a repo-local setup phrase, not as a required globally installed binary
-- an agent should resolve this phrase through `AIRoot/AIROOT_SETUP.md` and `Operations/AIROOT_SETUP_PROTOCOL.md`
+- an agent should resolve this phrase through `AIRoot/AIROOT_SETUP.md` and `Operations/Setup/AIROOT_SETUP_PROTOCOL.md`
 - the agent should clarify missing setup details, run a preview first, and apply only after confirmation
 - the agent must not mutate the parent of `AIRoot` implicitly; if setup starts from the `AIRoot` repo itself, it must resolve the real host root first
 

@@ -183,7 +183,7 @@ This refreshes:
 
 - `docs/visual-map.html` from `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
 - `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
-- `docs/setup-index.html` from `Operations/SETUP_INDEX.md`
+- `docs/setup-index.html` from `Operations/Setup/SETUP_INDEX.md`
 - `docs/integration.html` from `INTEGRATION.md`
 - `docs/consulting.html` from `Operations/AI_PREMIUM_CONSULTING_OFFER_PAGE.html`
 - social preview derivatives from `docs/assets/airroot-social-card.svg` when local tools are available
@@ -220,4 +220,4 @@ These improve discoverability without changing system behavior:
   - `Operations/AI_PROTOCOL_HANDBOOK.md`
   - `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
   - `INTEGRATION.md`
-  - `Operations/SETUP_INDEX.md`
+  - `Operations/Setup/SETUP_INDEX.md`
