@@ -3,7 +3,7 @@
 ## Purpose
 Use this copy-paste prompt when an AI assistant should drive setup or repo inspection for an `AIRoot`-based host.
 
-This is the canonical AI-driven setup entrypoint.
+This is the canonical shareable AI-driven setup handoff.
 
 ## Fill These Before Sending
 
