@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Product Owner Quickstart</title>
+  <title>Operations</title>
   <style>
 :root {
   --bg: #efe5d7;
@@ -313,28 +313,59 @@ h1 {
   <div class="page">
     <section class="hero">
       <p class="eyebrow">Codex Markdown View</p>
-      <h1>AI Product Owner Quickstart</h1>
-      <p class="lead">This file remains only as a compatibility alias.</p>
+      <h1>Operations</h1>
+      <p class="lead">This folder contains public operational surfaces for `AIRoot`.</p>
       <div class="hero-meta">
-        <span class="pill">Source: <code>AI_PRODUCT_OWNER_QUICKSTART.md</code></span>
+        <span class="pill">Source: <code>README.md</code></span>
         <span class="pill">Generated: 2026-05-13 13:36:31 UTC</span>
       </div>
       <div class="hero-links">
-        <a href="./AI_PRODUCT_OWNER_QUICKSTART.md">Open Markdown Source</a>
+        <a href="./README.md">Open Markdown Source</a>
       </div>
 
+      <div class="hero-nav">
+        <a href="#start-here">Start Here</a>
+        <a href="#tool-and-surface-packages">Tool And Surface Packages</a>
+      </div>
     </section>
 
     <main class="content">
       <article>
-<p>This file remains only as a compatibility alias.</p>
-<p>Canonical post-setup product-facing guide:</p>
+<p>This folder contains public operational surfaces for <code>AIRoot</code>.</p>
+<p>Use a strict split:</p>
 <ul>
+<li>host bootstrap and onboarding -&gt; <code>Operations/Setup/</code></li>
+<li>reusable handbooks and operator guides -&gt; <code>Operations/*.md</code></li>
+<li>public tool-specific or surface-specific operation packages -&gt;
+<code>Operations/&lt;ToolOrSurface&gt;/</code></li>
+</ul>
+<h2 id="start-here">Start Here</h2>
+<p>For new host setup:</p>
+<ul>
+<li><code>Setup/AI_ASSISTED_SETUP_PROMPT.md</code></li>
+<li><code>Setup/AI_EASY_SETUP.md</code></li>
+<li><code>Setup/SETUP_INDEX.md</code></li>
+</ul>
+<p>For normal operator usage after setup:</p>
+<ul>
+<li><code>AI_PROTOCOL_HANDBOOK.md</code></li>
 <li><code>AI_PRODUCT_OWNER_SETUP.md</code></li>
 </ul>
-<p>If you still need first-time setup help instead of product-facing repo usage, start here:</p>
+<h2 id="tool-and-surface-packages">Tool And Surface Packages</h2>
+<p>These are not part of the host bootstrap path.</p>
 <ul>
-<li><code>AI_EASY_SETUP.md</code></li>
+<li><code>CodexSlackMcp/</code>
+Fixed-surface Slack delivery setup and usage.</li>
+<li><code>XUUnityLightUnityMcp/</code>
+Public lightweight Unity MCP surface for <code>xuunity</code>.</li>
+<li><code>XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md</code>
+Public-safe report for the <code>xuunity</code> task registry surface.</li>
+</ul>
+<p>Rule:</p>
+<ul>
+<li>keep <code>Setup/</code> focused on making the host repo ready</li>
+<li>keep optional tool installers and tool-specific operation docs in their own
+operation folders</li>
 </ul>
 
       </article>
