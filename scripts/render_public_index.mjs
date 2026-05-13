@@ -19,17 +19,20 @@ const sourcePath = path.join(docsDir, "INDEX_SOURCE.md");
 const templatePath = path.join(docsDir, "index.template.html");
 const outputPath = path.join(docsDir, "index.html");
 
-const { marked } = await import(pathToFileURL(markedModulePath).href);
-
 const [sourceMarkdown, templateHtml] = await Promise.all([
   fs.readFile(sourcePath, "utf8"),
   fs.readFile(templatePath, "utf8")
 ]);
 
-const renderedBody = marked.parse(sourceMarkdown, {
-  gfm: true,
-  breaks: false
-}).trim();
+const { marked } = await import(pathToFileURL(markedModulePath).href);
+
+const trimmedSource = sourceMarkdown.trim();
+const renderedBody = /^<[-a-zA-Z!\/][\s\S]*>$/.test(trimmedSource)
+  ? trimmedSource
+  : marked.parse(sourceMarkdown, {
+      gfm: true,
+      breaks: false
+    }).trim();
 
 const generatedAt = new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, " UTC");
 const derivedComment = `<!-- Derived from docs/INDEX_SOURCE.md at ${generatedAt} -->`;
