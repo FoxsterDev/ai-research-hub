@@ -6,6 +6,10 @@ This folder is prepared for a GitHub Pages entry site for the `FoxsterDev/ai-res
 
 - `docs/index.html`
   Public landing page for newcomers.
+- `docs/INDEX_SOURCE.md`
+  Markdown source of truth for the public landing page body.
+- `docs/index.template.html`
+  HTML shell for the public landing page with SEO, metadata, styling, and JS.
 - `docs/assets/airroot-architecture.svg`
   Source infographic used by the landing page.
 - `docs/assets/airroot-social-card.svg`
@@ -181,6 +185,7 @@ bash scripts/refresh_public_site.sh
 
 This refreshes:
 
+- `docs/index.html` from `docs/INDEX_SOURCE.md` and `docs/index.template.html`
 - `docs/visual-map.html` from `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
 - `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
 - `docs/operations.html` from `Operations/README.md`
@@ -192,6 +197,8 @@ This refreshes:
 
 Recommended rule:
 - markdown in `Visuals/`, `Operations/`, and repo root stays source of truth
+- `docs/INDEX_SOURCE.md` stays source of truth for landing-page body content
+- `docs/index.template.html` keeps the public landing-page shell
 - `docs/*.html` stays derived output for the public site
 - no separate protocol family is needed for this; a small public operation is enough
 

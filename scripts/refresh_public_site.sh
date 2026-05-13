@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AIR_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RENDER_SCRIPT="$AIR_ROOT/Operations/CodexMdToHtml/render_md_to_html.sh"
+INDEX_RENDER_SCRIPT="$AIR_ROOT/scripts/render_public_index.mjs"
 DOCS_DIR="$AIR_ROOT/docs"
 ASSETS_DIR="$DOCS_DIR/assets"
 
@@ -19,6 +20,9 @@ if [[ ! -d "${HOME}/.codex-tools/md-to-html-cli/node_modules/marked" ]]; then
 fi
 
 mkdir -p "$DOCS_DIR" "$ASSETS_DIR"
+
+echo "Refreshing landing page..."
+node "$INDEX_RENDER_SCRIPT" "$AIR_ROOT"
 
 render_page() {
   local input_rel="$1"
@@ -55,6 +59,7 @@ fi
 echo
 echo "Public site refresh complete."
 echo "Updated docs pages:"
+echo "  - docs/index.html"
 echo "  - docs/visual-map.html"
 echo "  - docs/handbook.html"
 echo "  - docs/operations.html"
