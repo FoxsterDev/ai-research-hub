@@ -5,8 +5,8 @@ Use this guide when attaching `AIRoot` to a host repository as a reusable module
 Treat it as an integration contract for AI agents, MCP tools, and automation layers rather than as a manual human checklist.
 
 If you want the simplest first-use path instead of the integration contract, start with:
-- `Operations/AI_EASY_SETUP.md`
-- `Operations/AI_ASSISTED_SETUP_PROMPT.md`
+- `Operations/Setup/AI_EASY_SETUP.md`
+- `Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md`
 
 ## Expected Host Responsibilities
 The host repo should provide:

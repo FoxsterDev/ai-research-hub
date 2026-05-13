@@ -25,7 +25,7 @@ This is the script-level reference layer, not the simplest first-read guide.
 
 Interpret this as a repo-local setup phrase.
 The agent should resolve it through:
-- `../AIROOT_SETUP.md`
+- `../../AIROOT_SETUP.md`
 - `AIROOT_SETUP_PROTOCOL.md`
 
 ### Recommended topology-first setup
@@ -88,7 +88,7 @@ bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo
 
 ### Template
 
-- `../Templates/REPO_AGENTS_ROUTER_TEMPLATE.md`
+- `../../Templates/REPO_AGENTS_ROUTER_TEMPLATE.md`
 
 ## Project-Level Setup
 
@@ -132,7 +132,7 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode monor
 
 ### Template
 
-- `../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md`
+- `../../Templates/PROJECT_AGENTS_ROUTER_TEMPLATE.md`
 
 ## Codex Slack MCP
 

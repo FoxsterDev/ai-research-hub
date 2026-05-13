@@ -58,14 +58,21 @@ Task:
    - project router
    - ProjectMemory baseline
 6. Ask for confirmation before applying mutating commands.
-7. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
-8. If the repo structure is ambiguous, ask instead of guessing.
-9. If the clone URL or local folder is still missing, ask for the missing value immediately before giving long instructions.
+7. After setup, run the matching `--check` validation path before declaring success.
+8. Confirm these post-validation signals explicitly:
+   - `AIOutput/Registry/setup_status.yaml` exists
+   - `AIOutput/Registry/host_topology.yaml` exists when repo-level topology setup was used
+   - expected `Agents.md` routers exist
+   - expected `Assets/AIOutput/ProjectMemory/` roots exist for initialized projects
+9. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
+10. If the repo structure is ambiguous, ask instead of guessing.
+11. If the clone URL or local folder is still missing, ask for the missing value immediately before giving long instructions.
+12. Only call the repo `xuunity-ready` when setup has passed post-validation and the next runtime entrypoint is clear.
 
 Fallback references only when needed:
-- AIRoot/Operations/SETUP_INDEX.md
-- AIRoot/Operations/AI_SETUP.md
-- AIRoot/Operations/AIROOT_SETUP_PROTOCOL.md
+- AIRoot/Operations/Setup/SETUP_INDEX.md
+- AIRoot/Operations/Setup/AI_SETUP.md
+- AIRoot/Operations/Setup/AIROOT_SETUP_PROTOCOL.md
 
 Rules:
 - If project memory and code disagree, code wins for current behavior.
@@ -81,6 +88,20 @@ If the repo is already initialized, normal use is:
 
 It is not:
 - re-run bootstrap on every new machine
+
+## Post-Validation Rule
+
+Do not say setup is complete only because files were created.
+
+Setup is complete only after:
+- the matching setup script `--check` path passes
+- the expected routing files exist
+- the expected `AIOutput/Registry/` status files exist
+- the next `xuunity` entrypoint is clear
+
+If the host already has initialized projects, recommend the first readiness checks after setup:
+- `xuunity product health this project`
+- `xuunity project memory freshness this project`
 
 ## Recommended Send Order
 

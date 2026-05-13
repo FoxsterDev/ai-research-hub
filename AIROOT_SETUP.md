@@ -12,8 +12,8 @@ Use this file only for setup and onboarding of a new host repo that embeds `AIRo
 Treat `airoot setup` as a repo-local setup phrase, not as a runtime router and not as a required installed CLI binary.
 
 When an agent sees this command, it should:
-1. load `Operations/SETUP_INDEX.md`
-2. load `Operations/AIROOT_SETUP_PROTOCOL.md`
+1. load `Operations/Setup/SETUP_INDEX.md`
+2. load `Operations/Setup/AIROOT_SETUP_PROTOCOL.md`
 3. resolve the real host repo root
 4. ask the user for any missing setup details
 5. run the topology-first setup preview
