@@ -183,6 +183,7 @@ This refreshes:
 
 - `docs/visual-map.html` from `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
 - `docs/handbook.html` from `Operations/AI_PROTOCOL_HANDBOOK.md`
+- `docs/operations.html` from `Operations/README.md`
 - `docs/setup-index.html` from `Operations/Setup/SETUP_INDEX.md`
 - `docs/integration.html` from `INTEGRATION.md`
 - `docs/consulting.html` from `Operations/AI_PREMIUM_CONSULTING_OFFER_PAGE.html`
@@ -217,6 +218,7 @@ These improve discoverability without changing system behavior:
 - Keep host-private protocol families and mutable host state out of the public landing page.
 - If Search Console verification uses an HTML file, keep that file in `docs/` and do not rename it.
 - If the page evolves, keep links pointed at public-safe docs:
+  - `Operations/README.md`
   - `Operations/AI_PROTOCOL_HANDBOOK.md`
   - `Visuals/AI_PROTOCOL_VISUAL_MAP.md`
   - `INTEGRATION.md`
