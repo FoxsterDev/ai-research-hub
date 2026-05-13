@@ -198,7 +198,8 @@ Main bootstrap entrypoints:
 
 Design placement rules:
 - cross-cutting public designs -> `AIRoot/Design/`
-- operation-specific public designs -> `AIRoot/Operations/<Operation>/Designs/`
+- public tool-specific or surface-specific designs ->
+  `AIRoot/Operations/<ToolOrSurface>/Designs/`
 - host-local or private designs -> host repo `AIOutput/Operations/Design/`
 
 ## Repository Map
