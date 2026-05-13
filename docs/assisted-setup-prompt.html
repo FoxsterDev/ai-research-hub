@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_ASSISTED_SETUP_PROMPT.md</code></span>
-        <span class="pill">Generated: 2026-05-13 12:49:45 UTC</span>
+        <span class="pill">Generated: 2026-05-13 12:59:12 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_ASSISTED_SETUP_PROMPT.md">Open Markdown Source</a>
@@ -325,8 +325,11 @@ h1 {
 
       <div class="hero-nav">
         <a href="#purpose">Purpose</a>
+        <a href="#fill-these-before-sending">Fill These Before Sending</a>
+        <a href="#useful-client-links">Useful Client Links</a>
         <a href="#prompt">Prompt</a>
         <a href="#main-rule">Main Rule</a>
+        <a href="#recommended-send-order">Recommended Send Order</a>
       </div>
     </section>
 
@@ -335,8 +338,36 @@ h1 {
 <h2 id="purpose">Purpose</h2>
 <p>Use this copy-paste prompt when an AI assistant should drive setup or repo inspection for an <code>AIRoot</code>-based host.</p>
 <p>This is the canonical AI-driven setup entrypoint.</p>
+<h2 id="fill-these-before-sending">Fill These Before Sending</h2>
+<p>Use or replace these fields before you paste the prompt into an AI chat:</p>
+<ul>
+<li><code>Repo Clone URL: &lt;PASTE_URL_HERE&gt;</code></li>
+<li><code>Preferred local folder: &lt;PASTE_FOLDER_HERE&gt;</code></li>
+<li><code>Preferred AI client: &lt;VS Code | ChatGPT desktop | Claude Desktop | Codex CLI | Claude Code&gt;</code></li>
+</ul>
+<p>If you do not know the clone URL yet, keep the placeholder and let the AI ask for it explicitly.</p>
+<h2 id="useful-client-links">Useful Client Links</h2>
+<p>Default local setup:</p>
+<ul>
+<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">VS Code download</a></li>
+<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git download</a></li>
+<li><a href="https://code.visualstudio.com/docs/sourcecontrol/repos-remotes" target="_blank" rel="noreferrer">VS Code clone workflow</a></li>
+</ul>
+<p>AI client options:</p>
+<ul>
+<li><a href="https://chatgpt.com/features/desktop/" target="_blank" rel="noreferrer">ChatGPT desktop</a></li>
+<li><a href="https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan" target="_blank" rel="noreferrer">Codex with ChatGPT plans</a></li>
+<li><a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex CLI</a></li>
+<li><a href="https://support.claude.com/en/articles/10065433-install-claude-desktop" target="_blank" rel="noreferrer">Claude Desktop</a></li>
+<li><a href="https://code.claude.com/docs/en/overview" target="_blank" rel="noreferrer">Claude Code</a></li>
+</ul>
 <h2 id="prompt">Prompt</h2>
 <pre><code class="language-text">We are working with an AIRoot-based repo.
+
+Known inputs:
+- Repo Clone URL: &lt;PASTE_URL_HERE&gt;
+- Preferred local folder: &lt;PASTE_FOLDER_HERE&gt;
+- Preferred AI client: &lt;VS Code | ChatGPT desktop | Claude Desktop | Codex CLI | Claude Code&gt;
 
 Read first:
 - AIRoot/AIROOT_SETUP.md
@@ -359,6 +390,7 @@ Task:
 6. Ask for confirmation before applying mutating commands.
 7. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
 8. If the repo structure is ambiguous, ask instead of guessing.
+9. If the clone URL or local folder is still missing, ask for the missing value immediately before giving long instructions.
 
 Fallback references only when needed:
 - AIRoot/Operations/SETUP_INDEX.md
@@ -379,6 +411,12 @@ Rules:
 <p>It is not:</p>
 <ul>
 <li>re-run bootstrap on every new machine</li>
+</ul>
+<h2 id="recommended-send-order">Recommended Send Order</h2>
+<p>If you are sending only one file to a teammate for a generic <code>AIRoot</code>-based repo, send this one first.</p>
+<p>If they need a more human-readable fallback after that:</p>
+<ul>
+<li><code>AI_EASY_SETUP.md</code></li>
 </ul>
 
       </article>
