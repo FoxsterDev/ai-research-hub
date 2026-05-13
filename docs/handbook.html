@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_PROTOCOL_HANDBOOK.md</code></span>
-        <span class="pill">Generated: 2026-04-26 13:43:51 UTC</span>
+        <span class="pill">Generated: 2026-05-13 12:49:45 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_PROTOCOL_HANDBOOK.md">Open Markdown Source</a>
@@ -325,8 +325,10 @@ h1 {
 
       <div class="hero-nav">
         <a href="#purpose">Purpose</a>
+        <a href="#current-shared-surface">Current Shared Surface</a>
         <a href="#start-here">Start Here</a>
         <a href="#supported-host-topologies">Supported Host Topologies</a>
+        <a href="#mcp-surfaces">MCP Surfaces</a>
         <a href="#protocol-map">Protocol Map</a>
         <a href="#fast-command-lookup">Fast Command Lookup</a>
         <a href="#role-shortcuts">Role Shortcuts</a>
@@ -351,6 +353,22 @@ Use it to understand:</p>
 <li>which commands to use</li>
 <li>what the system can solve well today</li>
 <li>where you still need extra context, code verification, or human judgment</li>
+</ul>
+<h2 id="current-shared-surface">Current Shared Surface</h2>
+<p>Verified against the live shared <code>AIRoot/Modules/XUUnity/</code> surface on <code>2026-05-13</code>.</p>
+<ul>
+<li>Task surface includes engineering, review, feature-delivery, architecture-plan, validation-plan, rollout-plan, change-delivery, and incident-response entrypoints.</li>
+<li>Review surface includes code, git-change, SDK, native, release-readiness, delivery-risk, and test-quality review flows.</li>
+<li>Utility surface includes extraction, integration, review-artifact, system-governance, cleanup, and task-registry flows.</li>
+<li>First-class policy packs currently exist for:<ul>
+<li>SDK changes</li>
+<li>startup changes</li>
+<li>manifest/native changes</li>
+<li>monetization changes</li>
+<li>save/load changes</li>
+<li>UI-heavy changes</li>
+</ul>
+</li>
 </ul>
 <h2 id="start-here">Start Here</h2>
 <ul>
@@ -385,6 +403,61 @@ Use it to understand:</p>
 <ul>
 <li><code>AIModules/XUUnityInternal/</code> is an optional host overlay, not a mandatory part of <code>xuunity</code></li>
 </ul>
+<h2 id="mcp-surfaces">MCP Surfaces</h2>
+<p>Treat MCP as two different operational surfaces:</p>
+<ul>
+<li>Unity-aware validation and editor evidence</li>
+<li>delivery/reporting integrations such as Slack</li>
+</ul>
+<p>Do not collapse them into one generic &quot;MCP setup&quot; concept.</p>
+<p>For the public topology view of these surfaces, use:</p>
+<ul>
+<li><code>AIRoot/Visuals/AI_PROTOCOL_VISUAL_MAP.md</code></li>
+<li>especially sections:<ul>
+<li><code>5. MCP Surfaces</code></li>
+<li><code>6. Unity MCP Validation Topology</code></li>
+<li><code>7. Delivery / Reporting MCP Topology</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="unity-mcp">Unity MCP</h3>
+<p>Use this when the task needs Unity-aware evidence rather than source-only reasoning.</p>
+<p>Shared source of truth:</p>
+<ul>
+<li><code>AIRoot/Modules/XUUnity/tasks/start_session.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/unity_validation_boundaries.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/validation_lanes.md</code></li>
+</ul>
+<p>Shared operational package:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code></li>
+</ul>
+<p>Supporting public docs:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/BUILD_AUTOMATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md</code></li>
+</ul>
+<p>Working rule:</p>
+<ul>
+<li>if the active host or project exposes a supported Unity MCP path, prefer that path for Unity-aware validation</li>
+<li>do not treat shell compile, generated project builds, or ad hoc shell scripts as equivalent to Unity MCP evidence</li>
+<li>host repos may add narrower local rules or wrappers on top of this public baseline</li>
+</ul>
+<h3 id="slack-mcp">Slack MCP</h3>
+<p>Use this for delivery/reporting only, not as a project source of truth.</p>
+<p>Shared public-safe setup:</p>
+<ul>
+<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
+<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
+<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
+</ul>
+<p>Working rule:</p>
+<ul>
+<li>Slack MCP is a delivery surface</li>
+<li>host repos may pin it to one channel, require explicit approval, or route it through host-local closeout utilities</li>
+<li>do not treat Slack posts as canonical project state</li>
+</ul>
 <h2 id="protocol-map">Protocol Map</h2>
 <h3 id="xuunity"><code>xuunity</code></h3>
 <p>Best for:</p>
@@ -406,6 +479,7 @@ Use it to understand:</p>
 <li><code>xuunity fix this bug</code></li>
 <li><code>xuunity refactor this code</code></li>
 <li><code>xuunity review this component</code></li>
+<li><code>xuunity review tests</code></li>
 <li><code>xuunity review the git change</code></li>
 <li><code>xuunity git change review</code></li>
 <li><code>xuunity feature request this flow</code></li>
@@ -417,6 +491,8 @@ Use it to understand:</p>
 <li><code>xuunity feature validation this flow</code></li>
 <li><code>xuunity feature risk review this flow</code></li>
 <li><code>xuunity feature implement this flow</code></li>
+<li><code>xuunity arch plan this subsystem split</code></li>
+<li><code>xuunity rollout plan this feature</code></li>
 <li><code>xuunity sdk review this integration</code></li>
 <li><code>xuunity sdk breakage review this integration</code></li>
 <li><code>xuunity native review this iOS bridge</code></li>
@@ -460,13 +536,28 @@ Use it to understand:</p>
 <li><code>xuunity system cleanup</code></li>
 <li><code>xuunity system cleanup projects</code></li>
 <li><code>xuunity system cleanup reports</code></li>
+<li><code>xuunity system cleanup aggressive</code></li>
 <li><code>xuunity system cleanup all</code></li>
+<li><code>xuunity system cleanup all aggressive</code></li>
 <li><code>xuunity system cleanup apply</code></li>
 <li><code>xuunity system apply cleanup</code></li>
 <li><code>xuunity system cleanup stale reports</code></li>
 <li><code>xuunity system cleanup ai outputs</code></li>
 <li><code>xuunity system archive old reports</code></li>
 <li><code>xuunity system evaluate the xuunity protocol structure</code></li>
+<li><code>xuunity task registry bootstrap</code></li>
+<li><code>xuunity start tracking this task</code></li>
+<li><code>xuunity finish the work</code></li>
+<li><code>xuunity publish the work</code></li>
+<li><code>xuunity this works</code></li>
+<li><code>xuunity this has bugs</code></li>
+<li><code>xuunity validate task registry</code></li>
+<li><code>xuunity task metrics</code></li>
+<li><code>xuunity archive task registry</code></li>
+</ul>
+<p>Task-registry feature report:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md</code></li>
 </ul>
 <h2 id="role-shortcuts">Role Shortcuts</h2>
 <p>Use these when you want a specific angle instead of default routing.</p>
@@ -503,6 +594,7 @@ Use it to understand:</p>
 <li>architecture proposals across messy legacy code</li>
 <li>release-readiness evaluation</li>
 <li>migration planning between SDK versions</li>
+<li>change-delivery and closure orchestration when the repo exposes the task-registry surface</li>
 <li>turning informal chats into durable shared skills</li>
 <li>using prior reports and project memory as working context</li>
 <li>periodic roadmap progress assessment</li>
@@ -529,6 +621,17 @@ Use it to understand:</p>
 <li>Start from the project root or monorepo root, not from nested code folders.</li>
 <li>Let shorthand commands stay short. Do not manually enumerate the whole prompt stack unless needed.</li>
 <li>Choose repo topology first: <code>core-only</code> for single-project hosts, <code>core + internal overlay</code> for true multi-project hosts.</li>
+<li>Keep the MCP surface explicit:<ul>
+<li>Unity MCP for validation and editor evidence</li>
+<li>delivery/reporting MCPs for closeout workflows</li>
+</ul>
+</li>
+<li>Choose a primary validation lane before claiming runtime proof:<ul>
+<li><code>interactive_mcp</code> for live editor state, console, scene, Game View, play mode, or integrated Unity tooling</li>
+<li><code>batch_compile</code> for non-interactive compile, define, target, or narrow test evidence when shell automation is allowed</li>
+<li><code>scenario</code> for ordered runtime steps, waits, screenshots, play mode transitions, or project-defined hooks</li>
+</ul>
+</li>
 <li>For gameplay projects, keep <code>Assets/AIOutput/ProjectMemory/</code> as the default context layer.</li>
 <li>Treat <code>Assets/AIOutput/</code> as historical artifact storage, not default working memory.</li>
 <li>Load historical artifacts only when investigating behavior drift, reconstructing legacy intent, or researching old bugs.</li>
@@ -536,6 +639,7 @@ Use it to understand:</p>
 <li>For knowledge work, use <code>intake review</code> before integration.</li>
 <li>For long technical chats, first create a review artifact, then decide whether any of it should become shared knowledge.</li>
 <li>For risky SDK updates, verify dependency track, native versions, and merged build outputs.</li>
+<li>For risky gameplay, monetization, save/load, or UI-heavy changes, let the matched policy pack narrow the review and validation surface instead of improvising the whole checklist.</li>
 <li>For mobile stability questions, verify with code and build artifacts before trusting old memory.</li>
 <li>Treat <code>AIRoot</code> as intentionally routerless. Do not create <code>AIRoot/Agents.md</code> or <code>AIRoot/Assets/AIOutput/ProjectMemory/</code> to emulate a project-local runtime layer.</li>
 <li>Treat <code>AIModules/XUUnityInternal/</code> as optional. Use it only when there is real host-level reusable internal knowledge across projects.</li>
@@ -572,6 +676,23 @@ Use it to understand:</p>
 <ul>
 <li><code>AIRoot/Templates/XUUNITY_REVIEW_REPORT_TEMPLATE.md</code></li>
 </ul>
+<h3 id="review-and-risk-coverage">Review And Risk Coverage</h3>
+<p>Use these when the work is review-heavy or release-sensitive:</p>
+<ol>
+<li><code>xuunity review this component</code> for a source-scope review</li>
+<li><code>xuunity review tests</code> for test-surface quality and risk</li>
+<li><code>xuunity review the git change</code> for branch or working-tree delta</li>
+<li><code>xuunity feature risk review ...</code> for pre-implementation or pre-release risk framing</li>
+<li>let the matched policy pack narrow the checklist for:<ul>
+<li>SDK changes</li>
+<li>startup changes</li>
+<li>manifest/native changes</li>
+<li>monetization changes</li>
+<li>save/load changes</li>
+<li>UI-heavy changes</li>
+</ul>
+</li>
+</ol>
 <h3 id="git-change-review">Git Change Review</h3>
 <ol>
 <li><code>xuunity review the git change</code></li>
@@ -596,6 +717,19 @@ Use it to understand:</p>
 <li>release recommendation</li>
 </ul>
 <p>Use <code>100</code> breakage probability only for deterministic bugs that can be explained from the current code or diff.</p>
+<h3 id="validation-lane-selection">Validation Lane Selection</h3>
+<ol>
+<li>Prefer <code>interactive_mcp</code> when the question is about live Unity editor behavior.</li>
+<li>Prefer <code>batch_compile</code> when the question is compile health or target or define coverage and direct shell automation is permitted.</li>
+<li>Prefer <code>scenario</code> when the answer depends on multiple ordered runtime steps rather than one isolated tool call.</li>
+<li>If repo or project rules require integrated validation, do not fall back to direct Unity CLI just because the editor binary exists.</li>
+<li>If no permitted lane can produce representative proof, keep the validation gap explicit.</li>
+<li>When a host exposes a supported <code>XUUnityLightUnityMcp</code> or equivalent Unity MCP package, treat that package as the preferred Unity-aware validation surface.</li>
+</ol>
+<p>For the topology view of this lane model, use:</p>
+<ul>
+<li><code>AIRoot/Visuals/AI_PROTOCOL_VISUAL_MAP.md</code> -&gt; <code>6. Unity MCP Validation Topology</code></li>
+</ul>
 <h3 id="new-knowledge">New Knowledge</h3>
 <ol>
 <li><code>xuunity extract knowledge</code></li>
@@ -618,7 +752,38 @@ Use it to understand:</p>
 </ul>
 <p><code>xuunity system health review</code> should also check whether the extraction workflow has current regression evidence.
 If extraction routing changed but the golden pack was not rerun, treat that as a system-health gap rather than a silent assumption.
-Use <code>AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json</code> as the preferred extraction-health evidence when it exists.</p>
+Use <code>AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json</code> as the preferred extraction-health evidence only when it is a real evaluation output, not a scaffold slot or placeholder.</p>
+<h3 id="task-registry">Task Registry</h3>
+<ol>
+<li><code>xuunity task registry bootstrap</code> when the repo needs the scaffold</li>
+<li><code>xuunity start tracking this task</code> when lifecycle timing should begin before closure</li>
+<li><code>xuunity finish the work</code> to record engineering closure</li>
+<li><code>xuunity this works</code> or <code>xuunity this has bugs</code> after human validation</li>
+<li><code>xuunity validate task registry</code> before publishing metrics or migration results</li>
+<li><code>xuunity task metrics</code> for outcome-based reporting</li>
+<li><code>xuunity archive task registry</code> for retention and rollover planning</li>
+</ol>
+<p>Reference:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md</code></li>
+</ul>
+<h3 id="change-delivery">Change Delivery</h3>
+<ol>
+<li><code>xuunity publish local changes ...</code>, <code>xuunity publish all changes ...</code>, or <code>xuunity split these changes into commits ...</code></li>
+<li>let <code>tasks/change_delivery.md</code> choose the narrowest delivery shape</li>
+<li>if the repo also exposes task-registry flows, pair delivery with <code>xuunity finish the work</code></li>
+<li>keep validation evidence explicit before closeout rather than folding it into commit-only output</li>
+</ol>
+<h3 id="delivery-reporting">Delivery Reporting</h3>
+<ol>
+<li>If the host repo exposes a delivery/reporting MCP such as Slack, use the host-local closeout route rather than inventing an ad hoc post format.</li>
+<li>Keep delivery/reporting MCP output secondary to the actual system of record.</li>
+<li>Do not claim work is fully closed out when the host-defined delivery step was explicitly requested but could not be completed.</li>
+</ol>
+<p>For the topology view of delivery/reporting MCP, use:</p>
+<ul>
+<li><code>AIRoot/Visuals/AI_PROTOCOL_VISUAL_MAP.md</code> -&gt; <code>7. Delivery / Reporting MCP Topology</code></li>
+</ul>
 <h3 id="system-progress">System Progress</h3>
 <ol>
 <li><code>xuunity system progress review</code></li>

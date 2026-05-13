@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Easy Setup Guide</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AI Easy Setup Guide</h1>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>AI_EASY_SETUP.md</code></span>
+        <span class="pill">Generated: 2026-05-13 12:45:30 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./AI_EASY_SETUP.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#the-only-decision-you-need">The Only Decision You Need</a>
+        <a href="#preferred-path-let-ai-drive-setup">Preferred Path: Let AI Drive Setup</a>
+        <a href="#if-you-do-not-have-an-ai-tool-yet">If You Do Not Have An AI Tool Yet</a>
+        <a href="#ai-client-guidance">AI Client Guidance</a>
+        <a href="#clone-first-ask-questions-second">Clone First, Ask Questions Second</a>
+        <a href="#the-only-working-rule-that-matters">The Only Working Rule That Matters</a>
+        <a href="#when-bootstrap-is-actually-needed">When Bootstrap Is Actually Needed</a>
+        <a href="#handoff">Handoff</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<h2 id="purpose">Purpose</h2>
+<p>Use this guide when someone wants the simplest practical way to start working with an <code>AIRoot</code>-based repo.</p>
+<p>Audience:</p>
+<ul>
+<li>teammates with little or no repo-tooling experience</li>
+<li>founders, product-facing teammates, QA, and operators</li>
+<li>anyone who needs a clean first-use path before deeper technical setup docs</li>
+</ul>
+<p>Verified against the public <code>AIRoot</code> setup surface on <code>2026-05-13</code>.</p>
+<h2 id="the-only-decision-you-need">The Only Decision You Need</h2>
+<p>Choose one path:</p>
+<ol>
+<li>You already have an AI agent or AI app with local folder access.<ul>
+<li>Use <code>AI_ASSISTED_SETUP_PROMPT.md</code></li>
+</ul>
+</li>
+<li>You do not have an AI tool yet.<ul>
+<li>Install <code>VS Code + Git</code></li>
+<li>Then use any AI surface you prefer from the repo root</li>
+</ul>
+</li>
+<li>You prefer terminal-first work.<ul>
+<li>Use a CLI agent only if you are already comfortable in a shell</li>
+</ul>
+</li>
+</ol>
+<h2 id="preferred-path-let-ai-drive-setup">Preferred Path: Let AI Drive Setup</h2>
+<p>If you already have any AI agent that can open a local repo or project folder:</p>
+<ol>
+<li>Open the repo root.</li>
+<li>Give the AI <code>AI_ASSISTED_SETUP_PROMPT.md</code>.</li>
+<li>Let the AI decide whether the repo is already initialized.</li>
+<li>If it is initialized, continue with normal work.</li>
+<li>If it is not initialized, let the AI show the dry-run bootstrap command first.</li>
+</ol>
+<p>That is the canonical setup path.</p>
+<h2 id="if-you-do-not-have-an-ai-tool-yet">If You Do Not Have An AI Tool Yet</h2>
+<p>Use this default:</p>
+<ul>
+<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">Visual Studio Code</a></li>
+<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git</a></li>
+</ul>
+<p>Then:</p>
+<ol>
+<li>Clone the repo.</li>
+<li>Open the repo root in VS Code.</li>
+<li>Start the AI chat from that workspace.</li>
+<li>Give the AI <code>AI_ASSISTED_SETUP_PROMPT.md</code>.</li>
+</ol>
+<p>Why this is the default:</p>
+<ul>
+<li>cloning is straightforward</li>
+<li>repo-root context is visible</li>
+<li>local file access is easier to reason about</li>
+<li>you can switch AI tools later without redoing repo setup</li>
+</ul>
+<h2 id="ai-client-guidance">AI Client Guidance</h2>
+<h3 id="best-default-for-most-people">Best default for most people</h3>
+<p>Use:</p>
+<ul>
+<li><a href="https://code.visualstudio.com/download" target="_blank" rel="noreferrer">VS Code</a></li>
+<li><a href="https://git-scm.com/downloads" target="_blank" rel="noreferrer">Git</a></li>
+<li>any AI surface that can read the opened repo</li>
+</ul>
+<h3 id="if-you-already-use-chatgpt">If you already use ChatGPT</h3>
+<p>Good paths:</p>
+<ul>
+<li><a href="https://chatgpt.com/features/desktop/" target="_blank" rel="noreferrer">ChatGPT desktop</a></li>
+<li><a href="https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan" target="_blank" rel="noreferrer">Codex with ChatGPT plans</a></li>
+<li><a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex CLI</a></li>
+</ul>
+<p>Recommendation:</p>
+<ul>
+<li>use desktop or IDE-adjacent flows first</li>
+<li>use CLI only if terminal-based workflow is acceptable</li>
+</ul>
+<h3 id="if-you-already-use-claude">If you already use Claude</h3>
+<p>Good paths:</p>
+<ul>
+<li><a href="https://support.claude.com/en/articles/10065433-install-claude-desktop" target="_blank" rel="noreferrer">Claude Desktop</a></li>
+<li><a href="https://code.claude.com/docs/en/overview" target="_blank" rel="noreferrer">Claude Code</a></li>
+</ul>
+<p>Recommendation:</p>
+<ul>
+<li>use desktop or IDE flows first</li>
+<li>use CLI only if terminal-based workflow is acceptable</li>
+</ul>
+<h3 id="terminal-first-warning">Terminal-first warning</h3>
+<p>CLI agents are powerful, but they are not the best first step for low-experience users.</p>
+<p>Main drawbacks:</p>
+<ul>
+<li>more moving parts</li>
+<li>harder clone and auth debugging</li>
+<li>easier to start from the wrong directory</li>
+<li>lower confidence when the AI asks to run commands</li>
+</ul>
+<h2 id="clone-first-ask-questions-second">Clone First, Ask Questions Second</h2>
+<p>Do not make first-time users rely on the AI app itself to solve Bitbucket auth and local clone at the same time.</p>
+<p>Safer order:</p>
+<ol>
+<li>get repo access</li>
+<li>clone repo</li>
+<li>open repo root</li>
+<li>start AI work</li>
+</ol>
+<p>Useful links:</p>
+<ul>
+<li><a href="https://code.visualstudio.com/docs/sourcecontrol/repos-remotes" target="_blank" rel="noreferrer">VS Code clone workflow</a></li>
+<li><a href="https://support.atlassian.com/bitbucket-cloud/docs/clone-a-repository/" target="_blank" rel="noreferrer">Bitbucket clone guide</a></li>
+</ul>
+<h2 id="the-only-working-rule-that-matters">The Only Working Rule That Matters</h2>
+<p>If the repo already has:</p>
+<ul>
+<li><code>Agents.md</code></li>
+<li><code>AIRoot/</code></li>
+<li>working project routing</li>
+</ul>
+<p>then do not bootstrap it again just because you are on a new machine.</p>
+<p>Normal use is:</p>
+<ul>
+<li>open repo root</li>
+<li>let the AI inspect the repo</li>
+<li>continue with the host&#39;s runtime protocol</li>
+</ul>
+<h2 id="when-bootstrap-is-actually-needed">When Bootstrap Is Actually Needed</h2>
+<p>Bootstrap is needed only when:</p>
+<ul>
+<li>the repo is new and not initialized yet</li>
+<li>routing is broken and needs repair</li>
+<li>a truly new project is being added and has not been initialized</li>
+</ul>
+<p>When bootstrap is needed:</p>
+<ul>
+<li>show a dry-run first</li>
+<li>review the plan</li>
+<li>apply only after confirmation</li>
+</ul>
+<h2 id="handoff">Handoff</h2>
+<p>After setup is done:</p>
+<ul>
+<li>for normal product-facing work, use <code>AI_PRODUCT_OWNER_SETUP.md</code></li>
+<li>for deeper script-level bootstrap details, use <code>SETUP_INDEX.md</code></li>
+<li>for full setup contract details, use <code>AI_SETUP.md</code></li>
+</ul>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+</body>
+</html>

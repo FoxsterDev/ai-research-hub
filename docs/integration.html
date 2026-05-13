@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>INTEGRATION.md</code></span>
-        <span class="pill">Generated: 2026-04-26 13:43:51 UTC</span>
+        <span class="pill">Generated: 2026-05-13 12:49:45 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./INTEGRATION.md">Open Markdown Source</a>
@@ -340,6 +340,11 @@ h1 {
 <h2 id="purpose">Purpose</h2>
 <p>Use this guide when attaching <code>AIRoot</code> to a host repository as a reusable module or submodule.
 Treat it as an integration contract for AI agents, MCP tools, and automation layers rather than as a manual human checklist.</p>
+<p>If you want the simplest first-use path instead of the integration contract, start with:</p>
+<ul>
+<li><code>Operations/AI_EASY_SETUP.md</code></li>
+<li><code>Operations/AI_ASSISTED_SETUP_PROMPT.md</code></li>
+</ul>
 <h2 id="expected-host-responsibilities">Expected Host Responsibilities</h2>
 <p>The host repo should provide:</p>
 <ul>
@@ -393,6 +398,26 @@ Treat it as an integration contract for AI agents, MCP tools, and automation lay
 </ul>
 <h2 id="first-repo-bootstrap">First Repo Bootstrap</h2>
 <p>When an automation layer attaches <code>AIRoot</code> to a host repo for the first time, it should bootstrap the repo-level router first:</p>
+<p>Recommended agent-facing entrypoint:</p>
+<p>Command phrase:</p>
+<ul>
+<li><code>airoot setup</code></li>
+</ul>
+<p>Treat this as a repo-local setup phrase resolved through <code>AIRoot/AIROOT_SETUP.md</code>, not as a required installed command.
+The agent should ask for missing setup details, resolve the real host root, preview the topology bootstrap, and apply changes only after explicit confirmation.</p>
+<p>Recommended topology-first entrypoint:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --dry-run
+</code></pre>
+<p>or, for a monorepo / multi-project host:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_topology.sh --profile monorepo_overlay_default --dry-run
+</code></pre>
+<p>This path also writes:</p>
+<ul>
+<li><code>AIOutput/Registry/host_topology.yaml</code></li>
+<li><code>AIOutput/Registry/setup_status.yaml</code></li>
+<li>extraction evidence slots under <code>AIOutput/Reports/System/</code></li>
+</ul>
+<p>For compatibility, the lower-level repo bootstrap remains available:</p>
 <pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
 </code></pre>
 <p>or, for a monorepo / multi-project host:</p>
@@ -427,6 +452,7 @@ bash AIRoot/scripts/init_ai_project.sh --project &lt;ProjectName&gt; --repo-mode
 <li><code>Agents.md</code> for the project</li>
 <li><code>Agents.repo.md</code> as the local repo-router alias</li>
 <li><code>Assets/AIOutput/ProjectMemory/</code> as the project memory root</li>
+<li>baseline project-memory files when they are missing</li>
 </ul>
 <p>If the host repo has <code>AIModules/</code>, the script also creates:</p>
 <ul>

@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_PROTOCOL_VISUAL_MAP.md</code></span>
-        <span class="pill">Generated: 2026-04-26 13:43:51 UTC</span>
+        <span class="pill">Generated: 2026-05-13 12:49:45 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_PROTOCOL_VISUAL_MAP.md">Open Markdown Source</a>
@@ -325,13 +325,17 @@ h1 {
 
       <div class="hero-nav">
         <a href="#purpose">Purpose</a>
+        <a href="#0-simple-start-paths">0. Simple Start Paths</a>
         <a href="#1-protocol-families">1. Protocol Families</a>
         <a href="#2-load-order">2. Load Order</a>
         <a href="#3-xuunity-main-stack">3. XUUnity Main Stack</a>
         <a href="#4-knowledge-flow">4. Knowledge Flow</a>
-        <a href="#5-storage-boundaries">5. Storage Boundaries</a>
-        <a href="#6-quick-routing-guide">6. Quick Routing Guide</a>
-        <a href="#7-main-rule">7. Main Rule</a>
+        <a href="#5-mcp-surfaces">5. MCP Surfaces</a>
+        <a href="#6-unity-mcp-validation-topology">6. Unity MCP Validation Topology</a>
+        <a href="#7-delivery-reporting-mcp-topology">7. Delivery / Reporting MCP Topology</a>
+        <a href="#8-storage-boundaries">8. Storage Boundaries</a>
+        <a href="#9-quick-routing-guide">9. Quick Routing Guide</a>
+        <a href="#10-main-rule">10. Main Rule</a>
       </div>
     </section>
 
@@ -344,11 +348,30 @@ h1 {
 <li>the public <code>xuunity</code> core</li>
 <li>optional host-local overlays</li>
 <li>project-local memory and outputs</li>
+<li>public MCP surfaces for validation and delivery/reporting</li>
 </ul>
 <p>It is a navigation aid, not the source of truth.</p>
+<p>Suggested public reading order:</p>
+<ol>
+<li><code>../Operations/AI_EASY_SETUP.md</code> when you need the simplest first-use setup path</li>
+<li><code>../Operations/AI_PROTOCOL_HANDBOOK.md</code> for operator rules and command guidance</li>
+<li>this visual map for topology and layer relationships</li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code> or <code>AIRoot/Operations/CodexSlackMcp/README.md</code> when you need the concrete MCP package surface</li>
+</ol>
+<h2 id="0-simple-start-paths">0. Simple Start Paths</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[Need to start using an AIRoot-based repo] --&gt; B{Already have AI with local folder access?}
+    B --&gt;|Yes| C[Give AI the assisted setup prompt&lt;br/&gt;Open repo root]
+    B --&gt;|No| D[Install VS Code and Git&lt;br/&gt;or a desktop AI app with folder access]
+    C --&gt; E{Repo already initialized?}
+    D --&gt; F[Clone repo&lt;br/&gt;Open repo root]
+    F --&gt; E
+    E --&gt;|Yes| G[Read Agents.md&lt;br/&gt;Start normal runtime work]
+    E --&gt;|No| H[Run setup dry-run first&lt;br/&gt;Choose topology]
+</code></pre>
 <h2 id="1-protocol-families">1. Protocol Families</h2>
 <pre><code class="language-mermaid">flowchart LR
-    A[Repo Router\nAgents.md] --&gt; B[XUUnity]
+    A[Repo Router&lt;br/&gt;Agents.md] --&gt; B[XUUnity]
     A --&gt; C[Optional Host-Local Protocols]
 
     B --&gt; B1[Engineering Work]
@@ -362,15 +385,15 @@ h1 {
 </code></pre>
 <h2 id="2-load-order">2. Load Order</h2>
 <pre><code class="language-mermaid">flowchart TD
-    A[Repo Agents.md] --&gt; B[Public XUUnity Core\nAIRoot/Modules/XUUnity/]
-    B --&gt; C[Optional Host-Local Overlays\nAIModules/ when attached]
+    A[Repo Agents.md] --&gt; B[Public XUUnity Core&lt;br/&gt;AIRoot/Modules/XUUnity/]
+    B --&gt; C[Optional Host-Local Overlays&lt;br/&gt;AIModules/ when attached]
     C --&gt; D[Project Agents.md]
-    D --&gt; E[ProjectMemory\nAssets/AIOutput/ProjectMemory/]
-    E --&gt; F[Previous Outputs\nAssets/AIOutput/]
+    D --&gt; E[ProjectMemory&lt;br/&gt;Assets/AIOutput/ProjectMemory/]
+    E --&gt; F[Previous Outputs&lt;br/&gt;Assets/AIOutput/]
 </code></pre>
 <h2 id="3-xuunity-main-stack">3. XUUnity Main Stack</h2>
 <pre><code class="language-mermaid">flowchart TD
-    A[User Command\nxuunity ...] --&gt; B[Start Session Routing]
+    A[User Command&lt;br/&gt;xuunity ...] --&gt; B[Start Session Routing]
     B --&gt; C[Primary Role]
     C --&gt; D[Code Style]
     D --&gt; E[Task File]
@@ -387,13 +410,83 @@ h1 {
     A[New Knowledge] --&gt; B[Extract]
     B --&gt; C[Intake Review]
     C --&gt; D{Decision}
-    D --&gt;|public-safe reusable| E[Public Core\nAIRoot/Modules/XUUnity/]
+    D --&gt;|public-safe reusable| E[Public Core&lt;br/&gt;AIRoot/Modules/XUUnity/]
     D --&gt;|host-local reusable| F[AIModules/]
     D --&gt;|project-specific| G[ProjectMemory or SkillOverrides]
     D --&gt;|report or draft| H[Assets/AIOutput/]
     D --&gt;|reject| I[No Action]
 </code></pre>
-<h2 id="5-storage-boundaries">5. Storage Boundaries</h2>
+<h2 id="5-mcp-surfaces">5. MCP Surfaces</h2>
+<p>Treat MCP as two different operational surfaces:</p>
+<ul>
+<li>Unity-aware validation and editor evidence</li>
+<li>delivery/reporting integrations such as Slack</li>
+</ul>
+<p>Do not collapse them into one generic &quot;MCP setup&quot; concept.</p>
+<h3 id="unity-mcp">Unity MCP</h3>
+<p>Shared source of truth:</p>
+<ul>
+<li><code>AIRoot/Modules/XUUnity/tasks/start_session.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/unity_validation_boundaries.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/validation_lanes.md</code></li>
+</ul>
+<p>Shared operational package:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code></li>
+</ul>
+<p>Supporting public docs:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/BUILD_AUTOMATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md</code></li>
+</ul>
+<h3 id="delivery-reporting-mcp">Delivery / Reporting MCP</h3>
+<p>Shared public-safe setup:</p>
+<ul>
+<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
+<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
+<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
+</ul>
+<p>Operator guidance for these MCP surfaces lives in:</p>
+<ul>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>MCP Surfaces</code></li>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>Validation Lane Selection</code></li>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>Delivery Reporting</code></li>
+</ul>
+<h2 id="6-unity-mcp-validation-topology">6. Unity MCP Validation Topology</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[xuunity task needs Unity-aware evidence] --&gt; B[start_session.md]
+    B --&gt; C[validation lane selection]
+    C --&gt;|interactive_mcp or MCP-backed batch| D[validation boundaries]
+    D --&gt; E[XUUnityLightUnityMcp public package]
+    E --&gt; F[host-local wrapper if present]
+    F --&gt; G[target Unity editor session]
+    G --&gt; H[Unity MCP tools and evidence]
+
+    H --&gt; H1[status and health]
+    H --&gt; H2[console and scene]
+    H --&gt; H3[compile and matrix validation]
+    H --&gt; H4[scenario results]
+</code></pre>
+<p>Working rule:</p>
+<ul>
+<li>if the active host or project exposes a supported Unity MCP path, prefer that path for Unity-aware validation</li>
+<li>do not treat shell compile, generated project builds, or ad hoc shell scripts as equivalent to Unity MCP evidence</li>
+</ul>
+<h2 id="7-delivery-reporting-mcp-topology">7. Delivery / Reporting MCP Topology</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[explicit delivery or reporting request] --&gt; B[repo closeout route]
+    B --&gt; C[host-local delivery utility if present]
+    C --&gt; D[CodexSlackMcp public setup]
+    D --&gt; E[configured delivery/reporting MCP]
+    E --&gt; F[delivery message or upload]
+</code></pre>
+<p>Working rule:</p>
+<ul>
+<li>delivery/reporting MCPs are secondary output surfaces</li>
+<li>they must not replace the actual system of record</li>
+</ul>
+<h2 id="8-storage-boundaries">8. Storage Boundaries</h2>
 <pre><code class="language-mermaid">flowchart LR
     A[AIRoot] --&gt; A1[Public reusable modules]
     A --&gt; A2[Public setup and templates]
@@ -402,7 +495,7 @@ h1 {
     D[ProjectMemory] --&gt; D1[Project-local durable truth]
     E[Project Outputs] --&gt; E1[Project-local reports and drafts]
 </code></pre>
-<h2 id="6-quick-routing-guide">6. Quick Routing Guide</h2>
+<h2 id="9-quick-routing-guide">9. Quick Routing Guide</h2>
 <div class="table-wrap"><table>
 <thead>
 <tr>
@@ -431,6 +524,18 @@ h1 {
 <td><code>xuunity project memory freshness ...</code></td>
 </tr>
 <tr>
+<td>Need Unity-aware validation evidence</td>
+<td><code>xuunity ...</code> plus the host&#39;s Unity MCP lane when available</td>
+</tr>
+<tr>
+<td>Need delivery/reporting closeout</td>
+<td>host-local delivery/reporting MCP route when the host provides one</td>
+</tr>
+<tr>
+<td>Need the simplest first-use setup path</td>
+<td><code>AIRoot/Operations/AI_EASY_SETUP.md</code></td>
+</tr>
+<tr>
 <td>Extract reusable knowledge</td>
 <td><code>xuunity extract knowledge</code></td>
 </tr>
@@ -443,11 +548,12 @@ h1 {
 <td>host-specific protocol selected by the host router</td>
 </tr>
 </tbody></table></div>
-<h2 id="7-main-rule">7. Main Rule</h2>
+<h2 id="10-main-rule">10. Main Rule</h2>
 <p>Public <code>AIRoot</code> documents:</p>
 <ul>
 <li><code>xuunity</code></li>
 <li>generic optional host-local overlays</li>
+<li>public MCP packages and public MCP setup that are reusable across hosts</li>
 </ul>
 <p>Private host-only protocol families should be documented only in host-local routers and host-local docs.</p>
 

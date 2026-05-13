@@ -5,183 +5,629 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Protocol Visual Map</title>
   <style>
-    :root {
-      --bg: #f4f1ea;
-      --panel: #fffdf8;
-      --text: #1f1a14;
-      --muted: #6c6256;
-      --border: #d9cfbf;
-      --accent: #315c4b;
-      --accent-soft: #e5efe9;
-    }
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
 
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      background: linear-gradient(180deg, #efe7d8 0%, var(--bg) 100%);
-      color: var(--text);
-      line-height: 1.5;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    .page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 20px 64px;
-    }
+html {
+  scroll-behavior: smooth;
+}
 
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 22px;
-      margin-bottom: 18px;
-      box-shadow: 0 10px 28px rgba(54, 43, 26, 0.06);
-    }
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
 
-    h1, h2 { margin-top: 0; }
-    p, li { color: var(--muted); }
-    code {
-      background: var(--accent-soft);
-      padding: 2px 6px;
-      border-radius: 6px;
-      color: var(--accent);
-    }
+a {
+  color: var(--accent);
+}
 
-    pre {
-      background: #f7f4ee;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      overflow-x: auto;
-    }
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-    }
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
 
-    th, td {
-      border: 1px solid var(--border);
-      padding: 10px 12px;
-      text-align: left;
-      vertical-align: top;
-    }
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
 
-    th {
-      background: #f8f3ea;
-    }
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
   </style>
 </head>
 <body>
   <div class="page">
-    <section class="card">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
       <h1>AI Protocol Visual Map</h1>
-      <p>This page summarizes the public <code>AIRoot</code> routing model. It documents the public <code>xuunity</code> core, generic optional host-local overlays, and project-local memory boundaries.</p>
+      <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>AI_PROTOCOL_VISUAL_MAP.md</code></span>
+        <span class="pill">Generated: 2026-05-13 12:30:06 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./AI_PROTOCOL_VISUAL_MAP.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#0-simple-start-paths">0. Simple Start Paths</a>
+        <a href="#1-protocol-families">1. Protocol Families</a>
+        <a href="#2-load-order">2. Load Order</a>
+        <a href="#3-xuunity-main-stack">3. XUUnity Main Stack</a>
+        <a href="#4-knowledge-flow">4. Knowledge Flow</a>
+        <a href="#5-mcp-surfaces">5. MCP Surfaces</a>
+        <a href="#6-unity-mcp-validation-topology">6. Unity MCP Validation Topology</a>
+        <a href="#7-delivery-reporting-mcp-topology">7. Delivery / Reporting MCP Topology</a>
+        <a href="#8-storage-boundaries">8. Storage Boundaries</a>
+        <a href="#9-quick-routing-guide">9. Quick Routing Guide</a>
+        <a href="#10-main-rule">10. Main Rule</a>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>1. Protocol Families</h2>
-      <pre>Repo Router (Agents.md)
-  -> xuunity
-  -> optional host-local protocols</pre>
-      <p>The public module names only <code>xuunity</code>. Host-local families may exist, but public <code>AIRoot</code> refers to them only generically.</p>
-    </section>
+    <main class="content">
+      <article>
+<h2 id="purpose">Purpose</h2>
+<p>This file gives a generic visual overview of the public <code>AIRoot</code> protocol model.</p>
+<p>It focuses on:</p>
+<ul>
+<li>the public <code>xuunity</code> core</li>
+<li>optional host-local overlays</li>
+<li>project-local memory and outputs</li>
+<li>public MCP surfaces for validation and delivery/reporting</li>
+</ul>
+<p>It is a navigation aid, not the source of truth.</p>
+<p>Suggested public reading order:</p>
+<ol>
+<li><code>../Operations/AI_EASY_SETUP.md</code> when you need the simplest first-use setup path</li>
+<li><code>../Operations/AI_PROTOCOL_HANDBOOK.md</code> for operator rules and command guidance</li>
+<li>this visual map for topology and layer relationships</li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code> or <code>AIRoot/Operations/CodexSlackMcp/README.md</code> when you need the concrete MCP package surface</li>
+</ol>
+<h2 id="0-simple-start-paths">0. Simple Start Paths</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[Need to start using an AIRoot-based repo] --&gt; B{Already have AI with local folder access?}
+    B --&gt;|Yes| C[Give AI the assisted setup prompt&lt;br/&gt;Open repo root]
+    B --&gt;|No| D[Install VS Code and Git&lt;br/&gt;or a desktop AI app with folder access]
+    C --&gt; E{Repo already initialized?}
+    D --&gt; F[Clone repo&lt;br/&gt;Open repo root]
+    F --&gt; E
+    E --&gt;|Yes| G[Read Agents.md&lt;br/&gt;Start normal runtime work]
+    E --&gt;|No| H[Run setup dry-run first&lt;br/&gt;Choose topology]
+</code></pre>
+<h2 id="1-protocol-families">1. Protocol Families</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[Repo Router&lt;br/&gt;Agents.md] --&gt; B[XUUnity]
+    A --&gt; C[Optional Host-Local Protocols]
 
-    <section class="card">
-      <h2>2. Load Order</h2>
-      <pre>Repo Agents.md
-  -> Public XUUnity Core (AIRoot/Modules/XUUnity/)
-    -> Optional Host-Local Overlays (AIModules/ when attached)
-      -> Project Agents.md
-        -> ProjectMemory (Assets/AIOutput/ProjectMemory/)
-          -> Previous Outputs (Assets/AIOutput/)</pre>
-    </section>
+    B --&gt; B1[Engineering Work]
+    B --&gt; B2[Product Protocols]
+    B --&gt; B3[System Utilities]
+    B --&gt; B4[Skills]
 
-    <section class="card">
-      <h2>3. Knowledge Flow</h2>
-      <pre>New Knowledge
-  -> Extract
-    -> Intake Review
-      -> public-safe reusable      -> AIRoot/Modules/XUUnity/
-      -> host-local reusable       -> AIModules/
-      -> project-specific          -> ProjectMemory / SkillOverrides
-      -> report or draft           -> Assets/AIOutput/
-      -> reject                    -> No Action</pre>
-    </section>
+    C --&gt; C1[Private Host Flows]
+    C --&gt; C2[Monorepo Helpers]
+    C --&gt; C3[Private Architecture or Survey Layers]
+</code></pre>
+<h2 id="2-load-order">2. Load Order</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[Repo Agents.md] --&gt; B[Public XUUnity Core&lt;br/&gt;AIRoot/Modules/XUUnity/]
+    B --&gt; C[Optional Host-Local Overlays&lt;br/&gt;AIModules/ when attached]
+    C --&gt; D[Project Agents.md]
+    D --&gt; E[ProjectMemory&lt;br/&gt;Assets/AIOutput/ProjectMemory/]
+    E --&gt; F[Previous Outputs&lt;br/&gt;Assets/AIOutput/]
+</code></pre>
+<h2 id="3-xuunity-main-stack">3. XUUnity Main Stack</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[User Command&lt;br/&gt;xuunity ...] --&gt; B[Start Session Routing]
+    B --&gt; C[Primary Role]
+    C --&gt; D[Code Style]
+    D --&gt; E[Task File]
+    E --&gt; F[Core Skills]
+    F --&gt; G[Matched Skill Families]
+    G --&gt; H[Reviews or Utilities]
+    H --&gt; I[Platform Overlay if needed]
+    I --&gt; J[Optional Host Overlay if relevant]
+    J --&gt; K[Project Memory]
+    K --&gt; L[Relevant Prior Outputs]
+</code></pre>
+<h2 id="4-knowledge-flow">4. Knowledge Flow</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[New Knowledge] --&gt; B[Extract]
+    B --&gt; C[Intake Review]
+    C --&gt; D{Decision}
+    D --&gt;|public-safe reusable| E[Public Core&lt;br/&gt;AIRoot/Modules/XUUnity/]
+    D --&gt;|host-local reusable| F[AIModules/]
+    D --&gt;|project-specific| G[ProjectMemory or SkillOverrides]
+    D --&gt;|report or draft| H[Assets/AIOutput/]
+    D --&gt;|reject| I[No Action]
+</code></pre>
+<h2 id="5-mcp-surfaces">5. MCP Surfaces</h2>
+<p>Treat MCP as two different operational surfaces:</p>
+<ul>
+<li>Unity-aware validation and editor evidence</li>
+<li>delivery/reporting integrations such as Slack</li>
+</ul>
+<p>Do not collapse them into one generic &quot;MCP setup&quot; concept.</p>
+<h3 id="unity-mcp">Unity MCP</h3>
+<p>Shared source of truth:</p>
+<ul>
+<li><code>AIRoot/Modules/XUUnity/tasks/start_session.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/unity_validation_boundaries.md</code></li>
+<li><code>AIRoot/Modules/XUUnity/knowledge/validation_lanes.md</code></li>
+</ul>
+<p>Shared operational package:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/README.md</code></li>
+</ul>
+<p>Supporting public docs:</p>
+<ul>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/BUILD_AUTOMATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md</code></li>
+</ul>
+<h3 id="delivery-reporting-mcp">Delivery / Reporting MCP</h3>
+<p>Shared public-safe setup:</p>
+<ul>
+<li><code>AIRoot/Operations/CodexSlackMcp/README.md</code></li>
+<li><code>AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh</code></li>
+<li><code>AIRoot/Templates/CodexSlackMcp/README.md</code></li>
+</ul>
+<p>Operator guidance for these MCP surfaces lives in:</p>
+<ul>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>MCP Surfaces</code></li>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>Validation Lane Selection</code></li>
+<li><code>AIRoot/Operations/AI_PROTOCOL_HANDBOOK.md</code> -&gt; <code>Delivery Reporting</code></li>
+</ul>
+<h2 id="6-unity-mcp-validation-topology">6. Unity MCP Validation Topology</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[xuunity task needs Unity-aware evidence] --&gt; B[start_session.md]
+    B --&gt; C[validation lane selection]
+    C --&gt;|interactive_mcp or MCP-backed batch| D[validation boundaries]
+    D --&gt; E[XUUnityLightUnityMcp public package]
+    E --&gt; F[host-local wrapper if present]
+    F --&gt; G[target Unity editor session]
+    G --&gt; H[Unity MCP tools and evidence]
 
-    <section class="card">
-      <h2>4. Storage Boundaries</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Layer</th>
-            <th>Purpose</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>AIRoot</code></td>
-            <td>Public reusable modules, setup guidance, templates, and visuals.</td>
-          </tr>
-          <tr>
-            <td><code>AIModules</code></td>
-            <td>Optional host-local overlays and private protocol families.</td>
-          </tr>
-          <tr>
-            <td><code>AIOutput</code></td>
-            <td>Host-local mutable registry, reports, wrappers, and operational notes.</td>
-          </tr>
-          <tr>
-            <td><code>&lt;Project&gt;/Assets/AIOutput/ProjectMemory/</code></td>
-            <td>Project-local durable truth and overrides.</td>
-          </tr>
-          <tr>
-            <td><code>&lt;Project&gt;/Assets/AIOutput/</code></td>
-            <td>Project-local reports, audits, and drafts.</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    H --&gt; H1[status and health]
+    H --&gt; H2[console and scene]
+    H --&gt; H3[compile and matrix validation]
+    H --&gt; H4[scenario results]
+</code></pre>
+<p>Working rule:</p>
+<ul>
+<li>if the active host or project exposes a supported Unity MCP path, prefer that path for Unity-aware validation</li>
+<li>do not treat shell compile, generated project builds, or ad hoc shell scripts as equivalent to Unity MCP evidence</li>
+</ul>
+<h2 id="7-delivery-reporting-mcp-topology">7. Delivery / Reporting MCP Topology</h2>
+<pre><code class="language-mermaid">flowchart TD
+    A[explicit delivery or reporting request] --&gt; B[repo closeout route]
+    B --&gt; C[host-local delivery utility if present]
+    C --&gt; D[CodexSlackMcp public setup]
+    D --&gt; E[configured delivery/reporting MCP]
+    E --&gt; F[delivery message or upload]
+</code></pre>
+<p>Working rule:</p>
+<ul>
+<li>delivery/reporting MCPs are secondary output surfaces</li>
+<li>they must not replace the actual system of record</li>
+</ul>
+<h2 id="8-storage-boundaries">8. Storage Boundaries</h2>
+<pre><code class="language-mermaid">flowchart LR
+    A[AIRoot] --&gt; A1[Public reusable modules]
+    A --&gt; A2[Public setup and templates]
+    B[AIModules] --&gt; B1[Optional host-local overlays]
+    C[AIOutput] --&gt; C1[Host-local mutable state]
+    D[ProjectMemory] --&gt; D1[Project-local durable truth]
+    E[Project Outputs] --&gt; E1[Project-local reports and drafts]
+</code></pre>
+<h2 id="9-quick-routing-guide">9. Quick Routing Guide</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Route</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fix or refactor code</td>
+<td><code>xuunity ...</code></td>
+</tr>
+<tr>
+<td>Review SDK or native integration</td>
+<td><code>xuunity sdk ...</code> or <code>xuunity native ...</code></td>
+</tr>
+<tr>
+<td>Ask product-facing implementation question</td>
+<td><code>xuunity product ...</code></td>
+</tr>
+<tr>
+<td>Audit project readiness</td>
+<td><code>xuunity product health ...</code></td>
+</tr>
+<tr>
+<td>Check project-memory freshness</td>
+<td><code>xuunity project memory freshness ...</code></td>
+</tr>
+<tr>
+<td>Need Unity-aware validation evidence</td>
+<td><code>xuunity ...</code> plus the host&#39;s Unity MCP lane when available</td>
+</tr>
+<tr>
+<td>Need delivery/reporting closeout</td>
+<td>host-local delivery/reporting MCP route when the host provides one</td>
+</tr>
+<tr>
+<td>Need the simplest first-use setup path</td>
+<td><code>AIRoot/Operations/AI_EASY_SETUP.md</code></td>
+</tr>
+<tr>
+<td>Extract reusable knowledge</td>
+<td><code>xuunity extract knowledge</code></td>
+</tr>
+<tr>
+<td>Convert a long chat into reusable engineering context</td>
+<td><code>xuunity system extract review artifact from this chat</code></td>
+</tr>
+<tr>
+<td>Use private host-local flows</td>
+<td>host-specific protocol selected by the host router</td>
+</tr>
+</tbody></table></div>
+<h2 id="10-main-rule">10. Main Rule</h2>
+<p>Public <code>AIRoot</code> documents:</p>
+<ul>
+<li><code>xuunity</code></li>
+<li>generic optional host-local overlays</li>
+<li>public MCP packages and public MCP setup that are reusable across hosts</li>
+</ul>
+<p>Private host-only protocol families should be documented only in host-local routers and host-local docs.</p>
 
-    <section class="card">
-      <h2>5. Quick Routing Guide</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Need</th>
-            <th>Route</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Fix or refactor code</td>
-            <td><code>xuunity ...</code></td>
-          </tr>
-          <tr>
-            <td>Review SDK or native integration</td>
-            <td><code>xuunity sdk ...</code> or <code>xuunity native ...</code></td>
-          </tr>
-          <tr>
-            <td>Ask product-facing implementation question</td>
-            <td><code>xuunity product ...</code></td>
-          </tr>
-          <tr>
-            <td>Audit project readiness</td>
-            <td><code>xuunity product health ...</code></td>
-          </tr>
-          <tr>
-            <td>Check project-memory freshness</td>
-            <td><code>xuunity project memory freshness ...</code></td>
-          </tr>
-          <tr>
-            <td>Use private host-local flows</td>
-            <td>Host-specific protocol selected by the host router</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
   </div>
+
+<script src="./AI_PROTOCOL_VISUAL_MAP.assets/mermaid.min.js"></script>
+<script>
+  if (typeof mermaid === "undefined") {
+    console.warn("Mermaid failed to load from local asset.");
+  } else {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#f4e4cf",
+        primaryTextColor: "#211b17",
+        primaryBorderColor: "#b98152",
+        lineColor: "#214f5c",
+        secondaryColor: "#e2eff4",
+        tertiaryColor: "#fff8f0",
+        clusterBkg: "#fffaf4",
+        clusterBorder: "#c9b9a7",
+        edgeLabelBackground: "#fffaf4",
+        fontFamily: "Georgia, Times New Roman, serif",
+        fontSize: "18px"
+      },
+      flowchart: {
+        curve: "basis",
+        padding: 18,
+        nodeSpacing: 34,
+        rankSpacing: 46,
+        useMaxWidth: true,
+        htmlLabels: true
+      }
+    });
+
+    const mermaidBlocks = Array.from(document.querySelectorAll("pre > code.language-mermaid"));
+    for (const codeBlock of mermaidBlocks) {
+      const shell = document.createElement("figure");
+      shell.className = "diagram-shell";
+
+      const toolbar = document.createElement("div");
+      toolbar.className = "diagram-toolbar";
+
+      const label = document.createElement("span");
+      label.className = "diagram-label";
+      label.textContent = "Diagram";
+      toolbar.appendChild(label);
+
+      const body = document.createElement("div");
+      body.className = "diagram-body";
+
+      const host = document.createElement("div");
+      host.className = "mermaid";
+      host.dataset.rendered = "false";
+      host.textContent = codeBlock.textContent.trim();
+
+      body.appendChild(host);
+      shell.appendChild(toolbar);
+      shell.appendChild(body);
+      codeBlock.parentElement.replaceWith(shell);
+    }
+
+    if (mermaidBlocks.length > 0) {
+      mermaid.run({ querySelector: ".mermaid" });
+    }
+  }
+</script>
 </body>
 </html>

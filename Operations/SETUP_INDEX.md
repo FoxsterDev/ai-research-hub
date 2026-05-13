@@ -2,14 +2,22 @@
 
 Use this file as the fastest entrypoint for AI agents and MCP tooling that need to initialize a new host repo or project.
 
+For most people, do not start here.
+Start with:
+- `AI_EASY_SETUP.md` for the simplest human-friendly path
+- `AI_ASSISTED_SETUP_PROMPT.md` when an AI agent should drive setup
+
 ## Start Here
 
+- Easy user-facing setup guide: `AI_EASY_SETUP.md`
+- AI-assisted setup prompt: `AI_ASSISTED_SETUP_PROMPT.md`
 - Main setup guide: `AI_SETUP.md`
 - Host/module integration guide: `../INTEGRATION.md`
 
 ## Repo-Level Setup
 
 Use this when the host repo itself does not have an AI router yet.
+This is the script-level reference layer, not the simplest first-read guide.
 
 ### Agent-facing command
 
