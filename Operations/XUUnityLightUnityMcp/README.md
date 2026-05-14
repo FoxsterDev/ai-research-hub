@@ -29,6 +29,9 @@ Related public docs:
 - `Retros/`
 - `Reports/`
 
+Related `xuunity` protocol guidance:
+- `AIRoot/Modules/XUUnity/knowledge/mcp_scenario_authoring.md` for reusable scenario ordering and settle-boundary rules
+
 Current distilled lessons:
 - `Retros/2026-05-11_operator_and_backend_lessons.md`
 
@@ -220,6 +223,10 @@ Default operating rules:
    - compact build summary artifacts
    over source-only reasoning
 4. Prefer backends that produce trustworthy final validation accounting over backends that merely expose more tools
+
+Scenario authoring rule:
+
+- After project-defined hooks or other scenario steps that can mutate build profiles, scripting defines, packages, assets, or project settings, use a settle-aware step such as `project_refresh` before compile, PlayMode, screenshots, scene inspection, or assertions. A hook success means the mutation was requested or applied; it does not by itself prove Unity is settled for the next step.
 
 ## macOS Window Arrangement
 

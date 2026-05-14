@@ -88,6 +88,7 @@ Limits:
 - Resolve the Unity editor version for MCP-backed validation from `ProjectSettings/ProjectVersion.txt`.
 - For define-sensitive validation, derive the compile matrix from the project's build-config asset instead of hand-authoring define sets.
 - Use `scenario` when the proof depends on ordered steps, waiting for state transitions, or persisted runtime evidence.
+- When authoring or reviewing scenario step order, load `knowledge/mcp_scenario_authoring.md`; mutating hooks that can affect compile, packages, assets, build profiles, or editor state need a settle-aware boundary before compile, PlayMode, or evidence-capture steps.
 - Do not choose `scenario` merely because the work is long-running; choose it only when ordered editor-integrated runtime evidence is the real requirement.
 - If repo or project rules require integrated validation, treat that as a hard override against `batch_compile` even if Unity CLI is available.
 - If interactive startup fails because of compile blockers, package-resolution failure, or Safe Mode gating, either:
