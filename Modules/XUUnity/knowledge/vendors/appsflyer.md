@@ -64,6 +64,28 @@ Give positive weight to:
 
 Do not treat older as automatically more stable. A newer native SDK with explicit ANR, crash, memory, or compliance fixes can be the safer production candidate.
 
+## Flutter Benchmark Stability Canary
+This checkpoint preserves the original AppsFlyer discovery script behavior:
+
+`STEP 1: Flutter Benchmark (Stability Canary)`
+
+Before scoring Unity candidates, fetch the latest
+`appsflyer-flutter-plugin` release and extract its bundled native Android and
+iOS SDK versions. Treat exact Android plus iOS parity with Flutter as a positive
+stability signal, not as automatic approval.
+
+Hard rules:
+- Record the Flutter release tag, publish date, Android SDK, iOS SDK, and source
+  URL in the saved report.
+- Mark every Unity candidate with `flutter_canary_match` when both native SDKs
+  match the Flutter baseline exactly.
+- If Flutter points to a newer native SDK line with ANR, crash, memory, privacy,
+  or purchase fixes, explain why an older Unity wrapper is still safer before
+  recommending it.
+- If Flutter evidence conflicts with Unity release notes, native changelogs, or
+  Purchase Connector compatibility, keep the candidate below high confidence
+  until the conflict is manually verified.
+
 ## Breaking-Change And Migration Checkpoint
 This checkpoint is mandatory for every AppsFlyer recommendation.
 

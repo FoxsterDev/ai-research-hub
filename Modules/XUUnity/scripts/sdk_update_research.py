@@ -73,6 +73,13 @@ VENDOR_PROFILES = {
                 "ios_pod": "AppLovinMediationByteDanceAdapter",
                 "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/ByteDance/CHANGELOG.md",
                 "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/ByteDance/CHANGELOG.md",
+                "native_sources": {
+                    "pangle_docs": "https://www.pangleglobal.com/",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/pangle",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/pangle",
+                },
             },
             "google": {
                 "display_name": "Google AdMob",
@@ -83,6 +90,31 @@ VENDOR_PROFILES = {
                 "ios_pod": "AppLovinMediationGoogleAdapter",
                 "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/Google/CHANGELOG.md",
                 "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/Google/CHANGELOG.md",
+                "native_sources": {
+                    "google_mobile_ads_android": "https://developers.google.com/admob/android/rel-notes",
+                    "google_mobile_ads_ios": "https://developers.google.com/admob/ios/rel-notes",
+                },
+                "canary_sources": {
+                    "google_mobile_ads_unity": "https://api.github.com/repos/googleads/googleads-mobile-unity/releases?per_page=5",
+                    "google_mobile_ads_flutter": "https://api.github.com/repos/googleads/googleads-mobile-flutter/releases?per_page=5",
+                },
+            },
+            "bidmachine": {
+                "display_name": "BidMachine",
+                "aliases": [],
+                "android_package": "com.applovin.mediation.adapters.bidmachine.android",
+                "ios_package": "com.applovin.mediation.adapters.bidmachine.ios",
+                "android_maven_artifact": "bidmachine-adapter",
+                "ios_pod": "AppLovinMediationBidMachineAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/BidMachine/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/BidMachine/CHANGELOG.md",
+                "native_sources": {
+                    "bidmachine_android": "https://developers.bidmachine.io/sdk/general/android/android-changelog",
+                    "bidmachine_ios": "https://developers.bidmachine.io/sdk/general/ios/ios-changelog",
+                },
+                "canary_sources": {
+                    "bidmachine_unity": "https://developers.bidmachine.io/sdk/general/unity/unity-changelog",
+                },
             },
             "unityads": {
                 "display_name": "Unity Ads",
@@ -91,6 +123,15 @@ VENDOR_PROFILES = {
                 "ios_package": "com.applovin.mediation.adapters.unityads.ios",
                 "android_maven_artifact": "unityads-adapter",
                 "ios_pod": "AppLovinMediationUnityAdsAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/UnityAds/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/UnityAds/CHANGELOG.md",
+                "native_sources": {
+                    "unity_ads": "https://docs.unity.com/en-us/grow/ads/Changelog",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/unity",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/unity",
+                },
             },
             "facebook": {
                 "display_name": "Meta Audience Network",
@@ -99,6 +140,15 @@ VENDOR_PROFILES = {
                 "ios_package": "com.applovin.mediation.adapters.facebook.ios",
                 "android_maven_artifact": "facebook-adapter",
                 "ios_pod": "AppLovinMediationFacebookAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/Facebook/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/Facebook/CHANGELOG.md",
+                "native_sources": {
+                    "meta_audience_network": "https://developers.facebook.com/docs/audience-network/",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/meta",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/meta",
+                },
             },
             "ironsource": {
                 "display_name": "ironSource",
@@ -107,6 +157,48 @@ VENDOR_PROFILES = {
                 "ios_package": "com.applovin.mediation.adapters.ironsource.ios",
                 "android_maven_artifact": "ironsource-adapter",
                 "ios_pod": "AppLovinMediationIronSourceAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/IronSource/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/IronSource/CHANGELOG.md",
+                "native_sources": {
+                    "levelplay_android": "https://developers.is.com/ironsource-mobile/general/android-sdk-change-log/",
+                    "levelplay_ios": "https://developers.is.com/ironsource-mobile/general/ios-sdk-change-log/",
+                    "levelplay_unity": "https://developers.is.com/ironsource-mobile/unity/sdk-change-log/",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/ironsource",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/ironsource",
+                },
+            },
+            "mintegral": {
+                "display_name": "Mintegral",
+                "aliases": ["mtg"],
+                "android_package": "com.applovin.mediation.adapters.mintegral.android",
+                "ios_package": "com.applovin.mediation.adapters.mintegral.ios",
+                "android_maven_artifact": "mintegral-adapter",
+                "ios_pod": "AppLovinMediationMintegralAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/Mintegral/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/Mintegral/CHANGELOG.md",
+                "native_sources": {
+                    "mintegral_docs": "https://dev.mintegral.com/",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/mintegral",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/mintegral",
+                },
+            },
+            "moloco": {
+                "display_name": "Moloco",
+                "aliases": [],
+                "android_package": "com.applovin.mediation.adapters.moloco.android",
+                "ios_package": "com.applovin.mediation.adapters.moloco.ios",
+                "android_maven_artifact": "moloco-adapter",
+                "ios_pod": "AppLovinMediationMolocoAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/Moloco/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/Moloco/CHANGELOG.md",
+                "native_sources": {
+                    "moloco_help": "https://help.moloco.com/",
+                },
+                "canary_sources": {},
             },
             "vungle": {
                 "display_name": "Liftoff Monetize",
@@ -115,6 +207,17 @@ VENDOR_PROFILES = {
                 "ios_package": "com.applovin.mediation.adapters.vungle.ios",
                 "android_maven_artifact": "vungle-adapter",
                 "ios_pod": "AppLovinMediationVungleAdapter",
+                "android_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-Android/master/Vungle/CHANGELOG.md",
+                "ios_changelog": "https://raw.githubusercontent.com/AppLovin/AppLovin-MAX-SDK-iOS/master/Vungle/CHANGELOG.md",
+                "native_sources": {
+                    "vungle_android": "https://support.vungle.com/hc/en-us/articles/15722228922395",
+                    "vungle_ios": "https://support.vungle.com/hc/en-us/articles/15718672681883-Download-Vungle-SDK-for-iOS",
+                    "vungle_faq": "https://support.vungle.com/hc/en-us/articles/43640580780315-SDK-Integration-FAQ",
+                },
+                "canary_sources": {
+                    "admob_android": "https://developers.google.com/admob/android/mediation/vungle",
+                    "admob_ios": "https://developers.google.com/admob/ios/mediation/vungle",
+                },
             },
         },
         "known_links": {
@@ -492,6 +595,19 @@ def collect_cocoapods_latest(pod_name, timeout):
     }
 
 
+def collect_named_text_sources(sources, timeout):
+    output = {}
+    for name, url in (sources or {}).items():
+        result = safe_call(fetch_text, url, timeout)
+        output[name] = {
+            "source": url,
+            "ok": result["ok"],
+            "sections": first_changelog_sections(result["value"], count=6) if result["ok"] else [],
+            "error": result.get("error", ""),
+        }
+    return output
+
+
 def resolve_applovin_component(profile, component_name):
     if not component_name:
         return None, None
@@ -545,6 +661,8 @@ def collect_applovin_component(profile, component_key, component, target_platfor
         "android": {},
         "ios": {},
         "changelogs": {},
+        "native_producer_sources": {},
+        "cross_mediation_canaries": {},
     }
 
     if target_platform in ("android", "both"):
@@ -591,6 +709,15 @@ def collect_applovin_component(profile, component_key, component, target_platfor
             "error": result.get("error", ""),
         }
 
+    output["native_producer_sources"] = collect_named_text_sources(
+        component.get("native_sources") or {},
+        timeout,
+    )
+    output["cross_mediation_canaries"] = collect_named_text_sources(
+        component.get("canary_sources") or {},
+        timeout,
+    )
+
     return output
 
 
@@ -626,6 +753,7 @@ def collect_applovin(profile, args):
             "This script collects AppLovin evidence only. The protocol must make the final recommendation.",
             "Compare Unity scoped registry, package tarball Dependencies.xml, Maven, CocoaPods, and changelog evidence before approval.",
             "Android and iOS adapter candidates must be scored separately when their evidence differs.",
+            "Ad SDK Stability Canary: use native producer sources plus cross-mediation/cross-platform sources only when they map to the same native SDK line.",
         ],
     }
 
@@ -713,6 +841,7 @@ def main():
         "candidates": candidates,
         "notes": [
             "This script collects evidence only. XUUnity task/sdk_update_research.md makes the final recommendation.",
+            "AppsFlyer STEP 1: Flutter Benchmark (Stability Canary) is represented by the canary object and per-candidate flutter_canary_match.",
             "Unknown fields require manual verification from primary vendor sources before approving an update.",
         ],
     }
