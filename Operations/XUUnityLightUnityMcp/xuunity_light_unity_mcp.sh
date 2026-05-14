@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$REPO_ROOT}"
+AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+REPO_ROOT="${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-$(cd "$AIROOT_PATH/.." && pwd)}"
 INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
 SERVER_PATH="${XUUNITY_LIGHT_UNITY_MCP_SERVER:-$INSTALL_DIR/server.py}"
 RUN_PATH="$INSTALL_DIR/run.sh"
@@ -213,7 +213,7 @@ remote_advertises_commit() {
   local git_commit="$3"
   git -C "$repo_root" ls-remote --heads --tags "$remote_name" \
     | awk '{print $1}' \
-    | rg -qx "$git_commit"
+    | grep -Fxq "$git_commit"
 }
 
 read_project_unity_version() {

@@ -539,6 +539,10 @@ Already-open editor rule after `devmode`:
 
 ## Scaffold Install
 
+Host prerequisites:
+- macOS system shell tools are enough for the scaffold checks; `ripgrep` is not required
+- `python3` must be available; the helper supports the system Python 3.9 line and newer
+
 Install the external scaffold only:
 
 ```bash
