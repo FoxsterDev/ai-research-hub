@@ -13,6 +13,8 @@ Then add only the needed topic files:
 - `callback_safety.md` for callback thread origin, listener lifetime, callback ordering, marshaling, or double-delivery risk
 - `privacy_compliance.md` for consent, attribution identity, privacy-sensitive data flow, or user-tracking behavior
 - `store_compliance.md` for ATT, manifest, plist, entitlement, privacy-manifest, or store-policy-sensitive SDK work
+- `knowledge/sdk_stability_scoring.md` and `tasks/sdk_update_research.md` for one-command SDK update candidate research
+- the matching `knowledge/vendors/<vendor>.md` profile when a vendor-specific profile exists
 
 ## Composition
 SDK work often composes with:
@@ -26,3 +28,4 @@ SDK work often composes with:
 - Do not load the whole SDK family by default; compose the smallest correct SDK stack for the concrete risk.
 - For SDK bugs, inventory the wrapper, startup owner, callback owner, and identity owner before patching behavior.
 - Prefer wrapper and sequencing fixes over payload-only fixes when the defect touches readiness, consent, delivery timing, or customer identity.
+- For SDK update research, prefer one user-facing command such as `xuunity sdk discover AppsFlyer`; keep granular discovery, scoring, and recommendation stages internal to the task.

@@ -5,12 +5,14 @@ Strengthen the review and validation stack for SDK-sensitive work without forcin
 
 ## Trigger When
 - the task is about SDK integration, SDK upgrade, SDK downgrade, SDK wrapper design, connector-track choice, or vendor-boundary review
+- the task is about SDK update discovery, stable candidate selection, or third-party SDK pre-upgrade research
 - the task touches startup or critical flows through a third-party SDK
 - the task compares SDK versions, bundled native SDK lines, or connector compatibility
 
 ## Primary Risk Signals
 - third-party API contract change
 - hidden native version drift
+- unsafe recommended candidate selection
 - startup and callback behavior
 - consent, privacy, attribution, ads, IAP, auth, notifications, or resume sensitivity
 - merged manifest or plist drift
@@ -23,6 +25,7 @@ Strengthen the review and validation stack for SDK-sensitive work without forcin
 - `skills/native/` when JNI, Objective-C, Swift, or native plugin layers exist
 - `skills/tests/` when breakage-oriented validation design is required
 - `knowledge/sdk_stability_scoring.md` when comparing versions, upgrade candidates, wrapper lines, or connector tracks
+- `tasks/sdk_update_research.md` when the task is pre-upgrade candidate discovery rather than implementation or review of an already-selected SDK update
 - `platforms/android.md` and/or `platforms/ios.md` only when platform-specific SDK behavior is relevant
 
 ## Validation Focus
