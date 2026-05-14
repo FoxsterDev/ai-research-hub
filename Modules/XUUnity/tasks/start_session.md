@@ -137,6 +137,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
 - Load the matching `knowledge/vendors/<vendor>.md` profile when `xuunity sdk discover <Vendor>` or another SDK update research task targets a vendor with a public profile.
+- Load `knowledge/vendors/applovin_max.md` when the task targets AppLovin, AppLovin MAX, MAX, or a MAX-mediated network such as Pangle, ByteDance, Google AdMob, Meta, ironSource, Unity Ads, or Liftoff.
 
 ## Skill Routing Hints
 - If the task mentions `PrimeTween`, `DOTween`, tween sequences, UI fade or scale transitions, or null or destroyed tween targets, load the narrowest relevant file from `skills/ui_tweens/`.
@@ -263,7 +264,14 @@ Interpret short commands by intent:
   - if no project is named, use the active resolved project or the Unity project that owns the current working directory
   - if the workspace is a multi-project monorepo root and no project is resolved, ask one short clarification question
   - load `knowledge/sdk_stability_scoring.md`, `reviews/policy_packs/sdk_changes.md`, `skills/sdk/discovery_and_inventory.md`, and the matching `knowledge/vendors/<vendor>.md` profile when available
+  - when a vendor component is named, such as `xuunity sdk discover AppLovin Pangle`, keep one command but run component-mode research inside the task
+  - when the command says `for all apps`, run portfolio-mode research and group projects by safe update lane
   - save the resulting research report before returning the final recommendation
+- `xuunity sdk profile design <Vendor> ...`, `xuunity sdk research profile <Vendor> ...`, or `xuunity system design sdk research profile <Vendor> ...` -> `utilities/sdk_vendor_research_profile_template.md`
+  - this is the canonical flow for creating a new vendor-specific SDK update research profile
+  - compare against `knowledge/vendors/appsflyer.md` and `knowledge/vendors/applovin_max.md`
+  - require source-of-truth ladder, candidate identity, wrapper-to-native version mapping, mandatory extraction, breaking-change/API migration checkpoint, hard gates, scoring rules, validation, and command examples
+  - create or update `knowledge/vendors/<vendor>.md` only when the user asks for integration or has approved the profile design
 - `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` -> `tasks/change_delivery.md`
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
@@ -630,6 +638,7 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/review_artifact_merge.md` when the user wants to consolidate multiple `Engineering Review Artifact` documents into one stronger reusable artifact
 - `utilities/skill_extract.md` when the user provides new best practices or domain knowledge that should become reusable skills
 - `utilities/skill_merge.md` when integrating new knowledge into existing skill families
+- `utilities/sdk_vendor_research_profile_template.md` when the user wants to design or integrate a new `xuunity sdk discover <Vendor>` research profile for a third-party SDK
 - `utilities/knowledge_intake_review.md` when the user wants a full review report before any integration happens
 - `utilities/knowledge_integration.md` only after explicit user approval of a reviewed knowledge package
 - `utilities/system_progress_review.md` when the user wants to know current roadmap progress, current bottlenecks, and the next milestone

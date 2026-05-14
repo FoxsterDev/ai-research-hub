@@ -85,6 +85,8 @@ What exists now:
   - `unity.playmode.set`
   - `unity.game_view.configure`
   - `unity.game_view.screenshot`
+  - `unity.edm4u.resolve`
+  - `unity.sdk.dependency.verify`
   - `unity.scenario.validate`
   - `unity.scenario.run`
   - `unity.scenario.result`
@@ -132,6 +134,8 @@ What exists now:
   - `batch-editmode-tests` for deterministic non-interactive EditMode tests when the target project is closed
   - `batch-test-framework-version-regression` for Phase 0 `com.unity.test-framework` version sweeps across the interactive MCP and closed-project batch lanes
   - `batch-build-player` for plain Unity batch builds when the project is closed
+  - `request-edm4u-resolve` for whitelisted External Dependency Manager resolver execution
+  - `request-sdk-dependency-verify` for generated SDK dependency artifact checks
   - `arrange-unity-windows` for best-effort macOS tiling of running Unity editor windows
 - public reusable smoke runners:
   - `templates/smoke/run_request_abandoned_fault_suite.sh`
@@ -152,6 +156,9 @@ What exists now:
   - `project_defined_hook`
 - public project-action support helpers:
   - `Editor/ProjectActions/XUUnityLightMcpLocalDataCleaner.cs` for reusable editor-side clearing of `PlayerPrefs` and `Application.persistentDataPath`
+- public SDK update validation helpers:
+  - typed EDM4U resolver execution through whitelisted menu paths
+  - generated SDK dependency artifact verification for Android resolver XML, Gradle templates, Podfile.lock, and similar project-local outputs
 
 What does not exist yet:
 - production-hardening of the stdio server

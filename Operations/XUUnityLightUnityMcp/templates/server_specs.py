@@ -47,6 +47,25 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "retry_on_transport_connect_failed": True,
         "post_reset_recovery_cap_ms": 180000,
     },
+    "unity.edm4u.resolve": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": True,
+        "idle_stable_cycles_after": 2,
+        "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
+        "post_reset_recovery_cap_ms": 300000,
+    },
+    "unity.sdk.dependency.verify": {
+        "activate_unity": True,
+        "wait_for_idle_before": True,
+        "wait_for_idle_after": False,
+        "idle_stable_cycles_after": 1,
+        "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
+    },
     "unity.scene.snapshot": {
         "retry_on_lifecycle_reset": True,
         "retry_on_transport_response_missing": True,
@@ -307,6 +326,74 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "timeoutMs": {"type": "integer", "default": 180000, "minimum": 1000}
             },
             "required": ["projectRoot"]
+        }
+    },
+    "unity_edm4u_resolve": {
+        "bridgeOperation": "unity.edm4u.resolve",
+        "description": "Run a whitelisted External Dependency Manager for Unity resolver menu item, with Android Force Resolve as the default.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "platform": {
+                    "type": "string",
+                    "default": "android",
+                    "enum": ["android", "version_handler"],
+                    "description": "Resolver lane to run. iOS CocoaPods resolution is validated after iOS export rather than through this editor menu operation."
+                },
+                "force": {"type": "boolean", "default": True},
+                "refreshBefore": {"type": "boolean", "default": True},
+                "refreshAfter": {"type": "boolean", "default": True},
+                "menuPathCandidates": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional override for version-specific EDM4U menu paths. Use only for known safe resolver menu items."
+                },
+                "timeoutMs": {"type": "integer", "default": 300000, "minimum": 1000}
+            },
+            "required": ["projectRoot"]
+        }
+    },
+    "unity_sdk_dependency_verify": {
+        "bridgeOperation": "unity.sdk.dependency.verify",
+        "description": "Verify generated SDK dependency artifacts against explicit expectations after package restore, EDM4U resolve, export, or build.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "stopOnFirstFailure": {"type": "boolean", "default": False},
+                "expectations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "platform": {"type": "string"},
+                            "path": {"type": "string"},
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "file_contains",
+                                    "file_regex",
+                                    "android_resolver_package",
+                                    "gradle_dependency",
+                                    "gradle_repository",
+                                    "podfile_lock_pod"
+                                ],
+                                "default": "file_contains"
+                            },
+                            "value": {"type": "string"},
+                            "version": {"type": "string"},
+                            "minVersion": {"type": "string"},
+                            "optional": {"type": "boolean", "default": False}
+                        },
+                        "required": ["path", "kind", "value"]
+                    },
+                    "minItems": 1
+                },
+                "timeoutMs": {"type": "integer", "default": 30000, "minimum": 1000}
+            },
+            "required": ["projectRoot", "expectations"]
         }
     },
     "unity_console_tail": {

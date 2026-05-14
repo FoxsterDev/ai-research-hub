@@ -145,6 +145,10 @@ namespace XUUnity.LightMcp.Editor.Batch
             var scenePaths = ResolveScenePaths(args.scenePaths);
             var outputPath = ResolveOutputPath(target, args.outputPath, out var usedDefaultOutputPath);
             var buildOptions = ParseBuildOptions(args.buildOptions);
+            var previousExportAsGoogleAndroidProject = EditorUserBuildSettings.exportAsGoogleAndroidProject;
+            var shouldExportAndroidProject =
+                target == BuildTarget.Android &&
+                buildOptions.HasFlag(BuildOptions.AcceptExternalModificationsToPlayer);
 
             result.scene_paths = scenePaths.ToArray();
             result.output_path = outputPath;
@@ -162,9 +166,25 @@ namespace XUUnity.LightMcp.Editor.Batch
                 options = buildOptions,
             };
 
-            var report = BuildPipeline.BuildPlayer(buildPlayerOptions);
-            var summary = report.summary;
+            BuildReport report;
+            try
+            {
+                if (target == BuildTarget.Android)
+                {
+                    EditorUserBuildSettings.exportAsGoogleAndroidProject = shouldExportAndroidProject;
+                }
 
+                report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+            }
+            finally
+            {
+                if (target == BuildTarget.Android)
+                {
+                    EditorUserBuildSettings.exportAsGoogleAndroidProject = previousExportAsGoogleAndroidProject;
+                }
+            }
+
+            var summary = report.summary;
             result.build_result = summary.result.ToString();
             result.total_errors = summary.totalErrors;
             result.total_warnings = summary.totalWarnings;

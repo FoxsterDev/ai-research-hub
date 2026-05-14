@@ -164,6 +164,8 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     "unity.status",
                     "unity.editor.quit",
                     "unity.project.refresh",
+                    "unity.edm4u.resolve",
+                    "unity.sdk.dependency.verify",
                     "unity.console.tail",
                     "unity.scene.snapshot",
                     "unity.scenario.validate",

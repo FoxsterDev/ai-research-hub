@@ -37,6 +37,8 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                 "request-scenario-results-list",
                 "request-scenario-result-latest",
                 "request-project-refresh",
+                "request-edm4u-resolve",
+                "request-sdk-dependency-verify",
                 "project-discovery-report",
                 "registry-context-report",
                 "registry-prune-contexts",
@@ -62,6 +64,8 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertIn("unity_status_summary", tool_names)
         self.assertIn("unity_request_final_status", tool_names)
         self.assertIn("unity_compile_build_config_matrix", tool_names)
+        self.assertIn("unity_edm4u_resolve", tool_names)
+        self.assertIn("unity_sdk_dependency_verify", tool_names)
         self.assertIn("unity_scenario_run_and_wait", tool_names)
         self.assertIn("unity_scenario_results_list", tool_names)
         self.assertIn("unity_scenario_result_latest", tool_names)

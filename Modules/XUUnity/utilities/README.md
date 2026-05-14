@@ -73,6 +73,20 @@ Short commands:
 - `xuunity system extract skill candidates`
 - `xuunity system merge these async best practices`
 
+### SDK Vendor Research Profile Design
+Use when the user wants to add a new full `xuunity sdk discover <Vendor>` research profile for a third-party Unity/mobile SDK.
+
+Flow:
+1. `sdk_vendor_research_profile_template.md`
+2. compare against existing vendor profiles such as `knowledge/vendors/appsflyer.md` and `knowledge/vendors/applovin_max.md`
+3. create or update `knowledge/vendors/<vendor>.md`
+4. add script collector support only when vendor metadata is stable enough for repeatable evidence collection
+
+Short commands:
+- `xuunity sdk profile design Mixpanel`
+- `xuunity sdk research profile Firebase`
+- `xuunity system design sdk research profile OneSignal`
+
 ### Review Artifact Extraction
 Use when the user wants to convert a long engineering chat or design discussion into a reusable review artifact.
 
