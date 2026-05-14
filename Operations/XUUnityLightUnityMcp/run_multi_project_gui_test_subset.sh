@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 if [[ -n "${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-}" ]]; then
   REPO_ROOT="$(cd "$XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT" && pwd)"
 elif [[ -d "$AIROOT_PATH/../AIOutput" || -d "$AIROOT_PATH/../AIModules" ]]; then
