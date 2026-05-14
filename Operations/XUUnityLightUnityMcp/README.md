@@ -540,7 +540,8 @@ Already-open editor rule after `devmode`:
 ## Scaffold Install
 
 Host prerequisites:
-- macOS system shell tools are enough for the scaffold checks; `ripgrep` is not required
+- macOS system shell tools are enough for the scaffold checks; `ripgrep` is recommended for faster local checks but not required
+- when `rg` is available the shell helpers use it; otherwise they fall back to `grep` and print an install hint
 - `python3` must be available; the helper supports the system Python 3.9 line and newer
 
 Install the external scaffold only:

@@ -58,13 +58,31 @@ print(Path(sys.argv[1]).resolve())
 PY
 }
 
+warn_ripgrep_fallback_once() {
+  if [[ "${XUUNITY_LIGHT_UNITY_MCP_RG_FALLBACK_WARNED:-false}" == "true" ]]; then
+    return 0
+  fi
+  echo "optional command not found: rg; using grep fallback. Install ripgrep for faster local checks: brew install ripgrep" >&2
+  XUUNITY_LIGHT_UNITY_MCP_RG_FALLBACK_WARNED="true"
+}
+
+manifest_declares_light_mcp() {
+  local manifest_path="$1"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q '"com\.xuunity\.light-mcp"' "$manifest_path"
+  else
+    warn_ripgrep_fallback_once
+    grep -Eq '"com\.xuunity\.light-mcp"' "$manifest_path"
+  fi
+}
+
 discover_project_roots() {
   local child_dir=""
   for child_dir in "$REPO_ROOT"/*; do
     [[ -d "$child_dir" ]] || continue
     [[ -f "$child_dir/Packages/manifest.json" ]] || continue
     [[ -f "$child_dir/ProjectSettings/ProjectVersion.txt" ]] || continue
-    if grep -Eq '"com\.xuunity\.light-mcp"' "$child_dir/Packages/manifest.json"; then
+    if manifest_declares_light_mcp "$child_dir/Packages/manifest.json"; then
       printf '%s\n' "$child_dir"
     fi
   done | sort
