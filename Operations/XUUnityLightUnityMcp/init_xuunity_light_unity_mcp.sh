@@ -121,13 +121,32 @@ copy_if_needed() {
   printf 'installed %s\n' "$dst"
 }
 
+warn_ripgrep_fallback_once() {
+  if [[ "${xuunity_light_unity_mcp_rg_fallback_warned:-0}" -eq 1 ]]; then
+    return 0
+  fi
+  print -u2 'optional command not found: rg; using grep fallback. Install ripgrep for faster local checks: brew install ripgrep'
+  xuunity_light_unity_mcp_rg_fallback_warned=1
+}
+
+file_contains_regex() {
+  local pattern="$1"
+  local file_path="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q "$pattern" "$file_path"
+  else
+    warn_ripgrep_fallback_once
+    grep -Eq "$pattern" "$file_path"
+  fi
+}
+
 append_codex_block_if_missing() {
   local block
   block=$'[mcp_servers.xuunity_light_unity]\n'
   block+="command = \"$run_path\""$'\n'
   block+=$'required = false\n'
 
-  if [[ -f "$config_path" ]] && grep -Eq '^\[mcp_servers\.xuunity_light_unity\]' "$config_path"; then
+  if [[ -f "$config_path" ]] && file_contains_regex '^\[mcp_servers\.xuunity_light_unity\]' "$config_path"; then
     printf 'kept existing MCP config in %s\n' "$config_path"
     return
   fi

@@ -23,6 +23,14 @@ require_command() {
   fi
 }
 
+warn_ripgrep_fallback_once() {
+  if [[ "${XUUNITY_LIGHT_UNITY_MCP_RG_FALLBACK_WARNED:-false}" == "true" ]]; then
+    return 0
+  fi
+  echo "optional command not found: rg; using grep fallback. Install ripgrep for faster local checks: brew install ripgrep" >&2
+  XUUNITY_LIGHT_UNITY_MCP_RG_FALLBACK_WARNED="true"
+}
+
 emit_compact_summary_from_json_file() {
   local json_file="$1"
   local exit_code="$2"
@@ -211,9 +219,16 @@ remote_advertises_commit() {
   local repo_root="$1"
   local remote_name="$2"
   local git_commit="$3"
-  git -C "$repo_root" ls-remote --heads --tags "$remote_name" \
-    | awk '{print $1}' \
-    | grep -Fxq "$git_commit"
+  if command -v rg >/dev/null 2>&1; then
+    git -C "$repo_root" ls-remote --heads --tags "$remote_name" \
+      | awk '{print $1}' \
+      | rg -qx "$git_commit"
+  else
+    warn_ripgrep_fallback_once
+    git -C "$repo_root" ls-remote --heads --tags "$remote_name" \
+      | awk '{print $1}' \
+      | grep -Fxq "$git_commit"
+  fi
 }
 
 read_project_unity_version() {
