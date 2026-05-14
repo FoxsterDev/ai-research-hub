@@ -331,6 +331,48 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertNotIn("reopen_block_reason", payload)
         self.assertFalse(bool(payload.get("reopen_blocked")))
 
+    def test_ensure_ready_without_open_editor_fails_fast_when_project_is_offline(self) -> None:
+        args = argparse.Namespace(
+            project_root="/tmp/FakeProject",
+            open_editor=False,
+            unity_app=None,
+            editor_log_path=None,
+            background_open=False,
+            timeout_ms=120000,
+            heartbeat_max_age_seconds=10,
+            startup_policy="fail_fast_on_interactive_compile_block",
+        )
+        discovery = {
+            "reconciliation_case": "host_launchable_not_active",
+            "reconciliation_status": "offline",
+            "reconciliation_recommended_next_action": "open_editor_or_ensure_ready",
+            "detected_editor_count": 0,
+            "detected_editor_pids": [],
+        }
+
+        with (
+            mock.patch.object(server, "ensure_project_root", return_value=Path("/tmp/FakeProject")),
+            mock.patch.object(server, "resolve_editor_log_path", return_value=Path("/tmp/editor.log")),
+            mock.patch.object(server, "build_project_discovery_report", return_value=discovery),
+            mock.patch.object(server, "current_project_context_bridge_state", return_value={}),
+            mock.patch.object(server, "enrich_tool_invocation_error_with_discovery", side_effect=lambda _, exc: exc),
+            mock.patch.object(server, "wait_for_ready") as wait_mock,
+        ):
+            with self.assertRaises(server.ToolInvocationError) as ctx:
+                server.cmd_ensure_ready(args)
+
+        self.assertEqual("editor_not_running", ctx.exception.code)
+        self.assertEqual(
+            "ensure_ready_without_open_editor_offline",
+            ctx.exception.details["fail_fast_reason"],
+        )
+        self.assertEqual("open_editor_or_ensure_ready", ctx.exception.details["recommended_next_action"])
+        self.assertEqual(
+            "xuunity_light_unity_mcp.sh ensure-ready --project-root /tmp/FakeProject --open-editor",
+            ctx.exception.details["recommended_recovery_command"],
+        )
+        wait_mock.assert_not_called()
+
     def test_batch_editor_conflict_includes_concrete_recovery_command(self) -> None:
         project_root = Path("/tmp/FakeProject")
 
