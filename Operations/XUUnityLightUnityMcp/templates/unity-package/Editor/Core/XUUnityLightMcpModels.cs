@@ -556,6 +556,98 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpEdm4uResolveArgs
+    {
+        public string platform = "android";
+        public bool force = true;
+        public bool refreshBefore = true;
+        public bool refreshAfter = true;
+        public string[] menuPathCandidates = null;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpMenuItemAttempt
+    {
+        public string menu_path = "";
+        public bool executed;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpEdm4uResolvePayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string platform = "";
+        public bool force;
+        public string outcome = "";
+        public string executed_menu_path = "";
+        public List<XUUnityLightMcpMenuItemAttempt> attempted_menu_items = new();
+        public bool asset_refresh_before_requested;
+        public bool asset_refresh_after_requested;
+        public bool editor_is_compiling_after_request;
+        public bool editor_is_updating_after_request;
+        public string playmode_state_after_request = "edit";
+        public string request_completed_at_utc = "";
+        public string settle_request_id = "";
+        public string settle_phase = "";
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpSdkDependencyVerifyArgs
+    {
+        public bool stopOnFirstFailure;
+        public List<XUUnityLightMcpSdkDependencyExpectation> expectations = new();
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpSdkDependencyExpectation
+    {
+        public string id = "";
+        public string platform = "";
+        public string path = "";
+        public string kind = "file_contains";
+        public string value = "";
+        public string version = "";
+        public string minVersion = "";
+        public bool optional;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpSdkDependencyVerifyResult
+    {
+        public string id = "";
+        public string platform = "";
+        public string path = "";
+        public string full_path = "";
+        public string kind = "";
+        public string value = "";
+        public string expected_version = "";
+        public string expected_min_version = "";
+        public string actual_version = "";
+        public string status = "failed";
+        public string message = "";
+        public bool file_exists;
+        public long file_size_bytes;
+        public string sha256 = "";
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpSdkDependencyVerifyPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string status = "failed";
+        public int total;
+        public int passed;
+        public int failed;
+        public int skipped;
+        public bool stop_on_first_failure;
+        public List<XUUnityLightMcpSdkDependencyVerifyResult> results = new();
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpCompilePlayerScriptsArgs
     {
         public string name = "";

@@ -141,6 +141,9 @@ Best for:
 - `xuunity feature implement this flow`
 - `xuunity arch plan this subsystem split`
 - `xuunity rollout plan this feature`
+- `xuunity sdk discover AppsFlyer`
+- `xuunity sdk discover AppLovin Pangle`
+- `xuunity sdk profile design Mixpanel`
 - `xuunity sdk review this integration`
 - `xuunity sdk breakage review this integration`
 - `xuunity native review this iOS bridge`
@@ -294,9 +297,11 @@ Examples:
 4. If the task is only shaping implementation before coding, use `xuunity feature design ...` or `xuunity feature plan ...`
 
 ### SDK Upgrade Or Review
-1. `xuunity sdk review this integration`
-2. If breakage risk is high, use `xuunity sdk breakage review this integration`
-3. If rollout risk matters, follow with `xuunity product rollout this feature`
+1. `xuunity sdk discover AppsFlyer` to run the full update-candidate research flow for the active project
+2. Use `xuunity sdk discover AppsFlyer for ApperfunHub` when the project must be explicit
+3. `xuunity sdk review this integration` after a candidate is selected or implemented
+4. If breakage risk is high, use `xuunity sdk breakage review this integration`
+5. If rollout risk matters, follow with `xuunity product rollout this feature`
 
 Expected review output:
 - findings
@@ -304,6 +309,26 @@ Expected review output:
 - QA manual validation recommendations
 - candidate test cases when useful
 - release recommendation or residual risk
+
+Expected SDK discovery output:
+- saved report under the resolved project's SDK review output destination
+- exact recommended candidate or explicit `do not update`
+- rejected candidates with reasons
+
+### New SDK Research Profile
+1. `xuunity sdk profile design Mixpanel` to design a new full vendor profile before enabling one-command discovery
+2. Use `xuunity sdk research profile Firebase` or `xuunity system design sdk research profile OneSignal` for the same flow
+3. After the profile is integrated, use `xuunity sdk discover <Vendor>` for project-specific candidate research
+
+Expected profile-design output:
+- source-of-truth ladder
+- exact candidate identity
+- wrapper-to-native version mapping
+- breaking-change and API migration checkpoint
+- hard gates and no-update conditions
+- report requirements and command examples
+- business, marketing, monetization, compliance, and runtime risk notes
+- validation and staged rollout requirements
 
 Canonical generic review template:
 - `AIRoot/Templates/XUUNITY_REVIEW_REPORT_TEMPLATE.md`

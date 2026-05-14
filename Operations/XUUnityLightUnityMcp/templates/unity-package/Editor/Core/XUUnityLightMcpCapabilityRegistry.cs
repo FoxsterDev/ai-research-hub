@@ -21,6 +21,8 @@ namespace XUUnity.LightMcp.Editor.Core
             "unity.health.probe",
             "unity.build_target.get",
             "unity.project.refresh",
+            "unity.edm4u.resolve",
+            "unity.sdk.dependency.verify",
             "unity.editor.quit"
         };
 
@@ -28,6 +30,8 @@ namespace XUUnity.LightMcp.Editor.Core
         {
             { "unity.status", CoreCapability },
             { "unity.project.refresh", CoreCapability },
+            { "unity.edm4u.resolve", CoreCapability },
+            { "unity.sdk.dependency.verify", CoreCapability },
             { "unity.editor.quit", CoreCapability },
             { "unity.console.tail", CoreCapability },
             { "unity.scene.snapshot", CoreCapability },

@@ -1735,6 +1735,41 @@ def cmd_request_project_refresh(args):
     print_json(response)
 
 
+def cmd_request_edm4u_resolve(args):
+    project_root = ensure_project_root(args.project_root)
+    response = invoke_bridge(
+        str(project_root),
+        "unity.edm4u.resolve",
+        {
+            "platform": args.platform,
+            "force": args.force,
+            "refreshBefore": args.refresh_before,
+            "refreshAfter": args.refresh_after,
+            "menuPathCandidates": args.menu_path_candidate or None,
+        },
+        resolve_operation_default_timeout_ms(project_root, "unity.edm4u.resolve", 300000) if args.timeout_ms is None else args.timeout_ms,
+    )
+    print_json(response)
+
+
+def cmd_request_sdk_dependency_verify(args):
+    project_root = ensure_project_root(args.project_root)
+    config_path = Path(args.config_file).expanduser()
+    if not config_path.is_absolute():
+        config_path = (Path.cwd() / config_path).resolve()
+    config = read_json(config_path)
+    if not isinstance(config, dict):
+        raise ToolInvocationError("invalid_dependency_verify_config", "Dependency verification config must be a JSON object.")
+
+    response = invoke_bridge(
+        str(project_root),
+        "unity.sdk.dependency.verify",
+        config,
+        resolve_operation_default_timeout_ms(project_root, "unity.sdk.dependency.verify", 30000) if args.timeout_ms is None else args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_request_editmode_tests(args):
     project_root = ensure_project_root(args.project_root)
     response = invoke_bridge(
@@ -3719,6 +3754,22 @@ def build_parser():
     project_refresh_cmd.add_argument("--rerun-health-probe", dest="rerun_health_probe", action=argparse.BooleanOptionalAction, default=True)
     project_refresh_cmd.add_argument("--timeout-ms", type=int, default=None)
     project_refresh_cmd.set_defaults(func=cmd_request_project_refresh)
+
+    edm4u_resolve_cmd = sub.add_parser("request-edm4u-resolve", help="Run a whitelisted External Dependency Manager for Unity resolver operation through the active bridge transport.")
+    edm4u_resolve_cmd.add_argument("--project-root", required=True)
+    edm4u_resolve_cmd.add_argument("--platform", default="android", choices=["android", "version_handler"])
+    edm4u_resolve_cmd.add_argument("--force", action=argparse.BooleanOptionalAction, default=True)
+    edm4u_resolve_cmd.add_argument("--refresh-before", dest="refresh_before", action=argparse.BooleanOptionalAction, default=True)
+    edm4u_resolve_cmd.add_argument("--refresh-after", dest="refresh_after", action=argparse.BooleanOptionalAction, default=True)
+    edm4u_resolve_cmd.add_argument("--menu-path-candidate", action="append", default=[])
+    edm4u_resolve_cmd.add_argument("--timeout-ms", type=int, default=None)
+    edm4u_resolve_cmd.set_defaults(func=cmd_request_edm4u_resolve)
+
+    sdk_dependency_verify_cmd = sub.add_parser("request-sdk-dependency-verify", help="Verify generated SDK dependency artifacts from a JSON expectations file through the active bridge transport.")
+    sdk_dependency_verify_cmd.add_argument("--project-root", required=True)
+    sdk_dependency_verify_cmd.add_argument("--config-file", required=True)
+    sdk_dependency_verify_cmd.add_argument("--timeout-ms", type=int, default=None)
+    sdk_dependency_verify_cmd.set_defaults(func=cmd_request_sdk_dependency_verify)
 
     editmode_cmd = sub.add_parser("request-editmode-tests", help="Send a direct unity.tests.run_editmode request through the active bridge transport.")
     editmode_cmd.add_argument("--project-root", required=True)

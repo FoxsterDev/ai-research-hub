@@ -21,6 +21,8 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.build_target.switch", new XUUnityLightMcpBuildTargetSwitchOperation() },
             { "unity.editor.quit", new XUUnityLightMcpEditorQuitOperation() },
             { "unity.project.refresh", new XUUnityLightMcpProjectRefreshOperation() },
+            { "unity.edm4u.resolve", new XUUnityLightMcpEdm4uResolveOperation() },
+            { "unity.sdk.dependency.verify", new XUUnityLightMcpSdkDependencyVerifyOperation() },
             { "unity.console.tail", new XUUnityLightMcpConsoleTailOperation() },
             { "unity.scene.snapshot", new XUUnityLightMcpSceneSnapshotOperation() },
             { "unity.tests.run_editmode", new XUUnityLightMcpEditModeTestsOperation() },

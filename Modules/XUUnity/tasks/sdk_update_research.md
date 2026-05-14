@@ -6,6 +6,9 @@ Find the safest compatible third-party SDK update candidate for a Unity mobile p
 Use this for one-command pre-analysis such as:
 - `xuunity sdk discover AppsFlyer`
 - `xuunity sdk discover AppsFlyer for ApperfunHub`
+- `xuunity sdk discover AppLovin`
+- `xuunity sdk discover AppLovin Pangle`
+- `xuunity sdk discover AppLovin Pangle for all apps`
 
 The command must run the full research flow and produce a saved report with the evidence, candidate scoring, recommendation, and residual risks.
 
@@ -35,6 +38,7 @@ The command must run the full research flow and produce a saved report with the 
 ## Research Sources
 Prefer primary sources and include links in the saved report:
 - vendor release pages and GitHub releases
+- official migration guides, breaking-change notes, and upgrade guides
 - native Android and iOS SDK changelogs
 - dependency or connector release notes
 - store compliance documentation when target SDK, privacy manifest, ATT, permissions, or required-reason APIs matter
@@ -60,6 +64,8 @@ Because external SDK releases change over time, do not rely on model memory for 
    - connector or adapter track
    - minimum OS changes
    - compliance changes
+   - public API, callback, initialization, lifecycle, threading, consent, and telemetry behavior changes
+   - migration-guide or breaking-change notes between the current version and candidate
    - known crash, ANR, memory, startup, privacy, or analytics-impacting fixes
 4. Apply hard gates before scoring:
    - incompatible Unity, Gradle, CocoaPods, Xcode, or OS requirement
@@ -67,11 +73,53 @@ Because external SDK releases change over time, do not rely on model memory for 
    - missing iOS privacy manifest or required store declaration
    - billing, IAP, connector, mediation, or dependency-track mismatch
    - native SDK downgrade hidden inside a newer wrapper tag
+   - removed, renamed, deprecated, or behavior-changed API used by the project without an implementation plan
+   - changed callback threading, initialization order, lifecycle requirements, consent semantics, revenue payloads, or attribution identity semantics without a validation plan
    - unresolved high-confidence crash or ANR reports for the exact candidate
-5. Score all analyzed candidates, including rejected candidates, so the report explains why they lost.
-6. Select the safest compatible candidate, not the newest version by default.
-7. If no candidate clears the gates, recommend staying on the current version and state the next re-check trigger.
-8. Save the report and return a compact chat summary.
+5. Run the mandatory breaking-change checkpoint before recommendation:
+   - compare official changelog and migration-guide sections from the current version to each candidate
+   - scan for `breaking`, `removed`, `deprecated`, `migration`, `minimum`, `requires`, `privacy`, `consent`, `callback`, `thread`, `initialization`, `lifecycle`, `revenue`, `purchase`, `attribution`, and `deep link`
+   - inspect current project usage of SDK public APIs, wrappers, callbacks, events, manifest entries, plist entries, and dependency declarations
+   - classify each API or behavior delta as `not used`, `used-safe`, `used-needs-change`, `unknown`, or `blocking`
+   - mark `unknown` as a release risk; do not convert it to `safe` without manual verification anchors
+6. Score all analyzed candidates, including rejected candidates, so the report explains why they lost.
+7. Select the safest compatible candidate, not the newest version by default.
+8. If no candidate clears the gates, recommend staying on the current version and state the next re-check trigger.
+9. Save the report and return a compact chat summary.
+
+## Component Mode
+Some vendors expose a graph of SDK components instead of a single package.
+
+If the command includes a component after the vendor name, for example `AppLovin Pangle`, run single-component candidate research:
+- identify the core SDK that owns the component
+- identify the current component packages on Android and iOS
+- fetch latest Android and iOS component candidates separately
+- determine whether the component update requires a core SDK update
+- determine whether the safest recommendation is platform-specific
+
+Valid recommendation outcomes:
+- `update MAX core only`
+- `update mediator Android only`
+- `update mediator iOS only`
+- `update mediator both platforms`
+- `update MAX core + mediator`
+- `hold current`
+- `reject target`
+- `needs portfolio split`
+
+Do not collapse Android and iOS into one recommendation when evidence quality, native SDK versions, or compatibility gates differ.
+
+## Portfolio Mode
+If the command says `for all apps`, treat the task as portfolio research.
+
+Before recommending a shared update:
+- inventory every active project that uses the vendor
+- compare current core SDK version per project
+- compare installed component/adapters per project
+- compare Android and iOS platform constraints per project
+- group projects by safe update lane
+
+The report must not recommend a shared portfolio update when one project requires a different core SDK, platform split, or hold decision.
 
 ## Business Risk Lens
 Treat SDK update research as high-risk by default when the SDK affects:
@@ -113,9 +161,17 @@ If the project router declares a repo-level report location for SDK research, fo
 - Current integration inventory
 - Candidate comparison table
 - Hard gates and rejected candidates
+- Breaking-change and API migration checkpoint:
+  - official migration or breaking-change sources checked
+  - changelog interval reviewed from current version to candidate
+  - project API usage affected or not affected
+  - callback, threading, initialization, lifecycle, consent, attribution, revenue, and purchase behavior deltas
+  - manifest, plist, permissions, Gradle, CocoaPods, min OS, target SDK, and privacy declaration deltas
+  - unresolved unknowns that block or reduce confidence
 - Native SDK and connector analysis
 - Store compliance analysis
 - Dependency conflict analysis
+- Source-of-truth ladder and conflicts
 - Runtime risk analysis:
   - crash
   - ANR
@@ -127,6 +183,12 @@ If the project router declares a repo-level report location for SDK research, fo
 - Staged rollout recommendation
 - Residual unknowns and manual verification anchors
 
+For graph-shaped SDKs such as AppLovin MAX, also include:
+- core SDK analysis
+- installed adapter inventory
+- per-mediator Android/iOS decision table
+- portfolio grouping when `for all apps` is requested
+
 ## Automation Rule
 Use `scripts/sdk_update_research.py` when it supports the vendor or can collect useful generic evidence.
 
@@ -137,6 +199,7 @@ The task is incomplete unless it:
 - resolves a concrete project
 - analyzes all candidates in the selected analysis window
 - lists rejected candidates with reasons
+- includes an explicit breaking-change and API migration checkpoint
 - recommends one exact candidate or explicitly recommends no update
 - saves a report
 - identifies validation that must happen before production rollout

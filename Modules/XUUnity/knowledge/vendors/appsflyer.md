@@ -64,6 +64,26 @@ Give positive weight to:
 
 Do not treat older as automatically more stable. A newer native SDK with explicit ANR, crash, memory, or compliance fixes can be the safer production candidate.
 
+## Breaking-Change And Migration Checkpoint
+This checkpoint is mandatory for every AppsFlyer recommendation.
+
+Compare the current Unity plugin and candidate across:
+- AppsFlyer Unity plugin release notes
+- Android SDK release notes for the bundled native Android line
+- iOS SDK release notes for the bundled native iOS line
+- Purchase Connector release notes and branch identity
+- Flutter plugin releases when they help confirm native SDK behavior as a public canary
+- project usage of AppsFlyer initialization, start timing, customer user id, deep linking, deferred deep linking, custom events, revenue events, purchase validation, consent, DMA, and privacy APIs
+
+Hard reject or require an implementation plan when:
+- a used AppsFlyer Unity, Android, iOS, or Purchase Connector API is removed, renamed, deprecated, or changes required parameters
+- initialization timing, attribution readiness, customer user id, deep-link callback, purchase validation, consent, DMA, or revenue event behavior changes without explicit QA coverage
+- the candidate switches Purchase Connector or Billing branch in a way that conflicts with the project's Unity IAP version
+- Android manifest, iOS plist, privacy manifest, min OS, target SDK, Gradle, CocoaPods, or dependency behavior changes are not verified
+- native Android and iOS SDK lines differ in a way that creates attribution, purchase, or privacy behavior asymmetry not covered by rollout validation
+
+Classify each delta as `not used`, `used-safe`, `used-needs-change`, `unknown`, or `blocking` in the saved report.
+
 ## Compliance Gates
 Android:
 - Verify target SDK compatibility for the project's target API level.

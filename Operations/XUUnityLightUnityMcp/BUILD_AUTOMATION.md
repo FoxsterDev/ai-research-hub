@@ -15,6 +15,8 @@ Current public operations:
 - `unity.build_target.switch`
 - `unity.compile.player_scripts`
 - `unity.compile.matrix`
+- `unity.edm4u.resolve`
+- `unity.sdk.dependency.verify`
 - `unity_status_summary`
 - `unity_request_final_status`
 - `unity_scenario_result_summary`
@@ -48,6 +50,7 @@ Use the interactive MCP lane for:
 - compile validation
 - deterministic EditMode tests when the editor must stay open
 - project config inspection
+- SDK package restore, EDM4U resolver triggering, and generated dependency artifact verification
 - project-defined smoke and hook flows that are short-lived and editor-bound
 
 Use the batch lane for:
@@ -55,6 +58,47 @@ Use the batch lane for:
 - signed package generation
 - long-running export pipelines
 - end-to-end build flows where success should be judged by process exit and generated outputs
+
+For third-party SDK updates, prefer this validation order:
+1. project refresh with package resolve
+2. compile validation for affected Android/iOS targets
+3. `unity.edm4u.resolve` for Android dependency generation
+4. `unity.sdk.dependency.verify` against generated resolver files
+5. batch export or player build
+6. generated artifact inspection, such as Gradle output, Xcode export, Podfile.lock, manifest, plist, or dependency reports
+7. device/runtime validation through project hooks or manual QA when SDK behavior depends on native runtime services
+
+Minimal dependency verification payload:
+
+```json
+{
+  "stopOnFirstFailure": false,
+  "expectations": [
+    {
+      "id": "android-resolver-package",
+      "platform": "Android",
+      "path": "ProjectSettings/AndroidResolverDependencies.xml",
+      "kind": "android_resolver_package",
+      "value": "com.vendor:artifact:1.2.3"
+    },
+    {
+      "id": "android-repository",
+      "platform": "Android",
+      "path": "Assets/Plugins/Android/settingsTemplate.gradle",
+      "kind": "gradle_repository",
+      "value": "https://vendor.example/maven"
+    },
+    {
+      "id": "ios-pod",
+      "platform": "iOS",
+      "path": "Builds/iOS/MyExport/Podfile.lock",
+      "kind": "podfile_lock_pod",
+      "value": "VendorPod",
+      "version": "1.2.3"
+    }
+  ]
+}
+```
 
 Do not use the live interactive scenario lane as the primary waiter for
 long-running artifact builds. It is the right control plane for editor-aware

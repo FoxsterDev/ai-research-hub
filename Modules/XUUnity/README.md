@@ -103,6 +103,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/system_output_cleanup_scorecard_template.md`
 - `utilities/system_output_cleanup_apply.md`
 - `utilities/system_evaluation_cadence.md`
+- `utilities/sdk_vendor_research_profile_template.md`
 - `utilities/external_promotion_checklist.md`
 - `utilities/protocol_consistency_checklist.md`
 - `utilities/report_export.md`
@@ -137,6 +138,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/vendors/appsflyer.md`
+- `knowledge/vendors/applovin_max.md`
 - `knowledge/review_quality_scoring.md`
 - `knowledge/request_recovery.md`
 - `knowledge/severity_matrix.md`
@@ -246,6 +248,8 @@ Recommended short commands:
 - `xuunity rollout plan this feature`
 - `xuunity feature rollout plan this flow`
 - `xuunity sdk discover AppsFlyer`
+- `xuunity sdk discover AppLovin Pangle`
+- `xuunity sdk profile design Mixpanel`
 - `xuunity extract knowledge`
 - `xuunity extract this source`
 - `xuunity extract implementation pattern`
