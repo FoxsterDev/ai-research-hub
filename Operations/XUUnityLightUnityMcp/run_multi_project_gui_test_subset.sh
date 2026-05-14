@@ -68,7 +68,7 @@ discover_project_roots() {
     [[ -d "$child_dir" ]] || continue
     [[ -f "$child_dir/Packages/manifest.json" ]] || continue
     [[ -f "$child_dir/ProjectSettings/ProjectVersion.txt" ]] || continue
-    if rg -q '"com\.xuunity\.light-mcp"' "$child_dir/Packages/manifest.json"; then
+    if grep -Eq '"com\.xuunity\.light-mcp"' "$child_dir/Packages/manifest.json"; then
       printf '%s\n' "$child_dir"
     fi
   done | sort

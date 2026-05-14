@@ -127,7 +127,7 @@ append_codex_block_if_missing() {
   block+="command = \"$run_path\""$'\n'
   block+=$'required = false\n'
 
-  if [[ -f "$config_path" ]] && rg -q '^\[mcp_servers\.xuunity_light_unity\]' "$config_path"; then
+  if [[ -f "$config_path" ]] && grep -Eq '^\[mcp_servers\.xuunity_light_unity\]' "$config_path"; then
     printf 'kept existing MCP config in %s\n' "$config_path"
     return
   fi
