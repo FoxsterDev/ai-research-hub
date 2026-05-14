@@ -30,7 +30,8 @@ also load the matching profile from:
 
 When a mediator is named, this profile defines the common MAX contract and the
 mediator profile defines package names, AppLovin changelog directories, and
-source-of-truth URLs.
+source-of-truth URLs, including native producer release notes and
+cross-mediation canaries when available.
 
 ## Research Modes
 ### MAX Core
@@ -78,7 +79,19 @@ Use this order and record conflicts.
    - iOS adapter changelog in `AppLovin-MAX-SDK-iOS`
    - MAX Unity plugin GitHub releases
    - MAX Android and iOS SDK GitHub releases
-5. Runtime validation source:
+5. Native producer source:
+   - Android and iOS SDK release notes from the mediated network vendor
+   - vendor SDK policy, privacy, min OS, target SDK, Gradle, CocoaPods, and
+     lifecycle guidance
+   - if no exact native changelog exists, mark native changelog confidence as
+     `weak` and require package metadata plus runtime validation
+6. Cross-mediation and cross-platform canary source:
+   - Google AdMob / Google Ad Manager mediation adapter changelog for the same
+     network
+   - Unity LevelPlay network changelog for the same network
+   - official Flutter, React Native, Unity, or native plugin changelog that
+     wraps the same Android/iOS SDK version
+7. Runtime validation source:
    - AppLovin Integration Manager current/latest view
    - AppLovin Mediation Debugger on device or representative build
 
@@ -126,7 +139,10 @@ For MAX core updates, compare the current and candidate versions across:
 For mediator updates, compare Android and iOS separately across:
 - AppLovin adapter changelog interval from current native adapter to candidate native adapter
 - Maven POM or CocoaPods spec dependency deltas
-- underlying network SDK release notes when the adapter crosses a native SDK major or behavior-sensitive line
+- native producer release notes for the underlying network SDK, especially when
+  the adapter crosses a native SDK major or behavior-sensitive line
+- cross-mediation canaries when native producer notes are missing, weak, or too
+  generic
 - SKAdNetwork, Info.plist, privacy manifest, Android manifest, permission, min OS, and Gradle/CocoaPods deltas
 
 Hard reject or require an implementation plan when:
