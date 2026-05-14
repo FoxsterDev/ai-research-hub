@@ -3,7 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
-REPO_ROOT="${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-$(cd "$AIROOT_PATH/.." && pwd)}"
 INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
 SERVER_PATH="${XUUNITY_LIGHT_UNITY_MCP_SERVER:-$INSTALL_DIR/server.py}"
 RUN_PATH="$INSTALL_DIR/run.sh"
@@ -14,6 +13,33 @@ RUNTIME_DEFAULTS_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templat
 PACKAGE_NAME="com.xuunity.light-mcp"
 PACKAGE_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/unity-package"
 COMPACT_SUMMARY="false"
+
+resolve_repo_root() {
+  if [[ -n "${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-}" ]]; then
+    cd "$XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT" && pwd
+    return 0
+  fi
+
+  local candidate
+  candidate="$(cd "$AIROOT_PATH/.." && pwd)"
+  if [[ -d "$candidate/AIOutput" || -d "$candidate/AIModules" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate="$(pwd)"
+  while [[ "$candidate" != "/" ]]; do
+    if [[ -d "$candidate/AIRoot" && ( -d "$candidate/AIOutput" || -d "$candidate/AIModules" ) ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    candidate="$(dirname "$candidate")"
+  done
+
+  cd "$AIROOT_PATH/.." && pwd
+}
+
+REPO_ROOT="$(resolve_repo_root)"
 
 require_command() {
   local command_name="$1"

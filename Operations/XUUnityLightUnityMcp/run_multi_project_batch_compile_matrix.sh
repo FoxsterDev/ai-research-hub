@@ -3,13 +3,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
-if [[ -n "${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-}" ]]; then
-  REPO_ROOT="$(cd "$XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT" && pwd)"
-elif [[ -d "$AIROOT_PATH/../AIOutput" || -d "$AIROOT_PATH/../AIModules" ]]; then
-  REPO_ROOT="$(cd "$AIROOT_PATH/.." && pwd)"
-else
-  REPO_ROOT="$(pwd)"
-fi
 WRAPPER_PATH="${XUUNITY_LIGHT_UNITY_MCP_WRAPPER:-$SCRIPT_DIR/xuunity_light_unity_mcp.sh}"
 
 PARALLELISM=4
@@ -17,6 +10,33 @@ CLOSE_LIVE_EDITORS="true"
 KEEP_RESULTS="true"
 RESULTS_DIR=""
 PROJECT_ROOTS=()
+
+resolve_repo_root() {
+  if [[ -n "${XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT:-}" ]]; then
+    cd "$XUUNITY_LIGHT_UNITY_MCP_REPO_ROOT" && pwd
+    return 0
+  fi
+
+  local candidate
+  candidate="$(cd "$AIROOT_PATH/.." && pwd)"
+  if [[ -d "$candidate/AIOutput" || -d "$candidate/AIModules" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  candidate="$(pwd)"
+  while [[ "$candidate" != "/" ]]; do
+    if [[ -d "$candidate/AIRoot" && ( -d "$candidate/AIOutput" || -d "$candidate/AIModules" ) ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+    candidate="$(dirname "$candidate")"
+  done
+
+  cd "$AIROOT_PATH/.." && pwd
+}
+
+REPO_ROOT="$(resolve_repo_root)"
 
 usage() {
   cat <<'EOF'
