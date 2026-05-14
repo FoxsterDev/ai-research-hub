@@ -9,6 +9,7 @@ Route generated outputs into the correct project or host-repo destination.
 - Code reviews, feature reviews, native reviews, git-change reviews, and test-quality reviews -> `Assets/AIOutput/CodeReviews/`
 - Architecture notes -> `Assets/AIOutput/Architecture/`
 - SDK reviews -> `Assets/AIOutput/SDKReviews/`
+- SDK update research reports -> `Assets/AIOutput/SDKReviews/`
 - Early-stage knowledge -> `Assets/AIOutput/KnowledgeDrafts/`
 - Incident writeups -> `Assets/AIOutput/IncidentReports/`
 - Task audit notes -> `AIOutput/Reports/Tasks/`
@@ -27,6 +28,7 @@ Route generated outputs into the correct project or host-repo destination.
 - `reviews/test_quality_review.md` -> `Assets/AIOutput/CodeReviews/`
 - `reviews/sdk_code_review.md` -> `Assets/AIOutput/SDKReviews/`
 - `reviews/sdk_breakage_review.md` -> `Assets/AIOutput/SDKReviews/`
+- `tasks/sdk_update_research.md` -> `Assets/AIOutput/SDKReviews/`
 - `reviews/architecture_review.md` -> `Assets/AIOutput/Architecture/`
 - `reviews/delivery_risk_review.md` -> `Assets/AIOutput/Audits/`
 - `reviews/release_readiness_review.md` -> `Assets/AIOutput/Audits/`

@@ -46,6 +46,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `tasks/validation_plan.md`
 - `tasks/rollout_plan.md`
 - `tasks/feature_development.md`
+- `tasks/sdk_update_research.md`
 - `tasks/change_delivery.md`
 - `tasks/code_review.md`
 - `tasks/sdk_integration.md`
@@ -135,6 +136,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/risk_classification.md`
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
+- `knowledge/vendors/appsflyer.md`
 - `knowledge/review_quality_scoring.md`
 - `knowledge/request_recovery.md`
 - `knowledge/severity_matrix.md`
@@ -243,6 +245,7 @@ Recommended short commands:
 - `xuunity feature presenter this flow`
 - `xuunity rollout plan this feature`
 - `xuunity feature rollout plan this flow`
+- `xuunity sdk discover AppsFlyer`
 - `xuunity extract knowledge`
 - `xuunity extract this source`
 - `xuunity extract implementation pattern`

@@ -136,6 +136,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/request_recovery.md` when task text or inspected code mentions structured error bodies on non-2xx responses, `HttpResponseCode`, `RawResponse`, application error codes, request retry after auth/session recovery, response cache invalidation, stale persisted identity/session state, idempotency keys, safe replay, or full transport/application error contracts.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
+- Load the matching `knowledge/vendors/<vendor>.md` profile when `xuunity sdk discover <Vendor>` or another SDK update research task targets a vendor with a public profile.
 
 ## Skill Routing Hints
 - If the task mentions `PrimeTween`, `DOTween`, tween sequences, UI fade or scale transitions, or null or destroyed tween targets, load the narrowest relevant file from `skills/ui_tweens/`.
@@ -256,6 +257,13 @@ Interpret short commands by intent:
 - `xuunity implementation plan ...` or `xuunity feature plan ...` -> `tasks/implementation_plan.md`
 - `xuunity validation plan ...` or `xuunity feature validation ...` -> `tasks/validation_plan.md`
 - `xuunity rollout plan ...` or `xuunity feature rollout plan ...` -> `tasks/rollout_plan.md`
+- `xuunity sdk discover <Vendor> ...`, `xuunity sdk check <Vendor> ...`, or `xuunity sdk scout <Vendor> ...` -> `tasks/sdk_update_research.md`
+  - this is the canonical one-command SDK update candidate research flow
+  - if the command includes `for <Project>`, resolve that project explicitly
+  - if no project is named, use the active resolved project or the Unity project that owns the current working directory
+  - if the workspace is a multi-project monorepo root and no project is resolved, ask one short clarification question
+  - load `knowledge/sdk_stability_scoring.md`, `reviews/policy_packs/sdk_changes.md`, `skills/sdk/discovery_and_inventory.md`, and the matching `knowledge/vendors/<vendor>.md` profile when available
+  - save the resulting research report before returning the final recommendation
 - `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` -> `tasks/change_delivery.md`
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
@@ -292,8 +300,8 @@ Interpret short commands by intent:
     - `reviews/policy_packs/ui_heavy_changes.md`
   - prefer one aggregate report with canonical merged findings unless the user explicitly asks for per-protocol reports
 - `xuunity review ...` -> `tasks/code_review.md`
-- `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build or review
 - `xuunity sdk breakage review ...` -> `reviews/sdk_breakage_review.md`
+- `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build, update, or review
 - `xuunity plugin ...` or `xuunity native ...` -> `tasks/native_plugin_work.md` or `reviews/native_plugin_review.md` based on intent
 - `xuunity system extract review artifact ...` -> `utilities/review_artifact_extract.md`
 - `xuunity system merge review artifacts ...` -> `utilities/review_artifact_merge.md`
