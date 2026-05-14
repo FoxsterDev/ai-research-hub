@@ -33,6 +33,7 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - For build-sensitive questions, trust generated outputs above source-only reasoning when both are available.
 - If the issue depends on postprocess mutation or build output shaping, inspect generated outputs first instead of concluding from source manifests, processors, or editor settings alone.
 - Treat `scenario_already_running` or equivalent serialization signals as lane-contract evidence, not as generic flaky transport failure.
+- When using ordered Unity MCP scenario validation, follow `knowledge/mcp_scenario_authoring.md` for scenario step order and settle boundaries after mutating hooks.
 - If a validation lane can start work but cannot provide trustworthy final accounting for the claim, downgrade that lane's evidence strength and keep the validation gap explicit.
 
 ## Preflight
