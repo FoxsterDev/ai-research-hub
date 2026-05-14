@@ -616,6 +616,30 @@ def recover_project_bridge_for_reconciliation(
     return recovery
 
 
+def maybe_fail_fast_offline_ensure_ready_without_open(
+    project_root: Path,
+    discovery: dict[str, Any],
+) -> None:
+    if str(discovery.get("reconciliation_case") or "") != "host_launchable_not_active":
+        return
+
+    next_action = str(discovery.get("reconciliation_recommended_next_action") or "open_editor_or_ensure_ready")
+    recovery_command = recommended_recovery_command_for_project(project_root, next_action)
+    details = dict(discovery)
+    details.update({
+        "fail_fast_reason": "ensure_ready_without_open_editor_offline",
+        "recommended_next_action": next_action,
+        "recommended_recovery_command": recovery_command,
+    })
+    message = (
+        "No matching Unity editor is running for this project, so plain ensure-ready cannot observe a bridge. "
+        "Run ensure-ready with --open-editor to start the project editor."
+    )
+    if recovery_command:
+        message += f" next_step: {recovery_command}"
+    raise ToolInvocationError("editor_not_running", message, details)
+
+
 def build_discovery_status_summary_for_error(
     project_root: Path,
     exc: ToolInvocationError | None = None,
@@ -3006,9 +3030,14 @@ def cmd_ensure_ready(args):
     }
     payload["discovery"] = build_project_discovery_report(project_root)
 
-    current_state = current_project_context_bridge_state(project_root)
-
     try:
+        if not args.open_editor:
+            maybe_fail_fast_offline_ensure_ready_without_open(
+                project_root,
+                payload["discovery"],
+            )
+        current_state = current_project_context_bridge_state(project_root)
+
         if args.open_editor and bridge_state_is_ready(current_state, args.heartbeat_max_age_seconds):
             payload["launch"] = {
                 "reused_existing_editor": True,
@@ -3028,6 +3057,8 @@ def cmd_ensure_ready(args):
             editor_log_path=log_path,
         )
     except ToolInvocationError as exc:
+        if str(exc.details.get("fail_fast_reason") or "") == "ensure_ready_without_open_editor_offline":
+            raise
         raise enrich_tool_invocation_error_with_discovery(project_root, exc)
 
     payload["bridge_state"] = state
