@@ -229,6 +229,8 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     return ProcessNestedOperationStep("unity.health.probe", "{}", stepResult);
                 case "scene_snapshot":
                     return ProcessNestedOperationStep("unity.scene.snapshot", "{}", stepResult);
+                case "assert_scene":
+                    return ProcessAssertSceneStep(step, stepResult);
                 case "project_refresh":
                     return ProcessProjectRefreshStep(state, step, stepResult);
                 case "console_tail":
@@ -354,6 +356,44 @@ namespace XUUnity.LightMcp.Editor.Helpers
             };
 
             return ProcessNestedOperationStep("unity.console.tail", JsonUtility.ToJson(args), stepResult);
+        }
+
+        static bool ProcessAssertSceneStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
+        {
+            var args = new XUUnityLightMcpSceneAssertArgs
+            {
+                expectedName = step.expectedName,
+                expectedPath = step.expectedPath,
+                requiredRootNames = step.requiredRootNames,
+                allowDirty = step.allowDirty,
+            };
+
+            var response = ExecuteNestedOperation("unity.scene.assert", JsonUtility.ToJson(args));
+            ApplyNestedResponse(stepResult, response, DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            if (response == null || response.status != "ok")
+            {
+                return true;
+            }
+
+            var payload = string.IsNullOrWhiteSpace(response.payload_json)
+                ? null
+                : JsonUtility.FromJson<XUUnityLightMcpSceneAssertPayload>(response.payload_json);
+
+            stepResult.payload_json = response.payload_json ?? "";
+            if (payload != null && payload.passed)
+            {
+                stepResult.status = "passed";
+                stepResult.outcome = "scene_asserted";
+                return true;
+            }
+
+            stepResult.status = "failed";
+            stepResult.error_code = "scene_assertion_failed";
+            stepResult.error_message = string.IsNullOrWhiteSpace(payload?.failure_reason)
+                ? "Scene assertion failed."
+                : payload.failure_reason;
+            stepResult.outcome = "scene_assertion_failed";
+            return true;
         }
 
         static bool ProcessPlayModeSetStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
@@ -1408,6 +1448,17 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 case "health_probe":
                 case "scene_snapshot":
                 case "project_refresh":
+                    break;
+                case "assert_scene":
+                    if (string.IsNullOrWhiteSpace(step.expectedName)
+                        && string.IsNullOrWhiteSpace(step.expectedPath)
+                        && (step.requiredRootNames == null || step.requiredRootNames.Length == 0)
+                        && step.allowDirty)
+                    {
+                        AddIssue(payload, "error", "missing_scene_expectation",
+                            "assert_scene requires expectedName, expectedPath, requiredRootNames, or allowDirty=false.",
+                            stepId, index);
+                    }
                     break;
                 case "console_tail":
                     if (step.limit <= 0)

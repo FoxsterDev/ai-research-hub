@@ -73,6 +73,11 @@ OPERATION_LIFECYCLE_POLICIES: dict[str, dict[str, Any]] = {
         "retry_on_transport_response_missing": True,
         "retry_on_transport_connect_failed": True,
     },
+    "unity.scene.assert": {
+        "retry_on_lifecycle_reset": True,
+        "retry_on_transport_response_missing": True,
+        "retry_on_transport_connect_failed": True,
+    },
     "unity.scenario.validate": {
         "retry_on_lifecycle_reset": True,
         "retry_on_transport_response_missing": True,
@@ -144,6 +149,7 @@ SCENARIO_STEP_SCHEMA: dict[str, Any] = {
                 "status",
                 "health_probe",
                 "scene_snapshot",
+                "assert_scene",
                 "project_refresh",
                 "console_tail",
                 "playmode_set",
@@ -174,6 +180,13 @@ SCENARIO_STEP_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": ["edit", "playing", "paused", "transitioning"],
         },
+        "expectedName": {"type": "string"},
+        "expectedPath": {"type": "string"},
+        "requiredRootNames": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "allowDirty": {"type": "boolean", "default": True},
         "limit": {
             "type": "integer",
             "minimum": 1,
@@ -423,6 +436,25 @@ TOOLS: dict[str, dict[str, Any]] = {
             "type": "object",
             "properties": {
                 "projectRoot": {"type": "string"},
+                "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
+            },
+            "required": ["projectRoot"]
+        }
+    },
+    "unity_scene_assert": {
+        "bridgeOperation": "unity.scene.assert",
+        "description": "Assert the active Unity scene name, path, root objects, or dirty state and return a pass/fail payload.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "projectRoot": {"type": "string"},
+                "expectedName": {"type": "string"},
+                "expectedPath": {"type": "string"},
+                "requiredRootNames": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+                "allowDirty": {"type": "boolean", "default": True},
                 "timeoutMs": {"type": "integer", "default": 5000, "minimum": 1000}
             },
             "required": ["projectRoot"]

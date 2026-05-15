@@ -1741,6 +1741,21 @@ def cmd_request_build_target_switch(args):
     print_json(response)
 
 
+def cmd_request_scene_assert(args):
+    response = invoke_bridge(
+        args.project_root,
+        "unity.scene.assert",
+        {
+            "expectedName": args.expected_name or "",
+            "expectedPath": args.expected_path or "",
+            "requiredRootNames": args.required_root_name or None,
+            "allowDirty": args.allow_dirty,
+        },
+        args.timeout_ms,
+    )
+    print_json(response)
+
+
 def cmd_request_editor_quit(args):
     response = request_editor_quit(args.project_root, args.timeout_ms)
     print_json(response)
@@ -3774,6 +3789,15 @@ def build_parser():
     build_target_switch_cmd.add_argument("--target", required=True)
     build_target_switch_cmd.add_argument("--timeout-ms", type=int, default=120000)
     build_target_switch_cmd.set_defaults(func=cmd_request_build_target_switch)
+
+    scene_assert_cmd = sub.add_parser("request-scene-assert", help="Assert active Unity scene name, path, root objects, or dirty state through the active bridge transport.")
+    scene_assert_cmd.add_argument("--project-root", required=True)
+    scene_assert_cmd.add_argument("--expected-name", default="")
+    scene_assert_cmd.add_argument("--expected-path", default="")
+    scene_assert_cmd.add_argument("--required-root-name", action="append", default=[])
+    scene_assert_cmd.add_argument("--allow-dirty", dest="allow_dirty", action=argparse.BooleanOptionalAction, default=True)
+    scene_assert_cmd.add_argument("--timeout-ms", type=int, default=5000)
+    scene_assert_cmd.set_defaults(func=cmd_request_scene_assert)
 
     editor_quit_cmd = sub.add_parser("request-editor-quit", help="Send a direct unity.editor.quit request through the active bridge transport.")
     editor_quit_cmd.add_argument("--project-root", required=True)

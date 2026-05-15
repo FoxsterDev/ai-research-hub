@@ -408,6 +408,33 @@ namespace XUUnity.LightMcp.Editor.Core
     }
 
     [Serializable]
+    internal sealed class XUUnityLightMcpSceneAssertArgs
+    {
+        public string expectedName = "";
+        public string expectedPath = "";
+        public string[] requiredRootNames = null;
+        public bool allowDirty = true;
+    }
+
+    [Serializable]
+    internal sealed class XUUnityLightMcpSceneAssertPayload
+    {
+        public string backend_id = "xuunity.light_unity_mcp";
+        public string project_root = "";
+        public string status = "failed";
+        public bool passed;
+        public string failure_reason = "";
+        public string expected_name = "";
+        public string expected_path = "";
+        public bool allow_dirty = true;
+        public XUUnityLightMcpSceneData active_scene = new();
+        public List<XUUnityLightMcpRootObject> root_objects = new();
+        public List<string> required_root_names = new();
+        public List<string> missing_root_names = new();
+        public string validation_evidence = "unity_mcp";
+    }
+
+    [Serializable]
     internal sealed class XUUnityLightMcpTestFailure
     {
         public string name = "";
@@ -753,6 +780,10 @@ namespace XUUnity.LightMcp.Editor.Core
         public double durationSeconds;
         public double timeoutSeconds = 10.0d;
         public string expectedPlaymodeState = "";
+        public string expectedName = "";
+        public string expectedPath = "";
+        public string[] requiredRootNames = null;
+        public bool allowDirty = true;
         public int limit = 50;
         public string[] includeTypes = null;
         public string fileName = "";

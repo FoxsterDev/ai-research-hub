@@ -168,6 +168,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     "unity.sdk.dependency.verify",
                     "unity.console.tail",
                     "unity.scene.snapshot",
+                    "unity.scene.assert",
                     "unity.scenario.validate",
                     "unity.scenario.run",
                     "unity.scenario.result"
