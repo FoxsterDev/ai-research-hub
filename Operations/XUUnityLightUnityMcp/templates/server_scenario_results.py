@@ -63,6 +63,17 @@ def _scenario_matches(payload: dict[str, Any], scenario_name: str) -> bool:
     return candidate.lower() == scenario_name.strip().lower()
 
 
+def _run_id_matches(payload: dict[str, Any], run_id: str) -> bool:
+    if not run_id:
+        return True
+    candidate = str(payload.get("run_id") or "").strip()
+    return candidate == run_id.strip()
+
+
+def _is_terminal_status(status: Any, scenario_terminal_statuses: set[str]) -> bool:
+    return isinstance(status, str) and status in scenario_terminal_statuses
+
+
 def _result_sort_key(
     path: Path,
     payload: dict[str, Any],
@@ -201,3 +212,65 @@ def latest_persisted_scenario_result_summary(
     summary["results_root"] = str(listing.get("results_root") or "")
     summary["total_results"] = int(listing.get("total_results") or 0)
     return summary
+
+
+def reconcile_persisted_scenario_result(
+    project_root: Path,
+    *,
+    scenario_results_dir: Callable[[Path], Path],
+    read_json: Callable[[Path], Any],
+    parse_utc_timestamp: Callable[[Any], float | None],
+    scenario_terminal_statuses: set[str],
+    run_id: str = "",
+    scenario_name: str = "",
+) -> dict[str, Any]:
+    root = scenario_results_dir(project_root)
+    all_results: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(root.glob("*.json")):
+        payload = read_persisted_scenario_result_payload(path, read_json=read_json)
+        if payload is None:
+            continue
+        all_results.append((path.resolve(), payload))
+
+    def sorted_matches(matches: list[tuple[Path, dict[str, Any]]]) -> list[tuple[Path, dict[str, Any]]]:
+        return sorted(
+            matches,
+            key=lambda item: _result_sort_key(item[0], item[1], parse_utc_timestamp=parse_utc_timestamp),
+            reverse=True,
+        )
+
+    lookup_strategy = "none"
+    matches: list[tuple[Path, dict[str, Any]]] = []
+    if run_id:
+        lookup_strategy = "run_id"
+        matches = sorted_matches([item for item in all_results if _run_id_matches(item[1], run_id)])
+    if not matches and scenario_name:
+        lookup_strategy = "scenario_name"
+        matches = sorted_matches([item for item in all_results if _scenario_matches(item[1], scenario_name)])
+
+    terminal_matches = [
+        item
+        for item in matches
+        if _is_terminal_status(str(item[1].get("status") or ""), scenario_terminal_statuses)
+    ]
+    selected = terminal_matches[0] if terminal_matches else (matches[0] if matches else None)
+    selected_path = selected[0] if selected else None
+    selected_payload = dict(selected[1]) if selected else {}
+    selected_status = str(selected_payload.get("status") or "")
+    selected_terminal = _is_terminal_status(selected_status, scenario_terminal_statuses)
+
+    if selected_path is not None:
+        selected_payload.setdefault("project_root", str(project_root))
+        selected_payload["result_path"] = str(selected_payload.get("result_path") or selected_path)
+
+    return {
+        "lookup_found": selected is not None,
+        "lookup_strategy": lookup_strategy if selected is not None else "none",
+        "terminal_result_found": selected_terminal,
+        "status": selected_status,
+        "result_path": str(selected_path or ""),
+        "payload": selected_payload,
+        "matched_result_count": len(matches),
+        "terminal_result_count": len(terminal_matches),
+        "results_root": str(root.resolve()),
+    }

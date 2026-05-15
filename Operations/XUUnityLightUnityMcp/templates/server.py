@@ -150,6 +150,7 @@ from server_runtime_config import (
 from server_scenario_results import (
     latest_persisted_scenario_result_summary,
     list_persisted_scenario_result_summaries,
+    reconcile_persisted_scenario_result as reconcile_persisted_scenario_result_data,
 )
 from server_summaries import (
     build_scenario_result_summary,
@@ -1052,7 +1053,24 @@ def wait_for_scenario_result(
         bridge_response_to_tool_result=bridge_response_to_tool_result,
         normalize_scenario_payload=normalize_scenario_payload,
         apply_discovery_to_scenario_payload=apply_discovery_to_scenario_payload,
+        reconcile_persisted_scenario_result=reconcile_persisted_scenario_result,
         tool_invocation_error_type=ToolInvocationError,
+    )
+
+
+def reconcile_persisted_scenario_result(
+    project_root: Path,
+    run_id: str,
+    scenario_name: str,
+) -> dict[str, Any]:
+    return reconcile_persisted_scenario_result_data(
+        project_root,
+        scenario_results_dir=scenario_results_dir,
+        read_json=read_json,
+        parse_utc_timestamp=parse_utc_timestamp,
+        scenario_terminal_statuses=SCENARIO_TERMINAL_STATUSES,
+        run_id=run_id,
+        scenario_name=scenario_name,
     )
 
 def is_terminal_scenario_status(status: Any) -> bool:

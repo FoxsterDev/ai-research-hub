@@ -77,6 +77,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public string active_test_request_id = "";
         public string active_test_operation = "";
         public string active_test_run_phase = "";
+        public string active_test_started_at_utc = "";
         public string active_test_last_started_test = "";
         public string active_test_last_finished_test = "";
         public string active_test_last_progress_at_utc = "";

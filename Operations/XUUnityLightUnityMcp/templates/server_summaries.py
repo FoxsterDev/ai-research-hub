@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -23,6 +24,20 @@ def normalize_scenario_payload(payload: dict[str, Any], scenario_terminal_status
     normalized["terminal_status"] = status if terminal else ""
     normalized["terminal_statuses"] = sorted(scenario_terminal_statuses)
     return normalized
+
+
+def utc_age_seconds(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return max(0.0, time.time() - parsed.timestamp())
+    except Exception:
+        return None
 
 
 def build_status_summary(
@@ -48,6 +63,8 @@ def build_status_summary(
 
     heartbeat_age = heartbeat_age_seconds(effective)
     busy_reason = derive_busy_reason(effective)
+    active_test_started_age = utc_age_seconds(effective.get("active_test_started_at_utc"))
+    active_test_progress_age = utc_age_seconds(effective.get("active_test_last_progress_at_utc"))
     summary = {
         "action": "unity_status_summary",
         "project_root": str(project_root),
@@ -67,9 +84,12 @@ def build_status_summary(
         "active_test_request_id": str(effective.get("active_test_request_id") or ""),
         "active_test_operation": str(effective.get("active_test_operation") or ""),
         "active_test_run_phase": str(effective.get("active_test_run_phase") or ""),
+        "active_test_started_at_utc": str(effective.get("active_test_started_at_utc") or ""),
         "active_test_last_started_test": truncate_text(effective.get("active_test_last_started_test") or ""),
         "active_test_last_finished_test": truncate_text(effective.get("active_test_last_finished_test") or ""),
         "active_test_last_progress_at_utc": str(effective.get("active_test_last_progress_at_utc") or ""),
+        "active_test_last_progress_age_seconds": None if active_test_progress_age is None else round(active_test_progress_age, 3),
+        "active_test_elapsed_runtime_seconds": None if active_test_started_age is None else round(active_test_started_age, 3),
         "active_test_runtime_timeout_ms": int(effective.get("active_test_runtime_timeout_ms") or 0),
         "last_completed_operation": str(effective.get("last_completed_operation") or ""),
         "last_completed_operation_status": str(effective.get("last_completed_operation_status") or ""),
