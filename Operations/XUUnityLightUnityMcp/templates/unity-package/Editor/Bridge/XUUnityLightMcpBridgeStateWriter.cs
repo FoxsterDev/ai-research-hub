@@ -78,6 +78,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
                 active_test_request_id = activeTestRun?.request_id ?? "",
                 active_test_operation = activeTestRun?.operation ?? "",
                 active_test_run_phase = activeTestRun?.run_phase ?? "",
+                active_test_started_at_utc = activeTestRun?.started_at_utc ?? "",
                 active_test_last_started_test = activeTestRun?.last_started_test ?? "",
                 active_test_last_finished_test = activeTestRun?.last_finished_test ?? "",
                 active_test_last_progress_at_utc = activeTestRun?.last_progress_at_utc ?? "",

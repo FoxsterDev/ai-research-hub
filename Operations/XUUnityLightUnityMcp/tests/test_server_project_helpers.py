@@ -987,6 +987,165 @@ class ServerProjectHelperTests(unittest.TestCase):
         self.assertEqual(2, invoke_mock.call_count)
         recovery_mock.assert_called_once()
 
+    def test_wait_for_scenario_result_recovers_terminal_persisted_result_after_poll_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            results_root = project_root / "Library" / "XUUnityLightMcp" / "scenarios" / "results"
+            result_path = results_root / "run-1.json"
+            write_json(
+                result_path,
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-1",
+                    "scenario_name": "SampleScenario",
+                    "status": "passed",
+                    "started_at_utc": "2026-05-15T12:00:00Z",
+                    "completed_at_utc": "2026-05-15T12:00:02Z",
+                    "duration_seconds": 2.0,
+                    "steps": [],
+                },
+            )
+
+            with (
+                mock.patch.object(server, "current_project_context_discovery_details", return_value={}),
+                mock.patch.object(server, "invoke_bridge") as invoke_mock,
+            ):
+                payload = server.wait_for_scenario_result(
+                    project_root,
+                    "run-1",
+                    "SampleScenario",
+                    timeout_ms=0,
+                    poll_interval_ms=10,
+                )
+
+            invoke_mock.assert_not_called()
+            self.assertEqual("passed", payload["status"])
+            self.assertTrue(payload["scenario_result_reconciled_from_persisted"])
+            self.assertEqual("terminal_persisted_result_after_poll_timeout", payload["scenario_result_reconciliation_reason"])
+            self.assertEqual("run_id", payload["scenario_result_lookup_strategy"])
+            self.assertEqual(str(result_path.resolve()), payload["result_path"])
+            self.assertEqual("none", payload["recommended_next_action"])
+
+    def test_wait_for_scenario_result_timeout_reports_latest_persisted_recovery_command(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            results_root = project_root / "Library" / "XUUnityLightMcp" / "scenarios" / "results"
+            result_path = results_root / "run-1.json"
+            write_json(
+                result_path,
+                {
+                    "project_root": str(project_root),
+                    "run_id": "run-1",
+                    "scenario_name": "SampleScenario",
+                    "status": "running",
+                    "started_at_utc": "2026-05-15T12:00:00Z",
+                    "updated_at_utc": "2026-05-15T12:00:01Z",
+                    "steps": [],
+                },
+            )
+
+            with (
+                mock.patch.object(server, "current_project_context_discovery_details", return_value={}),
+                mock.patch.object(server, "enrich_tool_invocation_error_with_discovery", side_effect=lambda _, exc: exc),
+                mock.patch.object(server, "invoke_bridge") as invoke_mock,
+            ):
+                with self.assertRaises(ToolInvocationError) as raised:
+                    server.wait_for_scenario_result(
+                        project_root,
+                        "run-1",
+                        "SampleScenario",
+                        timeout_ms=0,
+                        poll_interval_ms=10,
+                    )
+
+            invoke_mock.assert_not_called()
+            self.assertEqual("scenario_wait_timeout", raised.exception.code)
+            details = raised.exception.details
+            self.assertTrue(details["persisted_scenario_result_lookup_found"])
+            self.assertFalse(details["persisted_scenario_result_terminal_found"])
+            self.assertEqual("running", details["latest_persisted_scenario_status"])
+            self.assertEqual(str(result_path.resolve()), details["latest_persisted_scenario_result_path"])
+            self.assertIn("request-scenario-result-summary", details["scenario_recovery_command"])
+            self.assertIn("--run-id run-1", details["scenario_recovery_command"])
+
+    def test_wait_for_scenario_result_reconciles_by_scenario_name_when_run_id_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            results_root = project_root / "Library" / "XUUnityLightMcp" / "scenarios" / "results"
+            write_json(
+                results_root / "other.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "other-run",
+                    "scenario_name": "OtherScenario",
+                    "status": "passed",
+                    "started_at_utc": "2026-05-15T12:00:00Z",
+                    "completed_at_utc": "2026-05-15T12:00:01Z",
+                    "steps": [],
+                },
+            )
+            write_json(
+                results_root / "sample.json",
+                {
+                    "project_root": str(project_root),
+                    "run_id": "sample-run",
+                    "scenario_name": "SampleScenario",
+                    "status": "failed",
+                    "started_at_utc": "2026-05-15T12:01:00Z",
+                    "completed_at_utc": "2026-05-15T12:01:03Z",
+                    "steps": [],
+                },
+            )
+
+            with (
+                mock.patch.object(server, "current_project_context_discovery_details", return_value={}),
+                mock.patch.object(server, "invoke_bridge") as invoke_mock,
+            ):
+                payload = server.wait_for_scenario_result(
+                    project_root,
+                    "",
+                    "SampleScenario",
+                    timeout_ms=0,
+                    poll_interval_ms=10,
+                )
+
+            invoke_mock.assert_not_called()
+            self.assertEqual("failed", payload["status"])
+            self.assertTrue(payload["scenario_result_reconciled_from_persisted"])
+            self.assertEqual("scenario_name", payload["scenario_result_lookup_strategy"])
+            self.assertEqual("sample-run", payload["run_id"])
+            self.assertEqual("inspect_persisted_scenario_failure", payload["recommended_next_action"])
+
+    def test_status_summary_reports_active_test_progress_age_and_elapsed_runtime(self) -> None:
+        summary = server.build_status_summary(
+            Path("/tmp/FakeProject"),
+            {
+                "editor_pid": 123,
+                "editor_running": True,
+                "mcp_reachable": True,
+                "active_test_request_id": "req-test",
+                "active_test_operation": "unity.tests.run_playmode",
+                "active_test_run_phase": "running",
+                "active_test_started_at_utc": "2026-05-15T12:00:00Z",
+                "active_test_last_started_test": "Package.PlayMode.Sample",
+                "active_test_last_progress_at_utc": "2026-05-15T12:00:10Z",
+                "active_test_runtime_timeout_ms": 240000,
+            },
+            read_best_effort_bridge_state=lambda _: {},
+            try_read_bridge_state=lambda _: {},
+            pid_is_alive=lambda _: True,
+            heartbeat_age_seconds=lambda _: 1.0,
+            derive_busy_reason=lambda _: "tests_running",
+            summarize_state_for_error=lambda _: "tests_running",
+        )
+
+        self.assertEqual("req-test", summary["active_test_request_id"])
+        self.assertEqual("running", summary["active_test_run_phase"])
+        self.assertEqual("2026-05-15T12:00:00Z", summary["active_test_started_at_utc"])
+        self.assertIsNotNone(summary["active_test_elapsed_runtime_seconds"])
+        self.assertIsNotNone(summary["active_test_last_progress_age_seconds"])
+        self.assertEqual(240000, summary["active_test_runtime_timeout_ms"])
+
     def test_run_in_project_request_lock_serializes_same_project_mutations(self) -> None:
         context = types.SimpleNamespace(request_lock=threading.Lock())
         entry_order: list[str] = []

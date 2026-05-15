@@ -38,6 +38,7 @@ def wait_for_scenario_result_data(
     bridge_response_to_tool_result: Callable[[dict[str, Any]], dict[str, Any]],
     normalize_scenario_payload: Callable[[dict[str, Any], set[str]], dict[str, Any]],
     apply_discovery_to_scenario_payload: Callable[[dict[str, Any], Path], dict[str, Any]],
+    reconcile_persisted_scenario_result: Callable[[Path, str, str], dict[str, Any]],
     tool_invocation_error_type: type,
 ) -> dict[str, Any]:
     started_at = time.time()
@@ -112,10 +113,33 @@ def wait_for_scenario_result_data(
 
         time.sleep(effective_poll_interval)
 
+    reconciliation = reconcile_persisted_scenario_result(project_root, run_id, scenario_name)
+    if bool(reconciliation.get("terminal_result_found")):
+        payload = dict(reconciliation.get("payload") or {})
+        payload = normalize_scenario_payload(payload, scenario_terminal_statuses)
+        payload["waited_for_terminal_state"] = True
+        payload["wait_duration_seconds"] = round(time.time() - started_at, 3)
+        payload["recovery_attempt_count"] = recovery_attempt_count
+        payload["scenario_result_reconciled_from_persisted"] = True
+        payload["scenario_result_reconciliation_reason"] = "terminal_persisted_result_after_poll_timeout"
+        payload["scenario_result_lookup_strategy"] = str(reconciliation.get("lookup_strategy") or "")
+        payload["scenario_result_matched_result_count"] = int(reconciliation.get("matched_result_count") or 0)
+        payload["scenario_result_terminal_result_count"] = int(reconciliation.get("terminal_result_count") or 0)
+        if payload.get("status") == "passed":
+            payload.setdefault("recommended_next_action", "none")
+        elif payload.get("status") == "failed":
+            payload.setdefault("recommended_next_action", "inspect_persisted_scenario_failure")
+        return apply_discovery_to_scenario_payload(payload, project_root)
+
     scenario_label = scenario_name or run_id or "unknown"
     suffix = ""
     if last_payload:
         suffix = f" Last observed status: {last_payload.get('status') or 'unknown'}."
+    recovery_command = (
+        f"xuunity_light_unity_mcp.sh request-scenario-result-summary --project-root {project_root} --run-id {run_id}"
+        if run_id
+        else f"xuunity_light_unity_mcp.sh request-scenario-result-latest --project-root {project_root} --scenario-name {scenario_name}"
+    )
     raise enrich_tool_invocation_error_with_discovery(
         project_root,
         tool_invocation_error_type(
@@ -126,6 +150,12 @@ def wait_for_scenario_result_data(
                 "scenario_name": scenario_name,
                 "last_observed_status": str((last_payload or {}).get("status") or ""),
                 "recovery_attempt_count": recovery_attempt_count,
+                "persisted_scenario_result_lookup_found": bool(reconciliation.get("lookup_found")),
+                "persisted_scenario_result_lookup_strategy": str(reconciliation.get("lookup_strategy") or ""),
+                "persisted_scenario_result_terminal_found": False,
+                "latest_persisted_scenario_status": str(reconciliation.get("status") or ""),
+                "latest_persisted_scenario_result_path": str(reconciliation.get("result_path") or ""),
+                "scenario_recovery_command": recovery_command,
             },
         ),
     )
