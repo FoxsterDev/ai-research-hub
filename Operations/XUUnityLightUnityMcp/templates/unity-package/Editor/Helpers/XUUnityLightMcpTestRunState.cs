@@ -24,6 +24,10 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     test_mode = testMode ?? "",
                     started_at_utc = UtcNow(),
                     request_timeout_ms = Math.Max(1000, requestTimeoutMs),
+                    runtime_timeout_ms = Math.Max(1000, requestTimeoutMs),
+                    run_phase = "submitted",
+                    last_progress_at_utc = "",
+                    timeout_classification = "",
                     completed_at_utc = "",
                     filter_summary = filterSummary ?? "",
                     response_handoff_state = "pending",
@@ -52,6 +56,21 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 }
 
                 return !string.IsNullOrWhiteSpace(state.request_id)
+                       && !string.Equals(state.response_handoff_state, "written", StringComparison.Ordinal);
+            }
+        }
+
+        public static bool TryLoadActive(out XUUnityLightMcpPersistedTestRunState state)
+        {
+            lock (Gate)
+            {
+                if (!TryLoadLocked(out state))
+                {
+                    return false;
+                }
+
+                return !string.IsNullOrWhiteSpace(state.request_id)
+                       && string.IsNullOrWhiteSpace(state.completed_at_utc)
                        && !string.Equals(state.response_handoff_state, "written", StringComparison.Ordinal);
             }
         }
@@ -89,6 +108,24 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 }
 
                 state.total = Math.Max(0, total);
+                state.run_phase = "started";
+                state.last_progress_at_utc = UtcNow();
+                PersistLocked(state);
+            }
+        }
+
+        public static void RecordTestStarted(string testName)
+        {
+            lock (Gate)
+            {
+                if (!TryLoadLocked(out var state))
+                {
+                    return;
+                }
+
+                state.run_phase = "running";
+                state.last_started_test = testName ?? "";
+                state.last_progress_at_utc = UtcNow();
                 PersistLocked(state);
             }
         }
@@ -102,6 +139,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
                     return;
                 }
 
+                state.run_phase = "running";
+                state.last_finished_test = testName ?? "";
+                state.last_progress_at_utc = UtcNow();
                 switch (testStatus)
                 {
                     case TestStatus.Passed:
@@ -138,6 +178,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
                 ApplyFinalSummaryLocked(state, finalSummary);
                 state.completed_at_utc = UtcNow();
+                state.run_phase = string.Equals(state.run_phase, "timed_out", StringComparison.Ordinal)
+                    ? "settled_after_timeout"
+                    : "completed";
                 state.completion_basis = completionBasis ?? "";
                 state.playmode_state_after_settle = playmodeStateAfterSettle ?? "";
                 state.response_handoff_state = "pending_write";
@@ -180,6 +223,9 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 try
                 {
                     XUUnityLightMcpResponseWriter.Write(BuildResponseLocked(state));
+                    state.response_handoff_state = "written";
+                    state.run_phase = "response_written";
+                    PersistResultLocked(state);
                     DeleteLocked();
                     return true;
                 }
@@ -194,6 +240,37 @@ namespace XUUnity.LightMcp.Editor.Helpers
         {
             lock (Gate)
             {
+                DeleteLocked();
+            }
+        }
+
+        public static void MarkResponseWrittenAndRelease()
+        {
+            lock (Gate)
+            {
+                if (TryLoadLocked(out var state))
+                {
+                    state.response_handoff_state = "written";
+                    state.run_phase = "response_written";
+                    PersistResultLocked(state);
+                }
+
+                DeleteLocked();
+            }
+        }
+
+        public static void MarkAbandonedAndRelease(string timeoutClassification)
+        {
+            lock (Gate)
+            {
+                if (TryLoadLocked(out var state))
+                {
+                    state.run_phase = "abandoned";
+                    state.timeout_classification = timeoutClassification ?? "";
+                    state.response_handoff_state = "released";
+                    PersistResultLocked(state);
+                }
+
                 DeleteLocked();
             }
         }
@@ -229,6 +306,13 @@ namespace XUUnity.LightMcp.Editor.Helpers
                 completed_at_utc = state.completed_at_utc ?? "",
                 completion_basis = state.completion_basis ?? "",
                 playmode_state_after_settle = state.playmode_state_after_settle ?? "",
+                run_phase = state.run_phase ?? "",
+                last_progress_at_utc = state.last_progress_at_utc ?? "",
+                timeout_classification = state.timeout_classification ?? "",
+                runtime_timeout_ms = Math.Max(0, state.runtime_timeout_ms),
+                last_started_test = state.last_started_test ?? "",
+                last_finished_test = state.last_finished_test ?? "",
+                lifecycle_churn_observed = state.lifecycle_churn_observed,
                 validation_evidence = "unity_mcp"
             };
         }
@@ -259,6 +343,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
                 state = UnityEngine.JsonUtility.FromJson<XUUnityLightMcpPersistedTestRunState>(
                     File.ReadAllText(XUUnityLightMcpFileIpcPaths.ActiveTestRunStatePath));
+                NormalizeLoadedStateLocked(state);
                 return state != null;
             }
             catch
@@ -354,6 +439,20 @@ namespace XUUnity.LightMcp.Editor.Helpers
             File.WriteAllText(
                 XUUnityLightMcpFileIpcPaths.ActiveTestRunStatePath,
                 UnityEngine.JsonUtility.ToJson(state, true));
+            PersistResultLocked(state);
+        }
+
+        static void PersistResultLocked(XUUnityLightMcpPersistedTestRunState state)
+        {
+            if (state == null || string.IsNullOrWhiteSpace(state.request_id))
+            {
+                return;
+            }
+
+            XUUnityLightMcpFileIpcPaths.EnsureDirectories();
+            File.WriteAllText(
+                XUUnityLightMcpFileIpcPaths.TestRunResultPath(state.request_id),
+                UnityEngine.JsonUtility.ToJson(state, true));
         }
 
         static void DeleteLocked()
@@ -396,6 +495,26 @@ namespace XUUnity.LightMcp.Editor.Helpers
         static string UtcNow()
         {
             return DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
+        }
+
+        static void NormalizeLoadedStateLocked(XUUnityLightMcpPersistedTestRunState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(state.run_phase))
+            {
+                state.run_phase = string.IsNullOrWhiteSpace(state.completed_at_utc) ? "submitted" : "completed";
+            }
+
+            if (state.runtime_timeout_ms <= 0)
+            {
+                state.runtime_timeout_ms = Math.Max(1000, state.request_timeout_ms);
+            }
+
+            state.failures ??= new System.Collections.Generic.List<XUUnityLightMcpTestFailure>();
         }
     }
 
@@ -465,6 +584,12 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         public void TestStarted(ITestAdaptor test)
         {
+            if (!_active || test == null || test.IsSuite)
+            {
+                return;
+            }
+
+            XUUnityLightMcpTestRunState.RecordTestStarted(test.FullName ?? test.Name ?? "");
         }
 
         public void TestFinished(ITestResultAdaptor result)

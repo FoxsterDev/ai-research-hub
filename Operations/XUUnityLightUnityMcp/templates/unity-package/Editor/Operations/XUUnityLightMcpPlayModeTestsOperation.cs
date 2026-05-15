@@ -84,7 +84,7 @@ namespace XUUnity.LightMcp.Editor.Operations
                 {
                     ActiveRequestId = null;
                     Callbacks.Clear();
-                    XUUnityLightMcpTestRunState.Clear();
+                    XUUnityLightMcpTestRunState.MarkAbandonedAndRelease("timeout_before_test_start");
                     return XUUnityLightMcpResponseWriter.Error(
                         request.request_id,
                         "test_execution_failed",
@@ -162,7 +162,7 @@ namespace XUUnity.LightMcp.Editor.Operations
                 try
                 {
                     XUUnityLightMcpResponseWriter.Write(response);
-                    XUUnityLightMcpTestRunState.Clear();
+                    XUUnityLightMcpTestRunState.MarkResponseWrittenAndRelease();
                 }
                 catch
                 {

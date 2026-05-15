@@ -162,13 +162,17 @@ Mini-playbook after wrapper churn:
 5. if the `request_id` is not known, run:
    `request-latest-status --project-root <project> --operation <operation>`
 6. if the recovered request completed, use that disposition and continue
-7. only retry after the compact recovery step says the original operation did
+7. for `unity.tests.run_playmode`, read `test_verdict`,
+   `result_payload_source`, counts, first failures, progress, timeout
+   classification, and cleanup guidance; wrapper `completion_status=ok` alone
+   is not a PlayMode pass
+8. only retry after the compact recovery step says the original operation did
    not complete
-8. if the original failure was `tests_busy`, prefer
+9. if the original failure was `tests_busy`, prefer
    `request-latest-status --operation unity.tests.run_editmode` or
    `request-latest-status --operation unity.tests.run_playmode` before starting
    a second test run
-9. for lifecycle-reset recovery, base retry decisions on structured JSON truth
+10. for lifecycle-reset recovery, base retry decisions on structured JSON truth
    such as `recommended_next_action`, `result_trust_class`, and
    `bridge_stabilization.safe_to_retry`, not only shell exit behavior
 

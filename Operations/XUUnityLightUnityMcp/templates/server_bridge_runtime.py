@@ -54,6 +54,10 @@ def response_path(project_root: Path, request_id: str) -> Path:
     return outbox_dir(project_root) / f"{request_id}.json"
 
 
+def test_result_path(project_root: Path, request_id: str) -> Path:
+    return bridge_root(project_root) / "state" / "test_results" / f"{request_id}.json"
+
+
 def logs_dir(project_root: Path) -> Path:
     return bridge_root(project_root) / "logs"
 
@@ -847,10 +851,34 @@ def build_request_final_status(
         )
 
         if request_completed or recovery_gap_detected or reclassified_terminal or time.time() >= deadline:
+            response_payload = peek_response_payload(project_root, request_id)
+            effective_operation = str(summary.get("operation") or operation or "")
+            if is_test_operation(effective_operation):
+                persisted_test_result = read_persisted_test_result(project_root, request_id)
+                verdict_summary = build_test_verdict_summary(
+                    project_root=project_root,
+                    request_id=request_id,
+                    operation=effective_operation,
+                    response_payload=response_payload,
+                    persisted_test_result=persisted_test_result,
+                    request_submitted=request_submitted,
+                    request_started=request_started,
+                    request_completed=request_completed,
+                    completion_status=completion_status,
+                    operation_outcome=operation_outcome,
+                    active_state=active_state,
+                    bridge_changed_since_submission=bridge_changed_since_submission,
+                )
+                summary["operation_recommended_next_action"] = summary.get("recommended_next_action")
+                summary["operation_result_trust_class"] = summary.get("result_trust_class")
+                if not verdict_summary["result_payload_available"] and not request_completed:
+                    verdict_summary["recommended_next_action"] = str(summary.get("recommended_next_action") or "")
+                summary.update(verdict_summary)
+                summary["playmode_verdict_summary"] = dict(verdict_summary)
             return attach_operation_evidence_to_final_status(
                 summary,
                 project_root=project_root,
-                payload=peek_response_payload(project_root, request_id),
+                payload=response_payload,
                 editor_log_path=default_editor_log_path(project_root),
             )
 
@@ -894,6 +922,233 @@ def peek_response_payload(project_root: Path, request_id: str) -> dict[str, Any]
         return None
 
     return payload if isinstance(payload, dict) else None
+
+
+def read_persisted_test_result(project_root: Path, request_id: str) -> dict[str, Any] | None:
+    if not request_id:
+        return None
+
+    path = test_result_path(project_root, request_id)
+    if not path.is_file():
+        return None
+
+    try:
+        payload = read_json(path)
+    except Exception:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+    payload["_path"] = str(path)
+    return payload
+
+
+def is_test_operation(operation: str) -> bool:
+    return operation in {"unity.tests.run_playmode", "unity.tests.run_editmode"}
+
+
+def _first_failures(value: Any, limit: int = 3) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+
+    failures: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        failures.append(
+            {
+                "name": str(item.get("name") or ""),
+                "message": str(item.get("message") or ""),
+            }
+        )
+        if len(failures) >= limit:
+            break
+    return failures
+
+
+def _counts_from_test_payload(payload: dict[str, Any] | None) -> tuple[int, int, int, int]:
+    if not isinstance(payload, dict):
+        return 0, 0, 0, 0
+    return (
+        max(0, int(payload.get("total") or 0)),
+        max(0, int(payload.get("passed") or 0)),
+        max(0, int(payload.get("failed") or 0)),
+        max(0, int(payload.get("skipped") or 0)),
+    )
+
+
+def _runtime_deadline_expired(test_result: dict[str, Any] | None) -> bool:
+    if not isinstance(test_result, dict):
+        return False
+
+    runtime_timeout_ms = max(1000, int(test_result.get("runtime_timeout_ms") or test_result.get("request_timeout_ms") or 0))
+    baseline_utc = str(test_result.get("last_progress_at_utc") or test_result.get("started_at_utc") or "")
+    baseline_unix = parse_journal_utc_timestamp(baseline_utc)
+    if baseline_unix <= 0:
+        return False
+    return time.time() >= baseline_unix + (runtime_timeout_ms / 1000.0)
+
+
+def _derive_timeout_classification(test_result: dict[str, Any] | None) -> str:
+    if not isinstance(test_result, dict):
+        return ""
+
+    explicit = str(test_result.get("timeout_classification") or "")
+    if explicit:
+        return explicit
+
+    run_phase = str(test_result.get("run_phase") or "")
+    last_progress_at_utc = str(test_result.get("last_progress_at_utc") or "")
+    last_started_test = str(test_result.get("last_started_test") or "")
+    last_finished_test = str(test_result.get("last_finished_test") or "")
+    if run_phase in {"started", "running", "timed_out"} or last_progress_at_utc or last_started_test or last_finished_test:
+        return "runtime_timeout_after_test_start"
+    return "timeout_before_test_start"
+
+
+def build_test_verdict_summary(
+    *,
+    project_root: Path,
+    request_id: str,
+    operation: str,
+    response_payload: dict[str, Any] | None,
+    persisted_test_result: dict[str, Any] | None,
+    request_submitted: bool,
+    request_started: bool,
+    request_completed: bool,
+    completion_status: str,
+    operation_outcome: str,
+    active_state: dict[str, Any] | None,
+    bridge_changed_since_submission: bool,
+) -> dict[str, Any]:
+    source_payload: dict[str, Any] | None = None
+    source = "none"
+    reason = "no_result_payload_or_artifact"
+
+    if isinstance(response_payload, dict):
+        source_payload = response_payload
+        source = "response_payload"
+        reason = "response_payload_available"
+    elif isinstance(persisted_test_result, dict):
+        source_payload = persisted_test_result
+        source = "persisted_test_result"
+        reason = "persisted_test_result_available"
+    elif request_completed:
+        source = "journal_only"
+        reason = "response_missing_after_completed_request"
+    elif request_started:
+        source = "journal_only"
+        reason = "request_started_without_result_payload"
+    elif request_submitted:
+        source = "journal_only"
+        reason = "request_not_observed_in_unity_journal"
+
+    total, passed, failed, skipped = _counts_from_test_payload(source_payload)
+    run_phase = str((source_payload or {}).get("run_phase") or "")
+    source_completed = bool(str((source_payload or {}).get("completed_at_utc") or ""))
+    explicit_timeout_classification = str((source_payload or {}).get("timeout_classification") or "")
+    timeout_classification = (
+        explicit_timeout_classification
+        if explicit_timeout_classification or not source_completed
+        else ""
+    )
+    if not source_completed and not timeout_classification:
+        timeout_classification = _derive_timeout_classification(source_payload)
+    runtime_timeout_observed = (
+        not source_completed
+        and (
+            run_phase in {"timed_out", "settled_after_timeout"}
+            or (
+                timeout_classification == "runtime_timeout_after_test_start"
+                and _runtime_deadline_expired(source_payload)
+            )
+        )
+    )
+
+    if source_payload is not None and (run_phase == "timed_out" or runtime_timeout_observed):
+        test_verdict = "runtime_timeout"
+    elif source_payload is not None and (request_completed or source_completed):
+        if total <= 0:
+            test_verdict = "no_tests"
+        elif failed > 0:
+            test_verdict = "failed"
+        else:
+            test_verdict = "passed"
+    elif source_payload is not None and _runtime_deadline_expired(source_payload):
+        timeout_classification = timeout_classification or _derive_timeout_classification(source_payload)
+        test_verdict = "runtime_timeout" if timeout_classification == "runtime_timeout_after_test_start" else "unity_unproven"
+    elif source_payload is not None and run_phase == "abandoned":
+        test_verdict = "unity_unproven"
+    elif source_payload is not None:
+        test_verdict = "in_progress"
+    elif request_completed and completion_status == "ok":
+        test_verdict = "unity_unproven"
+    elif not request_started and request_submitted:
+        test_verdict = "infrastructure_error"
+    elif operation_outcome in {"submitted_no_unity_journal_confirmation", "submitted_lost_after_lifecycle_churn"}:
+        test_verdict = "infrastructure_error"
+    else:
+        test_verdict = "unity_unproven"
+
+    playmode_state = str((active_state or {}).get("playmode_state") or "")
+    cleanup_recommended = test_verdict in {"runtime_timeout", "unity_unproven", "in_progress"} and playmode_state in {
+        "playing",
+        "paused",
+        "will_enter_playmode",
+        "will_exit_playmode",
+        "transitioning",
+    }
+
+    if test_verdict == "runtime_timeout":
+        recommended_next_action = "inspect_test_timeout_or_raise_budget"
+        trust_class = "unity_failed_confirmed"
+    elif test_verdict == "failed":
+        recommended_next_action = "inspect_test_failures"
+        trust_class = "unity_failed_confirmed"
+    elif test_verdict in {"passed", "no_tests"}:
+        recommended_next_action = "none"
+        trust_class = "unity_completed_confirmed"
+    elif test_verdict == "in_progress":
+        recommended_next_action = "wait_for_final_status"
+        trust_class = "unity_unproven"
+    elif test_verdict == "infrastructure_error":
+        recommended_next_action = "retry_after_readiness_recovery"
+        trust_class = "request_not_observed"
+    else:
+        recommended_next_action = "inspect_artifacts_before_retry"
+        trust_class = "wrapper_failed_unity_unproven"
+
+    runtime_timeout_ms = int((source_payload or {}).get("runtime_timeout_ms") or (source_payload or {}).get("request_timeout_ms") or 0)
+    elapsed_runtime_seconds = None
+    baseline_unix = parse_journal_utc_timestamp(str((source_payload or {}).get("last_progress_at_utc") or (source_payload or {}).get("started_at_utc") or ""))
+    if baseline_unix > 0:
+        elapsed_runtime_seconds = round(max(0.0, time.time() - baseline_unix), 3)
+
+    return {
+        "result_payload_available": source_payload is not None,
+        "result_payload_source": source,
+        "result_payload_reason": reason,
+        "test_verdict": test_verdict,
+        "run_phase": run_phase,
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "first_failures": _first_failures((source_payload or {}).get("failures")),
+        "last_started_test": str((source_payload or {}).get("last_started_test") or ""),
+        "last_finished_test": str((source_payload or {}).get("last_finished_test") or ""),
+        "last_progress_at_utc": str((source_payload or {}).get("last_progress_at_utc") or ""),
+        "runtime_timeout_observed": runtime_timeout_observed or test_verdict == "runtime_timeout",
+        "timeout_classification": timeout_classification,
+        "runtime_timeout_ms": max(0, runtime_timeout_ms),
+        "elapsed_runtime_seconds": elapsed_runtime_seconds,
+        "lifecycle_churn_observed": bool((source_payload or {}).get("lifecycle_churn_observed")) or bridge_changed_since_submission,
+        "editor_cleanup_recommended": cleanup_recommended,
+        "cleanup_command": f"restore-editor-state --project-root {project_root}" if cleanup_recommended else "",
+        "playmode_state": playmode_state,
+        "recommended_next_action": recommended_next_action,
+        "result_trust_class": trust_class,
+    }
 
 
 def try_recover_completed_response_after_reset(
