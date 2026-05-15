@@ -81,6 +81,7 @@ Public reusable smoke assets:
 - `templates/smoke/run_package_self_tests.sh`
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
+- `DEVMODE_VALIDATION.md`
 
 Package self-test assemblies:
 - `com.xuunity.light-mcp.Editor.Tests`
@@ -89,6 +90,12 @@ Package self-test assemblies:
 - quick categories: `XUUnity.MCP.Fast`, `XUUnity.MCP.Scene`,
   `XUUnity.MCP.GameObject`, `XUUnity.MCP.Lifecycle`,
   `XUUnity.MCP.Coroutine`
+
+MCP devmode validation closeout:
+- after executable-code changes to this MCP host/server/package, follow
+  `DEVMODE_VALIDATION.md`
+- project-specific validation is additive and does not replace
+  `templates/smoke/run_package_self_tests.sh --mode all`
 
 ## Important Runtime Files
 
