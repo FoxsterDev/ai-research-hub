@@ -154,6 +154,7 @@ What exists now:
   - `templates/smoke/run_multi_project_acceptance_suite.sh`
   - `templates/smoke/run_phase2_divergence_suite.sh`
   - `templates/smoke/run_phase3_health_policy_suite.sh`
+  - `templates/smoke/run_package_self_tests.sh`
   - `templates/smoke/run_post_change_validation.sh`
   - `templates/smoke/run_playmode_settled_state_regression.sh`
   - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
@@ -169,6 +170,35 @@ What exists now:
 - public SDK update validation helpers:
   - typed EDM4U resolver execution through whitelisted menu paths
   - generated SDK dependency artifact verification for Android resolver XML, Gradle templates, Podfile.lock, and similar project-local outputs
+
+Public package self-tests:
+
+- the Unity package now ships test assemblies under `Tests/EditMode/` and
+  `Tests/PlayMode/`
+- EditMode assembly: `com.xuunity.light-mcp.Editor.Tests`
+- PlayMode assembly: `com.xuunity.light-mcp.PlayMode.Tests`
+- common category: `XUUnity.MCP.SelfTest`
+- fast category: `XUUnity.MCP.Fast`
+- focused categories: `XUUnity.MCP.Scene`, `XUUnity.MCP.GameObject`,
+  `XUUnity.MCP.Lifecycle`, `XUUnity.MCP.Coroutine`
+- quick wrapper runner:
+  `templates/smoke/run_package_self_tests.sh --project-root <project> --mode fast`
+- Unity only discovers test assemblies from installed packages when the package
+  name is listed in the consumer project's `Packages/manifest.json` `testables`
+  array. The wrapper adds `com.xuunity.light-mcp` to `testables` temporarily,
+  refreshes the project, runs the selected self-tests, then restores the
+  original manifest on exit. A permanent manual setup looks like:
+
+  ```json
+  {
+    "dependencies": {
+      "com.xuunity.light-mcp": "file:../../AIRoot/Operations/XUUnityLightUnityMcp/templates/unity-package"
+    },
+    "testables": [
+      "com.xuunity.light-mcp"
+    ]
+  }
+  ```
 
 What does not exist yet:
 - production-hardening of the stdio server

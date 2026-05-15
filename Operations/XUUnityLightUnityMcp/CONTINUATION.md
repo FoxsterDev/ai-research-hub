@@ -78,8 +78,17 @@ Scenario second-wave steps:
 
 Public reusable smoke assets:
 - `templates/scenarios/`
+- `templates/smoke/run_package_self_tests.sh`
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
+
+Package self-test assemblies:
+- `com.xuunity.light-mcp.Editor.Tests`
+- `com.xuunity.light-mcp.PlayMode.Tests`
+- default category: `XUUnity.MCP.SelfTest`
+- quick categories: `XUUnity.MCP.Fast`, `XUUnity.MCP.Scene`,
+  `XUUnity.MCP.GameObject`, `XUUnity.MCP.Lifecycle`,
+  `XUUnity.MCP.Coroutine`
 
 ## Important Runtime Files
 

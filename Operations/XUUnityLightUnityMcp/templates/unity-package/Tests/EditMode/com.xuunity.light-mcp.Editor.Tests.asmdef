@@ -1,0 +1,22 @@
+{
+    "name": "com.xuunity.light-mcp.Editor.Tests",
+    "rootNamespace": "XUUnity.LightMcp.Tests.EditMode",
+    "references": [
+        "com.xuunity.light-mcp.Editor",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
