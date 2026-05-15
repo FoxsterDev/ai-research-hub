@@ -389,12 +389,40 @@ heavy external runtime stack.
 The package still intentionally does not expose:
 
 - arbitrary C# execution
+  - Useful for one-off editor diagnostics, emergency repair scripts, or
+    exploratory automation when no typed operation exists.
+  - Not default because it bypasses typed contracts, reviewable operation
+    boundaries, and normal compile/test feedback loops.
 - broad reflection method call
+  - Useful for inspecting or invoking Unity/editor internals that do not have a
+    supported public API.
+  - Not default because it is brittle across Unity versions and can bypass
+    intended safety checks.
 - package add/remove
+  - Useful for dependency onboarding, SDK migration experiments, and automated
+    package upgrade probes.
+  - Not default because it mutates project dependencies, triggers reload/import
+    churn, and can break unrelated validation lanes.
 - broad asset delete/mutation
+  - Useful for asset cleanup, migration, generated content repair, or bulk
+    project refactors.
+  - Not default because asset changes can be destructive, noisy, and difficult
+    to review without precise target scoping.
 - broad scene or hierarchy mutation
+  - Useful for level-editing automation, prefab repair, generated scene setup,
+    or UI hierarchy refactors.
+  - Not default because scene/prefab mutations are high blast-radius and often
+    require product-specific visual validation.
 - runtime in-game MCP connection
+  - Useful for live gameplay instrumentation, runtime state inspection, bot-like
+    E2E flows, and game-specific debug/control surfaces.
+  - Not default because it adds player/runtime footprint and changes the trust
+    model from editor validation to in-game control.
 - remote/cloud relay operation
+  - Useful for remote CI agents, shared lab devices, distributed QA, or hosted
+    editor automation.
+  - Not default because it introduces network exposure, authentication, routing,
+    and multi-user trust concerns that the same-host editor workflow avoids.
 
 ## Decision Checklist For Future Changes
 
