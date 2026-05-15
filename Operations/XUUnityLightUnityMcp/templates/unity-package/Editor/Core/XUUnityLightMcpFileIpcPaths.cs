@@ -12,6 +12,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public static string RootPath => Path.Combine(ProjectRootPath, "Library", "XUUnityLightMcp");
         public static string ConfigDirectory => Path.Combine(RootPath, "config");
         public static string StateDirectory => Path.Combine(RootPath, "state");
+        public static string TestResultsDirectory => Path.Combine(StateDirectory, "test_results");
         public static string InboxDirectory => Path.Combine(RootPath, "inbox");
         public static string OutboxDirectory => Path.Combine(RootPath, "outbox");
         public static string JournalDirectory => Path.Combine(RootPath, "journal");
@@ -26,12 +27,14 @@ namespace XUUnity.LightMcp.Editor.Core
         public static string BridgeGenerationStatePath => Path.Combine(StateDirectory, "bridge_generation_state.json");
         public static string PlayModeTransitionStatePath => Path.Combine(StateDirectory, "playmode_transition_state.json");
         public static string ActiveTestRunStatePath => Path.Combine(StateDirectory, "active_test_run.json");
+        public static string TestRunResultPath(string requestId) => Path.Combine(TestResultsDirectory, $"{requestId}.json");
         public static string CapabilitiesReportPath => Path.Combine(StateDirectory, "capabilities_report.json");
 
         public static void EnsureDirectories()
         {
             Directory.CreateDirectory(ConfigDirectory);
             Directory.CreateDirectory(StateDirectory);
+            Directory.CreateDirectory(TestResultsDirectory);
             Directory.CreateDirectory(InboxDirectory);
             Directory.CreateDirectory(OutboxDirectory);
             Directory.CreateDirectory(JournalDirectory);

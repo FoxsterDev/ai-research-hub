@@ -74,6 +74,13 @@ namespace XUUnity.LightMcp.Editor.Core
         public string active_request_id = "";
         public string active_operation = "";
         public string active_operation_started_utc = "";
+        public string active_test_request_id = "";
+        public string active_test_operation = "";
+        public string active_test_run_phase = "";
+        public string active_test_last_started_test = "";
+        public string active_test_last_finished_test = "";
+        public string active_test_last_progress_at_utc = "";
+        public int active_test_runtime_timeout_ms;
         public string last_completed_operation = "";
         public string last_completed_operation_status = "";
         public double last_completed_operation_duration_seconds;
@@ -457,6 +464,13 @@ namespace XUUnity.LightMcp.Editor.Core
         public string completed_at_utc = "";
         public string completion_basis = "";
         public string playmode_state_after_settle = "";
+        public string run_phase = "";
+        public string last_progress_at_utc = "";
+        public string timeout_classification = "";
+        public int runtime_timeout_ms;
+        public string last_started_test = "";
+        public string last_finished_test = "";
+        public bool lifecycle_churn_observed;
         public string validation_evidence = "unity_mcp";
     }
 
@@ -478,6 +492,10 @@ namespace XUUnity.LightMcp.Editor.Core
         public string test_mode = "";
         public string started_at_utc = "";
         public int request_timeout_ms = 30000;
+        public int runtime_timeout_ms = 30000;
+        public string run_phase = "submitted";
+        public string last_progress_at_utc = "";
+        public string timeout_classification = "";
         public string completed_at_utc = "";
         public string filter_summary = "";
         public string response_handoff_state = "pending";
@@ -486,8 +504,11 @@ namespace XUUnity.LightMcp.Editor.Core
         public int failed;
         public int skipped;
         public List<XUUnityLightMcpTestFailure> failures = new();
+        public string last_started_test = "";
+        public string last_finished_test = "";
         public string completion_basis = "";
         public string playmode_state_after_settle = "";
+        public bool lifecycle_churn_observed;
     }
 
     [Serializable]

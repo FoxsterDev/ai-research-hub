@@ -16,6 +16,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
             XUUnityLightMcpFileIpcPaths.EnsureDirectories();
             var report = XUUnityLightMcpHealthProbe.EnsureCurrentReport();
             var playmodeState = XUUnityLightMcpPlayModeStateOperation.ResolvePlayModeState();
+            XUUnityLightMcpTestRunState.TryLoadActive(out var activeTestRun);
 
             var state = new XUUnityLightMcpBridgeState
             {
@@ -74,6 +75,13 @@ namespace XUUnity.LightMcp.Editor.Bridge
                 active_request_id = XUUnityLightMcpBridgeRuntimeState.ActiveRequestId,
                 active_operation = XUUnityLightMcpBridgeRuntimeState.ActiveOperation,
                 active_operation_started_utc = XUUnityLightMcpBridgeRuntimeState.ActiveOperationStartedUtc,
+                active_test_request_id = activeTestRun?.request_id ?? "",
+                active_test_operation = activeTestRun?.operation ?? "",
+                active_test_run_phase = activeTestRun?.run_phase ?? "",
+                active_test_last_started_test = activeTestRun?.last_started_test ?? "",
+                active_test_last_finished_test = activeTestRun?.last_finished_test ?? "",
+                active_test_last_progress_at_utc = activeTestRun?.last_progress_at_utc ?? "",
+                active_test_runtime_timeout_ms = Math.Max(0, activeTestRun?.runtime_timeout_ms ?? 0),
                 last_completed_operation = XUUnityLightMcpBridgeRuntimeState.LastCompletedOperation,
                 last_completed_operation_status = XUUnityLightMcpBridgeRuntimeState.LastCompletedOperationStatus,
                 last_completed_operation_duration_seconds = XUUnityLightMcpBridgeRuntimeState.LastCompletedOperationDurationSeconds,

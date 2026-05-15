@@ -118,6 +118,11 @@ What exists now:
   `request-final-status`:
   - `structured_timing`
   - `artifact_manifest`
+- additive PlayMode/EditMode test verdict accounting on direct test responses
+  and final/latest recovery summaries:
+  - `test_verdict`
+  - `result_payload_source`
+  - counts, first failures, progress, timeout classification, and cleanup guidance
 - additive host prerequisite reporting on compact discovery/status/final-status
   surfaces:
   - `host_prerequisites`

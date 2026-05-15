@@ -162,7 +162,11 @@ if request_rc == 0:
     decoded = json.loads(payload.get("payload_json") or "{}")
     if not str(decoded.get("status") or "").strip():
         raise SystemExit("direct playmode retry smoke expected a non-empty test status on the happy path")
+    test_verdict = str(decoded.get("test_verdict") or "")
+    if test_verdict not in {"passed", "failed", "no_tests", "runtime_timeout"}:
+        raise SystemExit(f"direct playmode retry smoke expected compact test_verdict, got: {test_verdict or '<empty>'}")
     summary["first_result_trust_class"] = "unity_completed_confirmed"
+    summary["test_verdict"] = test_verdict
 else:
     error = payload.get("error") or {}
     details = error.get("details") or {}
@@ -177,6 +181,10 @@ else:
         raise SystemExit(f"unexpected first error code: {error_code or '<empty>'}")
     if trust_class not in {"wrapper_failed_unity_unproven", "unity_completed_after_lifecycle_reset", "unity_completed_confirmed"}:
         raise SystemExit(f"unexpected trust class for lifecycle-reset recovery: {trust_class or '<empty>'}")
+    test_verdict = str(final_status.get("test_verdict") or "")
+    if final_status and test_verdict not in {"passed", "failed", "no_tests", "runtime_timeout", "in_progress", "unity_unproven", "infrastructure_error"}:
+        raise SystemExit(f"lifecycle-reset recovery returned final status without compact test_verdict: {test_verdict or '<empty>'}")
+    summary["test_verdict"] = test_verdict
     summary["followup_required"] = True
 
 plan_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
@@ -206,6 +214,22 @@ PY
       "$WRAPPER" request-final-status \
       --project-root "$PROJECT_ROOT" \
       --request-id "$REQUEST_ID"
+    python3 - "$TMP_DIR/request_final_status.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+test_verdict = str(payload.get("test_verdict") or "")
+if test_verdict not in {"passed", "failed", "no_tests", "runtime_timeout", "in_progress", "unity_unproven", "infrastructure_error"}:
+    raise SystemExit(f"request-final-status did not include compact test_verdict: {test_verdict or '<empty>'}")
+if payload.get("result_payload_available") and payload.get("result_payload_source") not in {"response_payload", "persisted_test_result"}:
+    raise SystemExit("request-final-status reported result payload without a trustworthy source")
+print(json.dumps({
+    "request_final_status_test_verdict": test_verdict,
+    "result_payload_source": payload.get("result_payload_source", ""),
+}, ensure_ascii=True))
+PY
   fi
 
   followup_request_cmd=(
@@ -276,6 +300,7 @@ summary = {
     "first_request_status": plan_payload.get("first_request_status"),
     "first_error_code": plan_payload.get("first_error_code", ""),
     "trust_class": plan_payload.get("first_result_trust_class", ""),
+    "test_verdict": plan_payload.get("test_verdict", ""),
     "followup_required": bool(plan_payload.get("followup_required")),
     "final_health": status_payload.get("health_status"),
     "final_playmode_state": status_payload.get("playmode_state"),

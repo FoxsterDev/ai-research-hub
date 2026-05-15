@@ -87,6 +87,68 @@ def _try_parse_json_dict(value: Any) -> dict[str, Any] | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _first_failures(value: Any, limit: int = 3) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+
+    failures: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        failures.append(
+            {
+                "name": str(item.get("name") or ""),
+                "message": str(item.get("message") or ""),
+            }
+        )
+        if len(failures) >= limit:
+            break
+    return failures
+
+
+def _attach_direct_test_verdict(enriched: dict[str, Any], *, operation: str) -> None:
+    if operation not in {"unity.tests.run_playmode", "unity.tests.run_editmode"}:
+        return
+
+    total = max(0, int(enriched.get("total") or 0))
+    failed = max(0, int(enriched.get("failed") or 0))
+    passed = max(0, int(enriched.get("passed") or 0))
+    skipped = max(0, int(enriched.get("skipped") or 0))
+    status = str(enriched.get("status") or "")
+
+    if str(enriched.get("run_phase") or "") in {"timed_out", "settled_after_timeout"}:
+        test_verdict = "runtime_timeout"
+    elif total <= 0 or status == "no_tests":
+        test_verdict = "no_tests"
+    elif failed > 0 or status == "failed":
+        test_verdict = "failed"
+    else:
+        test_verdict = "passed"
+
+    summary = {
+        "result_payload_available": True,
+        "result_payload_source": "response_payload",
+        "result_payload_reason": "response_payload_available",
+        "test_verdict": test_verdict,
+        "run_phase": str(enriched.get("run_phase") or ""),
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "first_failures": _first_failures(enriched.get("failures")),
+        "last_started_test": str(enriched.get("last_started_test") or ""),
+        "last_finished_test": str(enriched.get("last_finished_test") or ""),
+        "last_progress_at_utc": str(enriched.get("last_progress_at_utc") or ""),
+        "runtime_timeout_observed": test_verdict == "runtime_timeout",
+        "timeout_classification": str(enriched.get("timeout_classification") or ""),
+        "lifecycle_churn_observed": bool(enriched.get("lifecycle_churn_observed")),
+        "editor_cleanup_recommended": False,
+        "cleanup_command": "",
+    }
+    enriched.update(summary)
+    enriched["playmode_verdict_summary"] = dict(summary)
+
+
 def _collect_payload_artifacts(
     payload: dict[str, Any] | None,
     *,
@@ -193,6 +255,16 @@ def build_artifact_manifest(
             group_name="logs",
             kind="editor_log",
             path_value=editor_log_path,
+        )
+
+    if operation in {"unity.tests.run_playmode", "unity.tests.run_editmode"} and request_id:
+        _add_artifact(
+            groups,
+            seen,
+            project_root=project_root,
+            group_name="test_outputs",
+            kind="persisted_test_result",
+            path_value=project_root / "Library" / "XUUnityLightMcp" / "state" / "test_results" / f"{request_id}.json",
         )
 
     _collect_payload_artifacts(
@@ -329,6 +401,7 @@ def attach_operation_evidence_to_payload(
     host_completed_unix: float | None,
 ) -> dict[str, Any]:
     enriched = dict(payload or {})
+    _attach_direct_test_verdict(enriched, operation=operation)
     enriched["structured_timing"] = build_structured_timing(
         operation=operation,
         request_id=request_id,

@@ -629,6 +629,222 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertEqual("capture", summary["artifact_manifest"]["groups"]["captures"][0]["step_id"])
             self.assertTrue(summary["artifact_manifest"]["groups"]["captures"][0]["exists"])
 
+    def test_build_request_final_status_uses_persisted_playmode_result_when_response_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            result_dir = project_root / "Library" / "XUUnityLightMcp" / "state" / "test_results"
+            request_id = "req-playmode-failed"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-15T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-15T10:00:01Z",
+                    "started_at_utc": "2026-05-15T10:00:01Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                journal_dir / "03_request_completed.json",
+                {
+                    "event_type": "request_completed",
+                    "event_at_utc": "2026-05-15T10:00:05Z",
+                    "completed_at_utc": "2026-05-15T10:00:05Z",
+                    "operation_status": "ok",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                result_dir / f"{request_id}.json",
+                {
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "run_phase": "completed",
+                    "started_at_utc": "2026-05-15T10:00:01Z",
+                    "completed_at_utc": "2026-05-15T10:00:05Z",
+                    "total": 2,
+                    "passed": 1,
+                    "failed": 1,
+                    "skipped": 0,
+                    "failures": [{"name": "Game.Tests.Fails", "message": "expected true"}],
+                    "last_started_test": "Game.Tests.Fails",
+                    "last_finished_test": "Game.Tests.Fails",
+                    "last_progress_at_utc": "2026-05-15T10:00:04Z",
+                },
+            )
+
+            summary = server_bridge_runtime.build_request_final_status(
+                project_root,
+                request_id,
+                "unity.tests.run_playmode",
+                poll_timeout_ms=0,
+            )
+
+            self.assertTrue(summary["result_payload_available"])
+            self.assertEqual("persisted_test_result", summary["result_payload_source"])
+            self.assertEqual("failed", summary["test_verdict"])
+            self.assertEqual("unity_failed_confirmed", summary["result_trust_class"])
+            self.assertEqual(2, summary["total"])
+            self.assertEqual("Game.Tests.Fails", summary["first_failures"][0]["name"])
+            self.assertTrue(summary["artifact_manifest"]["groups"]["test_outputs"][0]["exists"])
+
+    def test_build_request_final_status_reports_unproven_playmode_when_payload_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            request_id = "req-playmode-missing"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-15T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-15T10:00:01Z",
+                    "started_at_utc": "2026-05-15T10:00:01Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                journal_dir / "03_request_completed.json",
+                {
+                    "event_type": "request_completed",
+                    "event_at_utc": "2026-05-15T10:00:05Z",
+                    "completed_at_utc": "2026-05-15T10:00:05Z",
+                    "operation_status": "ok",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+
+            summary = server_bridge_runtime.build_request_final_status(
+                project_root,
+                request_id,
+                "unity.tests.run_playmode",
+                poll_timeout_ms=0,
+            )
+
+            self.assertFalse(summary["result_payload_available"])
+            self.assertEqual("journal_only", summary["result_payload_source"])
+            self.assertEqual("response_missing_after_completed_request", summary["result_payload_reason"])
+            self.assertEqual("unity_unproven", summary["test_verdict"])
+            self.assertEqual("wrapper_failed_unity_unproven", summary["result_trust_class"])
+
+    def test_build_request_final_status_classifies_started_playmode_runtime_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            result_dir = project_root / "Library" / "XUUnityLightMcp" / "state" / "test_results"
+            request_id = "req-playmode-timeout"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-15T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                journal_dir / "02_request_started.json",
+                {
+                    "event_type": "request_started",
+                    "event_at_utc": "2026-05-15T10:00:01Z",
+                    "started_at_utc": "2026-05-15T10:00:01Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                result_dir / f"{request_id}.json",
+                {
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "run_phase": "running",
+                    "started_at_utc": "2026-05-15T10:00:01Z",
+                    "last_progress_at_utc": "2026-05-15T10:00:02Z",
+                    "last_started_test": "Game.Tests.LongRunning",
+                    "request_timeout_ms": 1000,
+                    "runtime_timeout_ms": 1000,
+                },
+            )
+
+            with mock.patch.object(server_bridge_runtime.time, "time", return_value=1778840000.0):
+                summary = server_bridge_runtime.build_request_final_status(
+                    project_root,
+                    request_id,
+                    "unity.tests.run_playmode",
+                    current_state={"playmode_state": "playing"},
+                    poll_timeout_ms=0,
+                )
+
+            self.assertEqual("runtime_timeout", summary["test_verdict"])
+            self.assertEqual("runtime_timeout_after_test_start", summary["timeout_classification"])
+            self.assertEqual("Game.Tests.LongRunning", summary["last_started_test"])
+            self.assertTrue(summary["editor_cleanup_recommended"])
+            self.assertIn("restore-editor-state", summary["cleanup_command"])
+
+    def test_build_request_final_status_does_not_call_pre_start_timeout_runtime_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            journal_dir = project_root / "Library" / "XUUnityLightMcp" / "journal" / "requests"
+            result_dir = project_root / "Library" / "XUUnityLightMcp" / "state" / "test_results"
+            request_id = "req-playmode-before-start-timeout"
+
+            write_json(
+                journal_dir / "01_request_submitted.json",
+                {
+                    "event_type": "request_submitted",
+                    "event_at_utc": "2026-05-15T10:00:00Z",
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                },
+            )
+            write_json(
+                result_dir / f"{request_id}.json",
+                {
+                    "request_id": request_id,
+                    "operation": "unity.tests.run_playmode",
+                    "run_phase": "submitted",
+                    "started_at_utc": "2026-05-15T10:00:00Z",
+                    "request_timeout_ms": 1000,
+                    "runtime_timeout_ms": 1000,
+                },
+            )
+
+            with mock.patch.object(server_bridge_runtime.time, "time", return_value=1778840000.0):
+                summary = server_bridge_runtime.build_request_final_status(
+                    project_root,
+                    request_id,
+                    "unity.tests.run_playmode",
+                    poll_timeout_ms=0,
+                )
+
+            self.assertEqual("unity_unproven", summary["test_verdict"])
+            self.assertEqual("timeout_before_test_start", summary["timeout_classification"])
+            self.assertFalse(summary["runtime_timeout_observed"])
+
     def test_build_request_final_status_returns_immediately_for_stable_request_abandoned_reclassification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             project_root = Path(tmp_dir)
