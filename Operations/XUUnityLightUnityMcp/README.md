@@ -78,6 +78,7 @@ What exists now:
   - `unity.build_target.switch`
   - `unity.console.tail`
   - `unity.scene.snapshot`
+  - `unity.scene.assert`
   - `unity.tests.run_editmode`
   - `unity.tests.run_playmode`
   - `unity.compile.player_scripts`
@@ -153,6 +154,7 @@ What exists now:
   - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
   - `templates/smoke/run_smoke_suite.sh`
 - scenario second-wave steps:
+  - `assert_scene`
   - `compile_player_scripts`
   - `tests_run_editmode`
   - `game_view_configure`

@@ -35,6 +35,7 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.editor.quit", CoreCapability },
             { "unity.console.tail", CoreCapability },
             { "unity.scene.snapshot", CoreCapability },
+            { "unity.scene.assert", CoreCapability },
             { "unity.scenario.validate", CoreCapability },
             { "unity.scenario.run", CoreCapability },
             { "unity.scenario.result", CoreCapability },

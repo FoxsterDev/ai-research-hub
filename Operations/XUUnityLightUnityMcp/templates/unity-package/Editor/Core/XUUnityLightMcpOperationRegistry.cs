@@ -25,6 +25,7 @@ namespace XUUnity.LightMcp.Editor.Core
             { "unity.sdk.dependency.verify", new XUUnityLightMcpSdkDependencyVerifyOperation() },
             { "unity.console.tail", new XUUnityLightMcpConsoleTailOperation() },
             { "unity.scene.snapshot", new XUUnityLightMcpSceneSnapshotOperation() },
+            { "unity.scene.assert", new XUUnityLightMcpSceneAssertOperation() },
             { "unity.tests.run_editmode", new XUUnityLightMcpEditModeTestsOperation() },
             { "unity.tests.run_playmode", new XUUnityLightMcpPlayModeTestsOperation() },
             { "unity.playmode.state", new XUUnityLightMcpPlayModeStateOperation() },
