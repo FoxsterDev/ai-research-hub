@@ -158,6 +158,41 @@ class ProjectDiscoveryTests(unittest.TestCase):
         self.assertTrue(result["host_prerequisites"]["ready"])
         self.assertEqual([], result["host_prerequisites"]["blocking_codes"])
 
+    def test_discovery_treats_file_ipc_as_request_ready_without_listener(self) -> None:
+        project_root = Path("/tmp/ProjectA")
+        result = discover_project_context_state(
+            project_root,
+            try_read_bridge_state=lambda _: {
+                "editor_pid": 101,
+                "transport": "file_ipc",
+                "transport_requested": "file_ipc",
+                "transport_listener_state": "",
+                "bridge_generation": 7,
+                "bridge_session_id": "session-a",
+            },
+            try_read_host_editor_session_state=lambda _: {"editor_pid": 101},
+            find_running_unity_editors_for_project=lambda _: [{"pid": 101}],
+            pid_is_alive=lambda pid: pid == 101,
+            bridge_enabled=lambda _: True,
+            build_project_health=lambda **_: {
+                "host_health_classification": "fresh",
+                "host_health_reason": "heartbeat_fresh",
+                "host_health_recommended_next_action": "none",
+                "host_health_termination_policy": "observe_only",
+                "anr_classification": "none",
+            },
+        )
+
+        transport_state = result["transport_state"]
+        self.assertEqual("file_ipc", transport_state["active_transport"])
+        self.assertEqual("inactive", transport_state["listener_state"])
+        self.assertFalse(transport_state["listener_required"])
+        self.assertEqual("usable", transport_state["request_flow_state"])
+        self.assertTrue(transport_state["transport_ready_for_requests"])
+        self.assertTrue(result["host_prerequisites"]["ready"])
+        self.assertNotIn("transport_not_ready", result["host_prerequisites"]["blocking_codes"])
+        self.assertEqual("inactive", result["host_prerequisites"]["checks"]["transport_ready"]["listener_state"])
+
     def test_discovery_reports_package_dependency_prerequisite_failure(self) -> None:
         project_root = Path("/tmp/ProjectA")
         result = discover_project_context_state(

@@ -35,6 +35,7 @@ Related `xuunity` protocol guidance:
 
 Current distilled lessons:
 - `Retros/2026-05-11_operator_and_backend_lessons.md`
+- `Retros/2026-05-15_playmode_verdict_recovery_and_single_project_launch_retro.md`
 
 Author:
 - Siarhei Khalandachou
@@ -47,6 +48,13 @@ editor hardening already in place.
 
 It is still not the final production platform, but it is no longer only a thin
 prototype.
+
+For normal day-to-day same-host developer work, the current MCP surface is
+usable for status checks, project refreshes, compile checks, EditMode tests,
+PlayMode tests, package self-tests, scenario runs, and compact recovery after
+Unity lifecycle churn. It is still not intended to dismiss OS-level Unity
+modals or coordinate simultaneous manual and helper-launched opens of the same
+project.
 
 Current architecture milestone:
 
@@ -136,6 +144,7 @@ What exists now:
   - `request-editor-quit`
   - `restore-editor-state`
   - healthy-editor reuse before forced open
+  - same-project launch-in-progress reuse before forced open
   - post-launch verification that a real editor process appeared for the target project
   - stale bridge and stale lock guards on editor open
   - `batch-compile` for non-interactive compile validation when the target project is closed
@@ -159,6 +168,7 @@ What exists now:
   - `templates/smoke/run_post_change_validation.sh`
   - `templates/smoke/run_playmode_settled_state_regression.sh`
   - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
+  - `templates/smoke/run_playmode_verdict_recovery_proof_suite.sh`
   - `templates/smoke/run_smoke_suite.sh`
 - MCP devmode validation closeout:
   - `DEVMODE_VALIDATION.md`
@@ -217,6 +227,7 @@ What is already materially hardened:
 - request recovery across bridge generation/session changes
 - per-project routing for more than one Unity consumer
 - exact `-projectPath` process ownership matching
+- single-flight host-open guard for the same Unity project
 - recovery-aware discovery for:
   - `live_process_only`
   - `stale_bridge_state`
@@ -856,10 +867,10 @@ This does not yet provide full reconnect recovery, but it gives explicit evidenc
 - one-shot retry for explicitly idempotent operations after a retryable lifecycle reset
 - retained active-request ownership for deferred async operations so `request_abandoned` can be emitted during real in-flight reloads
 - Unity-side refresh settle truth instead of host-only inference
-- transport metadata in host lifecycle output so the current `file_ipc` path is explicit and a stronger same-host transport can be added behind the same orchestration contract
+- transport metadata in host lifecycle output so the active same-host transport path is explicit behind the same orchestration contract
 - cross-platform transport prototype:
-  - `file_ipc` remains baseline and fallback
-  - `tcp_loopback` is now the first stronger same-host transport option
+  - `tcp_loopback` is the default same-host transport for new project setup
+  - `file_ipc` remains fallback and explicit compatibility mode
   - it is designed around `127.0.0.1` TCP so the same transport class can run on macOS, Windows, and Linux without Unix-socket-only assumptions
 
 ## Cross-Platform Validation Status

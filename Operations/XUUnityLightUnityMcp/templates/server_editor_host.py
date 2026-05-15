@@ -29,6 +29,7 @@ from server_specs import STARTUP_POLICIES
 
 ACTIVATION_DELAY_SECONDS = 0.35
 UNITY_EDITOR_ROOTS_ENV = "XUUNITY_UNITY_EDITOR_ROOTS"
+HOST_EDITOR_LAUNCH_IN_PROGRESS_MAX_AGE_SECONDS = 90.0
 
 
 def host_platform_kind() -> str:
@@ -261,6 +262,24 @@ def clear_host_editor_session_state(project_root: Path) -> None:
             path.unlink()
     except OSError:
         pass
+
+
+def try_read_recent_host_editor_launch_in_progress(project_root: Path) -> dict[str, Any] | None:
+    session = try_read_host_editor_session_state(project_root)
+    if not session or not bool(session.get("opened_by_host")) or not bool(session.get("launch_in_progress")):
+        return None
+
+    path = host_editor_session_state_path(project_root)
+    try:
+        age_seconds = time.time() - path.stat().st_mtime
+    except OSError:
+        age_seconds = HOST_EDITOR_LAUNCH_IN_PROGRESS_MAX_AGE_SECONDS + 1.0
+
+    if age_seconds > HOST_EDITOR_LAUNCH_IN_PROGRESS_MAX_AGE_SECONDS:
+        return None
+
+    session["launch_in_progress_age_seconds"] = round(max(0.0, age_seconds), 3)
+    return session
 
 
 def clear_stale_bridge_state(project_root: Path) -> bool:
@@ -831,6 +850,20 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
             "matching_editor_pids": [int(editor["pid"]) for editor in detected_editors],
         }
 
+    launch_in_progress = try_read_recent_host_editor_launch_in_progress(project_root)
+    if launch_in_progress is not None:
+        return {
+            "unity_app": str(launch_in_progress.get("unity_app") or unity_app),
+            "editor_log_path": str(launch_in_progress.get("editor_log_path") or log_path),
+            "background_open": bool(launch_in_progress.get("background_open")),
+            "reused_existing_editor": True,
+            "reused_via": "host_launch_in_progress",
+            "opened_by_host": True,
+            "launch_in_progress": True,
+            "launch_in_progress_age_seconds": launch_in_progress.get("launch_in_progress_age_seconds"),
+            "editor_pid": int(launch_in_progress.get("editor_pid") or 0),
+        }
+
     lock_state = inspect_project_lock(project_root)
     if lock_state["present"]:
         live_owner_pids = lock_state["live_owner_pids"]
@@ -856,82 +889,91 @@ def open_unity_editor(project_root: Path, log_path: Path, unity_app: Path, backg
                 ),
             )
 
+    launch_session = build_host_editor_session_state(project_root, unity_app, log_path, background_open, 0)
+    launch_session["launch_in_progress"] = True
+    write_host_editor_session_state(project_root, launch_session)
+
     launched_pid = 0
     launch_command: list[str]
-    if host_platform_kind() == "macos":
-        launch_command = ["open"]
-        if background_open:
-            launch_command.append("-g")
-        launch_command.extend(
-            [
-                "-na",
-                str(unity_app),
-                "--args",
+    try:
+        if host_platform_kind() == "macos":
+            launch_command = ["open"]
+            if background_open:
+                launch_command.append("-g")
+            launch_command.extend(
+                [
+                    "-na",
+                    str(unity_app),
+                    "--args",
+                    "-projectPath",
+                    str(project_root),
+                    "-logFile",
+                    str(log_path),
+                ]
+            )
+            try:
+                subprocess.run(launch_command, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as exc:
+                stderr = (exc.stderr or "").strip()
+                stdout = (exc.stdout or "").strip()
+                detail = stderr or stdout or str(exc)
+                raise ToolInvocationError(
+                    "unity_editor_launch_failed",
+                    (
+                        f"Failed to launch Unity editor at {unity_app}. "
+                        f"Command: {' '.join(launch_command)}. Detail: {detail}"
+                    ),
+                ) from exc
+
+            launched_editor = wait_for_matching_editor_process(project_root, unity_app, 15.0)
+            if launched_editor is None:
+                hub_launchers = find_running_unity_hub_launchers_for_project(project_root)
+                terminated_hub_pids = terminate_project_hub_launchers(project_root, 5000) if hub_launchers else []
+                hub_pids = [int(launcher.get("pid") or 0) for launcher in hub_launchers]
+                raise ToolInvocationError(
+                    "editor_process_not_observed_after_launch",
+                    (
+                        f"Unity launch command completed but no matching editor process was observed for project {project_root}. "
+                        f"Resolved unity_app: {unity_app}. "
+                        f"Command: {' '.join(launch_command)}. "
+                        f"Observed Unity Hub launcher pid(s): {hub_pids or []}. "
+                        f"Terminated stale Hub launcher pid(s): {terminated_hub_pids or []}."
+                    ),
+                )
+            launched_pid = int(launched_editor["pid"])
+        else:
+            unity_executable = resolve_unity_executable(unity_app)
+            launch_command = [
+                str(unity_executable),
                 "-projectPath",
                 str(project_root),
                 "-logFile",
                 str(log_path),
             ]
-        )
-        try:
-            subprocess.run(launch_command, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as exc:
-            stderr = (exc.stderr or "").strip()
-            stdout = (exc.stdout or "").strip()
-            detail = stderr or stdout or str(exc)
-            raise ToolInvocationError(
-                "unity_editor_launch_failed",
-                (
-                    f"Failed to launch Unity editor at {unity_app}. "
-                    f"Command: {' '.join(launch_command)}. Detail: {detail}"
-                ),
-            ) from exc
+            popen_kwargs: dict[str, Any] = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "stdin": subprocess.DEVNULL,
+                "close_fds": True,
+            }
+            if os.name == "nt":
+                creation_flags = 0
+                detached_process = getattr(subprocess, "DETACHED_PROCESS", 0)
+                new_process_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                if background_open:
+                    creation_flags |= detached_process
+                creation_flags |= new_process_group
+                if creation_flags:
+                    popen_kwargs["creationflags"] = creation_flags
+            else:
+                popen_kwargs["start_new_session"] = True
 
-        launched_editor = wait_for_matching_editor_process(project_root, unity_app, 15.0)
-        if launched_editor is None:
-            hub_launchers = find_running_unity_hub_launchers_for_project(project_root)
-            terminated_hub_pids = terminate_project_hub_launchers(project_root, 5000) if hub_launchers else []
-            hub_pids = [int(launcher.get("pid") or 0) for launcher in hub_launchers]
-            raise ToolInvocationError(
-                "editor_process_not_observed_after_launch",
-                (
-                    f"Unity launch command completed but no matching editor process was observed for project {project_root}. "
-                    f"Resolved unity_app: {unity_app}. "
-                    f"Command: {' '.join(launch_command)}. "
-                    f"Observed Unity Hub launcher pid(s): {hub_pids or []}. "
-                    f"Terminated stale Hub launcher pid(s): {terminated_hub_pids or []}."
-                ),
-            )
-        launched_pid = int(launched_editor["pid"])
-    else:
-        unity_executable = resolve_unity_executable(unity_app)
-        launch_command = [
-            str(unity_executable),
-            "-projectPath",
-            str(project_root),
-            "-logFile",
-            str(log_path),
-        ]
-        popen_kwargs: dict[str, Any] = {
-            "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
-            "stdin": subprocess.DEVNULL,
-            "close_fds": True,
-        }
-        if os.name == "nt":
-            creation_flags = 0
-            detached_process = getattr(subprocess, "DETACHED_PROCESS", 0)
-            new_process_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-            if background_open:
-                creation_flags |= detached_process
-            creation_flags |= new_process_group
-            if creation_flags:
-                popen_kwargs["creationflags"] = creation_flags
-        else:
-            popen_kwargs["start_new_session"] = True
+            process = subprocess.Popen(launch_command, **popen_kwargs)
+            launched_pid = int(process.pid or 0)
+    except Exception:
+        clear_host_editor_session_state(project_root)
+        raise
 
-        process = subprocess.Popen(launch_command, **popen_kwargs)
-        launched_pid = int(process.pid or 0)
     write_host_editor_session_state(
         project_root,
         build_host_editor_session_state(project_root, unity_app, log_path, background_open, launched_pid),

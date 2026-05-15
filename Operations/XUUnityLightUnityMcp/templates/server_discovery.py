@@ -32,6 +32,8 @@ def _transport_state(
     transport_metadata: dict[str, Any],
 ) -> dict[str, Any]:
     listener_state = str(transport_metadata.get("transport_listener_state") or "")
+    if active_transport == "file_ipc" and not listener_state:
+        listener_state = "inactive"
     host = str(transport_metadata.get("transport_host") or "")
     raw_port = transport_metadata.get("transport_port")
     try:
@@ -39,16 +41,23 @@ def _transport_state(
     except (TypeError, ValueError):
         port = 0
     publish_error = str(transport_metadata.get("transport_publish_error") or "")
+    listener_required = active_transport == "tcp_loopback"
+    request_flow_usable = bool(active_transport) and not publish_error and (
+        not listener_required or listener_state == "listening"
+    )
     return {
         "selection_scope": "per_project_context",
         "requested_transport": transport_requested,
         "active_transport": active_transport,
         "listener_state": listener_state,
+        "listener_required": listener_required,
+        "request_flow_state": "usable" if request_flow_usable else "not_ready",
+        "transport_ready_for_requests": request_flow_usable,
         "host": host,
         "port": port,
         "address": f"{host}:{port}" if host and port > 0 else "",
         "publish_error": publish_error,
-        "ready": bool(active_transport and listener_state == "listening" and not publish_error),
+        "ready": request_flow_usable,
         "metadata": dict(transport_metadata or {}),
         "fallback_transport_available": True,
         "bridge_state_transport": str(bridge_state.get("transport") or ""),
@@ -137,7 +146,7 @@ def _build_host_prerequisites(
         or discovery.get("bridge_pid_alive")
         or discovery.get("host_session_pid_alive")
     )
-    transport_ready = bool(transport_state.get("ready")) and bool(discovery.get("bridge_state_live"))
+    transport_ready = bool(transport_state.get("transport_ready_for_requests")) and bool(discovery.get("bridge_state_live"))
     stale_requests = dict(stale_request_artifacts or {})
     stale_request_count = int(stale_requests.get("candidate_count") or 0)
 
@@ -202,6 +211,8 @@ def _build_host_prerequisites(
             ),
             "active_transport": str(transport_state.get("active_transport") or ""),
             "listener_state": str(transport_state.get("listener_state") or ""),
+            "request_flow_state": str(transport_state.get("request_flow_state") or ""),
+            "transport_ready_for_requests": bool(transport_state.get("transport_ready_for_requests")),
         },
         "stale_requests": {
             "ready": stale_request_count == 0,

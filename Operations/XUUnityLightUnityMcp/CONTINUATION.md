@@ -22,6 +22,8 @@ It now has:
 - compile-first public post-change validation ordering
 - public retro guidance for operator-facing lifecycle and transport failures
 - summary-first token discipline for high-churn request paths
+- same-project editor launch-in-progress reuse to avoid spawning a second Unity
+  instance while an editor open is already in flight
 
 The public `xuunity` protocol layer also now understands validation-lane
 selection.
@@ -81,6 +83,7 @@ Public reusable smoke assets:
 - `templates/smoke/run_package_self_tests.sh`
 - `templates/smoke/run_post_change_validation.sh`
 - `templates/smoke/run_smoke_suite.sh`
+- `templates/smoke/run_playmode_verdict_recovery_proof_suite.sh`
 - `DEVMODE_VALIDATION.md`
 
 Package self-test assemblies:
@@ -96,6 +99,23 @@ MCP devmode validation closeout:
   `DEVMODE_VALIDATION.md`
 - project-specific validation is additive and does not replace
   `templates/smoke/run_package_self_tests.sh --mode all`
+
+Transport defaults:
+- new project setup writes `transport: tcp_loopback` to
+  `Library/XUUnityLightMcp/config/bridge_config.json`
+- `file_ipc` remains an explicit fallback/compatibility transport
+
+Latest applied retro:
+- `Retros/2026-05-15_playmode_verdict_recovery_and_single_project_launch_retro.md`
+
+Day-to-day readiness:
+- suitable for same-host status, refresh, compile, EditMode, PlayMode, package
+  self-test, and scenario workflows
+- use `request-playmode-set --action exit` for PlayMode cleanup
+- use `restore-editor-state` only for host-opened editor closeout
+- use `ensure-ready --open-editor` as the normal startup/reuse path
+- do not manually retry `open-editor` while a Unity splash/open is already in
+  progress for the same project
 
 ## Important Runtime Files
 
@@ -165,6 +185,8 @@ Meaning:
     `request-latest-status --operation <operation>`
 11. prefer compact scenario or batch summaries before raw result polling or raw
     log inspection
+12. if a same-project Unity open is in progress, wait for `ensure-ready` or run
+    `project-discovery-report`; do not start a second editor instance
 
 Mini-playbook after wrapper churn:
 

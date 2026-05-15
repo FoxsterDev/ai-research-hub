@@ -10,7 +10,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public int heartbeat_interval_ms = 2000;
         public int pump_interval_ms = 500;
         public bool auto_probe_on_startup = true;
-        public string transport = "file_ipc";
+        public string transport = "tcp_loopback";
         public string loopback_host = "127.0.0.1";
         public int loopback_port;
     }
@@ -22,8 +22,8 @@ namespace XUUnity.LightMcp.Editor.Core
         public string project_root = "";
         public int editor_pid;
         public string unity_version = "";
-        public string transport_requested = "file_ipc";
-        public string transport = "file_ipc";
+        public string transport_requested = "tcp_loopback";
+        public string transport = "tcp_loopback";
         public string transport_listener_state = "";
         public string transport_host = "";
         public int transport_port;
@@ -130,8 +130,8 @@ namespace XUUnity.LightMcp.Editor.Core
         public string project_root = "";
         public bool editor_running = true;
         public bool mcp_reachable = true;
-        public string transport_requested = "file_ipc";
-        public string transport = "file_ipc";
+        public string transport_requested = "tcp_loopback";
+        public string transport = "tcp_loopback";
         public string transport_listener_state = "";
         public string transport_host = "";
         public int transport_port;
