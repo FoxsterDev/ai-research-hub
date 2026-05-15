@@ -331,6 +331,44 @@ class ServerProtocolAndParserTests(unittest.TestCase):
         self.assertNotIn("reopen_block_reason", payload)
         self.assertFalse(bool(payload.get("reopen_blocked")))
 
+    def test_recover_editor_session_open_editor_uses_completed_process_helper(self) -> None:
+        args = argparse.Namespace(
+            project_root="/tmp/FakeProject",
+            timeout_ms=180000,
+            close_timeout_ms=45000,
+            open_editor=True,
+            force_compile_probe=False,
+            heartbeat_max_age_seconds=10,
+            startup_policy="fail_fast_on_interactive_compile_block",
+        )
+        discovery = {
+            "reconciliation_case": "host_launchable_not_active",
+            "detected_editor_pids": [],
+            "editor_log_diagnosis": {},
+        }
+        emitted_payloads: list[dict[str, object]] = []
+        completed = mock.Mock(returncode=0, stderr="")
+
+        with (
+            mock.patch.object(server, "ensure_project_root", return_value=Path("/tmp/FakeProject")),
+            mock.patch.object(server, "refresh_project_context"),
+            mock.patch.object(server, "build_project_discovery_report", return_value=discovery),
+            mock.patch.object(server, "current_project_context_host_session_state", return_value={}),
+            mock.patch.object(
+                server,
+                "run_self_json_command_with_completed",
+                return_value=({"project_root": "/tmp/FakeProject"}, completed),
+            ) as run_mock,
+            mock.patch.object(server, "print_json", side_effect=lambda payload: emitted_payloads.append(dict(payload))),
+        ):
+            server.cmd_recover_editor_session(args)
+
+        run_mock.assert_called_once()
+        self.assertEqual(1, len(emitted_payloads))
+        payload = emitted_payloads[0]
+        self.assertEqual("recovered", payload["recovery_classification"])
+        self.assertEqual({"project_root": "/tmp/FakeProject"}, payload["ensure_ready"])
+
     def test_ensure_ready_without_open_editor_fails_fast_when_project_is_offline(self) -> None:
         args = argparse.Namespace(
             project_root="/tmp/FakeProject",

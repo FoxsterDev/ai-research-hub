@@ -242,7 +242,7 @@ write_bridge_config() {
   "enabled": true,
   "heartbeat_interval_ms": 2000,
   "pump_interval_ms": 500,
-  "transport": "file_ipc",
+  "transport": "tcp_loopback",
   "loopback_host": "127.0.0.1",
   "loopback_port": 0
 }
@@ -332,7 +332,7 @@ Next steps:
 1. If you passed --project-root with --enable-project, open or reopen the Unity project once so the editor-only bridge can start writing heartbeat state.
 2. Smoke-check bridge state:
    python3 $install_dir/server.py bridge-state --project-root /path/to/UnityProject
-3. Smoke-check the direct file IPC status path:
+3. Smoke-check the direct same-host request status path:
    python3 $install_dir/server.py request-status --project-root /path/to/UnityProject
 4. Preferred interactive startup helper:
    python3 $install_dir/server.py ensure-ready --project-root /path/to/UnityProject --open-editor --background-open --startup-policy fail_fast_on_interactive_compile_block

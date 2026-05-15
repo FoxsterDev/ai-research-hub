@@ -63,6 +63,10 @@ def build_status_summary(
 
     heartbeat_age = heartbeat_age_seconds(effective)
     busy_reason = derive_busy_reason(effective)
+    transport = str(effective.get("transport") or effective.get("transport_requested") or "")
+    transport_listener_state = str(effective.get("transport_listener_state") or "")
+    if transport == "file_ipc" and not transport_listener_state:
+        transport_listener_state = "inactive"
     active_test_started_age = utc_age_seconds(effective.get("active_test_started_at_utc"))
     active_test_progress_age = utc_age_seconds(effective.get("active_test_last_progress_at_utc"))
     summary = {
@@ -72,8 +76,8 @@ def build_status_summary(
         "editor_pid": editor_pid,
         "mcp_reachable": bool(payload.get("mcp_reachable", True)),
         "health_status": str(effective.get("health_status") or "unknown"),
-        "transport": str(effective.get("transport") or effective.get("transport_requested") or ""),
-        "transport_listener_state": str(effective.get("transport_listener_state") or ""),
+        "transport": transport,
+        "transport_listener_state": transport_listener_state,
         "bridge_generation": int(effective.get("bridge_generation") or 0),
         "bridge_session_id": str(effective.get("bridge_session_id") or ""),
         "playmode_state": str(effective.get("playmode_state") or ""),

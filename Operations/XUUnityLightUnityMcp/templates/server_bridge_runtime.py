@@ -18,6 +18,7 @@ from server_core import ToolInvocationError, read_json, write_json
 
 DEFAULT_BRIDGE_TRANSPORT = "file_ipc"
 TCP_LOOPBACK_BRIDGE_TRANSPORT = "tcp_loopback"
+DEFAULT_CONFIGURED_BRIDGE_TRANSPORT = TCP_LOOPBACK_BRIDGE_TRANSPORT
 SUPPORTED_BRIDGE_TRANSPORTS = {
     DEFAULT_BRIDGE_TRANSPORT,
     TCP_LOOPBACK_BRIDGE_TRANSPORT,
@@ -556,6 +557,13 @@ def build_bridge_stabilization_summary(
     health_status = str(effective.get("health_status") or "unknown")
     transport = str(effective.get("transport") or effective.get("transport_requested") or "")
     transport_listener_state = str(effective.get("transport_listener_state") or "")
+    if transport == DEFAULT_BRIDGE_TRANSPORT and not transport_listener_state:
+        transport_listener_state = "inactive"
+    listener_required = transport == TCP_LOOPBACK_BRIDGE_TRANSPORT
+    transport_ready_for_requests = bool(transport) and (
+        not listener_required or transport_listener_state == "listening"
+    )
+    request_flow_state = "usable" if transport_ready_for_requests else "not_ready"
     pending_request_count = int(effective.get("pending_request_count") or 0)
     editor_running_effective = bool(editor_running if editor_running is not None else effective.get("editor_running", True))
     mcp_reachable_effective = bool(mcp_reachable if mcp_reachable is not None else effective.get("mcp_reachable", True))
@@ -581,7 +589,7 @@ def build_bridge_stabilization_summary(
         blocking_reasons.append("playmode_transition_pending")
     if pending_request_count > 0:
         blocking_reasons.append("pending_request_in_flight")
-    if transport == TCP_LOOPBACK_BRIDGE_TRANSPORT and transport_listener_state not in {"", "listening"}:
+    if listener_required and transport_listener_state not in {"", "listening"}:
         blocking_reasons.append("transport_listener_not_ready")
 
     stabilized = len(blocking_reasons) == 0
@@ -591,6 +599,9 @@ def build_bridge_stabilization_summary(
         "transport": transport,
         "health_status": health_status,
         "transport_listener_state": transport_listener_state,
+        "listener_required": listener_required,
+        "request_flow_state": request_flow_state,
+        "transport_ready_for_requests": transport_ready_for_requests,
         "pending_request_count": pending_request_count,
         "stabilized": stabilized,
         "safe_to_retry": stabilized,
@@ -1144,7 +1155,11 @@ def build_test_verdict_summary(
         "elapsed_runtime_seconds": elapsed_runtime_seconds,
         "lifecycle_churn_observed": bool((source_payload or {}).get("lifecycle_churn_observed")) or bridge_changed_since_submission,
         "editor_cleanup_recommended": cleanup_recommended,
-        "cleanup_command": f"restore-editor-state --project-root {project_root}" if cleanup_recommended else "",
+        "cleanup_command": (
+            f"request-playmode-set --project-root {project_root} --action exit --timeout-ms 30000"
+            if cleanup_recommended
+            else ""
+        ),
         "playmode_state": playmode_state,
         "recommended_next_action": recommended_next_action,
         "result_trust_class": trust_class,
@@ -1954,7 +1969,7 @@ def resolve_bridge_transport(project_root: Path) -> BridgeTransportAdapter:
             else str(
                 config.get("transport")
                 or config.get("bridge_transport")
-                or DEFAULT_BRIDGE_TRANSPORT
+                or DEFAULT_CONFIGURED_BRIDGE_TRANSPORT
             ).strip().lower()
         )
     if not configured_transport:

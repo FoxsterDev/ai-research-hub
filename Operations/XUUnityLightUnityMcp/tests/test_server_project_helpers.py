@@ -51,6 +51,35 @@ class ServerProjectHelperTests(unittest.TestCase):
 
             self.assertEqual("project_not_found", ctx.exception.code)
 
+    def test_open_unity_editor_reuses_recent_host_launch_in_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = make_unity_project(Path(tmp_dir) / "MyProject")
+            unity_app = Path("/Applications/Unity.app")
+            log_path = project_root / "Library" / "XUUnityLightMcp" / "logs" / "unity_editor.log"
+            session = server_editor_host.build_host_editor_session_state(
+                project_root,
+                unity_app,
+                log_path,
+                background_open=True,
+                editor_pid=0,
+            )
+            session["launch_in_progress"] = True
+            server_editor_host.write_host_editor_session_state(project_root, session)
+
+            with (
+                mock.patch.object(server_editor_host, "try_read_live_editor_state", return_value=None),
+                mock.patch.object(server_editor_host, "find_running_unity_editors_for_project", return_value=[]),
+                mock.patch.object(server_editor_host.subprocess, "run") as run_mock,
+                mock.patch.object(server_editor_host.subprocess, "Popen") as popen_mock,
+            ):
+                result = server_editor_host.open_unity_editor(project_root, log_path, unity_app, True)
+
+            self.assertTrue(result["reused_existing_editor"])
+            self.assertEqual("host_launch_in_progress", result["reused_via"])
+            self.assertTrue(result["launch_in_progress"])
+            run_mock.assert_not_called()
+            popen_mock.assert_not_called()
+
     def test_find_latest_request_event_is_sorted_and_project_local(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             base = Path(tmp_dir)

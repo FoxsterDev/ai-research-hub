@@ -39,7 +39,7 @@ namespace XUUnity.LightMcp.Editor.Bridge
                 {
                     config.heartbeat_interval_ms = Math.Max(1000, config.heartbeat_interval_ms);
                     config.pump_interval_ms = Math.Max(250, config.pump_interval_ms);
-                    config.transport = string.IsNullOrWhiteSpace(config.transport) ? "file_ipc" : config.transport.Trim().ToLowerInvariant();
+                    config.transport = string.IsNullOrWhiteSpace(config.transport) ? "tcp_loopback" : config.transport.Trim().ToLowerInvariant();
                     config.loopback_host = string.IsNullOrWhiteSpace(config.loopback_host) ? "127.0.0.1" : config.loopback_host.Trim();
                     config.loopback_port = Math.Max(0, config.loopback_port);
                     _cachedConfig = config;

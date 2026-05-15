@@ -29,9 +29,9 @@ Current transport shape:
 - per-project routing now goes through an in-memory registry layer keyed by normalized `projectRoot`
 - transport selection is maintained per project instead of as a single global host assumption
 - host wrapper now uses an internal transport adapter layer
-- `file_ipc` remains the baseline and fallback transport
+- `tcp_loopback` on `127.0.0.1` is the default same-host transport for new project setup
+- `file_ipc` remains the fallback and explicit compatibility transport
 - lifecycle orchestration is no longer hard-wired directly to inbox/outbox paths
-- `tcp_loopback` on `127.0.0.1` is now the first stronger same-host transport path
 - this choice is intentionally cross-platform for macOS, Windows, and Linux; the design avoids Unix-domain-socket-only assumptions
 
 ## Current Architecture Baseline
@@ -332,6 +332,7 @@ The public reusable proof layer now includes:
 - lifecycle fault-injection smoke
 - request-abandoned smoke
 - playmode settled-state regression smoke
+- playmode verdict recovery proof smoke
 - multi-project acceptance smoke
 - divergence/reconciliation smoke
 - health-policy smoke

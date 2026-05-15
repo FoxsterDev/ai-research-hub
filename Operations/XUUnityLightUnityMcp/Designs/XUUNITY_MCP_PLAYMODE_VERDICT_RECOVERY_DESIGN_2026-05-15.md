@@ -1,7 +1,72 @@
 # XUUnity MCP PlayMode Verdict Recovery Design
 
 Date: `2026-05-15`
-Status: `proposed`
+Status: `implemented-through-P2; proof-closed`
+
+## Implementation Status
+
+Last updated: `2026-05-15`
+
+Implemented:
+
+- P0 PlayMode verdict recovery vertical slice:
+  - durable per-request test result artifacts
+  - active test progress fields
+  - host-owned compact `test_verdict`
+  - persisted-result recovery when response payload is missing
+  - runtime timeout classification after observed Test Runner progress
+  - cleanup guidance for timeout/unproven PlayMode states
+- P1 scenario/result recovery actions:
+  - scenario wait reconciles terminal persisted results before final timeout
+  - lookup by `run_id`, with scenario-name fallback
+  - timeout details include latest persisted scenario evidence and recovery
+    command
+  - status summary exposes active test progress age and elapsed runtime
+- P2 human-facing transport readiness wording:
+  - `file_ipc` reports `transport_listener_state=inactive`
+  - `file_ipc` reports `request_flow_state=usable`
+  - `file_ipc` reports `transport_ready_for_requests=true`
+  - strict listener readiness remains scoped to listener-backed transports such
+    as `tcp_loopback`
+- New project setup default:
+  - setup writes `transport: tcp_loopback` to
+    `Library/XUUnityLightMcp/config/bridge_config.json`
+  - Unity package and host fallback defaults also resolve missing transport to
+    `tcp_loopback`
+  - `file_ipc` remains explicit fallback/compatibility mode
+
+Validation completed:
+
+- host Python regression suite: `90/90` passing after proof-gap closeout
+  - includes regression coverage for `recover-editor-session --open-editor`
+    using the helper that returns both JSON payload and process status
+  - includes regression coverage for same-project host launch-in-progress reuse
+- package self-tests through ApperfunHub MCP devmode:
+  - EditMode `6/6` passing
+  - PlayMode `5/5` passing
+  - observed transport: `tcp_loopback`
+- ApperfunHub project validation after P1:
+  - EditMode `518/518` passing
+  - PlayMode `250/250` passing on retry after a transient Unity Package
+    Manager auth/log issue
+- isolated setup smoke for a temporary Unity project root:
+  - generated `bridge_config.json` contains `"transport": "tcp_loopback"`
+- PlayMode verdict recovery proof suite through ApperfunHub MCP devmode:
+  - compact passing PlayMode verdict with counts
+  - scenario polling timeout reconciled from terminal persisted result
+  - started PlayMode runtime timeout classified as
+    `runtime_timeout_after_test_start`
+  - cleanup guidance emitted as a concrete PlayMode exit command
+  - cleanup command returned the editor to `playmode_state=edit`
+  - proof cleanup removes its generated `Assets/XUUnityLightMcpGenerated`
+    assembly assets and refreshes the project
+
+Proof status:
+
+- implementation, unit/fixture proof, package self-tests, consumer regression,
+  and focused live proof are complete for the acceptance checks below
+- the reusable proof route is
+  `templates/smoke/run_playmode_verdict_recovery_proof_suite.sh`
 
 ## Purpose
 
@@ -458,6 +523,16 @@ Unity package:
 
 ## Acceptance Checks
 
+Current acceptance status as of `2026-05-15`:
+
+| Check | Status | Proof |
+| --- | --- | --- |
+| A. Completed after lifecycle reset | Live-verified | Proof suite produced `test_verdict=passed`, `total=1`, `result_payload_source=response_payload`; package PlayMode self-tests also passed `5/5` with compact verdict/counts |
+| B. Started then runtime timeout | Live-verified | Proof suite produced `test_verdict=runtime_timeout`, `timeout_classification=runtime_timeout_after_test_start`, `last_started_test`, `last_progress_at_utc`, and `runtime_timeout_ms=30000` |
+| C. Scenario timeout with persisted success | Live-verified | Proof suite forced scenario polling timeout and returned `status=passed` from persisted result with `scenario_result_reconciliation_reason=terminal_persisted_result_after_poll_timeout` and `result_path` |
+| D. Missing test payload is an explicit gap | Unit-verified | Host tests cover completed journal with missing response/result as `result_payload_available=false`, `test_verdict=unity_unproven`, and `result_trust_class=wrapper_failed_unity_unproven` |
+| E. Cleanup guidance | Live-verified | Proof suite produced `editor_cleanup_recommended=true` with `cleanup_command=request-playmode-set --action exit`; executing the command returned final status to `health_status=healthy` and `playmode_state=edit` |
+
 ### A. Completed After Lifecycle Reset
 
 Given a PlayMode request crosses a domain reload and later completes:
@@ -510,6 +585,19 @@ Given a PlayMode timeout or lifecycle reset leaves the editor in `playing`:
 The work is not complete when the code compiles. It is complete when the two
 retro failure modes are impossible to misreport through the compact operator
 surface.
+
+Current proof-plan status as of `2026-05-15`:
+
+| Proof area | Status | Notes |
+| --- | --- | --- |
+| Host unit and fixture tests | Complete for current implementation | `run_host_python_tests.sh` passes `90/90`; coverage includes persisted PlayMode result recovery, missing-payload unproven verdict, started runtime timeout, pre-start timeout separation, cleanup guidance, P1 scenario reconciliation, P2 `file_ipc` readiness wording, default `tcp_loopback` transport resolution, `recover-editor-session --open-editor` helper regression, and same-project host launch-in-progress reuse |
+| Unity/package self-tests | Complete for current package self-test scope | `run_package_self_tests.sh --mode all` passes against ApperfunHub in devmode: EditMode `6/6`, PlayMode `5/5`, using `tcp_loopback` |
+| Consumer project regression | Complete for broad project regression, with one transient retry | ApperfunHub EditMode `518/518` passed; ApperfunHub PlayMode `250/250` passed on retry after a transient Unity Package Manager auth/log issue |
+| New-project setup default | Verified | Isolated setup smoke generated `Library/XUUnityLightMcp/config/bridge_config.json` with `"transport": "tcp_loopback"` |
+| PlayMode verdict recovery proof suite | Complete | `run_playmode_verdict_recovery_proof_suite.sh` passed against ApperfunHub in devmode; it deploys a temporary generated PlayMode proof assembly under `Assets/`, cleans it up, and verifies pass, persisted scenario reconciliation, runtime timeout, cleanup guidance, final healthy/edit state, and no generated proof assets left in project status |
+| Live started-runtime-timeout proof | Complete | Proof suite observed `runtime_timeout_after_test_start` with started/progress evidence |
+| Live cleanup-guidance proof | Complete | Proof suite observed concrete PlayMode exit cleanup command and verified final `playmode_state=edit` |
+| Live scenario polling false-negative proof | Complete | Proof suite forced poll-timeout recovery and reconciled the terminal persisted scenario result |
 
 ### Unit And Fixture Tests
 

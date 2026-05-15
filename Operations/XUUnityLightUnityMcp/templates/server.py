@@ -727,7 +727,7 @@ def classify_compile_probe_failure(compile_probe: dict[str, Any]) -> tuple[str, 
     )
 
 
-def run_self_json_command(args: list[str]) -> tuple[dict[str, Any] | None, subprocess.CompletedProcess[str]]:
+def run_self_json_command_with_completed(args: list[str]) -> tuple[dict[str, Any] | None, subprocess.CompletedProcess[str]]:
     completed = subprocess.run(
         [sys.executable, __file__, *args],
         check=False,
@@ -820,7 +820,7 @@ def cmd_recover_editor_session(args):
             raise SystemExit(1)
 
     if args.open_editor:
-        ensure_payload, ensure_completed = run_self_json_command(
+        ensure_payload, ensure_completed = run_self_json_command_with_completed(
             [
                 "ensure-ready",
                 "--project-root",

@@ -64,6 +64,39 @@ class BridgeRuntimeTests(unittest.TestCase):
         self.assertIn("pending_request_in_flight", summary["blocking_reasons"])
         self.assertIn("transport_listener_not_ready", summary["blocking_reasons"])
 
+    def test_build_bridge_stabilization_summary_treats_file_ipc_flow_as_usable(self) -> None:
+        summary = server_bridge_runtime.build_bridge_stabilization_summary(
+            {
+                "transport": "file_ipc",
+                "transport_listener_state": "",
+                "health_status": "healthy",
+                "pending_request_count": 0,
+            }
+        )
+
+        self.assertTrue(summary["stabilized"])
+        self.assertEqual("inactive", summary["transport_listener_state"])
+        self.assertFalse(summary["listener_required"])
+        self.assertEqual("usable", summary["request_flow_state"])
+        self.assertTrue(summary["transport_ready_for_requests"])
+        self.assertNotIn("transport_listener_not_ready", summary["blocking_reasons"])
+
+    def test_resolve_bridge_transport_defaults_config_missing_transport_to_tcp_loopback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_root = Path(tmp_dir)
+            write_json(
+                server_bridge_runtime.bridge_config_path(project_root),
+                {
+                    "enabled": True,
+                    "heartbeat_interval_ms": 2000,
+                    "pump_interval_ms": 500,
+                },
+            )
+
+            transport = server_bridge_runtime.resolve_bridge_transport(project_root)
+
+        self.assertEqual("tcp_loopback", transport.name)
+
     def test_build_request_final_status_completed_ok_with_reclassification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             project_root = Path(tmp_dir)
@@ -803,7 +836,8 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertEqual("runtime_timeout_after_test_start", summary["timeout_classification"])
             self.assertEqual("Game.Tests.LongRunning", summary["last_started_test"])
             self.assertTrue(summary["editor_cleanup_recommended"])
-            self.assertIn("restore-editor-state", summary["cleanup_command"])
+            self.assertIn("request-playmode-set", summary["cleanup_command"])
+            self.assertIn("--action exit", summary["cleanup_command"])
 
     def test_build_request_final_status_does_not_call_pre_start_timeout_runtime_timeout(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
