@@ -17,6 +17,7 @@ Keep project-specific implementation notes and evidence outside public `AIRoot`.
 
 ## Current Designs
 
+- `XUUNITY_LIGHT_UNITY_MCP_DECISION_RECORD.md`
 - `XUUNITY_MCP_UI_PRIMITIVES_DESIGN_2026-05-12.md`
 - `XUUNITY_MCP_UI_PRIMITIVES_AND_REFERENCE_WATCH_DESIGN_2026-05-12.md`
 - `XUUNITY_MCP_REFERENCE_WATCH_DESIGN_2026-05-12.md`
