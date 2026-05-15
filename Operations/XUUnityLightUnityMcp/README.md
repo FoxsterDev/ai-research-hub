@@ -18,6 +18,7 @@ Canonical location:
 
 Related public docs:
 - `DESIGN.md`
+- `DEVMODE_VALIDATION.md`
 - `CONTINUATION.md`
 - `COMPARISON.md`
 - `ROADMAP.md`
@@ -159,6 +160,8 @@ What exists now:
   - `templates/smoke/run_playmode_settled_state_regression.sh`
   - `templates/smoke/run_playmode_lifecycle_retry_smoke.sh`
   - `templates/smoke/run_smoke_suite.sh`
+- MCP devmode validation closeout:
+  - `DEVMODE_VALIDATION.md`
 - scenario second-wave steps:
   - `assert_scene`
   - `compile_player_scripts`
@@ -557,6 +560,10 @@ Behavior:
   changes are not part of the resolved package
 - project-specific commands should live in a host-local wrapper or adapter
   outside public `AIRoot`
+- after executable-code changes to this MCP host/server/package, use
+  `DEVMODE_VALIDATION.md` as the source-of-truth closeout rule; project-specific
+  validation is additional evidence, not a replacement for the package-owned
+  EditMode and PlayMode self-test lane
 
 Already-open editor rule after `devmode`:
 
