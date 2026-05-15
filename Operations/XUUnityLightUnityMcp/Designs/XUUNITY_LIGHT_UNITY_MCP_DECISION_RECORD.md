@@ -331,6 +331,71 @@ The current package follows the decision direction:
 The design is still intentionally conservative. Future expansion should prefer
 more evidence and better lifecycle robustness before adding broad mutation.
 
+## Current Implementation Notes
+
+This decision record describes the design direction and policy. The implemented
+operation surface is intentionally a little wider than the daily evidence core
+because the package also needs operational support tools for setup, recovery,
+package refresh, and project-specific validation lanes.
+
+Current core evidence operations include:
+
+- `unity.status`
+- `unity.capabilities.get`
+- `unity.health.probe`
+- `unity.console.tail`
+- `unity.scene.snapshot`
+- `unity.scene.assert`
+- `unity.tests.run_editmode`
+- `unity.tests.run_playmode`
+- `unity.compile.player_scripts`
+- `unity.compile.matrix`
+- `unity.scenario.validate`
+- `unity.scenario.run`
+- `unity.scenario.result`
+- `unity.game_view.configure`
+- `unity.game_view.screenshot`
+
+Current operational support operations include:
+
+- `unity.build_target.get`
+- `unity.build_target.switch`
+- `unity.project.refresh`
+- `unity.playmode.state`
+- `unity.playmode.set`
+- `unity.editor.quit`
+- `unity.edm4u.resolve`
+- `unity.sdk.dependency.verify`
+
+These support operations are not a license for broad mutation. They exist to
+make validation lanes deterministic and recoverable:
+
+- `unity.build_target.switch` is used only when a validation lane explicitly
+  needs a build target transition.
+- `unity.project.refresh` is used to settle Unity after package/profile/config
+  mutations.
+- `unity.playmode.set` is used by ordered scenarios with explicit state
+  assertions.
+- `unity.edm4u.resolve` and `unity.sdk.dependency.verify` are SDK validation
+  helpers, not general package mutation tools.
+- `unity.editor.quit` is an operational lifecycle command and should not be
+  treated as routine feature-work behavior.
+
+The Unity package currently depends on Unity's Test Framework package because
+test execution is part of the validation core. This is acceptable under the
+dependency policy because it is a Unity-owned editor/testing dependency, not a
+heavy external runtime stack.
+
+The package still intentionally does not expose:
+
+- arbitrary C# execution
+- broad reflection method call
+- package add/remove
+- broad asset delete/mutation
+- broad scene or hierarchy mutation
+- runtime in-game MCP connection
+- remote/cloud relay operation
+
 ## Decision Checklist For Future Changes
 
 Before adding a new MCP capability, answer:
