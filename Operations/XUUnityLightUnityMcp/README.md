@@ -446,6 +446,15 @@ Current behavior:
   with `--window-arrangement off` or make it strict with
   `--window-arrangement required`
 
+Test request preflight:
+
+- `request-editmode-tests` and `request-playmode-tests` run a safe editor-window
+  cleanup before handing off to Unity Test Framework
+- the cleanup closes Unity Android Logcat windows when present, by type name
+  only, to avoid background `adb devices` polling noise during validation
+- the cleanup is best-effort and dependency-free: if Android Logcat is not
+  installed or no window is open, test execution continues unchanged
+
 ## Runtime Timeout Config
 
 Interactive timeout defaults are now loaded from JSON instead of being fixed in
