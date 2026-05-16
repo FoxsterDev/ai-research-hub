@@ -41,6 +41,13 @@ This package exposes the Unity-side bridge for:
 - scenario validation, execution, and persisted results
 - project-defined scenario hooks through `IXUUnityLightMcpScenarioHook`
 
+Before EditMode and PlayMode test execution, the package runs a best-effort
+test preflight that closes Unity Android Logcat editor windows when they are
+open. This avoids Android Logcat background `adb devices` polling noise during
+automated validation. The preflight uses type-name lookup only, so it has no
+hard dependency on the Android Logcat package and does nothing when that
+package or window is absent.
+
 The host-side MCP server is not inside this package.
 It must be installed separately on the machine that runs the AI client.
 

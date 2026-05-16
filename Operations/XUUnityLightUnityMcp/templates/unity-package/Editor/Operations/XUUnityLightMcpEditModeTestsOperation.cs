@@ -73,6 +73,7 @@ namespace XUUnity.LightMcp.Editor.Operations
                 }
 
                 EnsureApi();
+                XUUnityLightMcpTestPreflight.RunBeforeTestExecution();
                 Callbacks.Begin(request.request_id, filterSummary, request.timeout_ms);
 
                 try
