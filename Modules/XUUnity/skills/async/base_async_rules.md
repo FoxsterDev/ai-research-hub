@@ -5,6 +5,7 @@
 
 ## Rules
 - Choose one async primitive deliberately. Do not mix `UniTask`, `Awaitable`, and `.NET Task` in the same flow without a clear boundary.
+- Before adding custom duplicate-call suppression, freshness guards, or request-sharing state, search for existing project async coordination primitives and prefer them when their semantics match.
 - Keep async ownership explicit. Treat cancellation ownership as part of the API contract.
 - Do not add pass-through `async`/`await` wrappers that only await and return another async call unchanged. Keep the direct return unless the wrapper adds real behavior such as ownership, cancellation shaping, exception translation, result mapping, or context guarantees.
 - If the caller owns lifetime, UI validity, or user-facing decisions, prefer keeping the final await and post-await state checks in the caller unless a lower layer truly owns the callback or event contract.
