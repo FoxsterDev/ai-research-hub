@@ -239,6 +239,56 @@ Pass criteria:
 - normal compile/import/playmode churn does not escalate to destructive
   termination policy by default
 
+### 14. Artifact Probe Smoke
+
+Use a small ZIP/APK fixture and run `artifact-probe`.
+
+Pass criteria:
+
+- an existing ZIP entry passes
+- a missing required entry fails
+- `zip_entry_glob_exists` reports a match without dumping archive contents
+- `--artifact-probe-warn-only` keeps the wrapper path non-fatal while the
+  summary still reports `artifact_probe_succeeded=false`
+
+### 15. Batch Side-Effect Smoke
+
+Use a temporary Git workspace around a short batch helper or synthetic command.
+
+Pass criteria:
+
+- a file dirty before the command is listed under `preexisting_dirty_paths`
+- a file dirtied during the command is listed as new
+- allow-file paths are separated under `allowed_new_dirty_paths`
+- unexpected paths are separated under `unexpected_new_dirty_paths`
+- no cleanup is executed automatically
+
+### 16. Project Hook Summary Smoke
+
+Run a scenario with at least one `project_defined_hook` step.
+
+Pass criteria:
+
+- compact scenario summary includes `project_defined_hook_summary`
+- hook step id, hook name, status, and outcome are visible
+- boolean payload fields are promoted under `payload_flags`
+- small scalar payload fields are promoted under `payload_scalars`
+- secret-shaped payload keys are not surfaced
+
+### 17. Reclassification Verdict Smoke
+
+Use the lifecycle fault/reclassification suite and inspect
+`request-final-status`.
+
+Pass criteria:
+
+- completed requests reclassified after lifecycle churn report
+  `operator_verdict.status=confirmed_success_after_lifecycle_churn`
+- `operator_verdict.should_retry=false` when
+  `recommended_next_action=none`
+- unproven lifecycle failures keep warning-first wording and do not claim Unity
+  completion
+
 ## Public Template Assets
 
 Generic example scenario JSON templates live under:

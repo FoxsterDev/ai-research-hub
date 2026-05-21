@@ -138,6 +138,9 @@ What exists now:
 - additive stale request artifact surfacing on compact discovery/status/final-status
   surfaces:
   - `stale_request_artifacts`
+- additive compact operator ergonomics:
+  - `project_defined_hook_summary` on scenario summaries
+  - `operator_verdict` on request final-status recovery
 - public wrapper auto-sync of the installed local helper before launch:
   - refresh from the current local `AIRoot` template files instead of trusting a stale `~/.codex-tools` copy
 - host-side editor session safety helpers:
@@ -153,6 +156,9 @@ What exists now:
   - `batch-editmode-tests` for deterministic non-interactive EditMode tests when the target project is closed
   - `batch-test-framework-version-regression` for Phase 0 `com.unity.test-framework` version sweeps across the interactive MCP and closed-project batch lanes
   - `batch-build-player` for plain Unity batch builds when the project is closed
+  - batch progress heartbeats with `Library/XUUnityLightMcp/logs/batch/<run_id>/progress.jsonl`
+  - tracked workspace side-effect summaries for batch helper runs
+  - `artifact-probe` and `batch-build-player --artifact-probe-file` for generic ZIP/APK and file/text artifact checks
   - `request-edm4u-resolve` for whitelisted External Dependency Manager resolver execution
   - `request-sdk-dependency-verify` for generated SDK dependency artifact checks
   - `arrange-unity-windows` for best-effort macOS tiling of running Unity editor windows

@@ -674,6 +674,51 @@ def build_safe_retry_budget(
     }
 
 
+def build_operator_verdict(
+    *,
+    request_completed: bool,
+    reclassified: bool,
+    operation_outcome: str,
+    result_trust_class: str,
+    recommended_next_action: str,
+) -> dict[str, Any]:
+    if (
+        request_completed
+        and reclassified
+        and result_trust_class == "unity_completed_confirmed"
+        and recommended_next_action == "none"
+    ):
+        return {
+            "status": "confirmed_success_after_lifecycle_churn",
+            "message": "Unity completed the operation; lifecycle reclassification is informational.",
+            "should_retry": False,
+            "next_action": "continue",
+        }
+
+    if result_trust_class == "unity_completed_confirmed" and recommended_next_action == "none":
+        return {
+            "status": "confirmed_success",
+            "message": "Unity completed the operation.",
+            "should_retry": False,
+            "next_action": "continue",
+        }
+
+    if result_trust_class == "wrapper_failed_unity_unproven":
+        return {
+            "status": "unity_completion_unproven",
+            "message": "Unity completion was not proven; inspect final status and recovery evidence before retrying.",
+            "should_retry": recommended_next_action in {"retry_request", "verify_effect_or_retry"},
+            "next_action": recommended_next_action or "inspect_request_journal",
+        }
+
+    return {
+        "status": operation_outcome or "unknown",
+        "message": "Use recommended_next_action for follow-up.",
+        "should_retry": recommended_next_action in {"retry_request", "verify_effect_or_retry"},
+        "next_action": recommended_next_action or "inspect_request_journal",
+    }
+
+
 def build_request_final_status(
     project_root: Path,
     request_id: str,
@@ -812,6 +857,13 @@ def build_request_final_status(
             recommended_next_action=recommended_next_action,
             retryable=retryable,
         )
+        operator_verdict = build_operator_verdict(
+            request_completed=request_completed,
+            reclassified=reclassified,
+            operation_outcome=operation_outcome,
+            result_trust_class=result_trust_class,
+            recommended_next_action=recommended_next_action,
+        )
 
         summary = {
             "request_id": request_id,
@@ -851,6 +903,7 @@ def build_request_final_status(
             "journal_event_count": len(events),
             "journal_event_paths": [str(event.get("_path") or "") for event in events],
             "bridge_stabilization": stabilization,
+            "operator_verdict": operator_verdict,
             **retry_budget,
         }
 
@@ -885,6 +938,13 @@ def build_request_final_status(
                 if not verdict_summary["result_payload_available"] and not request_completed:
                     verdict_summary["recommended_next_action"] = str(summary.get("recommended_next_action") or "")
                 summary.update(verdict_summary)
+                summary["operator_verdict"] = build_operator_verdict(
+                    request_completed=request_completed,
+                    reclassified=reclassified,
+                    operation_outcome=str(summary.get("operation_outcome") or ""),
+                    result_trust_class=str(summary.get("result_trust_class") or ""),
+                    recommended_next_action=str(summary.get("recommended_next_action") or ""),
+                )
                 summary["playmode_verdict_summary"] = dict(verdict_summary)
             return attach_operation_evidence_to_final_status(
                 summary,

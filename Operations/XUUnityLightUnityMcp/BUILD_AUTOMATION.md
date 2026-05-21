@@ -31,6 +31,7 @@ Current public host-side batch helpers:
 - `batch-build-config-compile-matrix`
 - `batch-editmode-tests`
 - `batch-build-player`
+- `artifact-probe`
 
 ## Lane Selection Rule
 
@@ -180,6 +181,74 @@ python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
   --build-target Android \
   --output-path Builds/Android/MyGame.apk
 ```
+
+Batch helpers emit compact progress events as JSON lines and write the same
+events to:
+
+```text
+Library/XUUnityLightMcp/logs/batch/<run_id>/progress.jsonl
+```
+
+Default progress behavior:
+- first event at preflight/prepare
+- periodic `unity_batch_running` heartbeats every 30 seconds while Unity is
+  still alive
+- final events for side-effect scan and summary writing
+- `--no-progress-stdout` keeps only the JSONL sidecar
+- `--progress-interval-seconds` can be lowered for local smoke fixtures
+
+Batch helpers also report tracked workspace side effects:
+
+```bash
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  batch-build-player \
+  --project-root /path/to/UnityProject \
+  --build-target Android \
+  --workspace-root /path/to/repo \
+  --side-effect-allow-file /path/to/allowed-side-effects.json
+```
+
+The summary separates:
+- `preexisting_dirty_paths`
+- `allowed_new_dirty_paths`
+- `unexpected_new_dirty_paths`
+
+It never restores files automatically. Cleanup commands are recommendations
+only and are not emitted for paths that were already dirty before the batch
+command.
+
+Artifact probes can be attached to `batch-build-player`:
+
+```bash
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  batch-build-player \
+  --project-root /path/to/UnityProject \
+  --build-target Android \
+  --output-path Builds/Android/MyGame.apk \
+  --artifact-probe-file /path/to/probes.json
+```
+
+The same generic probe runner can inspect an existing artifact without
+rebuilding:
+
+```bash
+python3 AIRoot/Operations/XUUnityLightUnityMcp/templates/server.py \
+  artifact-probe \
+  --artifact-path Builds/Android/MyGame.apk \
+  --artifact-probe-file /path/to/probes.json
+```
+
+P0 probe kinds:
+- `zip_entry_exists`
+- `zip_entry_absent`
+- `zip_entry_glob_exists`
+- `android_manifest_contains`
+- `file_exists`
+- `file_contains`
+
+If artifact probing is enabled, failed probes make the command fail unless
+`--artifact-probe-warn-only` is passed. Final JSON separates
+`build_succeeded` from `artifact_probe_succeeded`.
 
 Notes:
 - this lane is intentionally plain

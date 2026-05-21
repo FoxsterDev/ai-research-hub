@@ -187,6 +187,12 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertEqual("unity_completed_confirmed", summary["result_trust_class"])
             self.assertEqual("settled_after_lifecycle_reset", summary["reclassified_status"])
             self.assertEqual("none", summary["recommended_next_action"])
+            self.assertEqual(
+                "confirmed_success_after_lifecycle_churn",
+                summary["operator_verdict"]["status"],
+            )
+            self.assertFalse(summary["operator_verdict"]["should_retry"])
+            self.assertEqual("continue", summary["operator_verdict"]["next_action"])
             self.assertTrue(summary["request_observed_in_unity_journal"])
             self.assertTrue(summary["bridge_changed_since_submission"])
             self.assertFalse(summary["recovery_gap_detected"])
@@ -236,6 +242,8 @@ class BridgeRuntimeTests(unittest.TestCase):
             self.assertEqual("submitted_lost_after_lifecycle_churn", summary["operation_outcome"])
             self.assertEqual("wrapper_failed_unity_unproven", summary["result_trust_class"])
             self.assertEqual("verify_effect_or_retry", summary["recommended_next_action"])
+            self.assertEqual("unity_completion_unproven", summary["operator_verdict"]["status"])
+            self.assertTrue(summary["operator_verdict"]["should_retry"])
             self.assertFalse(summary["request_observed_in_unity_journal"])
             self.assertTrue(summary["bridge_changed_since_submission"])
             self.assertTrue(summary["recovery_gap_detected"])

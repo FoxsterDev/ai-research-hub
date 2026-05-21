@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import json
+import re
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any, Callable
+
+
+DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS = 30.0
 
 
 def first_non_empty_line(
@@ -29,6 +36,156 @@ def write_batch_summary_artifact(summary_path: Path, summary: dict[str, Any]) ->
     with summary_path.open("w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
+    return slug.strip("._") or "batch"
+
+
+def build_batch_run_id(operation: str, label: str = "") -> str:
+    timestamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    suffix = _slug(label or operation)
+    return f"{timestamp}_{suffix}"
+
+
+def batch_progress_sidecar_path(project_root: Path, run_id: str) -> Path:
+    return project_root / "Library" / "XUUnityLightMcp" / "logs" / "batch" / run_id / "progress.jsonl"
+
+
+class BatchProgressReporter:
+    def __init__(
+        self,
+        *,
+        run_id: str,
+        operation: str,
+        log_path: Path,
+        progress_path: Path,
+        interval_seconds: float = DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS,
+        stdout: bool = True,
+    ) -> None:
+        self.run_id = run_id
+        self.operation = operation
+        self.log_path = log_path
+        self.progress_path = progress_path
+        self.interval_seconds = max(0.1, float(interval_seconds or DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS))
+        self.stdout = stdout
+        self.started_at = time.time()
+
+    def emit(
+        self,
+        phase: str,
+        *,
+        process_alive: bool = False,
+        last_known_output_path: str = "",
+        message: str = "",
+    ) -> dict[str, Any]:
+        event = {
+            "event": "batch_progress",
+            "run_id": self.run_id,
+            "operation": self.operation,
+            "phase": phase,
+            "elapsed_seconds": int(max(0.0, time.time() - self.started_at)),
+            "process_alive": process_alive,
+            "log_path": str(self.log_path),
+            "last_known_output_path": str(last_known_output_path or ""),
+            "message": message or _default_progress_message(phase),
+        }
+        encoded = json.dumps(event, ensure_ascii=True, separators=(",", ":"))
+        self.progress_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.progress_path.open("a", encoding="utf-8") as handle:
+            handle.write(encoded)
+            handle.write("\n")
+        if self.stdout:
+            print(encoded, flush=True)
+        return event
+
+
+def _default_progress_message(phase: str) -> str:
+    if phase == "preflight":
+        return "Batch operation preflight started."
+    if phase == "prepare_started":
+        return "Batch operation preparation started."
+    if phase == "prepare_completed":
+        return "Batch operation preparation completed."
+    if phase == "unity_batch_started":
+        return "Unity batch process started."
+    if phase == "unity_batch_running":
+        return "Unity batch process is still running."
+    if phase == "unity_batch_completed":
+        return "Unity batch process completed."
+    if phase == "artifact_probe_started":
+        return "Artifact probe started."
+    if phase == "artifact_probe_completed":
+        return "Artifact probe completed."
+    if phase == "side_effect_scan_completed":
+        return "Workspace side-effect scan completed."
+    if phase == "summary_written":
+        return "Batch summary was written."
+    return "Batch operation progressed."
+
+
+def run_subprocess_with_progress(
+    command: list[str],
+    *,
+    reporter: BatchProgressReporter,
+    timeout_ms: int | None = None,
+    last_known_output_path: str = "",
+) -> tuple[int, bool]:
+    timeout_seconds = timeout_ms / 1000.0 if timeout_ms is not None and timeout_ms > 0 else None
+    deadline = time.time() + timeout_seconds if timeout_seconds is not None else None
+    next_heartbeat_at = time.time() + reporter.interval_seconds
+    timed_out = False
+
+    reporter.emit(
+        "unity_batch_started",
+        process_alive=False,
+        last_known_output_path=last_known_output_path,
+    )
+    process = subprocess.Popen(command)
+    batch_exit_code = 0
+    try:
+        while True:
+            return_code = process.poll()
+            if return_code is not None:
+                batch_exit_code = int(return_code)
+                break
+
+            now = time.time()
+            if deadline is not None and now >= deadline:
+                timed_out = True
+                batch_exit_code = 124
+                process.kill()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+                break
+
+            if now >= next_heartbeat_at:
+                reporter.emit(
+                    "unity_batch_running",
+                    process_alive=True,
+                    last_known_output_path=last_known_output_path,
+                )
+                next_heartbeat_at = now + reporter.interval_seconds
+
+            wait_slice = min(1.0, max(0.1, reporter.interval_seconds / 10.0))
+            if deadline is not None:
+                wait_slice = min(wait_slice, max(0.1, deadline - now))
+            try:
+                batch_exit_code = int(process.wait(timeout=wait_slice))
+                break
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        reporter.emit(
+            "unity_batch_completed",
+            process_alive=process.poll() is None,
+            last_known_output_path=last_known_output_path,
+        )
+
+    return batch_exit_code, timed_out
 
 
 def batch_phase_for_action(action: str) -> str:

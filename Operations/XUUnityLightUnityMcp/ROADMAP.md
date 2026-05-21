@@ -105,6 +105,10 @@ Already implemented:
 - per-project health and ANR classification reporting
 - structured grouped transport and lifecycle state
 - compile-first public post-change validation ordering
+- batch operator ergonomics is implemented from
+  `Designs/XUUNITY_MCP_BATCH_OPERATOR_ERGONOMICS_DESIGN_2026-05-21.md`:
+  progress heartbeats, artifact probes, workspace side-effect summaries,
+  project-defined hook summaries, and reclassification operator verdicts
 
 This is enough for:
 
@@ -233,6 +237,10 @@ Current progress:
   - `request-scenario-result-latest`
   - `unity_scenario_results_list`
   - `unity_scenario_result_latest`
+- batch operator ergonomics now has its implementation slice:
+  progress JSONL sidecars, generic artifact probe summaries, tracked workspace
+  side-effect accounting, project-defined hook summary promotion, and
+  `operator_verdict` final-status wording
 - remaining value in this phase is summary polish, broader proof, and
   surfacing the evidence consistently across more operator flows
 

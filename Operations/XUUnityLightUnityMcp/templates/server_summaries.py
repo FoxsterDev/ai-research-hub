@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -165,6 +166,93 @@ def summarize_scenario_step(step: dict[str, Any] | None) -> dict[str, Any] | Non
     return summary
 
 
+def build_project_defined_hook_summary(steps: list[Any]) -> dict[str, Any]:
+    hooks: list[dict[str, Any]] = []
+    for raw_step in steps:
+        if not isinstance(raw_step, dict):
+            continue
+        if str(raw_step.get("kind") or "") != "project_defined_hook":
+            continue
+
+        payload = _parse_step_payload_json(raw_step)
+        hook_summary: dict[str, Any] = {
+            "step_id": str(raw_step.get("stepId") or raw_step.get("step_id") or ""),
+            "hook_name": str(raw_step.get("hook_name") or raw_step.get("hookName") or ""),
+            "status": str(raw_step.get("status") or ""),
+            "outcome": truncate_text(payload.get("outcome") or raw_step.get("outcome") or "", 120),
+        }
+        payload_flags = _extract_payload_flags(payload)
+        payload_scalars = _extract_payload_scalars(payload)
+        if payload_flags:
+            hook_summary["payload_flags"] = payload_flags
+        if payload_scalars:
+            hook_summary["payload_scalars"] = payload_scalars
+
+        error_code = str(raw_step.get("error_code") or "")
+        error_message = str(raw_step.get("error_message") or "")
+        if error_code:
+            hook_summary["error_code"] = error_code
+        if error_message:
+            hook_summary["error_message"] = truncate_text(error_message, 240)
+        hooks.append(hook_summary)
+
+    return {
+        "hook_count": len(hooks),
+        "all_hooks_succeeded": bool(hooks) and all(str(item.get("status") or "") == "passed" for item in hooks),
+        "hooks": hooks,
+    }
+
+
+def _parse_step_payload_json(step: dict[str, Any]) -> dict[str, Any]:
+    payload_json = str(step.get("payload_json") or "")
+    if not payload_json:
+        return {}
+    try:
+        payload = json.loads(payload_json)
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _extract_payload_flags(payload: dict[str, Any]) -> dict[str, bool]:
+    result: dict[str, bool] = {}
+    for key, value in payload.items():
+        if _is_sensitive_payload_key(key):
+            continue
+        if isinstance(value, bool):
+            result[str(key)] = value
+    return result
+
+
+def _extract_payload_scalars(payload: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in payload.items():
+        if key == "outcome" or _is_sensitive_payload_key(key) or isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            result[str(key)] = value
+        elif isinstance(value, str):
+            result[str(key)] = truncate_text(value, 120)
+    return result
+
+
+def _is_sensitive_payload_key(key: Any) -> bool:
+    normalized = str(key or "").lower()
+    return any(
+        marker in normalized
+        for marker in (
+            "secret",
+            "token",
+            "password",
+            "credential",
+            "private_key",
+            "client_secret",
+            "api_key",
+            "auth",
+        )
+    )
+
+
 def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_statuses: set[str]) -> dict[str, Any]:
     normalized = normalize_scenario_payload(payload, scenario_terminal_statuses)
     steps = normalized.get("steps")
@@ -226,6 +314,10 @@ def build_scenario_result_summary(payload: dict[str, Any], scenario_terminal_sta
         summary["offline_error_code"] = str(normalized.get("offline_error_code") or "")
     if "offline_error_message" in normalized:
         summary["offline_error_message"] = truncate_text(normalized.get("offline_error_message") or "", 320)
+
+    project_defined_hook_summary = build_project_defined_hook_summary(step_items)
+    if project_defined_hook_summary["hook_count"] > 0:
+        summary["project_defined_hook_summary"] = project_defined_hook_summary
 
     for key in (
         "host_health_classification",

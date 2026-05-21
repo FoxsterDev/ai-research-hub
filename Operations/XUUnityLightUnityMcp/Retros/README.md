@@ -20,3 +20,4 @@ business context should stay in project-local or host-local outputs.
 - `2026-05-12_mcp_validation_workflow_chat_retro.md`
 - `2026-05-12_mcp_validation_workflow_retro_action_plan.md`
 - `2026-05-14_sdk_rollout_mcp_portfolio_retro.md`
+- `2026-05-21_project_hook_batch_build_operator_retro.md`
