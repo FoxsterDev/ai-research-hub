@@ -889,6 +889,7 @@ namespace XUUnity.LightMcp.Editor.Core
         public string kind = "";
         public string status = "pending";
         public string outcome = "";
+        public string hook_name = "";
         public string payload_json = "";
         public string error_code = "";
         public string error_message = "";

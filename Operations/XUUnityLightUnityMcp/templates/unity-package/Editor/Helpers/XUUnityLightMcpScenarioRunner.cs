@@ -636,6 +636,7 @@ namespace XUUnity.LightMcp.Editor.Helpers
 
         static bool ProcessProjectDefinedHookStep(XUUnityLightMcpScenarioStepDefinition step, XUUnityLightMcpScenarioStepResult stepResult)
         {
+            stepResult.hook_name = step.hookName ?? "";
             if (!TryCreateScenarioHook(step.hookName, out var hook, out var errorCode, out var errorMessage))
             {
                 stepResult.status = "failed";

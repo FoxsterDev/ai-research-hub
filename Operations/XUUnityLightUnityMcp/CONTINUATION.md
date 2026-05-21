@@ -24,6 +24,11 @@ It now has:
 - summary-first token discipline for high-churn request paths
 - same-project editor launch-in-progress reuse to avoid spawning a second Unity
   instance while an editor open is already in flight
+- batch progress heartbeat JSONL sidecars for long-running batch helpers
+- generic artifact probe summaries for ZIP/APK and file/text checks
+- tracked workspace side-effect accounting around batch helpers
+- project-defined hook summary promotion in compact scenario summaries
+- operator verdicts for confirmed lifecycle reclassification recovery
 
 The public `xuunity` protocol layer also now understands validation-lane
 selection.
@@ -55,6 +60,7 @@ External server:
   - `batch-build-config-compile-matrix`
   - `batch-editmode-tests`
   - `batch-build-player`
+  - `artifact-probe`
 
 Unity bridge:
 - heartbeat state
@@ -213,6 +219,11 @@ Mini-playbook after wrapper churn:
 10. for lifecycle-reset recovery, base retry decisions on structured JSON truth
    such as `recommended_next_action`, `result_trust_class`, and
    `bridge_stabilization.safe_to_retry`, not only shell exit behavior
+11. if `operator_verdict.status=confirmed_success_after_lifecycle_churn`, do
+    not retry; Unity completed the operation and the lifecycle churn is
+    informational
+12. if `operator_verdict.status=unity_completion_unproven`, inspect the
+    surfaced recovery evidence before deciding whether a bounded retry is safe
 
 Mini-playbook after `devmode` with an already-open editor:
 

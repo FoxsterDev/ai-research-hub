@@ -11,13 +11,19 @@ import time
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
+from server_artifact_probe import load_artifact_probe_config, run_artifact_probe
 from server_build_config import build_compile_matrix_args_from_build_config
 from server_batch_reporting import (
+    DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS,
+    BatchProgressReporter,
     attach_batch_summary_to_error,
     batch_summary_artifact_path,
+    batch_progress_sidecar_path,
+    build_batch_run_id,
     build_batch_execution_summary,
     build_batch_prepare_failure_summary,
     first_non_empty_line,
+    run_subprocess_with_progress,
     write_batch_summary_artifact,
 )
 from server_bridge_payloads import (
@@ -159,6 +165,12 @@ from server_summaries import (
     prune_project_artifacts,
     try_read_json_dict,
     truncate_text,
+)
+from server_workspace_effects import (
+    build_workspace_side_effects,
+    capture_git_dirty_paths,
+    load_side_effect_allow_file,
+    unavailable_workspace_side_effects,
 )
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -1987,6 +1999,20 @@ def load_json_file(path_value: str, error_code: str) -> Any:
         raise ToolInvocationError(error_code, str(exc)) from exc
 
 
+def resolve_workspace_root(project_root: Path, workspace_root_value: str | None) -> Path:
+    if workspace_root_value:
+        return Path(workspace_root_value).expanduser().resolve()
+    return project_root
+
+
+def load_batch_side_effect_allow_config(path_value: str | None) -> dict[str, Any]:
+    return load_side_effect_allow_file(path_value or "", tool_error_type=ToolInvocationError)
+
+
+def progress_stdout_enabled(args: Any) -> bool:
+    return not bool(getattr(args, "no_progress_stdout", False))
+
+
 def ensure_batch_project_closed(project_root: Path, action_label: str):
     live_editor_pids = list_live_project_editor_pids(project_root)
     if live_editor_pids:
@@ -2010,6 +2036,11 @@ def run_batch_operation(
     result_path: Path,
     dry_run: bool,
     timeout_ms: int | None = None,
+    workspace_root: Path | None = None,
+    side_effect_mode: str = "git",
+    side_effect_allow_config: dict[str, Any] | None = None,
+    progress_interval_seconds: float = DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS,
+    progress_stdout: bool = True,
 ):
     if timeout_ms is not None and timeout_ms <= 0:
         timeout_ms = None
@@ -2021,8 +2052,25 @@ def run_batch_operation(
 
     summary_path = batch_summary_artifact_path(result_path)
     payload["summary_file"] = str(summary_path)
+    run_id = build_batch_run_id(
+        str(payload.get("action") or "batch_operation"),
+        str(payload.get("build_target") or payload.get("compile_name") or payload.get("name") or ""),
+    )
+    progress_path = batch_progress_sidecar_path(project_root, run_id)
+    progress_reporter = BatchProgressReporter(
+        run_id=run_id,
+        operation=str(payload.get("action") or "batch operation"),
+        log_path=log_path,
+        progress_path=progress_path,
+        interval_seconds=progress_interval_seconds,
+        stdout=progress_stdout,
+    )
+    payload["run_id"] = run_id
+    payload["progress_file"] = str(progress_path)
+    progress_reporter.emit("preflight")
 
     try:
+        progress_reporter.emit("prepare_started")
         ensure_batch_project_closed(project_root, str(payload.get("action") or "batch operation"))
     except ToolInvocationError as exc:
         summary = build_batch_prepare_failure_summary(
@@ -2040,26 +2088,45 @@ def run_batch_operation(
             tool_invocation_error_type=ToolInvocationError,
         )
 
+    progress_reporter.emit("prepare_completed")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.parent.mkdir(parents=True, exist_ok=True)
     payload["stale_lock"] = clear_stale_project_lock(project_root)
 
+    effective_workspace_root = (workspace_root or project_root).expanduser().resolve()
+    side_effect_mode = str(side_effect_mode or "git")
+    before_side_effect_mode = "unavailable"
+    before_dirty_paths: list[str] = []
+    if side_effect_mode != "off":
+        before_side_effect_mode, before_dirty_paths = capture_git_dirty_paths(effective_workspace_root)
+
     command_started_at = time.time()
-    timed_out = False
-    batch_exit_code = 0
-    try:
-        completed = subprocess.run(
-            command,
-            check=False,
-            timeout=(timeout_ms / 1000.0) if timeout_ms is not None else None,
-        )
-        batch_exit_code = completed.returncode
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        batch_exit_code = 124
+    batch_exit_code, timed_out = run_subprocess_with_progress(
+        command,
+        reporter=progress_reporter,
+        timeout_ms=timeout_ms,
+    )
 
     payload["batch_exit_code"] = batch_exit_code
     payload["timed_out"] = timed_out
+    if side_effect_mode == "off":
+        side_effects = unavailable_workspace_side_effects(effective_workspace_root, mode="off")
+    else:
+        after_side_effect_mode, after_dirty_paths = capture_git_dirty_paths(effective_workspace_root)
+        effective_side_effect_mode = "git" if before_side_effect_mode == "git" and after_side_effect_mode == "git" else "unavailable"
+        side_effects = (
+            build_workspace_side_effects(
+                workspace_root=effective_workspace_root,
+                before_dirty_paths=before_dirty_paths,
+                after_dirty_paths=after_dirty_paths,
+                mode=effective_side_effect_mode,
+                allow_config=side_effect_allow_config,
+            )
+            if effective_side_effect_mode == "git"
+            else unavailable_workspace_side_effects(effective_workspace_root)
+        )
+    payload["workspace_side_effects"] = side_effects
+    progress_reporter.emit("side_effect_scan_completed")
 
     result_payload = try_read_json_dict(result_path, read_json)
     payload["result_payload_present"] = result_payload is not None
@@ -2092,7 +2159,9 @@ def run_batch_operation(
             "top_actionable_error",
             f"Unity batch operation timed out after {timeout_ms} ms.",
         )
+    result_summary["workspace_side_effects"] = side_effects
     write_batch_summary_artifact(summary_path, result_summary)
+    progress_reporter.emit("summary_written")
     payload["result_summary"] = result_summary
     payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
     if "top_actionable_error" in result_summary:
@@ -3407,6 +3476,11 @@ def cmd_batch_compile(args):
         result_path=result_path,
         dry_run=args.dry_run,
         timeout_ms=args.timeout_ms,
+        workspace_root=resolve_workspace_root(project_root, getattr(args, "workspace_root", None)),
+        side_effect_mode=getattr(args, "side_effect_mode", "git"),
+        side_effect_allow_config=load_batch_side_effect_allow_config(getattr(args, "side_effect_allow_file", None)),
+        progress_interval_seconds=float(getattr(args, "progress_interval_seconds", DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS)),
+        progress_stdout=progress_stdout_enabled(args),
     )
 
 
@@ -3454,6 +3528,11 @@ def cmd_batch_compile_matrix(args):
         result_path=result_path,
         dry_run=args.dry_run,
         timeout_ms=args.timeout_ms,
+        workspace_root=resolve_workspace_root(project_root, getattr(args, "workspace_root", None)),
+        side_effect_mode=getattr(args, "side_effect_mode", "git"),
+        side_effect_allow_config=load_batch_side_effect_allow_config(getattr(args, "side_effect_allow_file", None)),
+        progress_interval_seconds=float(getattr(args, "progress_interval_seconds", DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS)),
+        progress_stdout=progress_stdout_enabled(args),
     )
 
 
@@ -3516,6 +3595,11 @@ def cmd_batch_build_config_compile_matrix(args):
             result_path=result_path,
             dry_run=False,
             timeout_ms=args.timeout_ms,
+            workspace_root=resolve_workspace_root(project_root, getattr(args, "workspace_root", None)),
+            side_effect_mode=getattr(args, "side_effect_mode", "git"),
+            side_effect_allow_config=load_batch_side_effect_allow_config(getattr(args, "side_effect_allow_file", None)),
+            progress_interval_seconds=float(getattr(args, "progress_interval_seconds", DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS)),
+            progress_stdout=progress_stdout_enabled(args),
         )
     finally:
         try:
@@ -3577,7 +3661,34 @@ def cmd_batch_editmode_tests(args):
         result_path=result_path,
         dry_run=args.dry_run,
         timeout_ms=args.timeout_ms,
+        workspace_root=resolve_workspace_root(project_root, getattr(args, "workspace_root", None)),
+        side_effect_mode=getattr(args, "side_effect_mode", "git"),
+        side_effect_allow_config=load_batch_side_effect_allow_config(getattr(args, "side_effect_allow_file", None)),
+        progress_interval_seconds=float(getattr(args, "progress_interval_seconds", DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS)),
+        progress_stdout=progress_stdout_enabled(args),
     )
+
+
+def cmd_artifact_probe(args):
+    artifact_probe_config = load_artifact_probe_config(
+        artifact_probe_file=getattr(args, "artifact_probe_file", "") or "",
+        artifact_probe_json=getattr(args, "artifact_probe_json", "") or "",
+        tool_error_type=ToolInvocationError,
+    )
+    if artifact_probe_config is None:
+        raise ToolInvocationError(
+            "artifact_probe_missing",
+            "Pass --artifact-probe-file or --artifact-probe-json.",
+        )
+
+    summary = run_artifact_probe(
+        artifact_probe_config,
+        artifact_path_override=args.artifact_path or "",
+        truncate_text=truncate_text,
+    )
+    print_json({"artifact_probe_summary": summary})
+    if not bool(summary.get("succeeded")) and not bool(args.artifact_probe_warn_only):
+        raise SystemExit(1)
 
 
 def cmd_batch_build_player(args):
@@ -3600,6 +3711,12 @@ def cmd_batch_build_player(args):
     output_path = resolve_batch_build_output_path(project_root, args.output_path)
     scene_paths = list(args.scene_path or [])
     build_options = list(args.build_option or [])
+    artifact_probe_config = load_artifact_probe_config(
+        artifact_probe_file=getattr(args, "artifact_probe_file", "") or "",
+        artifact_probe_json=getattr(args, "artifact_probe_json", "") or "",
+        tool_error_type=ToolInvocationError,
+    )
+    artifact_probe_warn_only = bool(getattr(args, "artifact_probe_warn_only", False))
 
     command = build_plain_batch_build_command(
         project_root=project_root,
@@ -3624,18 +3741,34 @@ def cmd_batch_build_player(args):
         "result_file": str(result_path),
         "command": command,
         "dry_run": args.dry_run,
+        "artifact_probe_enabled": artifact_probe_config is not None,
+        "artifact_probe_warn_only": artifact_probe_warn_only,
     }
     summary_path = batch_summary_artifact_path(result_path)
     payload["summary_file"] = str(summary_path)
     timeout_ms = args.timeout_ms if args.timeout_ms and args.timeout_ms > 0 else None
     payload["timeout_ms"] = timeout_ms
+    run_id = build_batch_run_id("plain_batch_build", build_target)
+    progress_path = batch_progress_sidecar_path(project_root, run_id)
+    progress_reporter = BatchProgressReporter(
+        run_id=run_id,
+        operation="batch-build-player",
+        log_path=log_path,
+        progress_path=progress_path,
+        interval_seconds=float(getattr(args, "progress_interval_seconds", DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS)),
+        stdout=progress_stdout_enabled(args),
+    )
+    payload["run_id"] = run_id
+    payload["progress_file"] = str(progress_path)
 
     if args.dry_run:
         print_json(payload)
         return
 
+    progress_reporter.emit("preflight")
     live_editor_pids = list_live_project_editor_pids(project_root)
     if live_editor_pids:
+        progress_reporter.emit("prepare_started")
         exc = ToolInvocationError(
             "editor_running_batch_conflict",
             (
@@ -3660,34 +3793,73 @@ def cmd_batch_build_player(args):
             tool_invocation_error_type=ToolInvocationError,
         )
 
+    progress_reporter.emit("prepare_started")
     log_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.parent.mkdir(parents=True, exist_ok=True)
     stale_lock = clear_stale_project_lock(project_root)
     payload["stale_lock"] = stale_lock
+    progress_reporter.emit("prepare_completed")
+
+    effective_workspace_root = resolve_workspace_root(project_root, getattr(args, "workspace_root", None))
+    side_effect_mode = str(getattr(args, "side_effect_mode", "git") or "git")
+    side_effect_allow_config = load_batch_side_effect_allow_config(getattr(args, "side_effect_allow_file", None))
+    before_side_effect_mode = "unavailable"
+    before_dirty_paths: list[str] = []
+    if side_effect_mode != "off":
+        before_side_effect_mode, before_dirty_paths = capture_git_dirty_paths(effective_workspace_root)
 
     command_started_at = time.time()
-    timed_out = False
-    batch_exit_code = 0
-    try:
-        completed = subprocess.run(
-            command,
-            check=False,
-            timeout=(timeout_ms / 1000.0) if timeout_ms is not None else None,
-        )
-        batch_exit_code = completed.returncode
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        batch_exit_code = 124
+    batch_exit_code, timed_out = run_subprocess_with_progress(
+        command,
+        reporter=progress_reporter,
+        timeout_ms=timeout_ms,
+        last_known_output_path=output_path,
+    )
     payload["batch_exit_code"] = batch_exit_code
     payload["timed_out"] = timed_out
+    if side_effect_mode == "off":
+        side_effects = unavailable_workspace_side_effects(effective_workspace_root, mode="off")
+    else:
+        after_side_effect_mode, after_dirty_paths = capture_git_dirty_paths(effective_workspace_root)
+        effective_side_effect_mode = "git" if before_side_effect_mode == "git" and after_side_effect_mode == "git" else "unavailable"
+        side_effects = (
+            build_workspace_side_effects(
+                workspace_root=effective_workspace_root,
+                before_dirty_paths=before_dirty_paths,
+                after_dirty_paths=after_dirty_paths,
+                mode=effective_side_effect_mode,
+                allow_config=side_effect_allow_config,
+            )
+            if effective_side_effect_mode == "git"
+            else unavailable_workspace_side_effects(effective_workspace_root)
+        )
+    payload["workspace_side_effects"] = side_effects
+    progress_reporter.emit("side_effect_scan_completed")
 
     result_payload = try_read_json_dict(result_path, read_json)
     if result_payload is not None:
         payload["build_result_payload_present"] = True
-        payload["succeeded"] = bool(result_payload.get("succeeded", False)) and batch_exit_code == 0 and not timed_out
+        build_succeeded = bool(result_payload.get("succeeded", False)) and batch_exit_code == 0 and not timed_out
     else:
         payload["build_result_payload_present"] = False
-        payload["succeeded"] = batch_exit_code == 0 and not timed_out
+        build_succeeded = batch_exit_code == 0 and not timed_out
+    payload["build_succeeded"] = build_succeeded
+
+    artifact_probe_summary = None
+    artifact_probe_succeeded = True
+    if artifact_probe_config is not None:
+        progress_reporter.emit("artifact_probe_started", last_known_output_path=output_path)
+        artifact_probe_summary = run_artifact_probe(
+            artifact_probe_config,
+            artifact_path_override=output_path,
+            truncate_text=truncate_text,
+        )
+        artifact_probe_succeeded = bool(artifact_probe_summary.get("succeeded"))
+        payload["artifact_probe_summary"] = artifact_probe_summary
+        payload["artifact_probe_succeeded"] = artifact_probe_succeeded
+        progress_reporter.emit("artifact_probe_completed", last_known_output_path=output_path)
+
+    payload["succeeded"] = build_succeeded and (artifact_probe_succeeded or artifact_probe_warn_only)
 
     log_excerpt_hint = ""
     if batch_exit_code != 0 or not bool(payload.get("succeeded")):
@@ -3712,7 +3884,21 @@ def cmd_batch_build_player(args):
             "top_actionable_error",
             f"Unity batch operation timed out after {timeout_ms} ms.",
         )
+    result_summary["build_succeeded"] = build_succeeded
+    result_summary["artifact_probe_succeeded"] = artifact_probe_succeeded
+    if artifact_probe_summary is not None:
+        result_summary["artifact_probe_summary"] = artifact_probe_summary
+        if not artifact_probe_succeeded:
+            failures = artifact_probe_summary.get("failures")
+            if isinstance(failures, list) and failures:
+                first_failure = failures[0] if isinstance(failures[0], dict) else {}
+                result_summary.setdefault(
+                    "top_actionable_error",
+                    truncate_text(first_failure.get("message") or "Artifact probe failed.", 320),
+                )
+    result_summary["workspace_side_effects"] = side_effects
     write_batch_summary_artifact(summary_path, result_summary)
+    progress_reporter.emit("summary_written")
     payload["build_result_summary"] = result_summary
     payload["stale_bridge_state_cleared"] = clear_stale_bridge_state(project_root)
     if "top_actionable_error" in result_summary:
@@ -3721,6 +3907,24 @@ def cmd_batch_build_player(args):
     print_json(payload)
     if batch_exit_code != 0 or not bool(payload.get("succeeded")):
         raise SystemExit(1)
+
+
+def add_batch_operator_arguments(command_parser: argparse.ArgumentParser) -> None:
+    command_parser.add_argument("--workspace-root")
+    command_parser.add_argument("--side-effect-mode", choices=["git", "off"], default="git")
+    command_parser.add_argument("--side-effect-allow-file")
+    command_parser.add_argument(
+        "--progress-interval-seconds",
+        type=float,
+        default=DEFAULT_BATCH_PROGRESS_INTERVAL_SECONDS,
+    )
+    command_parser.add_argument("--no-progress-stdout", action="store_true")
+
+
+def add_artifact_probe_arguments(command_parser: argparse.ArgumentParser) -> None:
+    command_parser.add_argument("--artifact-probe-file")
+    command_parser.add_argument("--artifact-probe-json")
+    command_parser.add_argument("--artifact-probe-warn-only", action="store_true")
 
 
 def build_parser():
@@ -4027,6 +4231,7 @@ def build_parser():
     batch_compile_cmd.add_argument("--result-file")
     batch_compile_cmd.add_argument("--timeout-ms", type=int)
     batch_compile_cmd.add_argument("--dry-run", action="store_true")
+    add_batch_operator_arguments(batch_compile_cmd)
     batch_compile_cmd.set_defaults(func=cmd_batch_compile)
 
     batch_compile_matrix_cmd = sub.add_parser(
@@ -4040,6 +4245,7 @@ def build_parser():
     batch_compile_matrix_cmd.add_argument("--result-file")
     batch_compile_matrix_cmd.add_argument("--timeout-ms", type=int)
     batch_compile_matrix_cmd.add_argument("--dry-run", action="store_true")
+    add_batch_operator_arguments(batch_compile_matrix_cmd)
     batch_compile_matrix_cmd.set_defaults(func=cmd_batch_compile_matrix)
 
     batch_build_config_matrix_cmd = sub.add_parser(
@@ -4055,6 +4261,7 @@ def build_parser():
     batch_build_config_matrix_cmd.add_argument("--batch-log-path")
     batch_build_config_matrix_cmd.add_argument("--result-file")
     batch_build_config_matrix_cmd.add_argument("--timeout-ms", type=int)
+    add_batch_operator_arguments(batch_build_config_matrix_cmd)
     batch_build_config_matrix_cmd.set_defaults(func=cmd_batch_build_config_compile_matrix)
 
     batch_editmode_cmd = sub.add_parser(
@@ -4071,6 +4278,7 @@ def build_parser():
     batch_editmode_cmd.add_argument("--result-file")
     batch_editmode_cmd.add_argument("--timeout-ms", type=int)
     batch_editmode_cmd.add_argument("--dry-run", action="store_true")
+    add_batch_operator_arguments(batch_editmode_cmd)
     batch_editmode_cmd.set_defaults(func=cmd_batch_editmode_tests)
 
     regression_cmd = sub.add_parser(
@@ -4111,7 +4319,17 @@ def build_parser():
     batch_build_cmd.add_argument("--result-file")
     batch_build_cmd.add_argument("--timeout-ms", type=int)
     batch_build_cmd.add_argument("--dry-run", action="store_true")
+    add_batch_operator_arguments(batch_build_cmd)
+    add_artifact_probe_arguments(batch_build_cmd)
     batch_build_cmd.set_defaults(func=cmd_batch_build_player)
+
+    artifact_probe_cmd = sub.add_parser(
+        "artifact-probe",
+        help="Inspect an existing build artifact against generic ZIP/file/text expectations.",
+    )
+    artifact_probe_cmd.add_argument("--artifact-path")
+    add_artifact_probe_arguments(artifact_probe_cmd)
+    artifact_probe_cmd.set_defaults(func=cmd_artifact_probe)
 
     maintenance_prune_cmd = sub.add_parser(
         "maintenance-prune",

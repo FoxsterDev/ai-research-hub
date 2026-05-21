@@ -47,6 +47,7 @@ class ServerProtocolAndParserTests(unittest.TestCase):
                 "ensure-ready",
                 "recover-editor-session",
                 "batch-compile",
+                "artifact-probe",
                 "maintenance-prune",
             }.issubset(choices)
         )
