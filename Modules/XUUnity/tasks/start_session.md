@@ -120,9 +120,9 @@ If the active repo router, project router, or project registry declares a differ
 - If no project can be resolved in a multi-project monorepo, prefer one short clarification question over a repo-generic implementation proposal.
 
 ## Internal Overlay Routing Hints
-- If the task is about a long-lived screen, tab, lobby page, or page-composition presenter on the internal `_Core.UI/UIPresenter` stack, prefer `AIModules/XUUnityInternal/skills/ui/screen_presenters.md`.
-- If the task is about a popup, modal, temporary flow, wizard-like interaction, or presenter that returns an explicit flow result, prefer `AIModules/XUUnityInternal/skills/ui/flow_presenters.md`.
-- If the task is about choosing between presenter lifetime shapes, extracting presenter patterns, or refactoring the boundary between scene roots and presenters, also load `AIModules/XUUnityInternal/skills/ui/presenter_development.md`.
+- If a host-local overlay declares UI guidance and the task is about a long-lived screen, tab, lobby page, or page-composition presenter, prefer the host-local screen-presenter guidance.
+- If a host-local overlay declares UI guidance and the task is about a popup, modal, temporary flow, wizard-like interaction, or presenter that returns an explicit flow result, prefer the host-local flow-presenter guidance.
+- If a host-local overlay declares UI guidance and the task is about choosing between presenter lifetime shapes, extracting presenter patterns, or refactoring the boundary between scene roots and presenters, also load the host-local presenter-development guidance.
 
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
