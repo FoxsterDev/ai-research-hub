@@ -121,6 +121,7 @@ Primary MCP entrypoints:
 Key MCP docs:
 - design: [Operations/XUUnityLightUnityMcp/DESIGN.md](./Operations/XUUnityLightUnityMcp/DESIGN.md)
 - integration: [Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md](./Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md)
+- agent workflows: [Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md](./Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md)
 - smoke contract: [Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md](./Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md)
 - roadmap: [Operations/XUUnityLightUnityMcp/ROADMAP.md](./Operations/XUUnityLightUnityMcp/ROADMAP.md)
 - continuation: [Operations/XUUnityLightUnityMcp/CONTINUATION.md](./Operations/XUUnityLightUnityMcp/CONTINUATION.md)

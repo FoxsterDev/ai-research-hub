@@ -85,11 +85,13 @@ Shared operational package:
 Supporting public docs:
 - `AIRoot/Operations/XUUnityLightUnityMcp/BUILD_AUTOMATION.md`
 - `AIRoot/Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md`
+- `AIRoot/Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md`
 - `AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md`
 
 Working rule:
 - if the active host or project exposes a supported Unity MCP path, prefer that path for Unity-aware validation
 - do not treat shell compile, generated project builds, or ad hoc shell scripts as equivalent to Unity MCP evidence
+- treat MCP package `devmode` and `prodmode` as dependency-source switches, not validation evidence; after either switch, run package refresh and the relevant Unity validation lane
 - host repos may add narrower local rules or wrappers on top of this public baseline
 
 ### Slack MCP
