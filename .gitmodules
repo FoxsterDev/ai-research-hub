@@ -1,0 +1,4 @@
+[submodule "Operations/XUUnityLightUnityMcp"]
+	path = Operations/XUUnityLightUnityMcp
+	url = https://github.com/FoxsterDev/xuunity-light-unity-mcp.git
+	branch = master
