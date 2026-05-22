@@ -130,7 +130,7 @@ Key MCP docs:
 Reusable MCP assets:
 - scenario templates: `Operations/XUUnityLightUnityMcp/templates/scenarios/`
 - smoke runners: `Operations/XUUnityLightUnityMcp/templates/smoke/`
-- Unity package template: `Operations/XUUnityLightUnityMcp/templates/unity-package/`
+- Unity package source: `Operations/XUUnityLightUnityMcp/packages/com.xuunity.light-mcp/`
 
 ### Visuals And Design
 

@@ -5,7 +5,7 @@ Find the safest compatible third-party SDK update candidate for a Unity mobile p
 
 Use this for one-command pre-analysis such as:
 - `xuunity sdk discover AppsFlyer`
-- `xuunity sdk discover AppsFlyer for ApperfunHub`
+- `xuunity sdk discover AppsFlyer for <ProjectName>`
 - `xuunity sdk discover AppLovin`
 - `xuunity sdk discover AppLovin Pangle`
 - `xuunity sdk discover AppLovin Pangle for all apps`
