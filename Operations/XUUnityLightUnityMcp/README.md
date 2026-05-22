@@ -1342,12 +1342,22 @@ Those project-local wrappers are evidence routes, not public proof for every hos
 
 ## Client Templates
 
-Planned client adapters live under:
+Client adapters live under:
 
-- `templates/clients/codex/`
-- `templates/clients/claude-code/`
-- `templates/clients/cursor/`
-- `templates/clients/generic/`
+- `templates/clients/codex/config.toml.snippet` — active. Codex `[mcp_servers]`
+  block. Also installable through `init_xuunity_light_unity_mcp.sh
+  --install-codex-config`.
+- `templates/clients/claude-code/.mcp.json` — active. Claude Code project-scope
+  MCP config. Copy to a repo root for team-wide opt-in, or use
+  `init_xuunity_light_unity_mcp.sh --install-claude-config` for user-scope
+  registration via `~/.claude.json`. See
+  `templates/clients/claude-code/README.md` for project / user / local scope
+  routes.
+- `templates/clients/cursor/` — planned, placeholder.
+- `templates/clients/generic/` — planned, placeholder.
 
-These templates document how different MCP-capable clients should be pointed at
-the same local service as the stdio layer becomes validated in real clients.
+All client adapters point at the same stdio MCP protocol. Codex defaults to
+`~/.codex-tools/xuunity-light-unity-mcp/run.sh`; Claude Code defaults to
+`~/.claude-tools/xuunity-light-unity-mcp/run.sh`. The wiring layer is the only
+client-specific piece; tool surface, operations, and agent-behavior rules are
+agent-agnostic and documented in `AI_INTEGRATION.md`.

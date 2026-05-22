@@ -148,8 +148,26 @@ batch_rc = int(sys.argv[7])
 payload = {}
 parse_error = ""
 if stdout_file.is_file():
+    text = stdout_file.read_text(encoding="utf-8")
     try:
-        payload = json.loads(stdout_file.read_text(encoding="utf-8"))
+        decoder = json.JSONDecoder()
+        idx = 0
+        last_obj = None
+        while idx < len(text):
+            tail = text[idx:]
+            stripped = tail.lstrip()
+            if not stripped:
+                break
+            skipped = len(tail) - len(stripped)
+            obj, end = decoder.raw_decode(stripped)
+            last_obj = obj
+            idx += skipped + end
+        if isinstance(last_obj, dict):
+            payload = last_obj
+        elif last_obj is None:
+            parse_error = "no JSON document found on stdout"
+        else:
+            parse_error = f"unexpected JSON root type: {type(last_obj).__name__}"
     except Exception as exc:
         parse_error = str(exc)
 
