@@ -4,10 +4,12 @@ set -euo pipefail
 dry_run=0
 force=0
 install_codex_config=0
+install_claude_config=0
 enable_project=0
 disable_project=0
 uninstall_project=0
 project_root=""
+target="both"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -18,6 +20,21 @@ while [[ $# -gt 0 ]]; do
     --install-codex-config)
       install_codex_config=1
       shift
+      ;;
+    --install-claude-config)
+      install_claude_config=1
+      shift
+      ;;
+    --target)
+      target="$2"
+      case "$target" in
+        codex|claude|both) ;;
+        *)
+          echo "Unknown --target value: $target (allowed: codex, claude, both)" >&2
+          exit 1
+          ;;
+      esac
+      shift 2
       ;;
     --enable-project)
       enable_project=1
@@ -46,7 +63,12 @@ Usage:
 
 Options:
     --project-root <path>     Optional Unity project root for wiring the editor-only package as a direct local AIRoot file dependency.
-  --install-codex-config    Also append the early-stage Codex MCP config block.
+  --target codex|claude|both  Choose which install location(s) receive the server files.
+                              codex  -> \$CODEX_TOOLS_HOME/xuunity-light-unity-mcp  (default \$HOME/.codex-tools)
+                              claude -> \$CLAUDE_TOOLS_HOME/xuunity-light-unity-mcp (default \$HOME/.claude-tools)
+                              both   -> install into both. Default: both.
+  --install-codex-config      Also append the early-stage Codex MCP config block.
+  --install-claude-config     Also register the MCP server in ~/.claude.json (Claude Code user scope).
   --enable-project          Write local bridge config under Library/ so the editor-only bridge is active on next editor load.
   --disable-project         Remove local bridge config and local bridge state under Library/.
   --uninstall-project       Remove the project package, manifest dependency, and local bridge state from the Unity project.
@@ -65,10 +87,14 @@ done
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 templates_dir="$script_dir/templates"
 codex_home="${CODEX_HOME:-$HOME/.codex}"
-tools_home="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}"
-install_dir="$tools_home/xuunity-light-unity-mcp"
+codex_tools_home="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}"
+claude_tools_home="${CLAUDE_TOOLS_HOME:-$HOME/.claude-tools}"
+codex_install_dir="$codex_tools_home/xuunity-light-unity-mcp"
+claude_install_dir="$claude_tools_home/xuunity-light-unity-mcp"
 config_path="$codex_home/config.toml"
-run_path="$install_dir/run.sh"
+claude_config_path="${CLAUDE_CONFIG_PATH:-$HOME/.claude.json}"
+codex_run_path="$codex_install_dir/run.sh"
+claude_run_path="$claude_install_dir/run.sh"
 
 materialized_package_source_path() {
   local project_root="$1"
@@ -143,7 +169,7 @@ file_contains_regex() {
 append_codex_block_if_missing() {
   local block
   block=$'[mcp_servers.xuunity_light_unity]\n'
-  block+="command = \"$run_path\""$'\n'
+  block+="command = \"$codex_run_path\""$'\n'
   block+=$'required = false\n'
 
   if [[ -f "$config_path" ]] && file_contains_regex '^\[mcp_servers\.xuunity_light_unity\]' "$config_path"; then
@@ -164,6 +190,55 @@ append_codex_block_if_missing() {
   fi
   printf '%s' "$block" >> "$config_path"
   printf 'updated %s\n' "$config_path"
+}
+
+append_claude_block_if_missing() {
+  if [[ $dry_run -eq 1 ]]; then
+    printf '[dry-run] register xuunity_light_unity MCP server in %s\n' "$claude_config_path"
+    return
+  fi
+
+  mkdir -p "$(dirname "$claude_config_path")"
+
+  python3 - "$claude_config_path" "$claude_run_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+run_path = sys.argv[2]
+
+if config_path.exists() and config_path.stat().st_size > 0:
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        print(f"refusing to modify malformed JSON at {config_path}", file=sys.stderr)
+        raise SystemExit(2)
+else:
+    data = {}
+
+if not isinstance(data, dict):
+    print(f"refusing to modify non-object JSON at {config_path}", file=sys.stderr)
+    raise SystemExit(2)
+
+servers = data.setdefault("mcpServers", {})
+existing = servers.get("xuunity_light_unity")
+
+portable_run_command = f'exec "{run_path}"'
+desired = {
+    "type": "stdio",
+    "command": "bash",
+    "args": ["-c", portable_run_command],
+}
+
+if existing == desired:
+    print(f"kept existing Claude MCP config in {config_path}")
+    raise SystemExit(0)
+
+servers["xuunity_light_unity"] = desired
+config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+print(f"updated {config_path}")
+PY
 }
 
 patch_manifest_if_needed() {
@@ -267,13 +342,30 @@ remove_bridge_state() {
   printf 'removed %s\n' "$bridge_root"
 }
 
-run mkdir -p "$codex_home" "$install_dir"
-copy_if_needed "$templates_dir/server.py" "$install_dir/server.py" 644
-for helper_module in "$templates_dir"/server_*.py; do
-  [[ -f "$helper_module" ]] || continue
-  copy_if_needed "$helper_module" "$install_dir/$(basename "$helper_module")" 644
-done
-copy_if_needed "$templates_dir/run.sh" "$install_dir/run.sh" 755
+install_server_into() {
+  local target_dir="$1"
+  run mkdir -p "$target_dir"
+  copy_if_needed "$templates_dir/server.py" "$target_dir/server.py" 644
+  for helper_module in "$templates_dir"/server_*.py; do
+    [[ -f "$helper_module" ]] || continue
+    copy_if_needed "$helper_module" "$target_dir/$(basename "$helper_module")" 644
+  done
+  copy_if_needed "$templates_dir/run.sh" "$target_dir/run.sh" 755
+}
+
+run mkdir -p "$codex_home"
+case "$target" in
+  codex)
+    install_server_into "$codex_install_dir"
+    ;;
+  claude)
+    install_server_into "$claude_install_dir"
+    ;;
+  both)
+    install_server_into "$codex_install_dir"
+    install_server_into "$claude_install_dir"
+    ;;
+esac
 
 if [[ -n "$project_root" ]]; then
   project_root="$(cd "$project_root" && pwd)"
@@ -326,18 +418,42 @@ else
   printf 'skipped Codex config install by default; use --install-codex-config once you want to test the early-stage stdio MCP layer in a real client.\n'
 fi
 
+if [[ $install_claude_config -eq 1 ]]; then
+  append_claude_block_if_missing
+else
+  printf 'skipped Claude Code user-scope config install by default; use --install-claude-config to register the server in ~/.claude.json, or copy templates/clients/claude-code/.mcp.json into a repo for project scope.\n'
+fi
+
+smoke_install_dir=""
+case "$target" in
+  codex) smoke_install_dir="$codex_install_dir" ;;
+  claude) smoke_install_dir="$claude_install_dir" ;;
+  both) smoke_install_dir="$codex_install_dir" ;;
+esac
+
 cat <<EOF
 
 Next steps:
 1. If you passed --project-root with --enable-project, open or reopen the Unity project once so the editor-only bridge can start writing heartbeat state.
 2. Smoke-check bridge state:
-   python3 $install_dir/server.py bridge-state --project-root /path/to/UnityProject
+   python3 $smoke_install_dir/server.py bridge-state --project-root /path/to/UnityProject
 3. Smoke-check the direct same-host request status path:
-   python3 $install_dir/server.py request-status --project-root /path/to/UnityProject
+   python3 $smoke_install_dir/server.py request-status --project-root /path/to/UnityProject
 4. Preferred interactive startup helper:
-   python3 $install_dir/server.py ensure-ready --project-root /path/to/UnityProject --open-editor --background-open --startup-policy fail_fast_on_interactive_compile_block
+   python3 $smoke_install_dir/server.py ensure-ready --project-root /path/to/UnityProject --open-editor --background-open --startup-policy fail_fast_on_interactive_compile_block
 
 Installed files:
-- $install_dir/server.py
-- $install_dir/run.sh
 EOF
+
+case "$target" in
+  codex)
+    printf -- '- %s/server.py\n- %s/run.sh\n' "$codex_install_dir" "$codex_install_dir"
+    ;;
+  claude)
+    printf -- '- %s/server.py\n- %s/run.sh\n' "$claude_install_dir" "$claude_install_dir"
+    ;;
+  both)
+    printf -- '- %s/server.py\n- %s/run.sh\n- %s/server.py\n- %s/run.sh\n' \
+      "$codex_install_dir" "$codex_install_dir" "$claude_install_dir" "$claude_install_dir"
+    ;;
+esac

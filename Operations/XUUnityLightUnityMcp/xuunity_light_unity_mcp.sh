@@ -3,8 +3,26 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 AIROOT_PATH="${XUUNITY_LIGHT_UNITY_MCP_AIRROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
-INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
-SERVER_PATH="${XUUNITY_LIGHT_UNITY_MCP_SERVER:-$INSTALL_DIR/server.py}"
+
+# Resolve the host install location agent-agnostically.
+# Priority order:
+#   1. XUUNITY_LIGHT_UNITY_MCP_SERVER explicit override
+#   2. CLAUDE_TOOLS_HOME / ~/.claude-tools  (Claude-side install)
+#   3. CODEX_TOOLS_HOME / ~/.codex-tools    (Codex-side install)
+#   4. CODEX_TOOLS_HOME default location (used as install hint when nothing is installed)
+if [[ -n "${XUUNITY_LIGHT_UNITY_MCP_SERVER:-}" ]]; then
+  SERVER_PATH="$XUUNITY_LIGHT_UNITY_MCP_SERVER"
+  INSTALL_DIR="$(cd "$(dirname "$SERVER_PATH")" && pwd)"
+elif [[ -f "${CLAUDE_TOOLS_HOME:-$HOME/.claude-tools}/xuunity-light-unity-mcp/server.py" ]]; then
+  INSTALL_DIR="${CLAUDE_TOOLS_HOME:-$HOME/.claude-tools}/xuunity-light-unity-mcp"
+  SERVER_PATH="$INSTALL_DIR/server.py"
+elif [[ -f "${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp/server.py" ]]; then
+  INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
+  SERVER_PATH="$INSTALL_DIR/server.py"
+else
+  INSTALL_DIR="${CODEX_TOOLS_HOME:-$HOME/.codex-tools}/xuunity-light-unity-mcp"
+  SERVER_PATH="$INSTALL_DIR/server.py"
+fi
 RUN_PATH="$INSTALL_DIR/run.sh"
 SERVER_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/server.py"
 RUN_TEMPLATE_RELATIVE_PATH="Operations/XUUnityLightUnityMcp/templates/run.sh"

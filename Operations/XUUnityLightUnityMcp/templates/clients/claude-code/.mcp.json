@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "xuunity_light_unity": {
+      "type": "stdio",
+      "command": "bash",
+      "args": [
+        "-c",
+        "exec \"${CLAUDE_TOOLS_HOME:-$HOME/.claude-tools}/xuunity-light-unity-mcp/run.sh\""
+      ]
+    }
+  }
+}

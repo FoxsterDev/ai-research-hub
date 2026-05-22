@@ -242,6 +242,35 @@ If a new consumer project needs custom automation, the agent should prefer:
 The agent should avoid using generic dynamic code execution as the default
 extension model.
 
+## Client Setup
+
+The host-side install (`init_xuunity_light_unity_mcp.sh`) lands the same MCP
+server regardless of which agent client will consume it. Wiring a specific
+client is a separate, opt-in step. Each supported agent has a template under
+`templates/clients/<client>/`.
+
+Currently checked-in client adapters:
+
+- `templates/clients/codex/config.toml.snippet` — Codex `~/.codex/config.toml`
+  block. Also installable through
+  `init_xuunity_light_unity_mcp.sh --install-codex-config`.
+- `templates/clients/claude-code/.mcp.json` — Claude Code project-scope MCP
+  config. Copy to a repo root for team-wide opt-in.
+  `templates/clients/claude-code/README.md` documents project / user / local
+  scope routes. The init script also exposes
+  `--install-claude-config` for user-scope registration via `~/.claude.json`.
+
+Pick scope by intent:
+
+- **project scope** — config under git, team-wide opt-in, requires per-user
+  approval at first launch
+- **user scope** — config in the home directory, one user, all repos
+- **local scope** — config in per-user per-project storage, one user, one repo,
+  not committed
+
+For repos that already have `AIRoot` locally, the project-scope route is the
+recommended default for team-shared MCP wiring.
+
 ## Canonical References
 
 - `README.md`
