@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/reference_first_review.schema.json",
+  "title": "AIReferenceWatch reference-first review",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "featureArea",
+    "generatedAtUtc",
+    "xuunityCurrentState",
+    "overallLeaders",
+    "capabilityLeaders",
+    "borrow",
+    "reject",
+    "differentiate",
+    "recommendedDirection"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-watch.reference-first-review.v1"
+    },
+    "featureArea": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "generatedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceComparisonReport": {
+      "type": "string"
+    },
+    "xuunityCurrentState": {
+      "type": "string"
+    },
+    "overallLeaders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capabilityLeaders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityLeader"
+      }
+    },
+    "issueThemes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidateContractOptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "borrow": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reject": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "differentiate": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendedDirection": {
+      "type": "string"
+    },
+    "nextArtifact": {
+      "type": "string"
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["draft", "ready_for_design_review", "accepted", "parked"]
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "capabilityLeader": {
+      "type": "object",
+      "required": ["capability", "sources", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": ["confirmed", "provisional"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

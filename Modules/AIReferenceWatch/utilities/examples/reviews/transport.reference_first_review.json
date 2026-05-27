@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "xuunity.reference-watch.reference-first-review.v1",
+  "featureArea": "transport",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "sourceComparisonReport": "Modules/AIReferenceWatch/utilities/examples/reports/transport.comparison.json",
+  "xuunityCurrentState": "Strong local same-host validation transport posture: capability probing, multi-client templates, same-host routing, final accounting, low footprint, and easy disable/uninstall.",
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [],
+  "issueThemes": [
+    "generic MCP bridge is not the same as XUUnity same-host routing plus final accounting",
+    "client compatibility lists remain docs claims unless setup templates or registry evidence are reviewed",
+    "custom tool extensibility is implemented in references but is not a current XUUnity base transport goal"
+  ],
+  "candidateContractOptions": [
+    "No new XUUnity transport backlog from current references; keep implemented same-host routing, capability probes, and final accounting as local advantages",
+    "Use reference bridge registries only as setup/documentation taxonomy input"
+  ],
+  "borrow": [
+    "Borrow clear registry/tool-list discoverability patterns from IvanMurzak and CoderGamester where they improve operator understanding.",
+    "Borrow client setup taxonomy only after it is source-verified, not from README positioning alone."
+  ],
+  "reject": [
+    "Do not treat generic MCP or IDE bridge support as a direct analog to XUUnity same-host routing.",
+    "Do not add custom tool extensibility to the base transport contract from this evidence.",
+    "Do not convert docs-only multi-client claims into backlog."
+  ],
+  "differentiate": [
+    "Keep XUUnity transport small, same-host, capability-gated, easy to disable, and explicit about request final accounting.",
+    "Use directAnalog=false for broad bridge patterns that are useful context but not public-contract gaps."
+  ],
+  "recommendedDirection": "Do not open transport backlog from the current external evidence. Preserve XUUnity's same-host routing, capability probe gating, low footprint, and final-accounting posture; use external registries only as documentation/setup input until a direct analog is proven.",
+  "nextArtifact": "transport_design_watch",
+  "reviewer": "ai_reference_watch",
+  "status": "ready_for_design_review",
+  "notes": "Transport report upgraded with directAnalog metadata on 2026-05-23. No files under Operations/XUUnityLightUnityMcp were modified."
+}

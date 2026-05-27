@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/issue_watch_summary.schema.json",
+  "title": "AIReferenceWatch issue-watch summary",
+  "type": "object",
+  "required": ["schemaVersion", "generatedAtUtc", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-watch.issue-watch-summary.v1"
+    },
+    "generatedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceSummary"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "sourceSummary": {
+      "type": "object",
+      "required": ["sourceId", "sampledAtUtc", "issueThemes"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": {
+          "type": "string"
+        },
+        "sampledAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sampleLimit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "issueThemes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issueTheme"
+          }
+        },
+        "samplingWarnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "issueTheme": {
+      "type": "object",
+      "required": [
+        "issueTheme",
+        "capabilityArea",
+        "signalStrength",
+        "xuunityRisk",
+        "recommendedAction"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "issueTheme": {
+          "type": "string"
+        },
+        "capabilityArea": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "signalStrength": {
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "externalSignal": {
+          "type": "string"
+        },
+        "xuunityRisk": {
+          "enum": ["present", "unknown", "unlikely", "not_relevant"]
+        },
+        "recommendedAction": {
+          "enum": [
+            "no_local_action",
+            "design_review",
+            "test_gap",
+            "ops_gap",
+            "feature_gap"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

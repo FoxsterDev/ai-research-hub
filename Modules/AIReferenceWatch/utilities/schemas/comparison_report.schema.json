@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/comparison_report.schema.json",
+  "title": "AIReferenceWatch comparison report",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "focus",
+    "generatedAtUtc",
+    "xuunityToolId",
+    "inputs",
+    "capabilityMatrix",
+    "dataQuality",
+    "manualReviewRequired",
+    "backlogCandidates",
+    "nonActionableClaims"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-watch.comparison-report.v1"
+    },
+    "focus": {
+      "$ref": "#/$defs/capabilityArea"
+    },
+    "generatedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "xuunityToolId": {
+      "type": "string"
+    },
+    "xuunityCurrentState": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/input"
+      }
+    },
+    "overallLeaders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capabilityLeaders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityLeader"
+      }
+    },
+    "comparedTools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capabilityMatrix": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityComparison"
+      }
+    },
+    "xuunityAdvantages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "dataQuality": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "staleSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "manualReviewRequired": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "backlogCandidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/backlogCandidate"
+      }
+    },
+    "nonActionableClaims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "contradictedClaims": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reportItem"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "input": {
+      "type": "object",
+      "required": ["toolId", "capturedAtUtc", "captureMethod"],
+      "additionalProperties": false,
+      "properties": {
+        "toolId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "capturedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "captureMethod": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityLeader": {
+      "type": "object",
+      "required": ["capability", "sources", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": ["confirmed", "provisional"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityComparison": {
+      "type": "object",
+      "required": [
+        "capability",
+        "xuunityStatus",
+        "referenceStatuses",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/capabilityArea"
+        },
+        "xuunityStatus": {
+          "type": "string"
+        },
+        "referenceStatuses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/referenceStatus"
+          }
+        },
+        "strongestReferences": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outcome": {
+          "enum": [
+            "no_gap",
+            "xuunity_ahead",
+            "reference_gap",
+            "manual_review_required",
+            "non_actionable_claim",
+            "contradicted_evidence"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "referenceStatus": {
+      "type": "object",
+      "required": ["toolId", "status", "confidence", "evidenceType"],
+      "additionalProperties": false,
+      "properties": {
+        "toolId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "evidenceType": {
+          "type": "string"
+        },
+        "directAnalog": {
+          "type": "boolean"
+        },
+        "analogTarget": {
+          "type": "string"
+        },
+        "analogNotes": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "reportItem": {
+      "type": "object",
+      "required": ["id", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sourceIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capability": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "backlogCandidate": {
+      "type": "object",
+      "required": [
+        "candidateId",
+        "title",
+        "focus",
+        "xuunityCurrentState",
+        "referenceEvidence",
+        "requiredManualReview",
+        "nextArtifact"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "candidateId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "focus": {
+          "$ref": "#/$defs/capabilityArea"
+        },
+        "whyNow": {
+          "type": "string"
+        },
+        "xuunityCurrentState": {
+          "type": "string"
+        },
+        "referenceEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/referenceStatus"
+          }
+        },
+        "requiredManualReview": {
+          "type": "boolean"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "nextArtifact": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityArea": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

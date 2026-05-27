@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/workflow_manifest.schema.json",
+  "title": "AIReferenceWatch workflow manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAtUtc",
+    "workflow",
+    "status",
+    "outputRoot",
+    "normalizedFeatureBags",
+    "comparisonReports",
+    "referenceFirstReviews",
+    "issueWatchSummaries",
+    "checks",
+    "nextActions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-watch.workflow-manifest.v1"
+    },
+    "generatedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workflow": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["ready", "failed"]
+    },
+    "outputRoot": {
+      "type": "string"
+    },
+    "normalizedFeatureBags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "comparisonReports": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "referenceFirstReviews": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "issueWatchSummaries": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nextActions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

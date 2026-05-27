@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/reference_sources.schema.json",
+  "title": "AIReferenceWatch reference source registry",
+  "type": "object",
+  "required": ["schemaVersion", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-sources.v1"
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "issueWatch": {
+          "$ref": "#/$defs/issueWatchConfig"
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "url",
+        "defaultBranch",
+        "enabled",
+        "tier",
+        "candidateStrength",
+        "watchMode",
+        "tags",
+        "focusAreas"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_\\-]*$"
+        },
+        "kind": {
+          "enum": ["github_repo", "official_docs", "website", "manual_reference"]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "defaultBranch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pinnedCommit": {
+          "type": "string",
+          "minLength": 7
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "tier": {
+          "enum": ["tier_1", "tier_2", "tier_3"]
+        },
+        "candidateStrength": {
+          "enum": ["overall", "specialist", "parking"]
+        },
+        "watchMode": {
+          "enum": ["full", "focused", "parking"]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "focusAreas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capabilityArea"
+          },
+          "uniqueItems": true
+        },
+        "leadingCapabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capabilityArea"
+          },
+          "uniqueItems": true
+        },
+        "preferredDocsPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignorePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extractionTargets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "parserStrategy": {
+          "enum": [
+            "docs_only",
+            "manifest_plus_code_registry",
+            "unity_package_code_scan",
+            "manual_review_required"
+          ]
+        },
+        "licenseNotes": {
+          "type": "string"
+        },
+        "issueWatch": {
+          "$ref": "#/$defs/issueWatchConfig"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "issueWatchConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "bugOnly": {
+          "type": "boolean"
+        },
+        "openIssueSampleLimit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "labelsOfInterest": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "capabilityArea": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}

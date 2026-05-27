@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "xuunity.reference-watch.reference-first-review.v1",
+  "featureArea": "ui_primitives",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "sourceComparisonReport": "Modules/AIReferenceWatch/utilities/examples/reports/ui_primitives.comparison.json",
+  "xuunityCurrentState": "Has reflection-gated Game View visual evidence and capability gating; lacks normalized generic UI hierarchy/query/action primitives in the current public comparison snapshot.",
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [
+    {
+      "capability": "game_view_screenshot",
+      "sources": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    },
+    {
+      "capability": "ui_visual_tree_read",
+      "sources": [
+        "unity_mcp_coplay"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    }
+  ],
+  "issueThemes": [
+    "selector ambiguity: Coplay proves visual tree serialization, not a selector contract",
+    "action semantics gap: no confirmed click or semantic wait_for analog in reviewed references",
+    "visual evidence must stay separate from semantic UI state"
+  ],
+  "candidateContractOptions": [
+    "First XUUnity slice: read-only UI tree snapshot plus narrow query/exists/get_text derived from the tree",
+    "Defer click and wait_for until selector stability, playmode lifecycle, and proof-class rules are designed locally"
+  ],
+  "borrow": [
+    "Borrow Coplay's get_visual_tree idea: target a UIDocument, return type/name/classes/style/text/children, and make depth/truncation explicit.",
+    "Borrow the taxonomy split between UI assets, UIDocument attachment, visual-tree inspection, rendering, and live element mutation."
+  ],
+  "reject": [
+    "Do not copy Coplay's giant manage_ui grouped surface as the XUUnity public contract.",
+    "Do not treat Coplay manage_ui as proof that query/exists/get_text/click/wait_for primitives exist; the code review contradicted that broad inference.",
+    "Do not bring live element mutation into the first XUUnity UI primitives slice."
+  ],
+  "differentiate": [
+    "Keep XUUnity reference-first but evidence-oriented: narrow typed read commands, capability gating, and explicit proof-class downgrades.",
+    "Design query/exists/get_text as XUUnity-specific semantics on top of a tree snapshot; treat click/wait_for as later local design work, not copied reference behavior."
+  ],
+  "recommendedDirection": "Use Coplay as evidence for a read-only visual-tree snapshot contract, not as a direct primitive API to copy. For XUUnity design, start with capability-gated tree/query/exists/get_text semantics, keep screenshots as visual evidence, and defer click/wait_for/action primitives until a stable selector and lifecycle model exists.",
+  "nextArtifact": "public_contract_design",
+  "reviewer": "ai_reference_watch",
+  "status": "ready_for_design_review",
+  "notes": "Manual external evidence review completed on 2026-05-23. No files under Operations/XUUnityLightUnityMcp were modified."
+}

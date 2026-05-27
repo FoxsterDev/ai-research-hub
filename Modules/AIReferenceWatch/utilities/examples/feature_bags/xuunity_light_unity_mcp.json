@@ -1,0 +1,449 @@
+{
+  "schemaVersion": "xuunity.reference-watch.feature-bag.v1",
+  "toolId": "xuunity_light_unity_mcp",
+  "displayName": "XUUnity Light Unity MCP",
+  "sourceUrl": "repo-local:Operations/XUUnityLightUnityMcp",
+  "capturedAtUtc": "2026-05-22T00:00:00Z",
+  "captureMethod": "repo_verified",
+  "tier": "local",
+  "candidateStrength": "local",
+  "watchMode": "local",
+  "sourceRefs": [
+    {
+      "label": "Current public comparison snapshot",
+      "pathOrUrl": "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md",
+      "evidenceType": "repo_verified",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    }
+  ],
+  "focusAreas": [
+    "transport",
+    "build_profiles",
+    "scene_read_write",
+    "playmode_control",
+    "ui_primitives",
+    "tool_surface"
+  ],
+  "editorFootprint": {
+    "editorOnly": {
+      "value": true,
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Comparison snapshot describes the main package assembly as editor-only."
+    },
+    "runtimeCodeByDefault": {
+      "value": false,
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Comparison snapshot says there is no normal player-build runtime control code by default."
+    },
+    "normalPlayerBuildFootprint": {
+      "value": false,
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Listed as a core property of the lightweight package."
+    }
+  },
+  "transports": [
+    {
+      "name": "same_host_mcp_bridge",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Comparison snapshot emphasizes same-host routing and compact agent summaries."
+    }
+  ],
+  "toolGroups": [
+    {
+      "name": "validation_first_editor_control",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Status, health, compile, tests, playmode, scenario, and screenshot tools are listed."
+    }
+  ],
+  "operations": [
+    {
+      "id": "unity_capabilities",
+      "category": "transport",
+      "kind": "probe",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Capability probe and operation gating are core comparison entries."
+    },
+    {
+      "id": "unity_compile_matrix",
+      "category": "build_profiles",
+      "kind": "validation",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Listed in the implemented MCP tool surface."
+    },
+    {
+      "id": "unity_game_view_screenshot",
+      "category": "ui_primitives",
+      "kind": "visual_evidence",
+      "status": "implemented",
+      "confidence": "medium",
+      "notes": "Reflection-gated; trusted only after capability probing."
+    }
+  ],
+  "capabilities": {
+    "editor_only_base_package": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Primary design priorities",
+        "Feature Comparison"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Small editor-only package is a core positioning point."
+    },
+    "no_player_build_footprint": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No normal player-build footprint by default."
+    },
+    "easy_disable_uninstall": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Mutable bridge state stays under Library/XUUnityLightMcp."
+    },
+    "capability_probe_gating": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport",
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Validation Status And Caveats"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Reflective editor operations are gated by capability probing."
+    },
+    "multi_client_support": {
+      "status": "implemented",
+      "maturity": "Template provided",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Comparison notes templates for common MCP clients on Unix-like and native Windows hosts."
+    },
+    "same_host_routing": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Best Fit",
+        "What The Lightweight MCP Already Covers"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Multi-project same-host routing and registry context reports are listed."
+    },
+    "request_final_accounting": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Backend Selection Rules",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Final accounting and recovery helpers are core backend-selection criteria."
+    },
+    "compile_validation": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "What The Lightweight MCP Already Covers"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Compile player scripts and compile matrix tools are listed."
+    },
+    "compile_matrix_without_active_switch": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Target/define compile checks do not require switching active platform."
+    },
+    "build_config_compile_matrix": {
+      "status": "implemented",
+      "maturity": "Project-dependent",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "What The Lightweight MCP Already Covers",
+        "Main Advantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Build-config-driven compile matrix is listed as implemented."
+    },
+    "editmode_test_execution": {
+      "status": "implemented",
+      "maturity": "Core",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Validation Status And Caveats"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "EditMode test execution is part of the core validation lane."
+    },
+    "playmode_control": {
+      "status": "implemented",
+      "maturity": "Supported",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "playmode_control"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "What The Lightweight MCP Already Covers"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Play Mode state and enter/exit support are listed."
+    },
+    "game_view_screenshot": {
+      "status": "implemented",
+      "maturity": "Reflection-gated",
+      "confidence": "medium",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Validation Status And Caveats"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Visual evidence primitive, not a generic UI hierarchy primitive."
+    },
+    "broad_mutation_surface": {
+      "status": "not_a_base_goal",
+      "maturity": "Not a base goal",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "tool_surface"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Main Disadvantages"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "XUUnity intentionally does not try to match broad mutation coverage."
+    },
+    "test_run_tools": {
+      "status": "implemented",
+      "maturity": "EditMode validation lane",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Validation Status And Caveats"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "directAnalog": true,
+      "analogTarget": "test_run_tools",
+      "analogNotes": "Local tool surface includes EditMode test execution; broader external test suites still require per-capability review.",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Generic alias for the existing editmode_test_execution capability so build profile reports do not show a false test-run gap."
+    },
+    "build_tool_surface": {
+      "status": "not_a_base_goal",
+      "maturity": "Not a broad build runner goal",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Primary design priorities",
+        "Feature Comparison"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "directAnalog": false,
+      "analogTarget": "build_tool_surface",
+      "analogNotes": "XUUnity prioritizes compile validation and compile matrices over broad build execution surfaces.",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Broad build runners are design input, not a base XUUnity target for this module slice."
+    },
+    "develop_test_loop": {
+      "status": "implemented",
+      "maturity": "Validation-first loop",
+      "confidence": "high",
+      "evidenceType": "repo_verified",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "What The Lightweight MCP Already Covers",
+        "Validation Status And Caveats"
+      ],
+      "extractionMethod": "comparison_snapshot",
+      "directAnalog": true,
+      "analogTarget": "develop_test_loop",
+      "analogNotes": "XUUnity covers a narrower validation-first develop/test loop: status, compile, tests, playmode, scenario, screenshot.",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Generic alias for validation-first develop/test flow so broad external loops are compared with caveats rather than false gaps."
+    }
+  },
+  "issueThemes": [],
+  "evidence": {
+    "explicitSchemas": true,
+    "readmeClaims": false,
+    "codeReviewed": true,
+    "installedAndBenchmarked": true
+  },
+  "notes": "Seed bag derived from the read-only comparison snapshot supplied for this implementation pass."
+}

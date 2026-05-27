@@ -1,0 +1,346 @@
+{
+  "schemaVersion": "xuunity.reference-watch.feature-bag.v1",
+  "toolId": "unity_mcp_ivanmurzak",
+  "displayName": "IvanMurzak/Unity-MCP",
+  "sourceUrl": "https://github.com/IvanMurzak/Unity-MCP",
+  "capturedAtUtc": "2026-05-23T00:00:00Z",
+  "captureMethod": "manual_review",
+  "tier": "tier_1",
+  "candidateStrength": "overall",
+  "watchMode": "full",
+  "sourceRefs": [
+    {
+      "label": "Current XUUnity public comparison snapshot",
+      "pathOrUrl": "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "Public repository",
+      "pathOrUrl": "https://github.com/IvanMurzak/Unity-MCP",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "IvanMurzak default tool registry docs",
+      "pathOrUrl": "https://github.com/IvanMurzak/Unity-MCP/blob/main/docs/default-mcp-tools.md",
+      "evidenceType": "manifest",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    },
+    {
+      "label": "IvanMurzak AiTool source registry",
+      "pathOrUrl": "https://github.com/IvanMurzak/Unity-MCP/tree/main/Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool",
+      "evidenceType": "code_registry",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    }
+  ],
+  "focusAreas": [
+    "transport",
+    "build_profiles",
+    "runtime_analysis",
+    "scene_read_write",
+    "tool_surface",
+    "ui_primitives"
+  ],
+  "editorFootprint": {
+    "editorOnly": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify editor-only package boundaries."
+    },
+    "runtimeCodeByDefault": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify runtime footprint."
+    },
+    "normalPlayerBuildFootprint": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify normal player-build footprint."
+    }
+  },
+  "transports": [
+    {
+      "name": "cli_and_mcp_tooling",
+      "status": "claimed",
+      "confidence": "medium",
+      "notes": "Public repo positions the project as AI Skills, MCP tools, and CLI."
+    }
+  ],
+  "toolGroups": [
+    {
+      "name": "broad_develop_test_loop",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Manual source review found AiTool-annotated editor tools for assets, GameObjects, tests, profiler, screenshots, reflection, packages, scenes, and editor state."
+    }
+  ],
+  "operations": [
+    {
+      "id": "custom_csharp_method_or_tool",
+      "category": "tool_surface",
+      "kind": "extension",
+      "status": "implemented",
+      "confidence": "medium",
+      "notes": "AiTool-annotated C# tool architecture and unity-tool-list registry are present; custom-tool authoring was code-reviewed at registry level, not benchmarked."
+    }
+  ],
+  "capabilities": {
+    "multi_client_support": {
+      "status": "claimed",
+      "maturity": "Broad",
+      "confidence": "medium",
+      "evidenceType": "docs_claim",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "https://github.com/IvanMurzak/Unity-MCP",
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison",
+        "Per-Solution Pros And Cons"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Public docs claim broad client compatibility.",
+      "directAnalog": false,
+      "analogTarget": "multi_client_support",
+      "analogNotes": "Client compatibility remains docs-claimed in this slice."
+    },
+    "broad_editor_tool_surface": {
+      "status": "implemented",
+      "maturity": "Broad",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "tool_surface"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Tool.List.cs",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/*.cs"
+      ],
+      "sourceLines": [
+        "default tool table lists built-ins",
+        "AiTool attributes define registered tools",
+        "unity-tool-list lists registered tools"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Manual source review confirmed a broad AiTool-annotated editor tool surface.",
+      "directAnalog": false,
+      "analogTarget": "broad_editor_tool_surface",
+      "analogNotes": "Confirmed broad AiTool surface, but not a direct analog to a narrow XUUnity public operation family."
+    },
+    "custom_tool_extensibility": {
+      "status": "implemented",
+      "maturity": "Registry-backed extension model",
+      "confidence": "medium",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "tool_surface",
+        "transport"
+      ],
+      "sourceFiles": [
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Tool.List.cs",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Reflection.MethodCall.cs"
+      ],
+      "sourceLines": [
+        "AiTool attributes",
+        "unity-tool-list registry projection",
+        "reflection-method-call executes schema-backed C# methods"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "The codebase exposes an AiTool-annotated registry and reflection method call path; this confirms an extension-oriented model but not a local benchmark.",
+      "directAnalog": false,
+      "analogTarget": "custom_tool_extensibility",
+      "analogNotes": "Implemented extension-oriented model, but not a current XUUnity base transport goal."
+    },
+    "develop_test_loop": {
+      "status": "implemented",
+      "maturity": "Broad",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Tests.Run.cs",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Editor.Application.SetState.cs"
+      ],
+      "sourceLines": [
+        "tests-run default tool",
+        "Tests.Run AiTool implementation",
+        "editor-application-set-state AiTool implementation"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Test execution and editor play/pause state tools are implemented; active-target-free compile matrix support remains unconfirmed.",
+      "directAnalog": true,
+      "analogTarget": "develop_test_loop",
+      "analogNotes": "Implemented test/editor-state surfaces are a direct reference for validation-loop comparison, with broader scope caveats."
+    },
+    "runtime_analysis": {
+      "status": "implemented",
+      "maturity": "Profiler and screenshot surfaces",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "runtime_analysis"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Profiler.CaptureFrame.cs",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Screenshot.GameView.cs"
+      ],
+      "sourceLines": [
+        "profiler-* default tools",
+        "profiler-capture-frame AiTool",
+        "screenshot-game-view AiTool"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Profiler and screenshot tools are implemented as AiTool-annotated editor tools.",
+      "directAnalog": false,
+      "analogTarget": "runtime_analysis",
+      "analogNotes": "Implemented profiler/screenshot surfaces are outside the current report focus."
+    },
+    "compile_matrix_without_active_switch": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No clear public claim in reviewed sources.",
+      "directAnalog": false,
+      "analogTarget": "compile_matrix_without_active_switch",
+      "analogNotes": "No direct analog found."
+    },
+    "capability_probe_gating": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+      "directAnalog": false,
+      "analogTarget": "capability_probe_gating",
+      "analogNotes": "No per-feature capability probe analog confirmed."
+    },
+    "scene_read_write": {
+      "status": "implemented",
+      "maturity": "Broad scene/GameObject surface",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "scene_read_write"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/GameObject.Find.cs",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/GameObject.Component.Modify.cs"
+      ],
+      "sourceLines": [
+        "gameobject-* default tools",
+        "gameobject-find AiTool",
+        "gameobject-component-modify AiTool"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Scene/GameObject/component read and mutation tools are implemented through AiTool-annotated C# commands.",
+      "directAnalog": false,
+      "analogTarget": "scene_read_write",
+      "analogNotes": "Implemented broad scene/GameObject surface, but not used as direct evidence for current reports."
+    },
+    "game_view_screenshot": {
+      "status": "implemented",
+      "maturity": "Visual evidence",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool/Screenshot.GameView.cs"
+      ],
+      "sourceLines": [
+        "screenshot-game-view default tool",
+        "ScreenshotGameViewToolId"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Game View screenshot is implemented, but it is visual evidence rather than semantic UI hierarchy/query proof.",
+      "directAnalog": true,
+      "analogTarget": "game_view_screenshot",
+      "analogNotes": "screenshot-game-view directly maps to visual evidence capability, with implementation differences."
+    },
+    "generic_ui_read_primitives": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "docs/default-mcp-tools.md",
+        "Unity-MCP-Plugin/Packages/com.ivanmurzak.unity.mcp/Editor/Scripts/API/Tool"
+      ],
+      "sourceLines": [
+        "manual search found GameObject/component/reflection/screenshot tools but no dedicated UI Toolkit query/click/wait commands"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No dedicated query/exists/get_text/click/wait_for UI primitive was found in the reviewed default tools or AiTool source set.",
+      "directAnalog": false,
+      "analogTarget": "generic_ui_read_primitives",
+      "analogNotes": "No dedicated semantic UI primitive analog confirmed."
+    }
+  },
+  "issueThemes": [],
+  "evidence": {
+    "explicitSchemas": true,
+    "readmeClaims": true,
+    "codeReviewed": true,
+    "installedAndBenchmarked": false
+  },
+  "notes": "Manual source review on 2026-05-23: broad AiTool registry, tests, profiler, screenshots, reflection, GameObject/component tools are code-confirmed. Dedicated UI semantic primitives are not confirmed."
+}

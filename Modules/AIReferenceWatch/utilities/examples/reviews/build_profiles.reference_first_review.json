@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "xuunity.reference-watch.reference-first-review.v1",
+  "featureArea": "build_profiles",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "sourceComparisonReport": "Modules/AIReferenceWatch/utilities/examples/reports/build_profiles.comparison.json",
+  "xuunityCurrentState": "XUUnity has repo-verified compile validation, active-target-free compile matrix support, build-config compile matrix support, and an EditMode validation lane; broad build execution is not a base goal.",
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [
+    {
+      "capability": "develop_test_loop",
+      "sources": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    },
+    {
+      "capability": "test_run_tools",
+      "sources": [
+        "unity_mcp_coplay",
+        "mcp_unity_codergamester"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    }
+  ],
+  "issueThemes": [
+    "implemented build runner surfaces are not proof of active-target-free compile matrix support",
+    "test execution surfaces need separate comparison from compile validation and build profiles",
+    "broad build tools are useful taxonomy input but not automatically XUUnity base goals"
+  ],
+  "candidateContractOptions": [
+    "Keep XUUnity compile validation and active-target-free compile matrix as the core build_profiles direction",
+    "Treat broad manage_build-style runners as optional future design input, not current backlog"
+  ],
+  "borrow": [
+    "Borrow Coplay manage_build taxonomy for naming build/profile/status/scenes concerns when useful.",
+    "Borrow IvanMurzak tests-run filtering/log-output ideas as comparison input for future test reporting polish."
+  ],
+  "reject": [
+    "Do not treat manage_build as direct evidence for compile_matrix_without_active_switch.",
+    "Do not add a broad build runner to XUUnity's base module from this evidence.",
+    "Do not merge test execution, build execution, and compile matrix into one capability."
+  ],
+  "differentiate": [
+    "Keep XUUnity validation-first: compile checks, compile matrices, build-config matrices, and narrow test execution.",
+    "Use directAnalog metadata to separate direct test-run references from non-direct broad build surfaces."
+  ],
+  "recommendedDirection": "No build_profiles backlog is opened from the current external evidence. Keep XUUnity's active-target-free compile matrix as an advantage; use Coplay/Ivan/CoderGamester build and test tools as taxonomy and future polish references only after direct capability decomposition.",
+  "nextArtifact": "build_profiles_design_watch",
+  "reviewer": "ai_reference_watch",
+  "status": "ready_for_design_review",
+  "notes": "Build profiles report upgraded with directAnalog metadata on 2026-05-23. No files under Operations/XUUnityLightUnityMcp were modified."
+}

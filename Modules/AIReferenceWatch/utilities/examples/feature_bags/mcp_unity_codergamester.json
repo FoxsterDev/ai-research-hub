@@ -1,0 +1,287 @@
+{
+  "schemaVersion": "xuunity.reference-watch.feature-bag.v1",
+  "toolId": "mcp_unity_codergamester",
+  "displayName": "CoderGamester/mcp-unity",
+  "sourceUrl": "https://github.com/CoderGamester/mcp-unity",
+  "capturedAtUtc": "2026-05-23T00:00:00Z",
+  "captureMethod": "manual_review",
+  "tier": "tier_2",
+  "candidateStrength": "specialist",
+  "watchMode": "focused",
+  "sourceRefs": [
+    {
+      "label": "Current XUUnity public comparison snapshot",
+      "pathOrUrl": "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "Public repository",
+      "pathOrUrl": "https://github.com/CoderGamester/mcp-unity",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "CoderGamester server tool registry",
+      "pathOrUrl": "https://github.com/CoderGamester/mcp-unity/blob/master/Server~/src/index.ts",
+      "evidenceType": "code_registry",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    },
+    {
+      "label": "CoderGamester Unity tool implementations",
+      "pathOrUrl": "https://github.com/CoderGamester/mcp-unity/tree/master/Editor/Tools",
+      "evidenceType": "code_registry",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    }
+  ],
+  "focusAreas": [
+    "transport",
+    "scene_read_write",
+    "component_mutation",
+    "tool_surface",
+    "ui_primitives"
+  ],
+  "editorFootprint": {
+    "editorOnly": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify editor-only package boundaries."
+    },
+    "runtimeCodeByDefault": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify runtime footprint."
+    },
+    "normalPlayerBuildFootprint": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify normal player-build footprint."
+    }
+  },
+  "transports": [
+    {
+      "name": "ide_to_unity_plugin",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Manual source review found a Node MCP server registry bridged to Unity C# tool handlers."
+    }
+  ],
+  "toolGroups": [
+    {
+      "name": "scene_and_component_tools",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Server index registers scene, GameObject, component, material, tests, console, and batch tools; Unity C# handlers exist for core scene/component operations."
+    }
+  ],
+  "operations": [],
+  "capabilities": {
+    "multi_client_support": {
+      "status": "claimed",
+      "maturity": "Broad",
+      "confidence": "medium",
+      "evidenceType": "docs_claim",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "https://github.com/CoderGamester/mcp-unity",
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Compared Solutions",
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Cursor, Claude Code, Codex, Windsurf, and other IDE clients are public-source claimed.",
+      "directAnalog": false,
+      "analogTarget": "multi_client_support",
+      "analogNotes": "Client list remains docs-claimed in this slice."
+    },
+    "ide_to_unity_plugin": {
+      "status": "implemented",
+      "maturity": "Node MCP server plus Unity editor handlers",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Server~/src/index.ts",
+        "Editor/Tools"
+      ],
+      "sourceLines": [
+        "McpServer construction",
+        "register*Tool calls",
+        "Unity C# McpToolBase handlers"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Node MCP server registers tool handlers and sends requests to Unity-side C# tool implementations.",
+      "directAnalog": false,
+      "analogTarget": "transport",
+      "analogNotes": "Implemented MCP-to-Unity bridge, but not a direct analog to XUUnity same-host routing/final-accounting contract."
+    },
+    "scene_read_write": {
+      "status": "implemented",
+      "maturity": "Scene and GameObject specialist",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "scene_read_write"
+      ],
+      "sourceFiles": [
+        "Server~/src/index.ts",
+        "Server~/src/tools/getSceneInfoTool.ts",
+        "Editor/Tools/GetSceneInfoTool.cs",
+        "Server~/src/tools/addAssetToSceneTool.ts"
+      ],
+      "sourceLines": [
+        "registerGetSceneInfoTool",
+        "get_scene_info zod schema and handler",
+        "Unity GetSceneInfoTool Execute implementation",
+        "add_asset_to_scene registration"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Scene read/write and GameObject-oriented tool registration is code-confirmed.",
+      "directAnalog": false,
+      "analogTarget": "scene_read_write",
+      "analogNotes": "Implemented specialist scene surface outside current report focus."
+    },
+    "component_mutation": {
+      "status": "implemented",
+      "maturity": "Component mutation specialist",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "component_mutation",
+        "scene_read_write"
+      ],
+      "sourceFiles": [
+        "Server~/src/index.ts",
+        "Server~/src/tools/updateComponentTool.ts",
+        "Editor/Tools/UpdateComponentTool.cs"
+      ],
+      "sourceLines": [
+        "registerUpdateComponentTool",
+        "zod params schema for update_component",
+        "Unity handler adds or updates components"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "update_component is registered with a zod schema and implemented on the Unity side to add/update components.",
+      "directAnalog": false,
+      "analogTarget": "component_mutation",
+      "analogNotes": "Implemented specialist mutation surface outside current report focus."
+    },
+    "request_final_accounting": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Per-Solution Pros And Cons"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Final accounting after editor lifecycle churn was not clearly documented in reviewed public sources.",
+      "directAnalog": false,
+      "analogTarget": "request_final_accounting",
+      "analogNotes": "No direct analog found."
+    },
+    "compile_matrix_without_active_switch": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Per-Solution Pros And Cons"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Active-target-free compile matrix validation was not clearly documented.",
+      "directAnalog": false,
+      "analogTarget": "compile_matrix_without_active_switch",
+      "analogNotes": "No direct analog found."
+    },
+    "test_run_tools": {
+      "status": "implemented",
+      "maturity": "Unity Test Runner surface",
+      "confidence": "medium",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Server~/src/index.ts",
+        "Server~/src/tools/runTestsTool.ts",
+        "Editor/Tools/RunTestsTool.cs"
+      ],
+      "sourceLines": [
+        "registerRunTestsTool",
+        "run_tests Unity handler"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "run_tests is registered and has a Unity-side handler; not benchmarked in this pass.",
+      "directAnalog": true,
+      "analogTarget": "test_run_tools",
+      "analogNotes": "run_tests registration and Unity handler directly map to generic test execution surface."
+    },
+    "generic_ui_read_primitives": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server~/src/index.ts",
+        "Editor/Tools"
+      ],
+      "sourceLines": [
+        "manual registry search found no UI Toolkit manage/query/click/wait tool"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No dedicated UI primitive surface was found in the reviewed server registry or Unity tool handlers.",
+      "directAnalog": false,
+      "analogTarget": "generic_ui_read_primitives",
+      "analogNotes": "No dedicated UI primitive analog confirmed."
+    }
+  },
+  "issueThemes": [],
+  "evidence": {
+    "explicitSchemas": true,
+    "readmeClaims": true,
+    "codeReviewed": true,
+    "installedAndBenchmarked": false
+  },
+  "notes": "Manual source review on 2026-05-23: scene read/write, component mutation, IDE-to-Unity bridge, and tests are code-confirmed. Dedicated UI semantic primitives are not confirmed."
+}

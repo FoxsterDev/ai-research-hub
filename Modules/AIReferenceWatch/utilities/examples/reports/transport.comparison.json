@@ -1,0 +1,444 @@
+{
+  "schemaVersion": "xuunity.reference-watch.comparison-report.v1",
+  "focus": "transport",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "xuunityToolId": "xuunity_light_unity_mcp",
+  "xuunityCurrentState": "Strong local same-host validation transport posture: capability probing, multi-client templates, same-host routing, final accounting, low footprint, and easy disable/uninstall.",
+  "inputs": [
+    {
+      "toolId": "xuunity_light_unity_mcp",
+      "displayName": "XUUnity Light Unity MCP",
+      "capturedAtUtc": "2026-05-22T00:00:00Z",
+      "captureMethod": "repo_verified"
+    },
+    {
+      "toolId": "unity_mcp_coplay",
+      "displayName": "CoplayDev/unity-mcp",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "unity_mcp_ivanmurzak",
+      "displayName": "IvanMurzak/Unity-MCP",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "mcp_unity_codergamester",
+      "displayName": "CoderGamester/mcp-unity",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    }
+  ],
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [],
+  "comparedTools": [
+    "xuunity_light_unity_mcp",
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak",
+    "mcp_unity_codergamester"
+  ],
+  "capabilityMatrix": [
+    {
+      "capability": "capability_probe_gating",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+          "directAnalog": false,
+          "analogTarget": "capability_probe_gating",
+          "analogNotes": "No per-feature capability probe analog confirmed."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+          "directAnalog": false,
+          "analogTarget": "capability_probe_gating",
+          "analogNotes": "No per-feature capability probe analog confirmed."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "custom_tool_extensibility",
+      "focus": "transport",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "implemented",
+          "confidence": "medium",
+          "evidenceType": "code_registry",
+          "notes": "The codebase exposes an AiTool-annotated registry and reflection method call path; this confirms an extension-oriented model but not a local benchmark.",
+          "directAnalog": false,
+          "analogTarget": "custom_tool_extensibility",
+          "analogNotes": "Implemented extension-oriented model, but not a current XUUnity base transport goal."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "manual_review_required",
+      "notes": ""
+    },
+    {
+      "capability": "easy_disable_uninstall",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "editor_only_base_package",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "ide_to_unity_plugin",
+      "focus": "transport",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "Node MCP server registers tool handlers and sends requests to Unity-side C# tool implementations.",
+          "directAnalog": false,
+          "analogTarget": "transport",
+          "analogNotes": "Implemented MCP-to-Unity bridge, but not a direct analog to XUUnity same-host routing/final-accounting contract."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "manual_review_required",
+      "notes": ""
+    },
+    {
+      "capability": "multi_client_support",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "claimed",
+          "confidence": "medium",
+          "evidenceType": "docs_claim",
+          "notes": "Client ecosystem positioning is public-source claimed.",
+          "directAnalog": false,
+          "analogTarget": "multi_client_support",
+          "analogNotes": "Client ecosystem is still docs-claimed, not code-confirmed in this slice."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "claimed",
+          "confidence": "medium",
+          "evidenceType": "docs_claim",
+          "notes": "Public docs claim broad client compatibility.",
+          "directAnalog": false,
+          "analogTarget": "multi_client_support",
+          "analogNotes": "Client compatibility remains docs-claimed in this slice."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "claimed",
+          "confidence": "medium",
+          "evidenceType": "docs_claim",
+          "notes": "Cursor, Claude Code, Codex, Windsurf, and other IDE clients are public-source claimed.",
+          "directAnalog": false,
+          "analogTarget": "multi_client_support",
+          "analogNotes": "Client list remains docs-claimed in this slice."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "no_gap",
+      "notes": ""
+    },
+    {
+      "capability": "no_player_build_footprint",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "request_final_accounting",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Final accounting after editor lifecycle churn was not clearly documented in reviewed public sources.",
+          "directAnalog": false,
+          "analogTarget": "request_final_accounting",
+          "analogNotes": "No direct analog found."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "same_host_routing",
+      "focus": "transport",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    }
+  ],
+  "xuunityAdvantages": [
+    {
+      "id": "capability_probe_gating_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for capability_probe_gating",
+      "sourceIds": [],
+      "capability": "capability_probe_gating",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "easy_disable_uninstall_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for easy_disable_uninstall",
+      "sourceIds": [],
+      "capability": "easy_disable_uninstall",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "editor_only_base_package_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for editor_only_base_package",
+      "sourceIds": [],
+      "capability": "editor_only_base_package",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "no_player_build_footprint_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for no_player_build_footprint",
+      "sourceIds": [],
+      "capability": "no_player_build_footprint",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "request_final_accounting_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for request_final_accounting",
+      "sourceIds": [],
+      "capability": "request_final_accounting",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "same_host_routing_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for same_host_routing",
+      "sourceIds": [],
+      "capability": "same_host_routing",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    }
+  ],
+  "dataQuality": [
+    {
+      "id": "unity_mcp_coplay_not_benchmarked",
+      "title": "CoplayDev/unity-mcp not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "unity_mcp_ivanmurzak_not_benchmarked",
+      "title": "IvanMurzak/Unity-MCP not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "mcp_unity_codergamester_not_benchmarked",
+      "title": "CoderGamester/mcp-unity not installed or benchmarked",
+      "sourceIds": [
+        "mcp_unity_codergamester"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    }
+  ],
+  "staleSources": [],
+  "manualReviewRequired": [
+    {
+      "id": "custom_tool_extensibility_implemented_non_direct",
+      "title": "Implemented related evidence is not a direct analog for custom_tool_extensibility",
+      "sourceIds": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "capability": "custom_tool_extensibility",
+      "notes": "Reference code exists, but directAnalog=false; keep this as design input, not backlog."
+    },
+    {
+      "id": "ide_to_unity_plugin_implemented_non_direct",
+      "title": "Implemented related evidence is not a direct analog for ide_to_unity_plugin",
+      "sourceIds": [
+        "mcp_unity_codergamester"
+      ],
+      "capability": "ide_to_unity_plugin",
+      "notes": "Reference code exists, but directAnalog=false; keep this as design input, not backlog."
+    }
+  ],
+  "backlogCandidates": [],
+  "nonActionableClaims": [],
+  "contradictedClaims": [],
+  "notes": "Generated from manually code-reviewed feature bags on 2026-05-23 with directAnalog metadata. External MCP bridges are related evidence, but no reviewed reference directly matches XUUnity same-host routing plus final-accounting posture."
+}

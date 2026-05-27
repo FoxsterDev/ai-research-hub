@@ -1,0 +1,501 @@
+{
+  "schemaVersion": "xuunity.reference-watch.feature-bag.v1",
+  "toolId": "unity_mcp_coplay",
+  "displayName": "CoplayDev/unity-mcp",
+  "sourceUrl": "https://github.com/CoplayDev/unity-mcp",
+  "capturedAtUtc": "2026-05-23T00:00:00Z",
+  "captureMethod": "manual_review",
+  "tier": "tier_1",
+  "candidateStrength": "overall",
+  "watchMode": "full",
+  "sourceRefs": [
+    {
+      "label": "Current XUUnity public comparison snapshot",
+      "pathOrUrl": "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "Public repository",
+      "pathOrUrl": "https://github.com/CoplayDev/unity-mcp",
+      "evidenceType": "primary_source",
+      "reviewedAtUtc": "2026-05-22T00:00:00Z"
+    },
+    {
+      "label": "Coplay manage_ui tool schema and command bridge",
+      "pathOrUrl": "https://github.com/CoplayDev/unity-mcp/tree/main/Server/src/services/tools/manage_ui.py",
+      "evidenceType": "tool_schema",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    },
+    {
+      "label": "Coplay manage_ui Unity implementation",
+      "pathOrUrl": "https://github.com/CoplayDev/unity-mcp/tree/main/MCPForUnity/Editor/Tools/ManageUI.cs",
+      "evidenceType": "code_registry",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    },
+    {
+      "label": "Coplay tool manifest",
+      "pathOrUrl": "https://github.com/CoplayDev/unity-mcp/blob/main/manifest.json",
+      "evidenceType": "manifest",
+      "reviewedAtUtc": "2026-05-23T00:00:00Z"
+    }
+  ],
+  "focusAreas": [
+    "ui_primitives",
+    "build_profiles",
+    "transport",
+    "tool_surface",
+    "scene_read_write",
+    "runtime_analysis"
+  ],
+  "editorFootprint": {
+    "editorOnly": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify editor-only package boundaries."
+    },
+    "runtimeCodeByDefault": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify runtime footprint."
+    },
+    "normalPlayerBuildFootprint": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "unknown",
+      "notes": "Public comparison did not verify normal player-build footprint."
+    }
+  },
+  "transports": [
+    {
+      "name": "client_bridge",
+      "status": "claimed",
+      "confidence": "medium",
+      "notes": "Public README positions the project as a bridge for Claude, Claude Code, Cursor, VS Code, and similar clients."
+    }
+  ],
+  "toolGroups": [
+    {
+      "name": "broad_editor_automation",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Manual source review found manifest entries, FastMCP auto-discovery, and Unity C# handlers for grouped tools."
+    }
+  ],
+  "operations": [
+    {
+      "id": "manage_ui",
+      "category": "ui_primitives",
+      "kind": "grouped",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Confirmed in manifest.json, Python tool schema, and MCPForUnity/Editor/Tools/ManageUI.cs command switch."
+    },
+    {
+      "id": "manage_build",
+      "category": "build_profiles",
+      "kind": "grouped",
+      "status": "implemented",
+      "confidence": "high",
+      "notes": "Confirmed in manifest.json, Python bridge, and MCPForUnity/Editor/Tools/ManageBuild.cs."
+    }
+  ],
+  "capabilities": {
+    "multi_client_support": {
+      "status": "claimed",
+      "maturity": "Broad",
+      "confidence": "medium",
+      "evidenceType": "docs_claim",
+      "focusAreas": [
+        "transport"
+      ],
+      "sourceFiles": [
+        "https://github.com/CoplayDev/unity-mcp",
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Sources Reviewed",
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Client ecosystem positioning is public-source claimed.",
+      "directAnalog": false,
+      "analogTarget": "multi_client_support",
+      "analogNotes": "Client ecosystem is still docs-claimed, not code-confirmed in this slice."
+    },
+    "broad_editor_tool_surface": {
+      "status": "implemented",
+      "maturity": "Broad",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "tool_surface"
+      ],
+      "sourceFiles": [
+        "manifest.json",
+        "Server/src/services/tools/__init__.py",
+        "MCPForUnity/Editor/Tools"
+      ],
+      "sourceLines": [
+        "manifest tool list includes grouped tools",
+        "register_all_tools auto-discovers decorated Python tools",
+        "Unity C# handlers implement tool commands"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Manual source review confirmed a broad registered tool surface rather than a README-only claim.",
+      "directAnalog": false,
+      "analogTarget": "broad_editor_tool_surface",
+      "analogNotes": "Confirmed broad surface, but broad grouped coverage is not a direct analog to narrow XUUnity base goals."
+    },
+    "ui_tool_surface": {
+      "status": "implemented",
+      "maturity": "Broad UI Toolkit surface",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "manifest.json",
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "manage_ui manifest entry",
+        "Literal action schema lists UI actions",
+        "C# switch implements manage_ui actions"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Confirmed manage_ui support for UXML/USS files, UIDocument attach/detach, PanelSettings, visual tree inspection, render_ui, and live element modification.",
+      "directAnalog": false,
+      "analogTarget": "ui_primitives",
+      "analogNotes": "manage_ui is a real grouped UI surface, but not a direct analog to XUUnity query/exists/get_text/click/wait primitives."
+    },
+    "generic_ui_read_primitives": {
+      "status": "contradicted",
+      "maturity": "Not a direct primitive match",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "manage_ui action list",
+        "GetVisualTree serializes whole tree",
+        "ModifyVisualElement uses root.Q internally"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Earlier broad inference is contradicted as a direct primitive claim: review found read/list/get_visual_tree but no standalone query, exists, get_text, click, or wait_for UI primitives.",
+      "directAnalog": false,
+      "analogTarget": "generic_ui_read_primitives",
+      "analogNotes": "Manual review contradicted the earlier broad direct-primitive inference."
+    },
+    "build_tool_surface": {
+      "status": "implemented",
+      "maturity": "Broad build surface",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "manifest.json",
+        "Server/src/services/tools/manage_build.py",
+        "MCPForUnity/Editor/Tools/ManageBuild.cs"
+      ],
+      "sourceLines": [
+        "manage_build manifest entry",
+        "actions build/status/platform/settings/scenes/profiles/batch/cancel"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "manage_build is implemented, but active-target-free compile matrix semantics remain unconfirmed.",
+      "directAnalog": false,
+      "analogTarget": "build_profiles",
+      "analogNotes": "manage_build is implemented, but not direct proof of XUUnity compile matrix semantics."
+    },
+    "compile_matrix_without_active_switch": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No clear public claim in reviewed sources.",
+      "directAnalog": false,
+      "analogTarget": "compile_matrix_without_active_switch",
+      "analogNotes": "No direct analog found."
+    },
+    "scene_control": {
+      "status": "claimed",
+      "maturity": "Broad",
+      "confidence": "medium",
+      "evidenceType": "docs_claim",
+      "focusAreas": [
+        "scene_read_write"
+      ],
+      "sourceFiles": [
+        "https://github.com/CoplayDev/unity-mcp",
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Scene control is public-source claimed.",
+      "directAnalog": false,
+      "analogTarget": "scene_read_write",
+      "analogNotes": "Docs claim only in this slice."
+    },
+    "test_run_tools": {
+      "status": "implemented",
+      "maturity": "Test execution surface",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "build_profiles"
+      ],
+      "sourceFiles": [
+        "manifest.json",
+        "Server/src/services/tools/run_tests.py",
+        "MCPForUnity/Editor/Tools/RunTests.cs"
+      ],
+      "sourceLines": [
+        "run_tests manifest entry",
+        "Python tool bridge",
+        "Unity C# handler"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "run_tests is implemented as a registered tool surface.",
+      "directAnalog": true,
+      "analogTarget": "test_run_tools",
+      "analogNotes": "run_tests is a direct test execution surface, though not benchmarked locally."
+    },
+    "capability_probe_gating": {
+      "status": "unknown",
+      "maturity": "Public-source unknown",
+      "confidence": "unknown",
+      "evidenceType": "public_source_unknown",
+      "focusAreas": [
+        "transport",
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Operations/XUUnityLightUnityMcp/docs/reference/COMPARISON.md"
+      ],
+      "sourceLines": [
+        "Feature Comparison"
+      ],
+      "extractionMethod": "docs_only",
+      "lastReviewedAtUtc": "2026-05-22T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+      "directAnalog": false,
+      "analogTarget": "capability_probe_gating",
+      "analogNotes": "No per-feature capability probe analog confirmed."
+    },
+    "ui_visual_tree_read": {
+      "status": "implemented",
+      "maturity": "Concrete read primitive",
+      "confidence": "high",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "action get_visual_tree",
+        "SerializeVisualElement returns type, name, classes, resolvedStyle, text, children"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "get_visual_tree resolves a target UIDocument and serializes the root VisualElement tree including names, classes, style, text, children, and depth truncation.",
+      "directAnalog": true,
+      "analogTarget": "ui_tree_snapshot",
+      "analogNotes": "Coplay get_visual_tree directly informs a read-only tree snapshot design input."
+    },
+    "ui_live_element_mutation": {
+      "status": "implemented",
+      "maturity": "Concrete mutation primitive",
+      "confidence": "medium",
+      "evidenceType": "code_registry",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "action modify_visual_element",
+        "root.Q(elementName)",
+        "text/classes/style/enabled/visible/tooltip parameters"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "modify_visual_element can find a named VisualElement inside a UIDocument and change text, USS classes, inline style, enabled state, visibility, or tooltip.",
+      "directAnalog": false,
+      "analogTarget": "ui_live_element_mutation",
+      "analogNotes": "Implemented, but intentionally non-direct for the first XUUnity read-only UI primitives slice."
+    },
+    "ui_query": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "manage_ui action list has no query action",
+        "root.Q is internal to modify_visual_element only"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No standalone UI query/find primitive was found in the reviewed manage_ui surface; visual tree output can be post-processed by a caller.",
+      "directAnalog": false,
+      "analogTarget": "ui_query",
+      "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+    },
+    "ui_exists": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "manage_ui action list has no exists action"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No standalone UI exists primitive was found in manage_ui; missing elements surface as errors only inside mutation paths.",
+      "directAnalog": false,
+      "analogTarget": "ui_exists",
+      "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+    },
+    "ui_get_text": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "SerializeVisualElement includes text for TextElement",
+        "no get_text action"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "Text can appear inside get_visual_tree serialization, but there is no dedicated get_text command.",
+      "directAnalog": false,
+      "analogTarget": "ui_get_text",
+      "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+    },
+    "ui_click_action": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "manage_ui action list has no click action"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No UI click/tap action was found in manage_ui or the reviewed UI-specific source surface.",
+      "directAnalog": false,
+      "analogTarget": "ui_click_action",
+      "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+    },
+    "ui_wait_for": {
+      "status": "unknown",
+      "maturity": "No direct analog confirmed",
+      "confidence": "high",
+      "evidenceType": "manual_review",
+      "focusAreas": [
+        "ui_primitives"
+      ],
+      "sourceFiles": [
+        "Server/src/services/tools/manage_ui.py",
+        "MCPForUnity/Editor/Tools/ManageUI.cs"
+      ],
+      "sourceLines": [
+        "render_ui has capture pending flow, not semantic UI wait",
+        "no wait_for UI state action"
+      ],
+      "extractionMethod": "manual_code_review",
+      "lastReviewedAtUtc": "2026-05-23T00:00:00Z",
+      "reviewer": "ai_reference_watch",
+      "notes": "No semantic UI wait_for primitive was found; waits in the repo are editor readiness or screenshot capture mechanics, not UI state assertions.",
+      "directAnalog": false,
+      "analogTarget": "ui_wait_for",
+      "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+    }
+  },
+  "issueThemes": [],
+  "evidence": {
+    "explicitSchemas": true,
+    "readmeClaims": true,
+    "codeReviewed": true,
+    "installedAndBenchmarked": false
+  },
+  "notes": "Manual source review on 2026-05-23: Coplay has implemented grouped UI/build surfaces. For UI primitives, only get_visual_tree and modify_visual_element are code-confirmed; direct query/exists/get_text/click/wait_for analogs are not confirmed."
+}

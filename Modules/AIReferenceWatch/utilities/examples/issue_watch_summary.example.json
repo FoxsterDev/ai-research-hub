@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "xuunity.reference-watch.issue-watch-summary.v1",
+  "generatedAtUtc": "2026-05-22T00:00:00Z",
+  "sources": [
+    {
+      "sourceId": "unity_mcp_coplay",
+      "sampledAtUtc": "2026-05-22T00:00:00Z",
+      "sampleLimit": 20,
+      "issueThemes": [
+        {
+          "issueTheme": "selector ambiguity",
+          "capabilityArea": "ui_primitives",
+          "signalStrength": "unknown",
+          "externalSignal": "Placeholder example; live issue sampling is outside the first dependency-free slice.",
+          "xuunityRisk": "unknown",
+          "recommendedAction": "design_review",
+          "owner": "xuunity_mcp",
+          "notes": "Use this shape after public issue sampling identifies a recurring theme."
+        },
+        {
+          "issueTheme": "setup friction from hidden prerequisites",
+          "capabilityArea": "transport",
+          "signalStrength": "unknown",
+          "externalSignal": "Placeholder example; live issue sampling is outside the first dependency-free slice.",
+          "xuunityRisk": "unlikely",
+          "recommendedAction": "ops_gap",
+          "owner": "xuunity_mcp",
+          "notes": "Keep operator friction visible in comparison outputs."
+        }
+      ],
+      "samplingWarnings": [
+        "Example only; not generated from live GitHub issue sampling."
+      ]
+    }
+  ],
+  "notes": "Public-safe example for the issue-watch summary contract."
+}

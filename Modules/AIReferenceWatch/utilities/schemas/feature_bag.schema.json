@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/feature_bag.schema.json",
+  "title": "AIReferenceWatch normalized feature bag",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "toolId",
+    "displayName",
+    "sourceUrl",
+    "capturedAtUtc",
+    "captureMethod",
+    "capabilities"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.reference-watch.feature-bag.v1"
+    },
+    "toolId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_\\-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceUrl": {
+      "type": "string"
+    },
+    "capturedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "captureMethod": {
+      "enum": [
+        "repo_verified",
+        "primary_source_snapshot",
+        "manual_review",
+        "seed_from_comparison"
+      ]
+    },
+    "tier": {
+      "enum": ["local", "tier_1", "tier_2", "tier_3", "untracked"]
+    },
+    "candidateStrength": {
+      "enum": ["local", "overall", "specialist", "parking", "unknown"]
+    },
+    "watchMode": {
+      "enum": ["local", "full", "focused", "parking", "manual"]
+    },
+    "sourceRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceRef"
+      }
+    },
+    "focusAreas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityArea"
+      },
+      "uniqueItems": true
+    },
+    "editorFootprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "editorOnly": {
+          "$ref": "#/$defs/statusedValue"
+        },
+        "runtimeCodeByDefault": {
+          "$ref": "#/$defs/statusedValue"
+        },
+        "normalPlayerBuildFootprint": {
+          "$ref": "#/$defs/statusedValue"
+        }
+      }
+    },
+    "transports": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/namedEvidence"
+      }
+    },
+    "toolGroups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/namedEvidence"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/capabilityDetail"
+      }
+    },
+    "issueThemes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/issueTheme"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "explicitSchemas": {
+          "type": "boolean"
+        },
+        "readmeClaims": {
+          "type": "boolean"
+        },
+        "codeReviewed": {
+          "type": "boolean"
+        },
+        "installedAndBenchmarked": {
+          "type": "boolean"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "capabilityDetail": {
+      "type": "object",
+      "required": ["status", "confidence", "evidenceType", "focusAreas"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "maturity": {
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "evidenceType": {
+          "$ref": "#/$defs/evidenceType"
+        },
+        "focusAreas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capabilityArea"
+          },
+          "uniqueItems": true
+        },
+        "sourceFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceLines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "extractionMethod": {
+          "type": "string"
+        },
+        "directAnalog": {
+          "type": "boolean"
+        },
+        "analogTarget": {
+          "type": "string"
+        },
+        "analogNotes": {
+          "type": "string"
+        },
+        "lastReviewedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "required": ["id", "category", "status", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/capabilityArea"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "issueTheme": {
+      "type": "object",
+      "required": ["theme", "capabilityArea", "signalStrength"],
+      "additionalProperties": false,
+      "properties": {
+        "theme": {
+          "type": "string"
+        },
+        "capabilityArea": {
+          "$ref": "#/$defs/capabilityArea"
+        },
+        "signalStrength": {
+          "enum": ["high", "medium", "low", "unknown"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "namedEvidence": {
+      "type": "object",
+      "required": ["name", "status", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": ["label", "pathOrUrl", "evidenceType"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "pathOrUrl": {
+          "type": "string"
+        },
+        "evidenceType": {
+          "$ref": "#/$defs/evidenceType"
+        },
+        "reviewedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "statusedValue": {
+      "type": "object",
+      "required": ["value", "status", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {},
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "implemented",
+        "claimed",
+        "unknown",
+        "contradicted",
+        "not_a_base_goal"
+      ]
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low", "unknown"]
+    },
+    "evidenceType": {
+      "enum": [
+        "repo_verified",
+        "primary_source",
+        "code_registry",
+        "tool_schema",
+        "manifest",
+        "docs_claim",
+        "manual_review",
+        "conservative_inference",
+        "public_source_unknown",
+        "comparison_snapshot"
+      ]
+    },
+    "capabilityArea": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    }
+  }
+}
