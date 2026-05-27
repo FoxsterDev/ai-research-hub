@@ -1,0 +1,541 @@
+{
+  "schemaVersion": "xuunity.reference-watch.comparison-report.v1",
+  "focus": "ui_primitives",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "xuunityToolId": "xuunity_light_unity_mcp",
+  "xuunityCurrentState": "Has reflection-gated Game View visual evidence and capability gating; lacks normalized generic UI hierarchy/query/action primitives in the current public comparison snapshot.",
+  "inputs": [
+    {
+      "toolId": "xuunity_light_unity_mcp",
+      "displayName": "XUUnity Light Unity MCP",
+      "capturedAtUtc": "2026-05-22T00:00:00Z",
+      "captureMethod": "repo_verified"
+    },
+    {
+      "toolId": "unity_mcp_coplay",
+      "displayName": "CoplayDev/unity-mcp",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "unity_mcp_ivanmurzak",
+      "displayName": "IvanMurzak/Unity-MCP",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "mcp_unity_codergamester",
+      "displayName": "CoderGamester/mcp-unity",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    }
+  ],
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [
+    {
+      "capability": "game_view_screenshot",
+      "sources": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    },
+    {
+      "capability": "ui_visual_tree_read",
+      "sources": [
+        "unity_mcp_coplay"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    }
+  ],
+  "comparedTools": [
+    "xuunity_light_unity_mcp",
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak",
+    "mcp_unity_codergamester"
+  ],
+  "capabilityMatrix": [
+    {
+      "capability": "capability_probe_gating",
+      "focus": "ui_primitives",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+          "directAnalog": false,
+          "analogTarget": "capability_probe_gating",
+          "analogNotes": "No per-feature capability probe analog confirmed."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Per-feature capability probes were not clearly documented in reviewed public sources.",
+          "directAnalog": false,
+          "analogTarget": "capability_probe_gating",
+          "analogNotes": "No per-feature capability probe analog confirmed."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "game_view_screenshot",
+      "focus": "ui_primitives",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "Game View screenshot is implemented, but it is visual evidence rather than semantic UI hierarchy/query proof.",
+          "directAnalog": true,
+          "analogTarget": "game_view_screenshot",
+          "analogNotes": "screenshot-game-view directly maps to visual evidence capability, with implementation differences."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "outcome": "no_gap",
+      "notes": ""
+    },
+    {
+      "capability": "generic_ui_read_primitives",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "contradicted",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "Earlier broad inference is contradicted as a direct primitive claim: review found read/list/get_visual_tree but no standalone query, exists, get_text, click, or wait_for UI primitives.",
+          "directAnalog": false,
+          "analogTarget": "generic_ui_read_primitives",
+          "analogNotes": "Manual review contradicted the earlier broad direct-primitive inference."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No dedicated query/exists/get_text/click/wait_for UI primitive was found in the reviewed default tools or AiTool source set.",
+          "directAnalog": false,
+          "analogTarget": "generic_ui_read_primitives",
+          "analogNotes": "No dedicated semantic UI primitive analog confirmed."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No dedicated UI primitive surface was found in the reviewed server registry or Unity tool handlers.",
+          "directAnalog": false,
+          "analogTarget": "generic_ui_read_primitives",
+          "analogNotes": "No dedicated UI primitive analog confirmed."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "contradicted_evidence",
+      "notes": ""
+    },
+    {
+      "capability": "ui_click_action",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No UI click/tap action was found in manage_ui or the reviewed UI-specific source surface.",
+          "directAnalog": false,
+          "analogTarget": "ui_click_action",
+          "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "non_actionable_claim",
+      "notes": ""
+    },
+    {
+      "capability": "ui_exists",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No standalone UI exists primitive was found in manage_ui; missing elements surface as errors only inside mutation paths.",
+          "directAnalog": false,
+          "analogTarget": "ui_exists",
+          "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "non_actionable_claim",
+      "notes": ""
+    },
+    {
+      "capability": "ui_get_text",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "Text can appear inside get_visual_tree serialization, but there is no dedicated get_text command.",
+          "directAnalog": false,
+          "analogTarget": "ui_get_text",
+          "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "non_actionable_claim",
+      "notes": ""
+    },
+    {
+      "capability": "ui_live_element_mutation",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "medium",
+          "evidenceType": "code_registry",
+          "notes": "modify_visual_element can find a named VisualElement inside a UIDocument and change text, USS classes, inline style, enabled state, visibility, or tooltip.",
+          "directAnalog": false,
+          "analogTarget": "ui_live_element_mutation",
+          "analogNotes": "Implemented, but intentionally non-direct for the first XUUnity read-only UI primitives slice."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "manual_review_required",
+      "notes": ""
+    },
+    {
+      "capability": "ui_query",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No standalone UI query/find primitive was found in the reviewed manage_ui surface; visual tree output can be post-processed by a caller.",
+          "directAnalog": false,
+          "analogTarget": "ui_query",
+          "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "non_actionable_claim",
+      "notes": ""
+    },
+    {
+      "capability": "ui_tool_surface",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "Confirmed manage_ui support for UXML/USS files, UIDocument attach/detach, PanelSettings, visual tree inspection, render_ui, and live element modification.",
+          "directAnalog": false,
+          "analogTarget": "ui_primitives",
+          "analogNotes": "manage_ui is a real grouped UI surface, but not a direct analog to XUUnity query/exists/get_text/click/wait primitives."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "manual_review_required",
+      "notes": ""
+    },
+    {
+      "capability": "ui_visual_tree_read",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "get_visual_tree resolves a target UIDocument and serializes the root VisualElement tree including names, classes, style, text, children, and depth truncation.",
+          "directAnalog": true,
+          "analogTarget": "ui_tree_snapshot",
+          "analogNotes": "Coplay get_visual_tree directly informs a read-only tree snapshot design input."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [
+        "unity_mcp_coplay"
+      ],
+      "outcome": "reference_gap",
+      "notes": ""
+    },
+    {
+      "capability": "ui_wait_for",
+      "focus": "ui_primitives",
+      "xuunityStatus": "missing",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "high",
+          "evidenceType": "manual_review",
+          "notes": "No semantic UI wait_for primitive was found; waits in the repo are editor readiness or screenshot capture mechanics, not UI state assertions.",
+          "directAnalog": false,
+          "analogTarget": "ui_wait_for",
+          "analogNotes": "No direct analog confirmed in reviewed manage_ui source."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "non_actionable_claim",
+      "notes": ""
+    }
+  ],
+  "xuunityAdvantages": [
+    {
+      "id": "capability_probe_gating_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for capability_probe_gating",
+      "sourceIds": [],
+      "capability": "capability_probe_gating",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    }
+  ],
+  "dataQuality": [
+    {
+      "id": "unity_mcp_coplay_not_benchmarked",
+      "title": "CoplayDev/unity-mcp not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "unity_mcp_ivanmurzak_not_benchmarked",
+      "title": "IvanMurzak/Unity-MCP not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "mcp_unity_codergamester_not_benchmarked",
+      "title": "CoderGamester/mcp-unity not installed or benchmarked",
+      "sourceIds": [
+        "mcp_unity_codergamester"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    }
+  ],
+  "staleSources": [],
+  "manualReviewRequired": [
+    {
+      "id": "ui_live_element_mutation_implemented_non_direct",
+      "title": "Implemented related evidence is not a direct analog for ui_live_element_mutation",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "capability": "ui_live_element_mutation",
+      "notes": "Reference code exists, but directAnalog=false; keep this as design input, not backlog."
+    },
+    {
+      "id": "ui_tool_surface_implemented_non_direct",
+      "title": "Implemented related evidence is not a direct analog for ui_tool_surface",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "capability": "ui_tool_surface",
+      "notes": "Reference code exists, but directAnalog=false; keep this as design input, not backlog."
+    }
+  ],
+  "backlogCandidates": [
+    {
+      "candidateId": "ui_visual_tree_read",
+      "title": "Review ui_visual_tree_read for ui_primitives",
+      "focus": "ui_primitives",
+      "whyNow": "At least one reference has actionable normalized evidence while XUUnity is missing or weaker.",
+      "xuunityCurrentState": "missing",
+      "referenceEvidence": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "get_visual_tree resolves a target UIDocument and serializes the root VisualElement tree including names, classes, style, text, children, and depth truncation.",
+          "directAnalog": true,
+          "analogTarget": "ui_tree_snapshot",
+          "analogNotes": "Coplay get_visual_tree directly informs a read-only tree snapshot design input."
+        }
+      ],
+      "requiredManualReview": false,
+      "owner": "reference_watch_consumer",
+      "nextArtifact": "public_contract_design"
+    }
+  ],
+  "nonActionableClaims": [],
+  "contradictedClaims": [
+    {
+      "id": "generic_ui_read_primitives_contradicted",
+      "title": "Contradicted evidence for generic_ui_read_primitives",
+      "sourceIds": [],
+      "capability": "generic_ui_read_primitives",
+      "notes": "Inspect this before using it for planning."
+    }
+  ],
+  "notes": "Generated from manually code-reviewed feature bags on 2026-05-23 with directAnalog metadata. Coplay get_visual_tree is direct evidence for a tree snapshot; direct query/exists/get_text/click/wait_for analogs are not confirmed."
+}

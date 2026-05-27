@@ -1,0 +1,379 @@
+{
+  "schemaVersion": "xuunity.reference-watch.comparison-report.v1",
+  "focus": "build_profiles",
+  "generatedAtUtc": "2026-05-23T00:00:00Z",
+  "xuunityToolId": "xuunity_light_unity_mcp",
+  "xuunityCurrentState": "XUUnity has repo-verified compile validation, active-target-free compile matrix support, build-config compile matrix support, and an EditMode validation lane; broad build execution is not a base goal.",
+  "inputs": [
+    {
+      "toolId": "xuunity_light_unity_mcp",
+      "displayName": "XUUnity Light Unity MCP",
+      "capturedAtUtc": "2026-05-22T00:00:00Z",
+      "captureMethod": "repo_verified"
+    },
+    {
+      "toolId": "unity_mcp_coplay",
+      "displayName": "CoplayDev/unity-mcp",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "unity_mcp_ivanmurzak",
+      "displayName": "IvanMurzak/Unity-MCP",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    },
+    {
+      "toolId": "mcp_unity_codergamester",
+      "displayName": "CoderGamester/mcp-unity",
+      "capturedAtUtc": "2026-05-23T00:00:00Z",
+      "captureMethod": "manual_review"
+    }
+  ],
+  "overallLeaders": [
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak"
+  ],
+  "capabilityLeaders": [
+    {
+      "capability": "develop_test_loop",
+      "sources": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    },
+    {
+      "capability": "test_run_tools",
+      "sources": [
+        "unity_mcp_coplay",
+        "mcp_unity_codergamester"
+      ],
+      "status": "confirmed",
+      "notes": "Generated from normalized feature-bag evidence."
+    }
+  ],
+  "comparedTools": [
+    "xuunity_light_unity_mcp",
+    "unity_mcp_coplay",
+    "unity_mcp_ivanmurzak",
+    "mcp_unity_codergamester"
+  ],
+  "capabilityMatrix": [
+    {
+      "capability": "build_config_compile_matrix",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "build_tool_surface",
+      "focus": "build_profiles",
+      "xuunityStatus": "not_a_base_goal",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "manage_build is implemented, but active-target-free compile matrix semantics remain unconfirmed.",
+          "directAnalog": false,
+          "analogTarget": "build_profiles",
+          "analogNotes": "manage_build is implemented, but not direct proof of XUUnity compile matrix semantics."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "manual_review_required",
+      "notes": ""
+    },
+    {
+      "capability": "compile_matrix_without_active_switch",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "No clear public claim in reviewed sources.",
+          "directAnalog": false,
+          "analogTarget": "compile_matrix_without_active_switch",
+          "analogNotes": "No direct analog found."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "No clear public claim in reviewed sources.",
+          "directAnalog": false,
+          "analogTarget": "compile_matrix_without_active_switch",
+          "analogNotes": "No direct analog found."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "unknown",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Active-target-free compile matrix validation was not clearly documented.",
+          "directAnalog": false,
+          "analogTarget": "compile_matrix_without_active_switch",
+          "analogNotes": "No direct analog found."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "compile_validation",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "develop_test_loop",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "Test execution and editor play/pause state tools are implemented; active-target-free compile matrix support remains unconfirmed.",
+          "directAnalog": true,
+          "analogTarget": "develop_test_loop",
+          "analogNotes": "Implemented test/editor-state surfaces are a direct reference for validation-loop comparison, with broader scope caveats."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "outcome": "no_gap",
+      "notes": ""
+    },
+    {
+      "capability": "editmode_test_execution",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        }
+      ],
+      "strongestReferences": [],
+      "outcome": "xuunity_ahead",
+      "notes": ""
+    },
+    {
+      "capability": "test_run_tools",
+      "focus": "build_profiles",
+      "xuunityStatus": "implemented",
+      "referenceStatuses": [
+        {
+          "toolId": "unity_mcp_coplay",
+          "status": "implemented",
+          "confidence": "high",
+          "evidenceType": "code_registry",
+          "notes": "run_tests is implemented as a registered tool surface.",
+          "directAnalog": true,
+          "analogTarget": "test_run_tools",
+          "analogNotes": "run_tests is a direct test execution surface, though not benchmarked locally."
+        },
+        {
+          "toolId": "unity_mcp_ivanmurzak",
+          "status": "missing",
+          "confidence": "unknown",
+          "evidenceType": "public_source_unknown",
+          "notes": "Capability is absent from this normalized bag."
+        },
+        {
+          "toolId": "mcp_unity_codergamester",
+          "status": "implemented",
+          "confidence": "medium",
+          "evidenceType": "code_registry",
+          "notes": "run_tests is registered and has a Unity-side handler; not benchmarked in this pass.",
+          "directAnalog": true,
+          "analogTarget": "test_run_tools",
+          "analogNotes": "run_tests registration and Unity handler directly map to generic test execution surface."
+        }
+      ],
+      "strongestReferences": [
+        "unity_mcp_coplay",
+        "mcp_unity_codergamester"
+      ],
+      "outcome": "no_gap",
+      "notes": ""
+    }
+  ],
+  "xuunityAdvantages": [
+    {
+      "id": "build_config_compile_matrix_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for build_config_compile_matrix",
+      "sourceIds": [],
+      "capability": "build_config_compile_matrix",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "compile_matrix_without_active_switch_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for compile_matrix_without_active_switch",
+      "sourceIds": [],
+      "capability": "compile_matrix_without_active_switch",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "compile_validation_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for compile_validation",
+      "sourceIds": [],
+      "capability": "compile_validation",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    },
+    {
+      "id": "editmode_test_execution_xuunity_ahead",
+      "title": "XUUnity has stronger normalized evidence for editmode_test_execution",
+      "sourceIds": [],
+      "capability": "editmode_test_execution",
+      "notes": "Tracked references are missing or unknown for this capability in the current bags."
+    }
+  ],
+  "dataQuality": [
+    {
+      "id": "unity_mcp_coplay_not_benchmarked",
+      "title": "CoplayDev/unity-mcp not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "unity_mcp_ivanmurzak_not_benchmarked",
+      "title": "IvanMurzak/Unity-MCP not installed or benchmarked",
+      "sourceIds": [
+        "unity_mcp_ivanmurzak"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    },
+    {
+      "id": "mcp_unity_codergamester_not_benchmarked",
+      "title": "CoderGamester/mcp-unity not installed or benchmarked",
+      "sourceIds": [
+        "mcp_unity_codergamester"
+      ],
+      "notes": "This first slice uses normalized public/comparison evidence, not a live local benchmark."
+    }
+  ],
+  "staleSources": [],
+  "manualReviewRequired": [
+    {
+      "id": "build_tool_surface_implemented_non_direct",
+      "title": "Implemented related evidence is not a direct analog for build_tool_surface",
+      "sourceIds": [
+        "unity_mcp_coplay"
+      ],
+      "capability": "build_tool_surface",
+      "notes": "Reference code exists, but directAnalog=false; keep this as design input, not backlog."
+    }
+  ],
+  "backlogCandidates": [],
+  "nonActionableClaims": [],
+  "contradictedClaims": [],
+  "notes": "Generated from manually code-reviewed feature bags on 2026-05-23 with directAnalog metadata. External build/test surfaces are decomposed from active-target-free compile matrix support."
+}

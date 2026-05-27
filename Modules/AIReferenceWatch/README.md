@@ -45,10 +45,16 @@ Right now this module is responsible for:
 ## Continuation
 
 - `CONTINUATION_2026-05-12.md`
+- `CONTINUATION_2026-05-23.md`
 
 ## Active Design Docs
 
 - `design/XUUNITY_MCP_REFERENCE_WATCH_DESIGN_2026-05-12.md`
+- `design/AIREFERENCEWATCH_FIRST_SLICE_LOCK_DESIGN_2026-05-23.md`
+- `design/XUUNITY_UI_PRIMITIVES_REFERENCE_INPUT_DESIGN_2026-05-23.md`
+- `design/XUUNITY_READ_ONLY_UI_PRIMITIVES_DOWNSTREAM_DESIGN_2026-05-23.md`
+- `design/FEATURE_BAG_EVIDENCE_NORMALIZATION_DESIGN_2026-05-23.md`
+- `design/REFERENCE_REPORT_WORKFLOW_ROADMAP_2026-05-23.md`
 
 Downstream consumer design currently using this module:
 
