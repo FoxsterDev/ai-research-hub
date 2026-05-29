@@ -78,6 +78,11 @@ When this happens:
 - what manual QA must verify before release confidence is credible
 - whether the reviewer can already propose strong manual or automated test cases
 
+### Severity Calibration
+- Before assigning `Critical` or `High` severity to a flagged code path, trace the full call chain from each call site to the flagged function. Account for any guards, early returns, gates, or preconditions that already exist on the way in. A vulnerability that is theoretically reachable but currently gated at every call site is at most `Medium` until the gate is removed, with a defense-in-depth recommendation rather than an exploit narrative.
+- If a defense-in-depth fix is still warranted (e.g. the gate can be silently dropped in a future refactor), say so explicitly: the recommendation stands on top of the existing guard, not in its absence.
+- When the call chain is too large to trace fully in one pass, downgrade the finding severity AND note the trace gap. Do not assign the higher severity on a partial trace.
+
 ### Production Readiness
 - can this go to production as-is
 - what blocks release confidence
