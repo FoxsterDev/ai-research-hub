@@ -36,6 +36,11 @@
 - Use guard clauses for null, empty, and invalid-state exits before heavier logic.
 - Prefer small helper methods for repeated UI or transaction update steps instead of duplicating logic inline.
 
+## Unity Object Null Checks
+- For references that derive from `UnityEngine.Object`, use explicit `== null` or `!= null` checks before member access.
+- Do not use null-conditional or null-coalescing operators (`?.`, `??`) on Unity object paths.
+- Treat UI view fields, serialized references, components, prefabs, assets, and scene objects as Unity object paths unless the type is known to be a plain managed object.
+
 ## Review Focus
 - lifecycle safety
 - startup impact
