@@ -82,8 +82,12 @@ Use narrower utilities only when the user already knows the exact target:
    - **A. Specificity → internal.** If the candidate body references monorepo identifiers (class names, packages, namespaces — see project baseline for the list), it goes to `AIModules/XUUnityInternal/`. Public-core variant, if needed, is a separate stripped file.
    - **B. Anti-rule grep.** Grep existing files for BOTH the candidate keyword and the umbrella term the existing doctrine might use (e.g. candidate "editor test bypass" → also grep `seam`). Any hit with same-or-opposite framing → cite + refine in the existing file or reject. No new standalone file in the face of existing position.
    - **C. Domain-cohesion beats abstract type.** Narrow subsystem topic with siblings in `skills/<subsystem>/` → goes there regardless of `knowledge` vs `skills` abstract classification. Generic engineering pattern discovered via UI bug → root `knowledge/`, not `skills/ui/`. Test: would the reader search by subsystem name or by abstract principle?
-   - **D. ≤ 80 lines/file.** Trim test: remove any sentence that does not change a reader's decision. Repeated background prose is water unless the file owns that background canonically.
+   - **D. Median ≤ 30 lines, max ≤ 80.** Target is median, not ceiling. If a file lands between 30 and 80 lines, justify per block why each block of prose changes a reader decision. Repeated background prose is water unless the file owns that background canonically.
    - **E. Pointer, not body copy.** Strong reference impl already in repo → link by path. The file owns the rule + anti-pattern + decision criteria; the code owns the body.
+   - **F. Honest framing.** If the candidate proposes a pattern NOT present in canonical industry sources (DI containers / `IMemoryCache` / SWR / Cache-Control / well-known design patterns), the file must explicitly cite those alternatives in a "What This Is Not" or "Alternatives" section and frame the candidate as a project-specific or context-specific choice, not a canonical answer. No "this is the decision rule" framing for bespoke patterns.
+   - **G. Process proportionality.** Meta / process / infrastructure files (regression baselines, evaluation specs, retrospective frameworks, measurement recipes) need explicit proportionality justification: how often will the process run? Quarterly or less → single-line addition to existing file beats new standalone spec. Daily or weekly → standalone file is justified. State the expected cadence before creating the file.
+
+5b. Sub-router check. If placing this candidate would add the **3rd or later** narrow routing hint to `tasks/start_session.md` within the same zone (UI / async / SDK / tests / native / etc.), propose a sub-router README in the target subfolder instead. Pattern: collapse all narrow hints in that zone into ONE coarse hint at `start_session.md` that points at the sub-router README, and move the narrow keyword triggers into the README. Apply consistently — if you collapsed one zone in this session, check whether the same logic applies to another zone you touched.
 
 6. Compare each candidate against existing public-core + internal-overlay + project outputs for duplication. Step 5a Rule B is the strict version — perform it before this step.
 7. Score each candidate for quality, reuse value, merge fitness, and routing confidence.
@@ -103,6 +107,7 @@ Use narrower utilities only when the user already knows the exact target:
    - host-level shared review package -> `AIOutput/Reports/ReviewArtifacts/`
    - project-bound review package -> `<Project>/Assets/AIOutput/` or `AIOutput/Projects/<Project>/Reports/` based on scope
    - leave `AIOutput/KnowledgeInbox/` for the raw source item only
+8b. Pedagogical value gate. For each candidate file in the review package, write ONE sentence describing what a senior reader learns from this file that they could not infer from the title alone. If you cannot write that sentence honestly, the file is scaffolding — merge into the nearest related file or reject. Surface those one-sentence value claims in the review package so the user can challenge thin files.
 9. Stop and wait for user approval.
 
 ## Approval Rule
