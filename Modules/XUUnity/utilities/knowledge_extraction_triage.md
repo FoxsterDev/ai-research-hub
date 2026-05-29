@@ -78,7 +78,14 @@ Use narrower utilities only when the user already knows the exact target:
    - does it depend on internal process, private architecture, or confidential rollout context
    - why it does not belong one layer higher or lower
    - why the selected destination is semantically correct and why nearby alternatives such as `codestyle/`, `knowledge/`, or `skills/` were rejected
-6. Compare each candidate with current public core, internal overlay, and known outputs to avoid duplication.
+5a. Hard placement checklist — apply to every candidate before step 6. Each rule blocks placement until satisfied.
+   - **A. Specificity → internal.** If the candidate body references monorepo identifiers (class names, packages, namespaces — see project baseline for the list), it goes to `AIModules/XUUnityInternal/`. Public-core variant, if needed, is a separate stripped file.
+   - **B. Anti-rule grep.** Grep existing files for BOTH the candidate keyword and the umbrella term the existing doctrine might use (e.g. candidate "editor test bypass" → also grep `seam`). Any hit with same-or-opposite framing → cite + refine in the existing file or reject. No new standalone file in the face of existing position.
+   - **C. Domain-cohesion beats abstract type.** Narrow subsystem topic with siblings in `skills/<subsystem>/` → goes there regardless of `knowledge` vs `skills` abstract classification. Generic engineering pattern discovered via UI bug → root `knowledge/`, not `skills/ui/`. Test: would the reader search by subsystem name or by abstract principle?
+   - **D. ≤ 80 lines/file.** Trim test: remove any sentence that does not change a reader's decision. Repeated background prose is water unless the file owns that background canonically.
+   - **E. Pointer, not body copy.** Strong reference impl already in repo → link by path. The file owns the rule + anti-pattern + decision criteria; the code owns the body.
+
+6. Compare each candidate against existing public-core + internal-overlay + project outputs for duplication. Step 5a Rule B is the strict version — perform it before this step.
 7. Score each candidate for quality, reuse value, merge fitness, and routing confidence.
 8. Produce one review package with:
    - extracted durable content

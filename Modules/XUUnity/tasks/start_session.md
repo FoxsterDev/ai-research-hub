@@ -127,6 +127,8 @@ If the active repo router, project router, or project registry declares a differ
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
+- Load `knowledge/cache_lifetime_ownership.md` when the task creates, disposes, or refactors an in-process cache of textures, decoded JSON, manifests, or other materialized state derived from a refreshable upstream source. Trigger keywords include `cache`, `MemoryTextures`, `IconCache`, `static Dictionary`, `Dispose`, `singleton accessor`, repeated popup opens, re-download, or memory growth across logout/login.
+- Load `knowledge/lazy_singleton_with_config.md` when the task constructs, mutates, or refactors a singleton service whose behavior depends on a config value that is only known after a later init step. Trigger keywords include mutable `public ... { get; set; }` config property on a singleton, late-bound config, `EnsureXxxService`, ordering bug between `Init()` and config assignment.
 - Load `knowledge/validation_lanes.md` when validation strategy depends on choosing between integrated editor tooling, batch compile automation, or ordered scenario automation.
 - Load `knowledge/unity_validation_boundaries.md` when validation strategy depends on MCP versus direct Unity CLI, representative Unity-aware evidence, build-config-backed define matrices, or whether shell compile is only a partial signal.
 - Load `knowledge/mcp_scenario_authoring.md` when the task authors, reviews, or debugs Unity MCP scenario JSON or ordered MCP smoke flows, especially when steps include `project_defined_hook`, `project_refresh`, `compile_player_scripts`, `playmode_set`, build profile switches, scripting define mutation, or package/asset/project-settings mutation.
@@ -587,10 +589,7 @@ For product-facing questions:
 ## Skill Routing Hints
 Prefer these skill families when triggered by the task:
 - `skills/async/` for `async`, `await`, `UniTask`, `Awaitable`, `.NET Task`, cancellation, and thread affinity
-- `skills/ui/` for screens, popups, layout, canvases, and UI navigation
-- when the task is about adaptive grids, inventories, stores, galleries, scrollable card collections, `GridLayoutGroup`, or mobile cell-sizing tradeoffs, also load `skills/ui/adaptive_grids.md`
-- when the task is about safe areas, cutouts, touch-target sizing, larger text, localization, RTL, readability, or mobile UX bug prevention, also load `skills/ui/mobile_ux_quality.md`
-- when the task is about large `ScrollRect` lists or grids, infinite scroll, virtualization, pooled cells, viewport-window math, or recycle-and-rebind behavior, also load `skills/ui/virtualized_scrollrect.md`
+- `skills/ui/` for any UI work on iOS or Android (screens, popups, layout, canvases, TextMeshPro labels, input, virtualization, UI Toolkit, adaptive grids, mobile UX quality, multi-gate flow data reuse) — load `skills/ui/README.md` first and let its sub-router narrow to the right file(s).
 - `skills/editor/` for inspectors, importers, validation tools, and internal workflows
 - `skills/audio/` for sounds, music, mixer, snapshots, and clip loading
 - `skills/fx/` for particles, VFX lifecycle, spawn budgets, and overdraw-sensitive effects
