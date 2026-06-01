@@ -105,6 +105,7 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 - Reject tests that can keep passing after a meaningful runtime contract regression.
 - Prefer assertions on observable contract outcomes, externally visible behavior, and owned-state effects rather than indirect surrogate signals alone.
 - If a test mostly proves that the scaffolding still behaves the same while the real runtime contract could have changed underneath it, the test is stale by design.
+- A seam that fabricates a state normal flow cannot reach is acceptable only to cover genuine defense-in-depth; name the cross-session, persisted-state, or config-driven trigger that makes the guarded branch reachable. An unreachable branch with no documented trigger reads as stale confidence, not coverage.
 
 ### 6b. Observability Rule
 - Rare, recovery-critical, or UX-critical runtime branches should have an observable outcome that can be validated outside the test harness.

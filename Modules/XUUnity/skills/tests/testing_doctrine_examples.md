@@ -84,6 +84,21 @@ Why bad:
 - low production confidence
 - easy to keep green through regressions in real runtime behavior
 
+### 8. Test-Injection Branch Inside A Production Read Path
+Bad shape:
+- a production read/load method (for example a disk-cache `TryLoad`) gains a test-only injected-value field checked at the top, short-circuiting before the real file read, deserialize, and validation
+- tests that rely on the injection never execute the real I/O path
+
+Why bad:
+- it is a fake branch in shipping code (Anti-Hook) and the real read path is never exercised, so the test stays green even if read/deserialize/validation regresses (stale confidence)
+
+Good fix:
+- delete the injected-value branch and field; set up the real external boundary instead — write the real artifact via the production save path, then read it back through the unmodified production read path
+- the filesystem is a true external boundary the test may legitimately prepare, so this needs no production seam at all
+
+Why good:
+- the real read, deserialize, and validation logic runs; production loses a test-only branch; assertions land on the real loaded contract
+
 ## Review Heuristics
 
 When comparing two test shapes, prefer the one that:
