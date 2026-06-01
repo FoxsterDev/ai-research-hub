@@ -37,6 +37,7 @@
 - If the test or teardown path may block synchronously, internal awaited tasks should avoid resuming onto the blocked Unity context.
 - Do not describe `Stopwatch`, `Time.realtimeSinceStartup`, or `GC.GetAllocatedBytesForCurrentThread()` checks as full performance evidence when the Unity performance package is absent.
 - If real performance metrics are required, install and use `com.unity.test-framework.performance` and report that the evidence is package-based performance measurement rather than smoke timing.
+- When `com.unity.test-framework.performance` is present, treat its sample groups as the primary performance/allocation evidence. Use `Measure.Method(...).SampleGroup(...).GC().Run()` and read `PerformanceTestResults.json` or `PerformanceTest.Active.SampleGroups`; custom JSON artifacts may mirror those values, but should not replace them with `GC.GetTotalMemory`, retained-heap deltas, or thread-allocation counters as the headline metric.
 - Keep the confidence level honest:
   - helper or pure logic tests are not runtime-path proof
   - `EditMode` and `PlayMode` proof are not physical device or native observability proof
