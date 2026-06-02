@@ -8,6 +8,8 @@
 - Prefer predictable runtime behavior over clever abstractions.
 - Avoid blocking main-thread work in startup, UI transitions, scene changes, ads, rewards, and save/load.
 - Keep allocations, reflection, and hidden synchronization out of hot paths.
+- For iOS/Android production runtime, treat allocation discipline as a default design constraint, not optional cleanup. Repeated service, UI, SDK callback, gameplay, and lookup paths should prefer allocation-light loops over LINQ iterator pipelines unless profiling or call frequency proves the cost irrelevant.
+- Keep the runtime/editor boundary explicit. Editor-only tools, importers, reports, and validation utilities may prefer clear LINQ-heavy code when that code is not reused by production runtime.
 - Treat battery, thermal, and low-memory behavior as production constraints, not edge cases.
 - Any callback path must be null-safe, ownership-safe, and failure-tolerant.
 - Separate raw Unity lifecycle signals from derived consumer-facing app state when wrapping focus, pause, resume, and background behavior.
