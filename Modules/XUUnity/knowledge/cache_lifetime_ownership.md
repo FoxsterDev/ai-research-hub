@@ -26,6 +26,11 @@ The lazy-singleton + reset shape is the easiest one to reach for when there is n
 - `Object.Destroy` on a `Texture2D` that is still bound to an active `RawImage` or `Material`. Renders as a pink quad. Sequence dispose after consumers stop using the cache.
 - Reset called on every refresh attempt regardless of whether the data changed. Defeats the cache. Reset only when upstream identity changed.
 
+## Persisted Snapshot Policy
+- When parser, filtering, deduplication, or eligibility semantics change for a persisted runtime snapshot, add or bump a local cache-policy version and reject stale disk snapshots whose policy does not match.
+- Do not rely on TTL or fetched-at freshness to migrate semantic policy. A fresh-enough file can still encode old parser behavior.
+- Keep the policy version local to the client/runtime cache contract unless the upstream API has its own explicit version that controls the same semantics.
+
 ## Validation Focus
 - open the same popup 10 times in a row. Expect 1× download on first open, 0× on opens 2–10.
 - profile native GPU memory across 5–10 opens on a low-tier Android device. The shared cache plateaus; a `static readonly Dictionary` keeps growing across refreshes; a per-consumer cache shows downloads but plateaus equally.
