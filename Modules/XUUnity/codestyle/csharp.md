@@ -10,6 +10,7 @@
 - Do not add inline comments in C# unless the project explicitly requires them.
 - Public APIs may use XML docs when the contract is not obvious.
 - Do not introduce reflection into production code without explicit user approval. Prefer explicit contracts, factories, registries, or typed seams.
+- Do not use reflection to jump across asmdef or module boundaries for runtime feature wiring. Prefer an explicit shared contract, a project-layer subscriber, or an intentional assembly dependency change.
 - Keep syntax within the Unity project's configured C# language version. Do not use newer language features unless the project explicitly supports them; for example, use an explicit delegate type instead of C# 10 inferred delegate type lambdas in C# 9 projects.
 - Prefer explicit naming over clever abstractions.
 - Prefer small focused types over broad mixed-responsibility classes.
