@@ -6,7 +6,7 @@ AIRROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ROOT_DIR=""
 MODE="--fix"
 PROJECT_ARG=""
-PROJECT_KIND="gameplay"
+PROJECT_KIND="unity_project"
 PRIORITY="Stability > Performance > Maintainability"
 HAS_AIMODULES=0
 HAS_XUUNITY_INTERNAL=0
@@ -19,11 +19,11 @@ HOST_ROOT_ARG=""
 usage() {
   cat <<'EOF'
 Usage:
-  bash AIRoot/scripts/init_ai_project.sh [--host-root <path>] --project <path-or-name> [--kind gameplay|infrastructure] [--priority "custom priority"] [--repo-mode auto|single-project|monorepo] [--refresh-managed-router] [--adopt-existing-router] [--dry-run] [--check|--fix]
+  bash AIRoot/scripts/init_ai_project.sh [--host-root <path>] --project <path-or-name> [--kind <project-kind>] [--priority "custom priority"] [--repo-mode auto|single-project|monorepo] [--refresh-managed-router] [--adopt-existing-router] [--dry-run] [--check|--fix]
 
 Examples:
   bash AIRoot/scripts/init_ai_project.sh --project NewGame
-  bash AIRoot/scripts/init_ai_project.sh --project /path/to/NewGame --kind infrastructure
+  bash AIRoot/scripts/init_ai_project.sh --project /path/to/NewPackage --kind unity_package_source
   bash AIRoot/scripts/init_ai_project.sh --project NewGame --repo-mode single-project
   bash AIRoot/scripts/init_ai_project.sh --project NewGame --repo-mode single-project --dry-run
   bash AIRoot/scripts/init_ai_project.sh --project ExistingGame --repo-mode monorepo --refresh-managed-router
@@ -123,6 +123,17 @@ validate_file() {
   [ -e "$path" ] || fail "Missing: $path"
 }
 
+is_supported_project_kind() {
+  case "$1" in
+    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 is_expected_symlink() {
   local link_path="$1"
   local expected_target="$2"
@@ -217,7 +228,7 @@ This file is the project-level routing layer.
 Keep it short. Route the work first, then load the minimum required protocol files.
 
 ## Load Order
-1. Local repo router alias \`Agents.repo.md\` if available, otherwise repo-level \`$repo_router_rel\`
+1. Local repo router alias \`Agents.repo.md\` if available, otherwise workspace or repo router at \`$repo_router_rel\`
 $load_order_line
 3. This project file
 4. Project memory from \`Assets/AIOutput/ProjectMemory/\`
@@ -253,7 +264,7 @@ $host_local_block
 
 ## Override Rules
 - Project memory in \`Assets/AIOutput/ProjectMemory/\` overrides shared prompts when there is a conflict.
-- Follow the repo-level AI output storage rule from \`$repo_router_rel\` instead of redefining local storage semantics.
+- Follow the workspace or repo-level AI output storage rule from \`$repo_router_rel\` instead of redefining local storage semantics.
 - For feature work, bug fixing, refactoring, and code review, load durable guidance from \`Assets/AIOutput/ProjectMemory/\` by default.
 - Load historical analysis outputs from \`Assets/AIOutput/\` only for behavior investigation, legacy reconstruction, or old bug research.
 - For shared prompts, prefer repo-level canonical files and validate their actual folder layout before loading.
@@ -503,13 +514,9 @@ validate_host_root
 
 [ -n "$PROJECT_ARG" ] || fail "Missing required --project argument"
 
-case "$PROJECT_KIND" in
-  gameplay|infrastructure)
-    ;;
-  *)
-    fail "Unsupported --kind '$PROJECT_KIND'. Use gameplay or infrastructure."
-    ;;
-esac
+if ! is_supported_project_kind "$PROJECT_KIND"; then
+  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, public_unity_mcp_tooling, infrastructure, or tooling."
+fi
 
 case "$REPO_MODE" in
   auto|single-project|monorepo)
@@ -545,7 +552,13 @@ AIMODULES_ALIAS_PATH="$PROJECT_DIR/AIModules"
 PROJECT_MEMORY_DIR="$PROJECT_DIR/Assets/AIOutput/ProjectMemory"
 PROJECT_OUTPUT_DIR="$PROJECT_DIR/Assets/AIOutput"
 
-REPO_ROUTER_REL="$(relative_path "$ROOT_DIR/Agents.md" "$PROJECT_DIR")"
+REPO_ROUTER_PATH="$ROOT_DIR/Agents.md"
+PROJECT_PARENT_DIR="$(dirname "$PROJECT_DIR")"
+if [ "$REPO_MODE" = "monorepo" ] && [ "$PROJECT_PARENT_DIR" != "$ROOT_DIR" ] && [ -f "$PROJECT_PARENT_DIR/Agents.md" ]; then
+  REPO_ROUTER_PATH="$PROJECT_PARENT_DIR/Agents.md"
+fi
+
+REPO_ROUTER_REL="$(relative_path "$REPO_ROUTER_PATH" "$PROJECT_DIR")"
 AIRROOT_REL="$(relative_path "$AIRROOT_DIR" "$PROJECT_DIR")"
 AIMODULES_REL="$(relative_path "$ROOT_DIR/AIModules" "$PROJECT_DIR")"
 

@@ -534,6 +534,20 @@ write_repo_router() {
   local load_order_block
   local prompt_map_block
   local storage_block
+  local routing_extra_block=""
+  local prompt_extra_block=""
+
+  if [ -d "$ROOT_DIR/AIRoot/Operations/XUUnityLightUnityMcp" ]; then
+    routing_extra_block=$(cat <<'EOF'
+- For tasks under `AIRoot/Operations/XUUnityLightUnityMcp/`, route to `AIRoot/Operations/XUUnityLightUnityMcp/Agents.md` before project-specific work. This child project is a public MCP tooling repo, not a host Unity consumer project.
+- For tasks under `AIRoot/Operations/XUUnityLightUnityMcp/docs/clients/`, route through the MCP project router first, then the local client-docs router in that folder.
+EOF
+)
+    prompt_extra_block=$(cat <<'EOF'
+- `xuunity-light-unity-mcp` -> public tooling project `AIRoot/Operations/XUUnityLightUnityMcp/` plus its project router and docs/agents guidance
+EOF
+)
+  fi
 
   if [ "$repo_mode" = "monorepo" ]; then
     title="Monorepo Agent Router"
@@ -609,6 +623,7 @@ $load_order_block
 ## Routing Table
 - Use \`xuunity\` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
 - Use host-local protocol families only when the host intentionally attaches them under \`AIModules/\`.
+$routing_extra_block
 
 ## Fast Shortcuts
 - \`xuunity fix this bug\`
@@ -623,6 +638,7 @@ $load_order_block
 
 ## Prompt Family Map
 $prompt_map_block
+$prompt_extra_block
 
 ## Project Memory Override Rule
 - Project-specific memory in \`<Project>/Assets/AIOutput/ProjectMemory/\` overrides shared prompts when there is a conflict.
