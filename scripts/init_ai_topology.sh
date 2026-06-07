@@ -7,7 +7,7 @@ ROOT_DIR=""
 MODE="--fix"
 PROFILE=""
 REPO_NAME=""
-PROJECT_KIND="gameplay"
+PROJECT_KIND="unity_project"
 PRIORITY="Stability > Performance > Maintainability"
 DRY_RUN=0
 ALLOW_MANAGED_REFRESH=0
@@ -19,7 +19,7 @@ declare -a PROJECTS=()
 usage() {
   cat <<'EOF'
 Usage:
-  bash AIRoot/scripts/init_ai_topology.sh [--host-root <path>] --profile <single_project_default|monorepo_overlay_default> [--project <path-or-name>]... [--kind gameplay|infrastructure] [--priority "custom priority"] [--repo-name "CustomName"] [--refresh-managed-router] [--refresh-managed-overlay] [--adopt-existing-router] [--dry-run] [--check|--fix]
+  bash AIRoot/scripts/init_ai_topology.sh [--host-root <path>] --profile <single_project_default|monorepo_overlay_default> [--project <path-or-name>]... [--kind <project-kind>] [--priority "custom priority"] [--repo-name "CustomName"] [--refresh-managed-router] [--refresh-managed-overlay] [--adopt-existing-router] [--dry-run] [--check|--fix]
 
 Examples:
   bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --project MyGame --dry-run
@@ -35,6 +35,17 @@ log() {
 fail() {
   printf '%s\n' "$1" >&2
   exit 1
+}
+
+is_supported_project_kind() {
+  case "$1" in
+    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 dry_log() {
@@ -299,13 +310,9 @@ case "$PROFILE" in
     ;;
 esac
 
-case "$PROJECT_KIND" in
-  gameplay|infrastructure)
-    ;;
-  *)
-    fail "Unsupported --kind '$PROJECT_KIND'. Use gameplay or infrastructure."
-    ;;
-esac
+if ! is_supported_project_kind "$PROJECT_KIND"; then
+  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, public_unity_mcp_tooling, infrastructure, or tooling."
+fi
 
 REPO_CMD=(bash "$AIRROOT_DIR/scripts/init_ai_repo.sh" --host-root "$ROOT_DIR" --repo-mode "$REPO_MODE" "$MODE")
 if [ -n "$REPO_NAME" ]; then

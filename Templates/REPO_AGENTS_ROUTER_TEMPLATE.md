@@ -13,6 +13,7 @@ If the host already has an `Agents.md`, compare first, then ask the user whether
 - Keep the repo router minimal.
 - The repo router should decide shared prompt families, load order, and storage rules.
 - Project-specific truth must stay in project routers and `Assets/AIOutput/ProjectMemory/`.
+- Public operation/tooling repos mounted under `AIRoot/Operations/` may have their own standalone `Agents.md`; root routers should point to that child router instead of treating them as host Unity consumer projects.
 - Do not silently rewrite an existing router owned by a project or another team.
 
 ## Topology choice
@@ -45,6 +46,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 ## Routing Table
 - Use `xuunity` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
 - Optional host-local protocols may exist outside `AIRoot`, but they should be declared by the host repo, not by this public template.
+- If `AIRoot/Operations/XUUnityLightUnityMcp/` is mounted, route MCP repo tasks to `AIRoot/Operations/XUUnityLightUnityMcp/Agents.md`.
 
 ## Fast Shortcuts
 - `xuunity fix this bug`
@@ -104,6 +106,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 
 ## Prompt Family Map
 - `xuunity` -> public core `AIRoot/Modules/XUUnity/` plus internal overlay `AIModules/XUUnityInternal/` when the host uses it
+- `xuunity-light-unity-mcp` -> public tooling project `AIRoot/Operations/XUUnityLightUnityMcp/` when mounted
 - host-local private protocols -> `AIModules/`
 
 ## Storage Rule
