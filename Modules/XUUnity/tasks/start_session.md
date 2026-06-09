@@ -12,6 +12,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 1b. If all referenced local source paths fall under one project root, treat that project as resolved immediately.
 1c. If the repo contains multiple Unity projects and no concrete target project can be resolved, do not assume the current workspace root is the target project; ask for clarification or perform minimal project discovery first.
 1d. If the target project is resolved, load that project's router before final stack narrowing.
+1e. If this is the first `xuunity` request for a new agent or project and the agent supports durable private memory, load `knowledge/agent_source_of_truth.md` and use `utilities/agent_private_bootstrap.md` to install or refresh a thin agent-private router before continuing. If unsupported, continue normally and record the gap only when relevant.
 2. Detect whether the user requested a specific role.
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
@@ -126,6 +127,7 @@ If the active repo router, project router, or project registry declares a differ
 
 ## Shared Knowledge Routing Hints
 - Do not load the whole `knowledge/` folder by default.
+- Load `knowledge/agent_source_of_truth.md` when the task touches multi-agent routing, agent-private memory, prompt entrypoints, duplicated rules between agents, public-core promotion, or source-of-truth placement.
 - Load `knowledge/decision_rules.md` when the task changes routing, ownership boundaries, storage destinations, shared-vs-project placement, runtime config mutation policy, or when validation strategy depends on tool-path selection and evidence quality.
 - Load `knowledge/cache_lifetime_ownership.md` when the task creates, disposes, or refactors an in-process cache of textures, decoded JSON, manifests, or other materialized state derived from a refreshable upstream source. Trigger keywords include `cache`, `MemoryTextures`, `IconCache`, `static Dictionary`, `Dispose`, `singleton accessor`, repeated popup opens, re-download, or memory growth across logout/login.
 - Load `knowledge/lazy_singleton_with_config.md` when the task constructs, mutates, or refactors a singleton service whose behavior depends on a config value that is only known after a later init step. Trigger keywords include mutable `public ... { get; set; }` config property on a singleton, late-bound config, `EnsureXxxService`, ordering bug between `Init()` and config assignment.
@@ -276,6 +278,7 @@ Interpret short commands by intent:
   - require source-of-truth ladder, candidate identity, wrapper-to-native version mapping, mandatory extraction, breaking-change/API migration checkpoint, hard gates, scoring rules, validation, and command examples
   - create or update `knowledge/vendors/<vendor>.md` only when the user asks for integration or has approved the profile design
 - `xuunity commit this work ...`, `xuunity commit all changes ...`, `xuunity push local changes ...`, `xuunity push all changes ...`, `xuunity publish local changes ...`, `xuunity publish all changes ...`, or `xuunity split these changes into commits ...` -> `tasks/change_delivery.md`
+- `xuunity agent bootstrap ...`, `xuunity bootstrap agent memory ...`, `xuunity setup agent memory ...`, `xuunity install working discipline ...`, or `xuunity refresh working discipline ...` -> `utilities/agent_private_bootstrap.md`
 - `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
 - `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
 - `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
@@ -639,6 +642,7 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/skill_extract.md` when the user provides new best practices or domain knowledge that should become reusable skills
 - `utilities/skill_merge.md` when integrating new knowledge into existing skill families
 - `utilities/sdk_vendor_research_profile_template.md` when the user wants to design or integrate a new `xuunity sdk discover <Vendor>` research profile for a third-party SDK
+- `utilities/agent_private_bootstrap.md` when the user wants a new agent or project to remember how to route through shared `xuunity` without copying shared rules into private memory
 - `utilities/knowledge_intake_review.md` when the user wants a full review report before any integration happens
 - `utilities/knowledge_integration.md` only after explicit user approval of a reviewed knowledge package
 - `utilities/system_progress_review.md` when the user wants to know current roadmap progress, current bottlenecks, and the next milestone

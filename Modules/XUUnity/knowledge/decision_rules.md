@@ -3,6 +3,7 @@
 - If guidance is reusable across repos and public-safe, store it in `AIRoot/Modules/XUUnity/`.
 - If guidance is reusable across projects in this monorepo but not public-safe, store it in `AIModules/XUUnityInternal/`.
 - If guidance is specific to one project, store it in `Assets/AIOutput/ProjectMemory/`.
+- If guidance is only about one agent's tools, entrypoint, memory format, or command habits, keep it in that agent's private layer as routing or capability mapping only; do not duplicate reusable `xuunity` rule bodies there.
 - If a finding is temporary, investigative, or not yet validated, keep it in `Assets/AIOutput/`.
 - When shared and project memory conflict, follow project memory.
 - Prefer the safest compatible SDK version, not the newest version.

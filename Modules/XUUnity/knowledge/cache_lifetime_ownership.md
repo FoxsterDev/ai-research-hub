@@ -14,7 +14,7 @@ Pick the pattern by what owns the upstream data lifecycle. There is no single "r
 
 | Pattern | When it fits | Trade-off |
 |---|---|---|
-| Constructor inject into a long-lived facade (service locator / DI container / `ServerManager`-style root) | Project already has a long-lived facade and cache lifetime should match a service that lives there. | Couples the cache to the facade. Easiest to test with DI. |
+| Constructor inject into a long-lived facade (service locator / DI container / app-root service facade) | Project already has a long-lived facade and cache lifetime should match a service that lives there. | Couples the cache to the facade. Easiest to test with DI. |
 | Addressables-managed lifecycle (`AsyncOperationHandle` per asset, `Release` on the handle) | Cache content is already a Unity asset, project uses Addressables, and `Resources.Load` / `UnityWebRequest` is being replaced. | Adds a dependency on Addressables. Best when assets are content-pipeline-shaped. |
 | ScriptableObject-scoped store, with `Object.Destroy` on entries during scene transition | Cache lifetime is bounded by scene or session boundary. | Tight coupling to scene lifecycle. |
 | Lazy singleton with explicit reset (`GetOrCreateShared` + `ResetShared`) | Cache lifetime is bounded by a refresh boundary in remote data (catalog, manifest, remote config). No DI container in the project. | Static surface area on the cache class. Less testable than constructor injection. Reset must be called by the data layer; missing this call silently keeps stale entries. |
