@@ -87,6 +87,22 @@ Short commands:
 - `xuunity sdk research profile Firebase`
 - `xuunity system design sdk research profile OneSignal`
 
+### Agent Private Bootstrap
+Use when a new agent or new project should remember how to route through shared `xuunity` without copying shared rules into agent-private memory.
+
+Flow:
+1. `knowledge/agent_source_of_truth.md`
+2. `agent_private_bootstrap.md`
+3. `agent_private_bootstrap_template.md`
+4. write or refresh the agent-private memory only if the current agent supports a safe durable private store
+
+Short commands:
+- `xuunity agent bootstrap`
+- `xuunity bootstrap agent memory`
+- `xuunity setup agent memory`
+- `xuunity install working discipline`
+- `xuunity refresh working discipline`
+
 ### Review Artifact Extraction
 Use when the user wants to convert a long engineering chat or design discussion into a reusable review artifact.
 
@@ -390,6 +406,10 @@ Short commands:
   - execute only the explicitly approved cleanup actions from a reviewed cleanup plan, including approved minimal reference rewrites that unlock safe archive/delete moves
 - `system_evaluation_cadence.md`
   - decide when evaluation should run and how to act on the score
+- `agent_private_bootstrap.md`
+  - install or refresh a thin agent-private working-discipline router when the agent supports durable private memory
+- `agent_private_bootstrap_template.md`
+  - template for the private router; it points to shared `xuunity` owners and leaves agent tool details in the private layer
 - `report_export.md`
   - route generated outputs into `Assets/AIOutput/`
 
@@ -408,3 +428,4 @@ Short commands:
 - Never include literal secret values in generated AI outputs. Redact credentials and report only the field name, file path, and presence when sensitive config evidence matters.
 - Do not treat reusable outputs as automatically public-safe. Public core and internal shared are separate routing decisions.
 - Never delete AI outputs as part of cleanup without explicit user approval. Cleanup protocols may audit, classify, and recommend actions, but deletion requires a user-approved apply step with a safety rationale.
+- Agent-private memory bootstrap may create or refresh a private router only when the current agent supports an appropriate durable store; unsupported agents must continue without inventing one.

@@ -104,6 +104,8 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/system_output_cleanup_apply.md`
 - `utilities/system_evaluation_cadence.md`
 - `utilities/sdk_vendor_research_profile_template.md`
+- `utilities/agent_private_bootstrap.md`
+- `utilities/agent_private_bootstrap_template.md`
 - `utilities/external_promotion_checklist.md`
 - `utilities/protocol_consistency_checklist.md`
 - `utilities/report_export.md`
@@ -132,6 +134,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 
 ## Knowledge Base
 - `knowledge/glossary.md`
+- `knowledge/agent_source_of_truth.md`
 - `knowledge/decision_rules.md`
 - `knowledge/external_store_open_boundaries.md`
 - `knowledge/risk_classification.md`
@@ -227,6 +230,7 @@ For implementation tasks such as `xuunity fix ...`, `xuunity refactor ...`, and 
 - `AIModules/XUUnityInternal/` is the monorepo-internal shared overlay when the host repo provides it.
 - Project memory remains the highest-priority durable layer after the target project is known.
 - Internal overlay guidance may narrow public core behavior for monorepo-specific cases, but should not duplicate the public tree without need.
+- Agent-private memory, entrypoints, and tool configs should point into these shared layers instead of copying reusable rule bodies.
 
 ## System Commands
 `XUUnity` may also be used to evolve and audit its own protocol system.
@@ -270,6 +274,9 @@ Recommended short commands:
 - `xuunity system progress review`
 - `xuunity system registry refresh`
 - `xuunity system project registry audit`
+- `xuunity agent bootstrap`
+- `xuunity bootstrap agent memory`
+- `xuunity setup agent memory`
 - `xuunity task registry bootstrap`
 - `xuunity start tracking this task`
 - `xuunity finish the work`

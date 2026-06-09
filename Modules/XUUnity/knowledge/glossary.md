@@ -1,6 +1,7 @@
 # XUUnity Glossary
 
 - Bridge crossing: one managed to native or native to managed transition.
+- Agent-private layer: a tool-specific memory, entrypoint, or config layer that points to shared `xuunity` truth and records only that agent's capability map or calibration.
 - Project memory: durable project-local rules stored in `Assets/AIOutput/ProjectMemory/`.
 - Previous outputs: generated reports stored in `Assets/AIOutput/`.
 - Release blocker: issue that should stop submission until remediated.
