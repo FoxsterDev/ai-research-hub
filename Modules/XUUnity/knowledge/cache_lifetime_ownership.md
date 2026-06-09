@@ -24,6 +24,7 @@ The lazy-singleton + reset shape is the easiest one to reach for when there is n
 ## Anti-Patterns
 - `cache?.Dispose()` in a popup presenter's `OnDispose` when the presenter is recreated on every open. Re-downloads on next open.
 - `Object.Destroy` on a `Texture2D` that is still bound to an active `RawImage` or `Material`. Renders as a pink quad. Sequence dispose after consumers stop using the cache.
+- `RawImage` left with a null texture renders a solid white quad. Hide an unresolved icon by toggling `Graphic.enabled` (or the GameObject), not by only clearing the texture. For a remote/cached image, render the cache-owned `Texture2D` through a `RawImage` rather than a per-consumer runtime `Sprite.Create` — no per-row allocation, and the cache keeps owning the texture.
 - Reset called on every refresh attempt regardless of whether the data changed. Defeats the cache. Reset only when upstream identity changed.
 
 ## Persisted Snapshot Policy

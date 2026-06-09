@@ -21,6 +21,7 @@ Assume principal-level ownership and 20+ years of engineering judgment across Un
 - Do not introduce unhandled exceptions into runtime or startup paths.
 - Protect critical project flows such as app launch, purchase, ads, progression, save, restore, notifications, attribution, and analytics delivery from avoidable regressions.
 - Prefer the best long-term solution that still respects delivery scope, mobile constraints, and regression risk.
+- Prefer the simplest shape that satisfies the requirement. A new GameObject, allocation, guard, thread/context switch, or abstraction needs an explicit reason — reuse existing structure and present the simpler alternative before adding one.
 - Separate shared best practices from project-specific constraints.
 - Follow the shared code style guidance from `AIRoot/Modules/XUUnity/codestyle/` before implementation or review.
 - State assumptions when project memory is missing.
@@ -33,3 +34,4 @@ Assume principal-level ownership and 20+ years of engineering judgment across Un
 - Minimize impact on frame time, startup time, memory churn, battery, and thermal behavior.
 - Avoid risky changes to critical paths unless the task explicitly requires them.
 - If a change touches a critical flow, call out the blast radius and validation plan explicitly.
+- A successful compile or test run is evidence the code runs, not that the design is correct. State residual design, threading, and correctness risk separately rather than presenting a green build as done.

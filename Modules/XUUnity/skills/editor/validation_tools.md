@@ -12,3 +12,4 @@
 - Keep validators easy to run in CI or pre-release workflows.
 - After shared asset consolidation, audit scenes, prefabs, ScriptableObjects, and relevant `.meta` files for missing GUIDs and duplicate GUIDs.
 - Make shared-asset audits source-aware: project-local duplicates are valid only when they are intentional visual or behavior overrides, not identical copies of the shared asset.
+- Validate enum-keyed config maps for completeness: a `List<{enum, asset}>` resolved by `List.Find` returns a default entry with a null asset for any unmapped enum value — silently, with no error — so flag every enum value missing from the map.

@@ -25,6 +25,7 @@ Provide a Slack MCP path for Rider/Codex that:
 ## Files
 
 - `init_codex_slack_mcp.sh`
+- `post_fixed_channel_message.mjs`
 - `templates/server.mjs`
 - `templates/run.sh`
 - `templates/slack-single-channel.env.template`
@@ -47,6 +48,19 @@ Dry-run first if you want to inspect changes:
 ```bash
 bash AIRoot/Operations/CodexSlackMcp/init_codex_slack_mcp.sh --dry-run
 ```
+
+## Routine Post Fallback
+
+Use the exposed `slack_post_message` tool first. If the current Codex session
+does not expose that tool but the fixed-channel Slack MCP wrapper is installed,
+post a prepared message with:
+
+```bash
+node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs --file /path/to/message.txt
+```
+
+This helper is reusable across projects. It does not accept channel overrides
+and reads secrets only through the installed local wrapper.
 
 ## What It Installs
 
