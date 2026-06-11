@@ -12,6 +12,7 @@
 - Any repo with `.sh` files needs `.gitattributes` with `*.sh text eol=lf` (`*.cmd`/`*.ps1` → `crlf`). Windows CI runners check out with `autocrlf=true` by default.
 - Env vars carrying interpreter paths may arrive in backslash form (`C:\...\python.exe`); normalize `\` → `/` before `command -v` checks or exec inside bash.
 - Env-value conversion is asymmetric per launcher flavor: Git Bash rewrites POSIX-looking env *values* (e.g. `/tmp/x`) into Windows paths when exec'ing native executables; cmd/PowerShell pass them verbatim. Fixtures or config shared across `.sh`/`.cmd`/`.ps1` flavors must use native paths (`tempfile.gettempdir()`), or the flavors diverge for fixture reasons only.
+- If a Git Bash/MSYS installer persists a path for later native Windows Python/cmd/PowerShell consumption, write a host-native path (`cygpath -w`) or make the reader explicitly convert MSYS paths. Persisted marker files are plain text; they do not receive MSYS process-launch conversion.
 - Porting bash `cd ... && pwd` to Python: use `os.path.abspath` (logical, keeps `/tmp` on macOS), not `Path.resolve()`; keep `realpath` only where the original explicitly used it. Otherwise symlinked temp dirs (`/var` vs `/private/var`) create false output diffs.
 - A platform-support claim requires a CI leg per claimed platform. Assumptions accumulate invisibly on platforms CI never executes.
 
