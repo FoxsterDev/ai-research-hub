@@ -14,6 +14,8 @@ The instrumentation kit, in order of leverage:
 - **Kill-time diagnostics**: on timeout, kill the process tree and immediately write the command plus captured partial stdout/stderr to the live log. Diagnostics deferred to suite end are destroyed when the operator cancels a stuck run.
 - **First-failure skip**: after one timeout, skip remaining same-class heavy tests with an explanatory message. Worst-case run stays in minutes; the operator stops canceling before the evidence prints.
 
+For *content-mismatch* failures (assertions on output, not hangs), the economics invert: the CI log already carries the evidence. Replay the exact failure strings from the log through the fixed logic locally with the platform branch forced — the next push becomes a confirmation, not an experiment.
+
 ## Anti-Patterns
 - Fixing the most plausible cause and re-running to see. Each "obvious" cause that pattern-matches the symptom (wrong interpreter, parallelism bug, line endings) can be real-but-secondary; only bisection proves which defect is the blocker.
 - Timeouts longer than the operator's patience. A 300s timeout no one waits out is equivalent to no timeout.
