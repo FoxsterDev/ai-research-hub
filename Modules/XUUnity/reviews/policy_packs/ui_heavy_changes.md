@@ -62,6 +62,20 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 - scroll, grid, image, and refresh paths avoid layout rebuild spikes, full-list instantiation, blocking asset loads, and stale recycled-cell state
 - interactive runtime validation covers actual screen entry, user input, loading transitions, close/reopen, background/resume, and failure paths
 
+## UI PlayMode Post-Validation Proposal
+After code changes are done and the normal compile/test gates have passed, a UI-heavy implementation or bug fix should include a proposed PlayMode UI-smoke when the bug could be observed through runtime UI behavior.
+- first inspect the available project validation surface, such as MCP capabilities, existing scenario JSON, project-defined hooks, PlayMode tests, UI click helpers, screenshot support, and console or scene evidence
+- design the narrowest smoke that can prove or disprove the fixed behavior, naming the exact user-visible steps, expected state transitions, runtime assertions, evidence artifacts, and timeout budget
+- prefer EventSystem-driven UI clicks or the project's existing UI input helper over direct presenter method calls when the claim depends on user navigation or button wiring
+- use deterministic project hooks, test seams, or fixture data to inject backend, ad, purchase, or remote-content outcomes when the external system would make the smoke flaky
+- assert on the real view state that regressed, such as text, button interactability, fill amount, selected tab, visible holder, active pooled item, or animation final value, not only on the backing model
+- include a screenshot, scene snapshot, console marker, or hook payload when it materially improves the evidence
+- do not run a newly designed UI-smoke automatically unless the user has already asked for validation execution; present the smoke plan and ask for operator approval to run it
+- include explicit stop conditions before running: max scenario timeout, max per-step timeout, what counts as stuck, cleanup or PlayMode-exit behavior, and when to fall back to manual validation
+- if the needed validation capability is missing or the smoke would be too flaky for automation, report the missing capability or instability reason and leave a concrete manual-check recipe instead of weakening the claim
+
+Use this proposal step to make runtime UI validation available at closeout without forcing a broad end-to-end scenario for every small UI edit.
+
 ## Common Failure Modes
 - popup opens with optimistic success or reward state before the backing operation is complete
 - screen entry is blocked by optional enrichment that could have loaded after first visibility
