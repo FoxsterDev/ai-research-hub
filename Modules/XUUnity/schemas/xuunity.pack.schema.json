@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.pack.schema.json",
+  "title": "XUUnity Pack Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "licenseFeature",
+    "dependsOn",
+    "entrypoints",
+    "exportPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.pack.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tier": {
+      "type": "string"
+    },
+    "licenseFeature": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reviews": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "utilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "knowledge": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "taskKinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "mcp": {
+      "type": "object"
+    },
+    "exportPolicy": {
+      "type": "object",
+      "required": [
+        "mayQuotePrivateContentInReports",
+        "reportReferenceMode"
+      ],
+      "properties": {
+        "mayQuotePrivateContentInReports": {
+          "type": "boolean"
+        },
+        "reportReferenceMode": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

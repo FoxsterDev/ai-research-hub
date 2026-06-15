@@ -64,6 +64,7 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 
 ## UI PlayMode Post-Validation Proposal
 After code changes are done and the normal compile/test gates have passed, a UI-heavy implementation or bug fix should include a proposed PlayMode UI-smoke when the bug could be observed through runtime UI behavior.
+- If optional private-pack routing is enabled and `xcntp.game_qa_paid_skill` is present in `loadedPacks[]`, route the post-validation proposal through that resolved pack before authoring or running the smoke. Do not reference private Game QA files by guessed public paths.
 - first inspect the available project validation surface, such as MCP capabilities, existing scenario JSON, project-defined hooks, PlayMode tests, UI click helpers, screenshot support, and console or scene evidence
 - design the narrowest smoke that can prove or disprove the fixed behavior, naming the exact user-visible steps, expected state transitions, runtime assertions, evidence artifacts, and timeout budget
 - prefer EventSystem-driven UI clicks or the project's existing UI input helper over direct presenter method calls when the claim depends on user navigation or button wiring
@@ -75,6 +76,19 @@ After code changes are done and the normal compile/test gates have passed, a UI-
 - if the needed validation capability is missing or the smoke would be too flaky for automation, report the missing capability or instability reason and leave a concrete manual-check recipe instead of weakening the claim
 
 Use this proposal step to make runtime UI validation available at closeout without forcing a broad end-to-end scenario for every small UI edit.
+
+## UI Runtime Validation Closeout Gate
+- A UI-heavy runtime bug fix is not validated by compile success, source inspection, or a neighboring happy path alone.
+- Closeout must include automated UI evidence, an operator-approved manual recipe, or an explicit MCP/project capability gap.
+- If a loaded private Game QA pack supplies a path coverage taxonomy, name the selected coverage class in the evidence.
+- If only a weaker alternate path passed, report it as supporting evidence and keep the required path open.
+- If automation is blocked, report the exact missing capability, why it blocks proof, and the smallest hook/scenario/MCP addition needed.
+
+## Optional Game QA Paid Bridge
+- Use this bridge only when the resolved private module registry exposes loaded pack `xcntp.game_qa_paid_skill`.
+- Load private Game QA guidance through the pack entrypoints returned by `loadedPacks[]`; do not hardcode private paths in public policy files.
+- Keep the bridge proposal-first: the paid pack should produce the smoke plan, timeout and cleanup budget, evidence target, and missing-capability report before a new interactive scenario is run.
+- Do not use this bridge to force automation for pure visual polish, copy-only changes, or UI changes where runtime behavior cannot materially prove the claim.
 
 ## Common Failure Modes
 - popup opens with optimistic success or reward state before the backing operation is complete
