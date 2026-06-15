@@ -1,7 +1,7 @@
 # XUUnity Personal Paid Module Overlay Design
 
 Date: 2026-06-15
-Status: Phase 1-3 implemented locally and verified
+Status: Phase 1-5 implemented locally and verified
 Scope: public `XUUnity` support for optional local paid/private module packs, with the first local pack implemented as `xcntp.game_qa_paid_skill`
 
 ## Goal
@@ -869,13 +869,17 @@ Phase 3 verification:
 
 ### Phase 4: MCP/API extension
 
-Only after Phase 1-3 are stable:
+Status: completed locally on 2026-06-15.
 
-1. Add host-side MCP helper that exposes module status:
+Implemented:
+
+1. Added host-side MCP/API-safe helper commands:
    - `xuunity_module_status`
    - `xuunity_module_rollsync`
-2. Keep these tools generic and public.
-3. Do not expose private content through MCP tool output.
+2. Kept these tools generic and public.
+3. Redacted private content from MCP/API output.
+4. Documented the tool contract in
+   `Modules/XUUnity/utilities/module_mcp_api.md`.
 
 Acceptance:
 
@@ -883,17 +887,47 @@ Acceptance:
 - MCP output redacts private file contents
 - no Unity Editor package changes are required for prompt-only packs
 
+Phase 4 verification:
+
+- `xuunity_module_status --project-root ..` reports loaded, locked, and invalid
+  pack sections in a redacted shape
+- `xuunity_module_rollsync --project-root ..` writes the user-cache registry and
+  returns a redacted status response
+- redacted API output omits private module paths, private entrypoint paths, and
+  private file contents
+- the implementation lives in public `module_registry_tool.py`; no
+  `Operations/XUUnityLightUnityMcp` or Unity package changes are required
+
 ### Phase 5: Future commercialization
 
-1. Keep the same manifest and entitlement schema.
-2. Replace `personal_dev` grants with signed licenses or online entitlement sync.
-3. Publish `XCNT-P` as private Git or package distribution.
-4. Add installer docs for paying clients.
+Status: completed as a commercialization-ready local contract on 2026-06-15.
+
+Implemented:
+
+1. Kept the same manifest and entitlement schema.
+2. Extended `xuunity.entitlements.v1` with optional `license` and `sync`
+   metadata for signed offline licenses and online entitlement sync caches.
+3. Kept `XCNT-P` as a private Git-ready local repo under `_HostLocal/XCNT-P`.
+4. Added installer and publishing docs for paying clients:
+   - `_HostLocal/XCNT-P/INSTALL.md`
+   - `_HostLocal/XCNT-P/docs/PUBLISHING.md`
+5. Documented public commercialization rules in
+   `Modules/XUUnity/utilities/module_commercialization.md`.
 
 Acceptance:
 
 - existing local pack structure remains valid
 - commercial license backend changes entitlement source, not pack layout
+- installer docs describe private Git/package installation without exposing
+  private content through public XUUnity
+
+Phase 5 verification:
+
+- local private repo commit contains the paid pack and installer docs
+- `xuunity.entitlements.v1` still accepts `features[]` as the resolver contract
+- commercial modes use `signed_offline` or `online_sync` entitlement sources
+- no hosted license backend or private Git remote is required for the public
+  support layer to remain valid
 
 ## Validation Plan
 
@@ -913,6 +947,8 @@ Required automated tests:
 - `session-plan` continues with public core when a matching private pack is absent
 - `session-plan` continues with public core when a matching private pack is locked
 - session report references contain pack ids only, not private paths or bodies
+- `xuunity_module_status` redacts private paths and entrypoints
+- `xuunity_module_rollsync` redacts private paths and entrypoints
 
 Required manual checks:
 
@@ -921,7 +957,27 @@ Required manual checks:
 - run with missing entitlement
 - run with one invalid pack path
 - run `module_registry_tool.py session-plan` with configured local `XCNT-P`
+- run `module_registry_tool.py xuunity_module_status` with configured local
+  `XCNT-P`
+- run `module_registry_tool.py xuunity_module_rollsync` with configured local
+  `XCNT-P`
 - run system health review and confirm private module overlay status is included
+
+Completed automated verification:
+
+- unit tests cover all required automated tests above
+- test count on completion: `14`
+
+Completed manual verification:
+
+- no-config Rollsync returns `not_configured`
+- configured local `XCNT-P` Rollsync returns `ready`
+- missing entitlement returns `locked`
+- invalid pack path returns `invalid`
+- configured local `XCNT-P` session-plan returns `private_pack_loaded`
+- `xuunity_module_status` returns redacted loaded/locked/invalid sections
+- `xuunity_module_rollsync` returns redacted loaded/locked/invalid sections
+- system health review contains the `Private Module Overlay Status` template
 
 ## Risks
 
