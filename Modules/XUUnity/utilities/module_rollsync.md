@@ -27,6 +27,7 @@ After Rollsync:
 - do not load `lockedPacks[]` or `invalidPacks[]`
 - record matched pack ids in the execution contract as `matched_private_packs`
 - keep private paths user-local and avoid quoting private content in final reports
+- use `session-plan` when you need a redacted session contract for reports or project output
 
 ## Game QA Smoke
 For Game QA paid routing, prove the route with:
@@ -38,3 +39,14 @@ python3 Modules/XUUnity/scripts/module_registry_tool.py route-smoke \
 ```
 
 The smoke should show entrypoints rooted at `AIModules/XCNT-P` and must not show public `Modules/XUUnity/skills/game_qa` paths.
+
+## Session Plan
+For normal session startup, prefer:
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py session-plan \
+  --project-root .. \
+  --task-text "validate ui after a fix with PlayMode smoke"
+```
+
+Use `matchedLoadedPacks[]` for prompt stack loading. Use
+`sessionContract.private_pack_report_references` for reports.

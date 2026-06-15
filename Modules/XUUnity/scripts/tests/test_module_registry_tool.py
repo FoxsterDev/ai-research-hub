@@ -95,6 +95,11 @@ class ModuleRegistryToolTests(unittest.TestCase):
         except OSError as exc:  # pragma: no cover - platform capability guard
             self.skipTest(f"symlinks unavailable: {exc}")
 
+    def _unlink_private_module(self) -> None:
+        link = self.aimodules / "XCNT-P"
+        if link.exists() or link.is_symlink():
+            link.unlink()
+
     def _write_entitlements(self, features: list[str]) -> Path:
         path = self.home / "entitlements.json"
         self._write_json(
@@ -150,6 +155,64 @@ class ModuleRegistryToolTests(unittest.TestCase):
         self.assertIn("AIModules/XCNT-P", match["root"])
         all_paths = "\n".join(path for group in match["entrypoints"].values() for path in group)
         self.assertNotIn("Modules/XUUnity/skills/game_qa", all_paths)
+
+    def test_session_plan_loads_enabled_pack_with_redacted_report_reference(self) -> None:
+        self._write_entitlements(["xcntp", "xcntp.game_qa_paid_skill"])
+
+        result = self._run(
+            "session-plan",
+            "--task-text",
+            "validate ui after a fix with PlayMode smoke",
+        )
+        payload = json.loads(result.stdout)
+        contract = payload["sessionContract"]
+
+        self.assertEqual(payload["status"], "private_pack_loaded")
+        self.assertEqual(contract["matched_private_packs"], ["xcntp.game_qa_paid_skill"])
+        self.assertEqual(contract["private_pack_report_references"], ["Private pack used: xcntp.game_qa_paid_skill"])
+        self.assertFalse(contract["continue_without_private_pack"])
+        self.assertFalse(payload["publicPathLeakDetected"])
+        self.assertIn("entrypoints", payload["matchedLoadedPacks"][0])
+        report_reference = contract["private_pack_report_references"][0]
+        self.assertNotIn("/", report_reference)
+        self.assertNotIn("role/", report_reference)
+        self.assertNotIn("skills/game_qa", report_reference)
+
+    def test_session_plan_locked_pack_continues_with_public_core(self) -> None:
+        self._write_entitlements(["xcntp"])
+
+        result = self._run(
+            "session-plan",
+            "--task-text",
+            "validate ui after a fix with PlayMode smoke",
+        )
+        payload = json.loads(result.stdout)
+        contract = payload["sessionContract"]
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(payload["status"], "private_pack_unavailable")
+        self.assertEqual(contract["matched_private_packs"], [])
+        self.assertTrue(contract["continue_without_private_pack"])
+        self.assertEqual(payload["fallback"], "continue_with_public_core")
+        self.assertEqual(payload["matchedLockedPacks"][0]["id"], "xcntp.game_qa_paid_skill")
+
+    def test_session_plan_absent_private_module_continues_with_public_core(self) -> None:
+        self._unlink_private_module()
+        self._write_entitlements(["xcntp", "xcntp.game_qa_paid_skill"])
+
+        result = self._run(
+            "session-plan",
+            "--task-text",
+            "validate ui after a fix with PlayMode smoke",
+        )
+        payload = json.loads(result.stdout)
+        contract = payload["sessionContract"]
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(payload["status"], "public_core_only")
+        self.assertEqual(payload["matchedLoadedPacks"], [])
+        self.assertEqual(contract["matched_private_packs"], [])
+        self.assertTrue(contract["continue_without_private_pack"])
 
     def test_missing_entitlement_locks_pack(self) -> None:
         self._write_entitlements(["xcntp"])

@@ -1,7 +1,7 @@
 # XUUnity Personal Paid Module Overlay Design
 
 Date: 2026-06-15
-Status: Phase 1 implemented locally and verified
+Status: Phase 1-3 implemented locally and verified
 Scope: public `XUUnity` support for optional local paid/private module packs, with the first local pack implemented as `xcntp.game_qa_paid_skill`
 
 ## Goal
@@ -838,16 +838,34 @@ Phase 2 verification:
 
 ### Phase 3: Session routing
 
-1. Define how the active AI session reads the resolved registry.
-2. Add start-session guidance that private packs are optional and user-local.
-3. Ensure private pack paths are loaded only from `loadedPacks`.
-4. Add report redaction rules for private pack usage.
+Status: completed locally on 2026-06-15.
+
+Implemented:
+
+1. Defined how the active AI session reads the resolved registry.
+2. Added start-session guidance that private packs are optional and user-local.
+3. Ensured private pack paths are loaded only from `loadedPacks`.
+4. Added report redaction rules for private pack usage.
+5. Added `module_registry_tool.py session-plan` as the session-routing proof.
+6. Added `utilities/module_session_routing.md`.
+7. Added report export rules for `private_pack_report_references`.
 
 Acceptance:
 
 - sessions can use Game QA Pro when enabled
 - sessions continue normally when private modules are absent
 - private pack content is not copied into company repo output
+
+Phase 3 verification:
+
+- `session-plan` with entitled `xcntp.game_qa_paid_skill` reports
+  `status: private_pack_loaded`
+- `session-plan` with a locked matching pack reports
+  `status: private_pack_unavailable` and `fallback: continue_with_public_core`
+- `session-plan` with no private module reports `status: public_core_only`
+- session report references use pack id only, for example
+  `Private pack used: xcntp.game_qa_paid_skill`
+- unit tests cover enabled, locked, absent, and redacted report-reference paths
 
 ### Phase 4: MCP/API extension
 
@@ -891,6 +909,10 @@ Required automated tests:
 - project-root write is rejected by default
 - report reference mode hides private content
 - `rollsync` statuses are stable
+- `session-plan` loads enabled packs from `loadedPacks`
+- `session-plan` continues with public core when a matching private pack is absent
+- `session-plan` continues with public core when a matching private pack is locked
+- session report references contain pack ids only, not private paths or bodies
 
 Required manual checks:
 
@@ -898,6 +920,7 @@ Required manual checks:
 - run with configured local `XCNT-P`
 - run with missing entitlement
 - run with one invalid pack path
+- run `module_registry_tool.py session-plan` with configured local `XCNT-P`
 - run system health review and confirm private module overlay status is included
 
 ## Risks
