@@ -414,9 +414,11 @@ def scanned_module_payload(module: ModuleRecord) -> dict[str, Any]:
 
 
 def pack_payload(pack: PackRecord, status: str, reason: str, entitlements: dict[str, Any]) -> dict[str, Any]:
+    report_reference = f"Private pack used: {pack.id}" if pack.id else "Private pack used: [unknown]"
     return {
         "id": pack.id,
         "moduleId": pack.module_id,
+        "moduleVersion": str(pack.module_manifest.get("version") or ""),
         "displayName": str(pack.manifest.get("displayName") or ""),
         "source": str(pack.module_manifest.get("kind") or ""),
         "root": str(pack.pack_display_path.parent),
@@ -428,6 +430,7 @@ def pack_payload(pack: PackRecord, status: str, reason: str, entitlements: dict[
         "entrypoints": entrypoints_payload(pack, display_paths=True),
         "routing": pack.manifest.get("routing") if isinstance(pack.manifest.get("routing"), dict) else {},
         "exportPolicy": pack.manifest.get("exportPolicy") if isinstance(pack.manifest.get("exportPolicy"), dict) else {},
+        "reportReference": report_reference,
     }
 
 
@@ -634,26 +637,39 @@ def public_game_qa_path_leak(pack: dict[str, Any]) -> bool:
     return False
 
 
+def matched_pack_payload(pack: dict[str, Any], matched_triggers: list[str], *, include_entrypoints: bool) -> dict[str, Any]:
+    payload = {
+        "id": pack["id"],
+        "moduleId": pack["moduleId"],
+        "moduleVersion": pack.get("moduleVersion", ""),
+        "root": pack["root"],
+        "resolved_root": pack["resolved_root"],
+        "matchedTriggers": matched_triggers,
+        "reportReference": pack.get("reportReference") or f"Private pack used: {pack['id']}",
+        "reportReferenceMode": (pack.get("exportPolicy") or {}).get("reportReferenceMode", "pack_id_only"),
+        "publicPathLeakDetected": public_game_qa_path_leak(pack),
+    }
+    if include_entrypoints:
+        payload["entrypoints"] = pack["entrypoints"]
+    return payload
+
+
+def matching_packs(task_text: str, packs: list[dict[str, Any]], *, include_entrypoints: bool) -> list[dict[str, Any]]:
+    matches = []
+    for pack in packs:
+        matched_triggers = trigger_matches(task_text, pack)
+        if matched_triggers:
+            matches.append(matched_pack_payload(pack, matched_triggers, include_entrypoints=include_entrypoints))
+    return matches
+
+
 def command_route_smoke(args: argparse.Namespace) -> int:
     task_text = str(getattr(args, "task_text", "") or "").strip()
     if not task_text:
         print_json({"action": "xuunity.module.route_smoke", "status": "failed", "error": "task text is required"})
         return EXIT_VALIDATION_FAILED
     payload, exit_code = build_resolved_registry(args, write=True)
-    matches = []
-    for pack in payload["loadedPacks"]:
-        matched_triggers = trigger_matches(task_text, pack)
-        if matched_triggers:
-            pack_match = {
-                "id": pack["id"],
-                "moduleId": pack["moduleId"],
-                "root": pack["root"],
-                "resolved_root": pack["resolved_root"],
-                "matchedTriggers": matched_triggers,
-                "entrypoints": pack["entrypoints"],
-                "publicPathLeakDetected": public_game_qa_path_leak(pack),
-            }
-            matches.append(pack_match)
+    matches = matching_packs(task_text, payload["loadedPacks"], include_entrypoints=True)
     expected = str(getattr(args, "expect_pack", "") or "").strip()
     expected_found = not expected or any(match["id"] == expected for match in matches)
     leak_found = any(match["publicPathLeakDetected"] for match in matches)
@@ -677,6 +693,59 @@ def command_route_smoke(args: argparse.Namespace) -> int:
     if status != "passed":
         return EXIT_VALIDATION_FAILED if exit_code == 0 else exit_code
     return 0
+
+
+def command_session_plan(args: argparse.Namespace) -> int:
+    task_text = str(getattr(args, "task_text", "") or "").strip()
+    if not task_text:
+        print_json({"action": "xuunity.module.session_plan", "status": "failed", "error": "task text is required"})
+        return EXIT_VALIDATION_FAILED
+    payload, exit_code = build_resolved_registry(args, write=True)
+    loaded_matches = matching_packs(task_text, payload["loadedPacks"], include_entrypoints=True)
+    locked_matches = matching_packs(task_text, payload["lockedPacks"], include_entrypoints=False)
+    invalid_matches = matching_packs(task_text, payload["invalidPacks"], include_entrypoints=False)
+    leak_found = any(match["publicPathLeakDetected"] for match in loaded_matches)
+    if leak_found:
+        status = "unsafe"
+        exit_code = max(exit_code, EXIT_UNSAFE)
+    elif loaded_matches:
+        status = "private_pack_loaded"
+    elif locked_matches or invalid_matches:
+        status = "private_pack_unavailable"
+    else:
+        status = "public_core_only"
+
+    report_references = [match["reportReference"] for match in loaded_matches]
+    summary = {
+        "action": "xuunity.module.session_plan",
+        "status": status,
+        "taskText": task_text,
+        "cache_path": payload["cachePath"],
+        "matchedLoadedPacks": loaded_matches,
+        "matchedLockedPacks": locked_matches,
+        "matchedInvalidPacks": invalid_matches,
+        "publicPathLeakDetected": leak_found,
+        "sessionContract": {
+            "private_pack_source": "resolved_loadedPacks",
+            "matched_private_packs": [match["id"] for match in loaded_matches],
+            "private_pack_report_references": report_references,
+            "private_content_report_policy": "pack_id_only",
+            "private_paths_user_local_only": True,
+            "continue_without_private_pack": not loaded_matches,
+            "load_order": [
+                "repo_router",
+                "public_xuunity_core",
+                "loaded_private_packs",
+                "project_router",
+                "project_memory",
+                "relevant_prior_outputs",
+            ],
+        },
+        "fallback": "continue_with_public_core" if not loaded_matches else "",
+        "warnings": payload["warnings"],
+    }
+    print_json(summary)
+    return exit_code
 
 
 def command_doctor(args: argparse.Namespace) -> int:
@@ -740,6 +809,11 @@ def build_parser() -> argparse.ArgumentParser:
     smoke.add_argument("--task-text", required=True)
     smoke.add_argument("--expect-pack", default="")
     smoke.set_defaults(func=command_route_smoke)
+
+    session = sub.add_parser("session-plan", help="Build the redacted private-pack routing contract for a task session.")
+    add_common_args(session)
+    session.add_argument("--task-text", required=True)
+    session.set_defaults(func=command_session_plan)
 
     doctor = sub.add_parser("doctor", help="Explain why a pack is loaded, locked, invalid, or missing.")
     add_common_args(doctor)

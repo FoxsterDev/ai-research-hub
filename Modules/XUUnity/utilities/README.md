@@ -185,12 +185,14 @@ Use when the user wants `xuunity` to discover local-only, private, or paid packs
 Flow:
 1. `module_registry.md`
 2. `module_rollsync.md`
-3. `tasks/start_session.md` private-pack routing rules
+3. `module_session_routing.md`
+4. `tasks/start_session.md` private-pack routing rules
 
 Short commands:
 - `xuunity module scan`
 - `xuunity module validate`
 - `xuunity module rollsync`
+- `xuunity module session plan`
 - `xuunity paid pack doctor`
 - `xuunity route smoke paid game qa`
 

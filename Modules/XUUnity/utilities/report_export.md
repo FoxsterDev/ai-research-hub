@@ -20,6 +20,8 @@ Route generated outputs into the correct project or host-repo destination.
 - Host-level task event store, task snapshot index, task metrics, and lessons learned -> `AIOutput/Registry/`
 - Before saving any generated output, redact literal secret values. Do not export API keys, tokens, client tokens, passwords, private keys, certificates, signing material, or credential-bearing URLs into any artifact destination.
 - If sensitive config evidence is needed in the artifact, keep only the field name, file path, and presence status, with the value replaced by `[REDACTED]`.
+- When a private/paid XUUnity pack was used, copy only the redacted `private_pack_report_references` from the session contract, such as `Private pack used: xcntp.game_qa_paid_skill`.
+- Do not export private pack bodies, private review checklist text, private module absolute paths, resolved-registry entrypoint lists, or user-local entitlement paths into company/public artifacts.
 
 ## Default Review Destination Map
 - `reviews/feature_code_review.md` -> `Assets/AIOutput/CodeReviews/`
@@ -48,5 +50,6 @@ Route generated outputs into the correct project or host-repo destination.
 ## Boundary
 - Use project `Assets/AIOutput/` when the output belongs to one project's runtime truth or delivery history.
 - Use repo-level `AIOutput/` when the output is about the protocol system, portfolio state, cross-project operations, or cross-project task-history analytics.
+- Treat private/paid pack usage as user-local capability evidence, not project truth. Reports may cite the pack id, but project memory must not absorb private pack rule bodies or private filesystem paths.
 - Keep the append-only task event store at repo level even when one project owns the implementation, because the registry is a portfolio and delivery-memory surface.
 - Keep task audit notes at repo level as part of the same portfolio task-history surface. They summarize task outcomes and follow-up validation; they are not project-local `Assets/AIOutput/` delivery-history artifacts.
