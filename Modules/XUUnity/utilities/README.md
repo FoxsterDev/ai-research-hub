@@ -186,13 +186,17 @@ Flow:
 1. `module_registry.md`
 2. `module_rollsync.md`
 3. `module_session_routing.md`
-4. `tasks/start_session.md` private-pack routing rules
+4. `module_mcp_api.md`
+5. `module_commercialization.md`
+6. `tasks/start_session.md` private-pack routing rules
 
 Short commands:
 - `xuunity module scan`
 - `xuunity module validate`
 - `xuunity module rollsync`
 - `xuunity module session plan`
+- `xuunity_module_status`
+- `xuunity_module_rollsync`
 - `xuunity paid pack doctor`
 - `xuunity route smoke paid game qa`
 

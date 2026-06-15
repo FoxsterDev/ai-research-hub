@@ -25,6 +25,7 @@ Review the health of the prompt system itself, not only the product code.
   - host-local operational wrappers in `AIOutput/Operations/`
   - project-local smoke expectations in project memory or project-specific internal knowledge
 - When optional private/paid module support is in scope, include the Private Module Overlay Status subsection and check discovery, entitlement, Rollsync, and routing-smoke health without quoting private pack content.
+- When `xuunity_module_status` or `xuunity_module_rollsync` are available, prefer their redacted output as the MCP/API-facing evidence source for private module overlay health.
 - Audit shared knowledge reachability:
     - identify shared `knowledge/` or internal overlay knowledge files that have no explicit routing, trigger hints, utility references, or load path
     - treat knowledge with no realistic selection path as dead ballast
@@ -64,6 +65,7 @@ in the report using this exact shape:
 - `invalid_pack_ids`: `<pack id or none>`
 - `rollsync_status`: `ready` | `ready_with_warnings` | `locked` | `invalid` | `not_configured` | `not_run`
 - `route_smoke_status`: `passed` | `failed` | `not_run`
+- `mcp_api_status`: `ready` | `ready_with_warnings` | `locked` | `invalid` | `not_configured` | `not_run`
 - `evidence_date`: `YYYY-MM-DD` or `none`
 - `private_content_boundary`: `clean` | `leak_detected` | `unknown`
 - `result_summary`: `<short factual summary>`
@@ -75,6 +77,7 @@ in the report using this exact shape:
 Use:
 - `private_content_boundary: clean` when public files only reference pack ids or registry paths and private skill content stays outside the public repo.
 - `route_smoke_status: passed` only when a representative task matched a loaded pack from `loadedPacks[]`.
+- `mcp_api_status` should come from redacted `xuunity_module_status` or `xuunity_module_rollsync` output when available.
 - `rollsync_status: not_run` when the registry exists but Rollsync was not executed in the current review.
 - `discovery_root: none` when no `AIModules/` root or explicit module root is configured.
 

@@ -31,6 +31,52 @@
     },
     "source": {
       "type": "string"
+    },
+    "license": {
+      "type": "object",
+      "properties": {
+        "licenseId": {
+          "type": "string"
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "issuedAtUtc": {
+          "type": "string"
+        },
+        "expiresAtUtc": {
+          "type": "string"
+        },
+        "signatureAlgorithm": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "payloadHash": {
+          "type": "string"
+        }
+      }
+    },
+    "sync": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "server": {
+          "type": "string"
+        },
+        "lastSyncAtUtc": {
+          "type": "string"
+        },
+        "nextSyncAfterUtc": {
+          "type": "string"
+        }
+      }
     }
   }
 }

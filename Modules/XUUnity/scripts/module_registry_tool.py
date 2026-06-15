@@ -360,7 +360,7 @@ def load_modules(project_root: Path, args: argparse.Namespace, home: Path, proto
             resolution=resolution,
             validation_errors=validation_errors,
         )
-        if manifest and resolution in {"in_scope", "invalid"}:
+        if manifest and resolution == "in_scope":
             for pack_rel in normalize_string_list(manifest.get("packs")):
                 pack_display_path = display_root / pack_rel
                 pack_path = resolved_root / pack_rel
@@ -576,21 +576,9 @@ def command_resolve(args: argparse.Namespace) -> int:
 
 def command_rollsync(args: argparse.Namespace) -> int:
     payload, exit_code = build_resolved_registry(args, write=True)
-    if payload["invalidPacks"]:
-        status = "invalid"
-    elif exit_code == EXIT_UNSAFE:
-        status = "invalid"
-    elif exit_code == EXIT_VALIDATION_FAILED:
-        status = "invalid"
-    elif payload["loadedPacks"] and payload["warnings"]:
-        status = "ready_with_warnings"
-    elif payload["loadedPacks"]:
-        status = "ready"
-    elif payload["lockedPacks"]:
-        status = "locked"
+    status = rollsync_status(payload, exit_code)
+    if status == "locked":
         exit_code = max(exit_code, EXIT_LOCKED)
-    else:
-        status = "not_configured"
     summary = {
         "action": "xuunity.module.rollsync",
         "status": status,
@@ -613,6 +601,96 @@ def command_rollsync(args: argparse.Namespace) -> int:
         summary["next_actions"].append("write resolved registries to the user cache, not into the host or project repo")
     print_json(summary)
     return exit_code
+
+
+def rollsync_status(payload: dict[str, Any], exit_code: int) -> str:
+    if payload["invalidPacks"]:
+        return "invalid"
+    if exit_code in {EXIT_UNSAFE, EXIT_VALIDATION_FAILED}:
+        return "invalid"
+    if payload["loadedPacks"] and payload["warnings"]:
+        return "ready_with_warnings"
+    if payload["loadedPacks"]:
+        return "ready"
+    if payload["lockedPacks"]:
+        return "locked"
+    return "not_configured"
+
+
+def redacted_pack_payload(pack: dict[str, Any]) -> dict[str, Any]:
+    export_policy = pack.get("exportPolicy") if isinstance(pack.get("exportPolicy"), dict) else {}
+    status = str(pack.get("status", ""))
+    reason = "validation_failed" if status == "invalid" else str(pack.get("reason", ""))
+    return {
+        "id": pack.get("id", ""),
+        "moduleId": pack.get("moduleId", ""),
+        "moduleVersion": pack.get("moduleVersion", ""),
+        "displayName": pack.get("displayName", ""),
+        "licenseFeature": pack.get("licenseFeature", ""),
+        "status": status,
+        "reason": reason,
+        "reportReference": pack.get("reportReference") or f"Private pack used: {pack.get('id', '[unknown]')}",
+        "reportReferenceMode": export_policy.get("reportReferenceMode", "pack_id_only"),
+    }
+
+
+def redacted_module_payload(module: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": module.get("id", ""),
+        "display_name": module.get("display_name", ""),
+        "source": module.get("source", ""),
+        "protocolScopes": module.get("protocolScopes", []),
+        "resolution": module.get("resolution", ""),
+        "validation_error_count": len(module.get("validation_errors", [])),
+        "is_symlink": module.get("is_symlink", False),
+        "pack_count": module.get("pack_count", 0),
+    }
+
+
+def redacted_registry_payload(payload: dict[str, Any], exit_code: int, action: str) -> dict[str, Any]:
+    status = rollsync_status(payload, exit_code)
+    return {
+        "action": action,
+        "status": status,
+        "schemaVersion": payload.get("schemaVersion", ""),
+        "resolvedAtUtc": payload.get("resolvedAtUtc", ""),
+        "writeScope": payload.get("writeScope", "user_cache"),
+        "cache": "user_cache" if payload.get("cachePath") else "none",
+        "entitlements": {
+            "mode": (payload.get("entitlements") or {}).get("mode", ""),
+            "source": (payload.get("entitlements") or {}).get("source", ""),
+            "feature_count": (payload.get("entitlements") or {}).get("feature_count", 0),
+        },
+        "counts": {
+            "scannedModules": len(payload.get("scannedModules", [])),
+            "loadedPacks": len(payload.get("loadedPacks", [])),
+            "lockedPacks": len(payload.get("lockedPacks", [])),
+            "invalidPacks": len(payload.get("invalidPacks", [])),
+        },
+        "scannedModules": [redacted_module_payload(module) for module in payload.get("scannedModules", [])],
+        "loadedPacks": [redacted_pack_payload(pack) for pack in payload.get("loadedPacks", [])],
+        "lockedPacks": [redacted_pack_payload(pack) for pack in payload.get("lockedPacks", [])],
+        "invalidPacks": [redacted_pack_payload(pack) for pack in payload.get("invalidPacks", [])],
+        "warning_count": len(payload.get("warnings", [])),
+        "redaction": {
+            "private_file_contents": "omitted",
+            "private_entrypoint_paths": "omitted",
+            "private_module_paths": "omitted",
+            "allowed_report_reference": "pack_id_only",
+        },
+    }
+
+
+def command_xuunity_module_status(args: argparse.Namespace) -> int:
+    payload, exit_code = build_resolved_registry(args, write=False)
+    print_json(redacted_registry_payload(payload, exit_code, "xuunity_module_status"))
+    return 0 if exit_code in {0, EXIT_LOCKED} else exit_code
+
+
+def command_xuunity_module_rollsync(args: argparse.Namespace) -> int:
+    payload, exit_code = build_resolved_registry(args, write=True)
+    print_json(redacted_registry_payload(payload, exit_code, "xuunity_module_rollsync"))
+    return 0 if exit_code in {0, EXIT_LOCKED} else exit_code
 
 
 def trigger_matches(task_text: str, pack: dict[str, Any]) -> list[str]:
@@ -814,6 +892,14 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_args(session)
     session.add_argument("--task-text", required=True)
     session.set_defaults(func=command_session_plan)
+
+    mcp_status = sub.add_parser("xuunity_module_status", help="MCP/API-safe redacted private module status.")
+    add_common_args(mcp_status)
+    mcp_status.set_defaults(func=command_xuunity_module_status)
+
+    mcp_rollsync = sub.add_parser("xuunity_module_rollsync", help="MCP/API-safe redacted private module Rollsync.")
+    add_common_args(mcp_rollsync)
+    mcp_rollsync.set_defaults(func=command_xuunity_module_rollsync)
 
     doctor = sub.add_parser("doctor", help="Explain why a pack is loaded, locked, invalid, or missing.")
     add_common_args(doctor)

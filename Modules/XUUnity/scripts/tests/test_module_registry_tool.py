@@ -88,6 +88,12 @@ class ModuleRegistryToolTests(unittest.TestCase):
             },
         )
 
+    def _module_manifest_path(self) -> Path:
+        return self.private_root / "module.json"
+
+    def _pack_manifest_path(self) -> Path:
+        return self.private_root / "packs" / "game_qa_paid_skill" / "pack.json"
+
     def _link_private_module(self) -> None:
         link = self.aimodules / "XCNT-P"
         try:
@@ -135,6 +141,7 @@ class ModuleRegistryToolTests(unittest.TestCase):
         self.assertEqual(payload["loaded_pack_count"], 1)
         self.assertEqual(payload["loadedPacks"][0]["id"], "xcntp.game_qa_paid_skill")
         self.assertIn("AIModules/XCNT-P", payload["loadedPacks"][0]["root"])
+        self.assertTrue(Path(payload["cache_path"]).is_file())
 
     def test_route_smoke_matches_game_qa_without_public_path_leak(self) -> None:
         self._write_entitlements(["xcntp", "xcntp.game_qa_paid_skill"])
@@ -223,6 +230,102 @@ class ModuleRegistryToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(payload["status"], "locked")
         self.assertEqual(payload["lockedPacks"][0]["id"], "xcntp.game_qa_paid_skill")
+
+    def test_scan_reports_missing_module_json_without_crawling(self) -> None:
+        loose_root = self.aimodules / "LoosePrivateModule"
+        loose_root.mkdir()
+
+        result = self._run("scan")
+        payload = json.loads(result.stdout)
+        loose_modules = [module for module in payload["scannedModules"] if module["root"].endswith("LoosePrivateModule")]
+
+        self.assertEqual(len(loose_modules), 1)
+        self.assertEqual(loose_modules[0]["resolution"], "unregistered_module_root")
+        self.assertEqual(loose_modules[0]["pack_count"], 0)
+
+    def test_invalid_module_schema_version_fails_validation(self) -> None:
+        manifest = json.loads(self._module_manifest_path().read_text(encoding="utf-8"))
+        manifest["schemaVersion"] = "xuunity.module.v999"
+        self._write_json(self._module_manifest_path(), manifest)
+
+        result = self._run("validate", check=False)
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(payload["status"], "invalid")
+        self.assertEqual(payload["invalidModules"][0]["id"], "xcntp")
+        self.assertIn("unsupported module schemaVersion", payload["invalidModules"][0]["validation_errors"][0])
+
+    def test_pack_path_escaping_root_fails_without_loading_pack(self) -> None:
+        manifest = json.loads(self._module_manifest_path().read_text(encoding="utf-8"))
+        manifest["packs"] = ["../evil/pack.json"]
+        self._write_json(self._module_manifest_path(), manifest)
+        self._write_json(
+            self.private_root.parent / "evil" / "pack.json",
+            {
+                "schemaVersion": "xuunity.pack.v1",
+                "id": "xcntp.evil",
+                "displayName": "Evil",
+                "licenseFeature": "xcntp.evil",
+                "dependsOn": [],
+                "entrypoints": {},
+                "exportPolicy": {
+                    "mayQuotePrivateContentInReports": False,
+                    "reportReferenceMode": "pack_id_only",
+                },
+            },
+        )
+
+        result = self._run("validate", check=False)
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(payload["status"], "invalid")
+        self.assertEqual(payload["invalidModules"][0]["pack_count"], 0)
+        self.assertEqual(payload["invalidPacks"], [])
+        self.assertIn("module pack path must stay inside module root", payload["invalidModules"][0]["validation_errors"][0])
+
+    def test_invalid_report_reference_mode_fails_pack_validation(self) -> None:
+        manifest = json.loads(self._pack_manifest_path().read_text(encoding="utf-8"))
+        manifest["exportPolicy"]["reportReferenceMode"] = "entrypoints"
+        self._write_json(self._pack_manifest_path(), manifest)
+
+        result = self._run("validate", check=False)
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(payload["status"], "invalid")
+        self.assertEqual(payload["invalidPacks"][0]["id"], "xcntp.game_qa_paid_skill")
+        self.assertIn("reportReferenceMode", payload["invalidPacks"][0]["validation_errors"][0])
+
+    def test_xuunity_module_status_redacts_private_paths_and_entrypoints(self) -> None:
+        self._write_entitlements(["xcntp", "xcntp.game_qa_paid_skill"])
+
+        result = self._run("xuunity_module_status")
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(payload["action"], "xuunity_module_status")
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["counts"]["loadedPacks"], 1)
+        self.assertEqual(payload["loadedPacks"][0]["reportReference"], "Private pack used: xcntp.game_qa_paid_skill")
+        self.assertNotIn(str(self.root), result.stdout)
+        self.assertNotIn("AIModules", result.stdout)
+        self.assertNotIn("entrypoints", result.stdout)
+        self.assertNotIn("skills/game_qa", result.stdout)
+        self.assertNotIn("resolved_root", result.stdout)
+
+    def test_xuunity_module_rollsync_redacts_private_paths_and_entrypoints(self) -> None:
+        self._write_entitlements(["xcntp", "xcntp.game_qa_paid_skill"])
+
+        result = self._run("xuunity_module_rollsync")
+        payload = json.loads(result.stdout)
+
+        self.assertEqual(payload["action"], "xuunity_module_rollsync")
+        self.assertEqual(payload["status"], "ready")
+        self.assertEqual(payload["cache"], "user_cache")
+        self.assertNotIn(str(self.root), result.stdout)
+        self.assertNotIn("AIModules", result.stdout)
+        self.assertNotIn("entrypoints", result.stdout)
 
     def test_out_of_scope_module_is_ignored(self) -> None:
         self._write_private_module(protocol_scopes=["other_protocol"])
