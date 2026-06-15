@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.module.schema.json",
+  "title": "XUUnity Module Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayName",
+    "kind",
+    "visibility",
+    "version",
+    "protocolScopes",
+    "packs",
+    "exportPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.module.v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visibility": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protocolScopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "discovery": {
+      "type": "object"
+    },
+    "xuunityCore": {
+      "type": "object"
+    },
+    "license": {
+      "type": "object",
+      "properties": {
+        "feature": {
+          "type": "string"
+        },
+        "defaultState": {
+          "type": "string"
+        }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exportPolicy": {
+      "type": "object",
+      "required": [
+        "mayCommitToHostRepo",
+        "mayWriteResolvedRegistryToProject",
+        "mayQuotePrivateContentInReports"
+      ],
+      "properties": {
+        "mayCommitToHostRepo": {
+          "type": "boolean"
+        },
+        "mayWriteResolvedRegistryToProject": {
+          "type": "boolean"
+        },
+        "mayQuotePrivateContentInReports": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

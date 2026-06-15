@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.entitlements.schema.json",
+  "title": "XUUnity Entitlements",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "subject",
+    "mode",
+    "features",
+    "source"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.entitlements.v1"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expiresAtUtc": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    }
+  }
+}

@@ -252,6 +252,30 @@ Key files:
 - `tests/playmode_tests.md`
 - `tests/runtime_service_testability.md`
 
+## Optional Private Module Overlay
+Skill family: resolved private packs from `module_registry_tool.py`
+Triggers:
+- private module
+- paid pack
+- premium skill
+- personal module
+- local-only module
+- game qa paid
+- validate ui after a fix
+- playmode smoke
+Use for:
+- loading user-local packs from `AIModules/` without committing private content
+- resolving entitlement-gated prompt stacks through `loadedPacks[]`
+- explaining `lockedPacks[]` or `invalidPacks[]` without quoting private content
+- proving routing with `route-smoke`
+Project override:
+- user-local `~/.xuunity/entitlements.json`
+
+Key files:
+- `utilities/module_registry.md`
+- `utilities/module_rollsync.md`
+- `scripts/module_registry_tool.py`
+
 ## Architecture
 Skill family: `architecture/`
 Triggers:

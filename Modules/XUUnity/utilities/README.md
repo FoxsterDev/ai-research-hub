@@ -179,6 +179,21 @@ Short commands:
 - `xuunity system registry refresh`
 - `xuunity system refresh project registry`
 
+### Optional Private Module Registry
+Use when the user wants `xuunity` to discover local-only, private, or paid packs without committing private content to the public core or the active project repo.
+
+Flow:
+1. `module_registry.md`
+2. `module_rollsync.md`
+3. `tasks/start_session.md` private-pack routing rules
+
+Short commands:
+- `xuunity module scan`
+- `xuunity module validate`
+- `xuunity module rollsync`
+- `xuunity paid pack doctor`
+- `xuunity route smoke paid game qa`
+
 ### System Project Registry Audit
 Use when the user wants to validate registry freshness without modifying it by default.
 

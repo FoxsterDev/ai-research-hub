@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.resolved-modules.schema.json",
+  "title": "XUUnity Resolved Module Registry",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "resolvedAtUtc",
+    "projectRoot",
+    "writeScope",
+    "loadedModules",
+    "loadedPacks",
+    "lockedPacks",
+    "invalidPacks",
+    "warnings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "xuunity.resolved-modules.v1"
+    },
+    "resolvedAtUtc": {
+      "type": "string"
+    },
+    "projectRoot": {
+      "type": "string"
+    },
+    "writeScope": {
+      "type": "string"
+    },
+    "discoveryRoots": {
+      "type": "array"
+    },
+    "scannedModules": {
+      "type": "array"
+    },
+    "loadedModules": {
+      "type": "array"
+    },
+    "loadedPacks": {
+      "type": "array"
+    },
+    "lockedPacks": {
+      "type": "array"
+    },
+    "invalidPacks": {
+      "type": "array"
+    },
+    "warnings": {
+      "type": "array"
+    }
+  }
+}

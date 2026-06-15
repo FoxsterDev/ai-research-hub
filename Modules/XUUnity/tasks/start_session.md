@@ -41,6 +41,15 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
    - `skills/ui/screen_presenters.md` for long-lived screens, tabs, pages, or root screen composition
    - `skills/ui/flow_presenters.md` for one-shot popups, modal flows, or explicit flow-result presenters
    - `skills/ui/presenter_development.md` only as the lifetime-map entry file or when the task spans more than one presenter shape
+12a. Resolve optional private/paid module overlays before project memory when the user asks for private modules, paid packs, premium skills, Game QA paid validation, or when a known loaded private-pack trigger matches the task. If `scripts/module_registry_tool.py` exists, prefer the latest user-cache registry from `~/.xuunity/cache/resolved_modules/`; run `python3 Modules/XUUnity/scripts/module_registry_tool.py rollsync --project-root <host-root>` when the cache is missing, stale, or the user explicitly asks to verify loading.
+12b. Treat the resolved registry as a user-local overlay contract:
+   - use `loadedPacks[]` as eligible prompt-stack candidates
+   - use `lockedPacks[]` and `invalidPacks[]` only to explain why a pack cannot be used
+   - never write resolved private-pack paths or manifests into the project repo
+   - never load private pack files by guessing paths outside the registry
+   - load only the entrypoints declared by the matched loaded pack
+12c. Match `loadedPacks[].routing.triggers` against the current task text after public-core and internal-overlay routing have narrowed the stack. If a loaded private pack matches, add only its manifest-declared entrypoints and record the pack id in `matched_private_packs` inside the execution contract.
+12d. For Game QA paid work, use private content only when the resolved registry contains loaded pack `xcntp.game_qa_paid_skill`. Load it through the registry paths rooted at `AIModules/XCNT-P`, not through public `Modules/XUUnity` paths. If it is absent, locked, or invalid, state the gap and continue with public validation planning instead of silently degrading into non-registered private content.
 13. Load project memory before using previous outputs.
 14. Check `Assets/AIOutput/ProjectMemory/SkillOverrides/` for matching local overrides.
 15. For gameplay projects, load durable guidance from `Assets/AIOutput/ProjectMemory/` by default.
@@ -64,6 +73,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
   - `overlay_tasks`
   - `matched_skills`
   - `matched_policy_packs`
+  - `matched_private_packs`
   - `trigger_reasons`
   - `primary_validation_lane`
   - `secondary_validation_lane`

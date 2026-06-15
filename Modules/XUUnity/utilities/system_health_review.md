@@ -24,6 +24,7 @@ Review the health of the prompt system itself, not only the product code.
   - public reusable smoke contracts in `AIRoot`
   - host-local operational wrappers in `AIOutput/Operations/`
   - project-local smoke expectations in project memory or project-specific internal knowledge
+- When optional private/paid module support is in scope, include the Private Module Overlay Status subsection and check discovery, entitlement, Rollsync, and routing-smoke health without quoting private pack content.
 - Audit shared knowledge reachability:
     - identify shared `knowledge/` or internal overlay knowledge files that have no explicit routing, trigger hints, utility references, or load path
     - treat knowledge with no realistic selection path as dead ballast
@@ -48,6 +49,34 @@ Review the health of the prompt system itself, not only the product code.
 - Public core versus internal overlay boundary status
 - Storage consistency status
 - Recommended cleanup order
+
+### Private Module Overlay Status Template
+
+When private or paid module support is in scope, include a dedicated subsection
+in the report using this exact shape:
+
+```md
+**Private Module Overlay Status**
+- `registry_tool`: `<path or none>`
+- `discovery_root`: `<path or none>`
+- `loaded_pack_ids`: `<pack id or none>`
+- `locked_pack_ids`: `<pack id or none>`
+- `invalid_pack_ids`: `<pack id or none>`
+- `rollsync_status`: `ready` | `ready_with_warnings` | `locked` | `invalid` | `not_configured` | `not_run`
+- `route_smoke_status`: `passed` | `failed` | `not_run`
+- `evidence_date`: `YYYY-MM-DD` or `none`
+- `private_content_boundary`: `clean` | `leak_detected` | `unknown`
+- `result_summary`: `<short factual summary>`
+- `gaps`:
+  - `<gap or none>`
+  - `<gap or none>`
+```
+
+Use:
+- `private_content_boundary: clean` when public files only reference pack ids or registry paths and private skill content stays outside the public repo.
+- `route_smoke_status: passed` only when a representative task matched a loaded pack from `loadedPacks[]`.
+- `rollsync_status: not_run` when the registry exists but Rollsync was not executed in the current review.
+- `discovery_root: none` when no `AIModules/` root or explicit module root is configured.
 
 ### MCP Smoke Regression Status Template
 
