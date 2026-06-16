@@ -8,6 +8,8 @@
     "resolvedAtUtc",
     "projectRoot",
     "writeScope",
+    "outputBoundary",
+    "entitlements",
     "loadedModules",
     "loadedPacks",
     "lockedPacks",
@@ -26,6 +28,45 @@
     },
     "writeScope": {
       "type": "string"
+    },
+    "outputBoundary": {
+      "type": "string",
+      "enum": [
+        "private_runtime"
+      ]
+    },
+    "entitlements": {
+      "type": "object",
+      "required": [
+        "mode",
+        "feature_count",
+        "trustLevel",
+        "verified",
+        "provider"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "feature_count": {
+          "type": "integer"
+        },
+        "trustLevel": {
+          "type": "string"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "provider": {
+          "type": "object"
+        }
+      }
     },
     "discoveryRoots": {
       "type": "array"

@@ -8,16 +8,26 @@ Turn the resolved private module registry into a safe session prompt stack.
 python3 Modules/XUUnity/scripts/module_registry_tool.py session-plan --project-root .. --task-text "<task text>"
 ```
 
+Use `--require-capability <capability-id>` when public routing wants any loaded
+pack that provides a capability instead of one hardcoded product pack id.
+
 ## Rules
 - Use only `matchedLoadedPacks[]` as private prompt-stack input.
 - Treat `matchedLockedPacks[]` and `matchedInvalidPacks[]` as explanations only.
 - If no private pack is loaded, continue with public XUUnity core and project routing.
 - Load private packs after public XUUnity core and before project memory.
 - Do not guess private pack paths outside the resolved registry.
+- Prefer capability tags for public routing. Pack ids are still recorded in the
+  session contract as evidence and for local smoke tests.
 
 ## Execution Contract
+`session-plan` is `private_runtime` output. It may include loaded private
+entrypoint paths so the local session can assemble its prompt stack, but those
+paths are not report-safe.
+
 Copy only these public-safe fields into a session execution contract:
 - `matched_private_packs`
+- `matched_private_pack_capabilities`
 - `private_pack_report_references`
 - `private_content_report_policy`
 - `private_paths_user_local_only`

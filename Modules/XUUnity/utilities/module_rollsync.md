@@ -12,7 +12,7 @@ python3 Modules/XUUnity/scripts/module_registry_tool.py rollsync --project-root 
 - `ready`: at least one private pack is loaded and no warnings were reported.
 - `ready_with_warnings`: at least one private pack is loaded, with non-blocking warnings.
 - `locked`: packs were discovered but entitlements are missing.
-- `invalid`: a module or pack manifest failed validation, an entrypoint is missing, or the requested output path would write resolved private state into the host/project repo.
+- `invalid`: a module or pack manifest failed validation, an entrypoint is missing, or the requested output path would write resolved private state outside the user cache.
 - `not_configured`: no usable private pack was discovered.
 
 ## Session Routing
@@ -27,7 +27,8 @@ After Rollsync:
 - do not load `lockedPacks[]` or `invalidPacks[]`
 - record matched pack ids in the execution contract as `matched_private_packs`
 - keep private paths user-local and avoid quoting private content in final reports
-- use `session-plan` when you need a redacted session contract for reports or project output
+- use `session-plan` when you need a private-runtime loading contract, then copy
+  only its `sessionContract.private_pack_report_references` into reports
 
 ## Game QA Smoke
 For Game QA paid routing, prove the route with:
@@ -35,17 +36,23 @@ For Game QA paid routing, prove the route with:
 python3 Modules/XUUnity/scripts/module_registry_tool.py route-smoke \
   --project-root .. \
   --task-text "validate ui after a fix with PlayMode smoke" \
+  --require-capability xuunity.game_qa.runtime_ui_validation \
   --expect-pack xcntp.game_qa_paid_skill
 ```
 
-The smoke should show entrypoints rooted at `AIModules/XCNT-P` and must not show public `Modules/XUUnity/skills/game_qa` paths.
+Public routing should require capabilities such as
+`xuunity.game_qa.runtime_ui_validation`; the local smoke may still assert the
+canonical first pack id. The smoke should show entrypoints rooted at the
+resolved private module and must not show public `Modules/XUUnity/skills/game_qa`
+paths.
 
 ## Session Plan
 For normal session startup, prefer:
 ```sh
 python3 Modules/XUUnity/scripts/module_registry_tool.py session-plan \
   --project-root .. \
-  --task-text "validate ui after a fix with PlayMode smoke"
+  --task-text "validate ui after a fix with PlayMode smoke" \
+  --require-capability xuunity.game_qa.runtime_ui_validation
 ```
 
 Use `matchedLoadedPacks[]` for prompt stack loading. Use

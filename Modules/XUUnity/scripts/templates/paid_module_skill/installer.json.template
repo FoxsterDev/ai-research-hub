@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "xuunity.installer.v1",
+  "moduleId": "{{MODULE_ID}}",
+  "displayName": "{{MODULE_DISPLAY_NAME}}",
+  "recommendedMount": "AIModules/{{MODULE_MOUNT_NAME}}",
+  "requiredFeatures": [
+    "{{MODULE_ID}}",
+    "{{LICENSE_FEATURE}}"
+  ],
+  "postInstallChecks": [
+    "xuunity_module_status",
+    "xuunity_module_rollsync"
+  ]
+}

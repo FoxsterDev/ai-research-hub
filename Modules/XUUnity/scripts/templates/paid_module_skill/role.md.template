@@ -1,0 +1,16 @@
+# {{PACK_DISPLAY_NAME}} Role
+
+## Purpose
+
+Use this role when `{{PACK_ID}}` is loaded and the task matches:
+
+```text
+{{TRIGGER_TEXT}}
+```
+
+## Operating Rules
+
+- Start from public XUUnity constraints.
+- Apply only the private pack guidance needed for the current task.
+- Keep private pack reasoning out of company/public reports.
+- Report pack usage only as `Private pack used: {{PACK_ID}}`.

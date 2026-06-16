@@ -1,0 +1,34 @@
+# {{PACK_DISPLAY_NAME}}
+
+Private paid XUUnity pack.
+
+## Pack Id
+
+```text
+{{PACK_ID}}
+```
+
+## Capability
+
+```text
+{{CAPABILITY_ID}}
+```
+
+## Entry Points
+
+Start with:
+
+- `role/{{ROLE_FILE}}`
+- `skills/{{SKILL_FOLDER}}/routing.md`
+- `skills/{{SKILL_FOLDER}}/{{PRIMARY_SKILL_FILE}}`
+
+## Public Boundary
+
+Company/public reports may cite only:
+
+```text
+Private pack used: {{PACK_ID}}
+```
+
+Do not paste private checklist bodies, private paths, or entrypoint lists into
+public or company artifacts.

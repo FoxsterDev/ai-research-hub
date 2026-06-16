@@ -8,7 +8,8 @@
     "subject",
     "mode",
     "features",
-    "source"
+    "source",
+    "provider"
   ],
   "properties": {
     "schemaVersion": {
@@ -18,7 +19,12 @@
       "type": "string"
     },
     "mode": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "personal_dev",
+        "signed_offline",
+        "online_sync"
+      ]
     },
     "features": {
       "type": "array",
@@ -31,6 +37,45 @@
     },
     "source": {
       "type": "string"
+    },
+    "provider": {
+      "type": "object",
+      "required": [
+        "type",
+        "mode",
+        "trustLevel",
+        "verified",
+        "checkedAtUtc"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "personal_dev",
+            "signed_offline",
+            "online_sync"
+          ]
+        },
+        "trustLevel": {
+          "type": "string",
+          "enum": [
+            "local_flag",
+            "signed_offline",
+            "server_verified",
+            "unknown"
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "checkedAtUtc": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
     },
     "license": {
       "type": "object",

@@ -39,6 +39,13 @@ Review the health of the prompt system itself, not only the product code.
     - whether prior-output loading accidentally points only at `ProjectMemory`
     - whether local routers duplicate or contradict the repo-level storage contract
 - Prefer project routers that reference the repo storage contract over rephrasing it locally.
+- Reconcile the public design registry on every run (standing sanitary step):
+    - re-verify each design in `AIRoot/Design/README.md` (and any `AIRoot/Operations/<Surface>/Designs/README.md`) against actual files/scripts/CLI, never the document's self-assessment
+    - keep columns truthful: `Status` (`implemented` / `active` / `draft` / `planned` / `archived`), `Imp.` (1–5), `Impl.` (% wired into the live module), `Effort` (size·time·complexity remaining), and the concrete `Left to 100%` gap
+    - re-sort rows by importance (desc) then remaining effort (asc) — most important and cheapest-to-finish first
+    - move fully-consumed (a generator whose output already shipped) or retired (superseded) designs into `Design/Archived/` via `git mv` and fix inbound links; never delete
+    - flag registry drift as a finding: a `Status`/`Impl.` that no longer matches the repo, a design file missing from the registry, or an archived doc still referenced as live
+    - keep the registry English-only and evidence-cited; stamp provenance (author + date) when the reconciliation changes statuses
 
 ## Output
 - High-severity conflicts
@@ -49,6 +56,7 @@ Review the health of the prompt system itself, not only the product code.
 - Knowledge reachability status
 - Public core versus internal overlay boundary status
 - Storage consistency status
+- Design registry reconciliation status
 - Recommended cleanup order
 
 ### Private Module Overlay Status Template
@@ -66,6 +74,8 @@ in the report using this exact shape:
 - `rollsync_status`: `ready` | `ready_with_warnings` | `locked` | `invalid` | `not_configured` | `not_run`
 - `route_smoke_status`: `passed` | `failed` | `not_run`
 - `mcp_api_status`: `ready` | `ready_with_warnings` | `locked` | `invalid` | `not_configured` | `not_run`
+- `entitlement_trust_level`: `local_flag` | `signed_offline` | `server_verified` | `unknown` | `not_run`
+- `entitlement_verified`: `true` | `false` | `not_run`
 - `evidence_date`: `YYYY-MM-DD` or `none`
 - `private_content_boundary`: `clean` | `leak_detected` | `unknown`
 - `result_summary`: `<short factual summary>`
@@ -78,6 +88,9 @@ Use:
 - `private_content_boundary: clean` when public files only reference pack ids or registry paths and private skill content stays outside the public repo.
 - `route_smoke_status: passed` only when a representative task matched a loaded pack from `loadedPacks[]`.
 - `mcp_api_status` should come from redacted `xuunity_module_status` or `xuunity_module_rollsync` output when available.
+- `entitlement_trust_level` and `entitlement_verified` should come from
+  redacted MCP/API output. Do not inspect or quote user-local entitlement paths
+  in the health report.
 - `rollsync_status: not_run` when the registry exists but Rollsync was not executed in the current review.
 - `discovery_root: none` when no `AIModules/` root or explicit module root is configured.
 
@@ -110,3 +123,28 @@ Use:
 
 Keep `result_summary` short and evidence-based. Do not collapse missing-route,
 not-run, and failed-run cases into the same wording.
+
+### Design Registry Reconciliation Status Template
+
+When the public design registry is in scope, include a dedicated subsection in
+the report using this exact shape:
+
+```md
+**Design Registry Reconciliation**
+- `registry`: `AIRoot/Design/README.md`
+- `designs_total`: `<n>`
+- `live`: `<n>` · `archived`: `<n>`
+- `status_breakdown`: `implemented=<n> active=<n> draft=<n> planned=<n>`
+- `resorted`: `yes` | `no`
+- `drift_detected`:
+  - `<design — declared vs verified status/impl, or none>`
+- `moved_to_archive`:
+  - `<design — reason, or none>`
+- `evidence_date`: `YYYY-MM-DD`
+- `result_summary`: `<short factual summary>`
+```
+
+Use:
+- `drift_detected: none` only after every row was checked against the live repo.
+- `moved_to_archive` lists designs relocated to `Design/Archived/` this run (generator-consumed or superseded); `none` if no move was needed.
+- `resorted: yes` when row order was changed to importance (desc) then remaining effort (asc).

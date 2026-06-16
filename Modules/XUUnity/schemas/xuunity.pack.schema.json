@@ -37,6 +37,13 @@
         "type": "string"
       }
     },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+      }
+    },
     "entrypoints": {
       "type": "object",
       "properties": {
@@ -86,11 +93,36 @@
           "items": {
             "type": "string"
           }
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+          }
         }
       }
     },
     "mcp": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "providedCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+          }
+        },
+        "tools": {
+          "type": "array"
+        }
+      }
     },
     "exportPolicy": {
       "type": "object",

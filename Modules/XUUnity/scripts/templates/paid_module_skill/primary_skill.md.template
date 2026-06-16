@@ -1,0 +1,23 @@
+# {{PACK_DISPLAY_NAME}} Skill
+
+## Purpose
+
+Use this private skill only when `{{PACK_ID}}` is loaded and the current task
+matches the pack routing trigger:
+
+```text
+{{TRIGGER_TEXT}}
+```
+
+## Capability
+
+```text
+{{CAPABILITY_ID}}
+```
+
+## Operating Rules
+
+- Start from public XUUnity constraints.
+- Apply the smallest private guidance needed for the current task.
+- Keep private implementation details out of company/public reports.
+- Report pack usage only as `Private pack used: {{PACK_ID}}`.

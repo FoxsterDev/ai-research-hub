@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "xuunity.entitlements.v1",
+  "subject": "local-seat",
+  "mode": "personal_dev",
+  "features": [
+    "{{MODULE_ID}}",
+    "{{LICENSE_FEATURE}}"
+  ],
+  "source": "local_user_grant",
+  "provider": {
+    "type": "local_file",
+    "mode": "personal_dev",
+    "trustLevel": "local_flag",
+    "verified": false,
+    "checkedAtUtc": "2026-06-15T00:00:00Z"
+  }
+}
