@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "xuunity.module.v1",
+  "id": "{{MODULE_ID}}",
+  "displayName": "{{MODULE_DISPLAY_NAME}}",
+  "kind": "personal_private_overlay",
+  "visibility": "personal_private",
+  "version": "{{MODULE_VERSION}}",
+  "protocolScopes": [
+    "xuunity"
+  ],
+  "discovery": {
+    "preferredRoot": "AIModules",
+    "symlinkAllowed": true
+  },
+  "xuunityCore": {
+    "compatibleRange": ">=0.1.0"
+  },
+  "license": {
+    "feature": "{{MODULE_ID}}",
+    "defaultState": "locked"
+  },
+  "packs": [
+    "packs/{{PACK_SLUG}}/pack.json"
+  ],
+  "exportPolicy": {
+    "mayCommitToHostRepo": false,
+    "mayWriteResolvedRegistryToProject": false,
+    "mayQuotePrivateContentInReports": false
+  }
+}

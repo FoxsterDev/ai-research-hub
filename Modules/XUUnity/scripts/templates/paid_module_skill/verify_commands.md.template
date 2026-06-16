@@ -1,0 +1,90 @@
+# Verify {{PACK_DISPLAY_NAME}}
+
+Run from `AIRoot`.
+
+## Validate
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py validate --project-root ..
+```
+
+Expected:
+
+```text
+status: valid
+```
+
+## Validate Installer
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py validate-installer \
+  --installer <private-module-root>/installer.json
+```
+
+Expected:
+
+```text
+status: valid
+privateBodiesRead: false
+```
+
+## Rollsync
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py rollsync --project-root ..
+```
+
+Expected:
+
+```text
+status: ready
+loaded pack: {{PACK_ID}}
+```
+
+## Redacted API Status
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py xuunity_module_status --project-root ..
+```
+
+Expected:
+
+```text
+status: ready
+private paths: omitted
+entrypoints: omitted
+```
+
+## Session Plan
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py session-plan \
+  --project-root .. \
+  --task-text "{{TRIGGER_TEXT}}" \
+  --require-capability "{{CAPABILITY_ID}}"
+```
+
+Expected:
+
+```text
+status: private_pack_loaded
+matched_private_packs: {{PACK_ID}}
+private_pack_report_references: Private pack used: {{PACK_ID}}
+```
+
+## Route Smoke
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py route-smoke \
+  --project-root .. \
+  --task-text "{{TRIGGER_TEXT}}" \
+  --require-capability "{{CAPABILITY_ID}}" \
+  --expect-pack "{{PACK_ID}}"
+```
+
+Expected:
+
+```text
+status: passed
+publicPathLeakDetected: false
+```

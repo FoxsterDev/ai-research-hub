@@ -145,6 +145,14 @@ Short commands:
 - `xuunity system protocol consistency check`
 - `xuunity system prompt cleanup review`
 
+### Routing Debug Template
+Use when the user asks for routing debug, start-session debug, loaded module accounting, private-pack capability accounting, or a root-cause gate blocks a local patch.
+
+Flow:
+1. `routing_debug_template.md`
+2. active `tasks/start_session.md` execution contract
+3. matched policy packs and private-pack session contract when applicable
+
 ### Knowledge Intake Review
 Use when the user wants one command that evaluates whether new knowledge is worth integrating at all.
 
@@ -188,13 +196,19 @@ Flow:
 3. `module_session_routing.md`
 4. `module_mcp_api.md`
 5. `module_commercialization.md`
-6. `tasks/start_session.md` private-pack routing rules
+6. `module_paid_skill_authoring.md`
+7. `reviews/module_pack_review.md`
+8. `scripts/templates/paid_module_skill/`
+9. `tasks/start_session.md` private-pack routing rules
 
 Short commands:
 - `xuunity module scan`
 - `xuunity module validate`
 - `xuunity module rollsync`
 - `xuunity module session plan`
+- `xuunity paid skill author`
+- `xuunity module pack review`
+- `xuunity module validate installer`
 - `xuunity_module_status`
 - `xuunity_module_rollsync`
 - `xuunity paid pack doctor`

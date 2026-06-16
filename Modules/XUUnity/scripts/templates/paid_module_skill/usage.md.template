@@ -1,0 +1,37 @@
+# {{PACK_DISPLAY_NAME}} Usage
+
+## Verify Availability
+
+From `AIRoot`:
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py xuunity_module_status --project-root ..
+```
+
+Expected:
+
+```text
+status: ready
+loaded pack: {{PACK_ID}}
+```
+
+## Start A Session
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py session-plan \
+  --project-root .. \
+  --task-text "{{TRIGGER_TEXT}}"
+```
+
+Expected:
+
+```text
+status: private_pack_loaded
+matched_private_packs: {{PACK_ID}}
+```
+
+## Report Reference
+
+```text
+Private pack used: {{PACK_ID}}
+```

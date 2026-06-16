@@ -1,0 +1,24 @@
+# {{PACK_DISPLAY_NAME}} Review Gate
+
+## Goal
+
+Confirm that work using `{{PACK_ID}}` produced usable evidence without leaking
+private paid content.
+
+## Checks
+
+- The session contract includes `{{PACK_ID}}` in `matched_private_packs`.
+- The final report cites only `Private pack used: {{PACK_ID}}`.
+- No private skill body is copied into project output.
+- No private absolute path is copied into project output.
+- Any missing capability is reported as a gap, not hidden.
+
+## Result
+
+Use:
+
+```text
+paid_pack_used: {{PACK_ID}}
+report_boundary: pack_id_only
+private_content_leak: none | detected
+```

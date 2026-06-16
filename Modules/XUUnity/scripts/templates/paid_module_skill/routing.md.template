@@ -1,0 +1,23 @@
+# {{PACK_DISPLAY_NAME}} Routing
+
+## Use When
+
+- {{TRIGGER_TEXT}}
+
+## Capability
+
+```text
+{{CAPABILITY_ID}}
+```
+
+## Load Order Inside Pack
+
+1. `role/{{ROLE_FILE}}`
+2. `skills/{{SKILL_FOLDER}}/{{PRIMARY_SKILL_FILE}}`
+3. `reviews/{{REVIEW_FILE}}` only when closeout/review evidence is needed
+4. `utilities/{{UTILITY_FILE}}` only when usage instructions are needed
+
+## Boundary
+
+Use this pack only when the resolved registry marks `{{PACK_ID}}` as loaded.
+Do not copy private content into project reports.

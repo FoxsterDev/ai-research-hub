@@ -10,6 +10,9 @@ Discover optional host-local modules without committing private paid content int
 - Unregistered roots are reported but not crawled.
 - Registered modules must declare `protocolScopes`; `xuunity` and `universal` are eligible for this protocol.
 - Private modules must keep `exportPolicy.mayCommitToHostRepo: false`.
+- Private packs may declare stable `capabilities[]` for public routing, plus
+  `routing.capabilities[]` or `mcp.providedCapabilities[]` when useful. Public
+  policies should prefer capability ids over product-specific pack ids.
 
 ## Commands
 Use `Modules/XUUnity/scripts/module_registry_tool.py`.
@@ -18,6 +21,8 @@ Common commands:
 - `scan`: list visible module roots and registration status.
 - `validate`: validate module and pack manifests without loading locked content.
 - `resolve`: build a resolved registry of loaded, locked, and invalid packs.
+- `validate-installer --installer <path>`: validate installer metadata without
+  reading private pack bodies.
 - `doctor --pack-id <id>`: explain why a pack is loaded, locked, invalid, or missing.
 
 Example:
@@ -32,7 +37,16 @@ Minimum local shape:
 ```json
 {
   "schemaVersion": "xuunity.entitlements.v1",
-  "mode": "local_personal",
+  "subject": "local-dev-seat",
+  "mode": "personal_dev",
+  "source": "local_file",
+  "provider": {
+    "type": "local_file",
+    "mode": "personal_dev",
+    "trustLevel": "local_flag",
+    "verified": false,
+    "checkedAtUtc": "2026-06-15T00:00:00Z"
+  },
   "features": [
     "xcntp",
     "xcntp.game_qa_paid_skill"
@@ -40,7 +54,9 @@ Minimum local shape:
 }
 ```
 
-Entitlements are user-local. Do not write them into the project repo.
+Entitlements are user-local. `personal_dev` is a local flag with
+`trustLevel: local_flag`; it is not a commercial license. Do not write
+entitlements into the project repo.
 
 ## Resolved Registry
 The resolved registry is written to `~/.xuunity/cache/resolved_modules/<project-hash>.json` by default.
@@ -50,4 +66,7 @@ Consumers should read:
 - `lockedPacks[]` for packs discovered but unavailable to the current user
 - `invalidPacks[]` for packs blocked by manifest or entrypoint validation
 
-Do not infer private module paths outside the resolved registry.
+The resolved registry is `private_runtime` output and may contain absolute
+private module paths, entrypoints, and the entitlement file path. It must stay
+inside the user cache. Do not infer private module paths outside the resolved
+registry, and do not copy the registry into company reports or public docs.

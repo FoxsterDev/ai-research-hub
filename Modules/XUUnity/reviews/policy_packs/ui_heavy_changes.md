@@ -64,7 +64,7 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 
 ## UI PlayMode Post-Validation Proposal
 After code changes are done and the normal compile/test gates have passed, a UI-heavy implementation or bug fix should include a proposed PlayMode UI-smoke when the bug could be observed through runtime UI behavior.
-- If optional private-pack routing is enabled and `xcntp.game_qa_paid_skill` is present in `loadedPacks[]`, route the post-validation proposal through that resolved pack before authoring or running the smoke. Do not reference private Game QA files by guessed public paths.
+- If optional private-pack routing is enabled and a loaded pack provides capability `xuunity.game_qa.runtime_ui_validation` or `xuunity.game_qa.playmode_smoke_planning`, route the post-validation proposal through that resolved pack before authoring or running the smoke. Do not reference private Game QA files by guessed public paths.
 - first inspect the available project validation surface, such as MCP capabilities, existing scenario JSON, project-defined hooks, PlayMode tests, UI click helpers, screenshot support, and console or scene evidence
 - design the narrowest smoke that can prove or disprove the fixed behavior, naming the exact user-visible steps, expected state transitions, runtime assertions, evidence artifacts, and timeout budget
 - prefer EventSystem-driven UI clicks or the project's existing UI input helper over direct presenter method calls when the claim depends on user navigation or button wiring
@@ -85,8 +85,8 @@ Use this proposal step to make runtime UI validation available at closeout witho
 - If automation is blocked, report the exact missing capability, why it blocks proof, and the smallest hook/scenario/MCP addition needed.
 
 ## Optional Game QA Paid Bridge
-- Use this bridge only when the resolved private module registry exposes loaded pack `xcntp.game_qa_paid_skill`.
-- Load private Game QA guidance through the pack entrypoints returned by `loadedPacks[]`; do not hardcode private paths in public policy files.
+- Use this bridge only when the resolved private module registry exposes a loaded pack with capability `xuunity.game_qa.runtime_ui_validation` or `xuunity.game_qa.playmode_smoke_planning`.
+- Load private Game QA guidance through the pack entrypoints returned by `loadedPacks[]`; do not hardcode private pack ids or private paths in public policy files. Local smoke tests may still assert `xcntp.game_qa_paid_skill` as the current canonical first pack.
 - Keep the bridge proposal-first: the paid pack should produce the smoke plan, timeout and cleanup budget, evidence target, and missing-capability report before a new interactive scenario is run.
 - Do not use this bridge to force automation for pure visual polish, copy-only changes, or UI changes where runtime behavior cannot materially prove the claim.
 
@@ -110,6 +110,9 @@ Use this proposal step to make runtime UI validation available at closeout witho
 ## Co-loading Rule
 - Prefer this pack as the primary pack when UI lifetime, user-visible flow sequencing, first-visible state, async UI loading, duplicate action protection, or view-versus-backing-state ownership is the main breakage surface.
 - If the same UI change primarily gates monetization, save/load, startup, SDK, manifest/native, or store behavior, keep the dominant pack primary and load only the UI-heavy additions needed for screen and interaction correctness.
+- A popup/UI warning that depends on remote content, asset bundles, backend design ids, ad-readiness callbacks, or a first-show startup path must not remain UI-heavy only. Co-load `reviews/policy_packs/startup_changes.md`; make startup/config ownership primary when the likely fix depends on initialization owner, active config/profile, content manifest, or service readiness.
+- If correctness depends on runtime UI state, first-visible popup behavior, blocking popup behavior, or whether a popup can be proven visible/interactive after async content loads, perform a private Game QA session-plan capability check when optional private-pack routing is available.
+- If the private runtime UI validation pack or equivalent project validation capability is unavailable, state that as an explicit validation gap rather than treating source inspection, compile, or static routing as complete UI proof.
 - Do not use this pack for purely visual polish, copy, static art, or isolated layout tweaks unless they affect interaction safety, critical-flow gating, lifecycle behavior, async state, or release-visible correctness.
 
 ## Final Review Must Report

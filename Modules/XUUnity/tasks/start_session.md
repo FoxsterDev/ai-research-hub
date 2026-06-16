@@ -17,6 +17,8 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
 3b. If the task touches SDK initialization, consent sequencing, attribution identity, ad revenue reporting, reward integrity, startup ownership, or third-party wrapper code, require root-cause tracing before proposing a source-level fix.
+3b-i. If a runtime warning or exception stack crosses feature startup, a flow or presenter, an async service, a remote asset/content service, SDK/service initialization, or build/runtime config, classify the task at minimum as `bug_fixing` with `startup/config ownership` as an overlay. Do not keep it as a local UI, local presenter, or local service bug only.
+3b-ii. For those runtime warnings or exceptions, a source patch is blocked until the consumer, producer, initialization owner, active config/profile, and content or manifest availability have been inspected and recorded in the compact execution contract.
 3c. If investigation or the patch plan shows that a bug-fix task will move ownership between layers or introduce non-trivial state orchestration such as queues, flush paths, cache fallbacks, helper wrappers, or duplicated triggers, keep `tasks/bug_fixing.md` as the primary task but also load `tasks/refactoring.md` as a behavior-preserving overlay.
 4. Decide whether the task needs one role or a small role group.
 5. Select the primary role file and only the minimum useful supporting role files.
@@ -48,9 +50,9 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
    - never write resolved private-pack paths or manifests into the project repo
    - never load private pack files by guessing paths outside the registry
    - load only the entrypoints declared by the matched loaded pack
-12c. Match `loadedPacks[].routing.triggers` against the current task text after public-core and internal-overlay routing have narrowed the stack. If a loaded private pack matches, add only its manifest-declared entrypoints and record the pack id in `matched_private_packs` inside the execution contract.
-12d. For Game QA paid work, use private content only when the resolved registry contains loaded pack `xcntp.game_qa_paid_skill`. Load it through the registry paths rooted at `AIModules/XCNT-P`, not through public `Modules/XUUnity` paths. If it is absent, locked, or invalid, state the gap and continue with public validation planning instead of silently degrading into non-registered private content.
-12e. When `scripts/module_registry_tool.py session-plan` is available, use it as the preferred session-routing proof. Copy only its redacted `sessionContract` fields into planning, reports, or project output; do not copy private entrypoint paths or private pack bodies into company/public artifacts.
+12c. Match `loadedPacks[].routing.triggers` against the current task text after public-core and internal-overlay routing have narrowed the stack. Public routing may also require a stable capability tag with `session-plan --require-capability <capability-id>`. If a loaded private pack matches by trigger or required capability, add only its manifest-declared entrypoints and record the pack id in `matched_private_packs` inside the execution contract.
+12d. For Game QA paid work, prefer a loaded private pack that provides capability `xuunity.game_qa.runtime_ui_validation` or `xuunity.game_qa.playmode_smoke_planning`. Load it through the registry paths rooted at the resolved private module, not through public `Modules/XUUnity` paths. Local smoke tests may still assert canonical pack id `xcntp.game_qa_paid_skill`; public policy should route by capability first. If no matching pack is loaded, or the pack is locked or invalid, state the gap and continue with public validation planning instead of silently degrading into non-registered private content.
+12e. When `scripts/module_registry_tool.py session-plan` is available, use it as the preferred private-runtime session-routing proof. Copy only its public-safe `sessionContract` fields into planning, reports, or project output; do not copy private entrypoint paths or private pack bodies into company/public artifacts.
 13. Load project memory before using previous outputs.
 14. Check `Assets/AIOutput/ProjectMemory/SkillOverrides/` for matching local overrides.
 15. For gameplay projects, load durable guidance from `Assets/AIOutput/ProjectMemory/` by default.
@@ -77,10 +79,16 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
   - `matched_private_packs`
   - `private_pack_report_references`
   - `trigger_reasons`
+  - `risk_class`
+  - `root_cause_chain_checked`
+  - `patch_shape`
+  - `pre_patch_blockers`
   - `primary_validation_lane`
   - `secondary_validation_lane`
   - `lane_selection_reason`
   - `expected_evidence_class`
+  - `validation_contract`
+  - `why_not_local_fix`
   - `validation_gaps`
   - `required_validation`
   - `required_self_review`
@@ -225,6 +233,7 @@ If the active repo router, project router, or project registry declares a differ
 
 ## Root Cause Before Patch
 - For SDK, startup, consent, attribution, identity-bound, ad-revenue, and reward-integrity bugs, do not propose or implement a callsite-only fix before tracing the full ownership path.
+- For missing asset, missing design, missing config, missing manifest, or runtime-content warnings, do not patch the log emitter, presenter, view, or local service before tracing the upstream owner chain.
 - Trace at minimum:
   - the user-visible symptom
   - the wrapper or adapter that emits the event
@@ -232,9 +241,17 @@ If the active repo router, project router, or project registry declares a differ
   - the identity owner for user or customer ids
   - the reward, entitlement, or revenue owner when monetization correctness is involved
   - any queueing, delay, or retry path between initialization and delivery
+- For runtime-content warnings, trace at minimum:
+  - symptom
+  - immediate caller
+  - service or wrapper
+  - initialization owner
+  - active config/profile
+  - content or manifest availability
 - If the reported symptom is a missing or empty field on an SDK event, inspect where that field is owned and when the event can be emitted relative to consent, startup readiness, and identity assignment.
 - Prefer ownership and sequencing fixes over payload-only patching when the bug touches startup, consent, async delivery, or SDK state.
 - A local patch such as `set the id immediately before sending the event` is not sufficient by default when the real breakage surface may be SDK readiness, delayed delivery, consent order, or startup ownership.
+- A local patch such as `ignore missing content`, `suppress the warning`, or `fallback to loaded true` is not sufficient by default when the real breakage surface may be disabled initialization, inactive config, missing manifest registration, remote-content publication, or service startup ownership.
 
 ## Execution Contract
 - Derive and surface a compact execution contract before patching, large review output, or implementation planning.
@@ -244,11 +261,19 @@ If the active repo router, project router, or project registry declares a differ
   - `overlay_tasks`
   - `matched_skills`
   - `matched_policy_packs`
+  - `matched_private_packs`
+  - `private_pack_report_references`
   - `trigger_reasons`
+  - `risk_class`
+  - `root_cause_chain_checked`
+  - `patch_shape`
+  - `pre_patch_blockers`
   - `primary_validation_lane`
   - `secondary_validation_lane`
   - `lane_selection_reason`
   - `expected_evidence_class`
+  - `validation_contract`
+  - `why_not_local_fix`
   - `validation_gaps`
   - `required_validation`
   - `required_self_review`
@@ -259,6 +284,7 @@ If the active repo router, project router, or project registry declares a differ
 - `required_self_review` should say what must still be re-checked before closure, such as hidden behavior drift, queue cleanup, ownership fallout, or contract fallout from moved call paths.
 - When queues, flags, wrappers, flush paths, or cache-backed fallbacks appear during investigation, include them in `trigger_reasons` and require explicit simplification and complexity-budget review before closure.
 - If investigation changes routing or patch shape later in the session, update the execution contract before patching or final closure.
+- Use `utilities/routing_debug_template.md` when the user asks for routing/start-session debug, when private-pack loading must be accounted for, or when root-cause gating blocks a local patch and the loaded stack must be made explicit.
 
 ## Shorthand Expansion Rules
 Interpret short commands by intent:
@@ -267,6 +293,7 @@ Interpret short commands by intent:
 - `xuunity fix ...` -> `tasks/bug_fixing.md`
   - always include the testing baseline from `skills/tests/testing_doctrine.md`
   - when the request also carries SDK, startup, consent, attribution, identity, ad revenue, or third-party wrapper signals, keep `tasks/bug_fixing.md` as the task file but also load the matched SDK-sensitive and startup-sensitive stack instead of staying on a narrow local fix route
+  - when the request reports a runtime warning or exception that crosses feature startup, a flow/presenter, async service, remote asset/content service, SDK/service init, or active config/profile, keep `tasks/bug_fixing.md` as the task file but add `startup/config ownership` routing and block local source patches until the owner chain is checked
   - when investigation or the patch plan shows that the fix changes ownership boundaries or adds non-trivial orchestration or state handling, also load `tasks/refactoring.md` as a cleanup and behavior-preservation overlay
 - `xuunity feature request ...` or `xuunity intake feature ...` -> `tasks/feature_request_intake.md`
 - `xuunity feature design ...` or `xuunity design feature ...` -> `tasks/feature_design_brief.md`
@@ -682,11 +709,19 @@ Use these utilities when the task is about the protocol system itself:
   - `overlay_tasks`
   - `matched_skills`
   - `matched_policy_packs`
+  - `matched_private_packs`
+  - `private_pack_report_references`
   - `trigger_reasons`
+  - `risk_class`
+  - `root_cause_chain_checked`
+  - `patch_shape`
+  - `pre_patch_blockers`
   - `primary_validation_lane`
   - `secondary_validation_lane`
   - `lane_selection_reason`
   - `expected_evidence_class`
+  - `validation_contract`
+  - `why_not_local_fix`
   - `validation_gaps`
   - `required_validation`
   - `required_self_review`

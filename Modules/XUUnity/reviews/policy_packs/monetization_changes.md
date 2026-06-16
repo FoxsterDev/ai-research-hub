@@ -34,6 +34,7 @@ Strengthen the review and validation stack for monetization-sensitive work where
 ## Main Review Questions
 - What exact monetization flow changed, and is it ads, rewards, purchase-adjacent entitlement logic, revenue reporting, or rollout/config behavior?
 - Which owner decides eligibility, which owner performs the grant or entitlement change, and which owner only updates UI acknowledgement?
+- If remote config or admin data gates monetization eligibility, does that gate stay at the eligibility boundary instead of leaking thresholds into SDK or ad-selection layers?
 - Is reward delivery idempotent across duplicate callbacks, app backgrounding, scene changes, retries, and delayed completion?
 - Are no-fill, load failure, show failure, cancel, close-before-complete, timeout, and SDK-not-ready paths explicit and user-safe?
 - Does the flow keep consent, SDK readiness, identity, attribution, and revenue-event ordering stable before loading, showing, granting, or reporting?

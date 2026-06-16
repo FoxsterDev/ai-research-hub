@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "xuunity.pack.v1",
+  "id": "{{PACK_ID}}",
+  "displayName": "{{PACK_DISPLAY_NAME}}",
+  "tier": "personal_pro",
+  "licenseFeature": "{{LICENSE_FEATURE}}",
+  "dependsOn": [
+    "xuunity.core"
+  ],
+  "capabilities": [
+    "{{CAPABILITY_ID}}"
+  ],
+  "entrypoints": {
+    "roles": [
+      "role/{{ROLE_FILE}}"
+    ],
+    "skills": [
+      "skills/{{SKILL_FOLDER}}/routing.md",
+      "skills/{{SKILL_FOLDER}}/{{PRIMARY_SKILL_FILE}}"
+    ],
+    "reviews": [
+      "reviews/{{REVIEW_FILE}}"
+    ],
+    "utilities": [
+      "utilities/{{UTILITY_FILE}}"
+    ],
+    "knowledge": []
+  },
+  "routing": {
+    "triggers": [
+      "{{TRIGGER_TEXT}}"
+    ],
+    "capabilities": [
+      "{{CAPABILITY_ID}}"
+    ]
+  },
+  "mcp": {
+    "requiredCapabilities": [],
+    "providedCapabilities": [
+      "{{CAPABILITY_ID}}"
+    ],
+    "tools": []
+  },
+  "exportPolicy": {
+    "mayQuotePrivateContentInReports": false,
+    "reportReferenceMode": "pack_id_only"
+  }
+}

@@ -76,7 +76,7 @@ Workspace/
   /Users/siarheikha/Private/XCNT-P/
     module.json
     packs/
-      game_qa_pro/
+      game_qa_paid_skill/
         pack.json
         skills/
         reviews/
@@ -131,11 +131,13 @@ AIRoot/
         xuunity.pack.schema.json
         xuunity.entitlements.schema.json
         xuunity.resolved-modules.schema.json
+        xuunity.installer.schema.json
       scripts/
         module_registry_tool.py
       utilities/
         module_registry.md
         module_rollsync.md
+        module_commercialization.md
 ```
 
 Optional future integration points:
@@ -187,7 +189,7 @@ Example:
     "defaultState": "locked"
   },
   "packs": [
-    "packs/game_qa_pro/pack.json"
+    "packs/game_qa_paid_skill/pack.json"
   ],
   "exportPolicy": {
     "mayCommitToHostRepo": false,
@@ -228,7 +230,7 @@ Every pack must contain:
 ```text
 XCNT-P/
   packs/
-    game_qa_pro/
+    game_qa_paid_skill/
       pack.json
 ```
 
@@ -237,12 +239,16 @@ Example first pack:
 ```json
 {
   "schemaVersion": "xuunity.pack.v1",
-  "id": "xcntp.game_qa_pro",
-  "displayName": "Game QA Pro",
+  "id": "xcntp.game_qa_paid_skill",
+  "displayName": "Game QA Paid Skill",
   "tier": "personal_pro",
-  "licenseFeature": "xcntp.game_qa_pro",
+  "licenseFeature": "xcntp.game_qa_paid_skill",
   "dependsOn": [
     "xuunity.core"
+  ],
+  "capabilities": [
+    "xuunity.game_qa.runtime_ui_validation",
+    "xuunity.game_qa.playmode_smoke_planning"
   ],
   "entrypoints": {
     "skills": [
@@ -254,16 +260,20 @@ Example first pack:
       "reviews/game_qa_release_review.md"
     ],
     "utilities": [
-      "utilities/game_qa_pack_usage.md"
+      "utilities/usage.md"
     ],
     "knowledge": []
   },
   "mcp": {
     "requiredCapabilities": [],
     "providedCapabilities": [
-      "xcntp.game_qa.pro"
+      "xuunity.game_qa.playmode_smoke_planning"
     ],
     "tools": []
+  },
+  "routing": {
+    "triggers": ["game qa", "playmode smoke"],
+    "capabilities": ["xuunity.game_qa.runtime_ui_validation"]
   },
   "exportPolicy": {
     "mayQuotePrivateContentInReports": false,
@@ -300,12 +310,19 @@ Example:
   "schemaVersion": "xuunity.entitlements.v1",
   "subject": "siarhei-local",
   "mode": "personal_dev",
+  "source": "local_user_grant",
+  "provider": {
+    "type": "local_file",
+    "mode": "personal_dev",
+    "trustLevel": "local_flag",
+    "verified": false,
+    "checkedAtUtc": "2026-06-15T00:00:00Z"
+  },
   "features": [
     "xcntp",
-    "xcntp.game_qa_pro"
+    "xcntp.game_qa_paid_skill"
   ],
-  "expiresAtUtc": "",
-  "source": "local_user_grant"
+  "expiresAtUtc": ""
 }
 ```
 
@@ -315,16 +332,49 @@ Personal mode rules:
 - It must never be read from a company project repo by default.
 - It enables local development and private personal use.
 - It is not a commercial license verification mechanism.
+- It always reports `trustLevel: local_flag` and `verified: false`.
 
 Future commercial modes can reuse the same feature model:
 
-- `signed_license`
-- `online_subscription`
-- `organization_grant`
-- `trial`
+- `signed_offline`
+- `online_sync`
 
-The resolver should expose the mode in diagnostics so paid-pack behavior is
-auditable.
+The resolver should expose the provider mode and trust level in diagnostics so
+paid-pack behavior is auditable. Commercial signature checks and server
+verification belong to a future entitlement provider, not to the prompt
+resolver.
+
+## Installer Manifest Contract
+
+Commercial package distribution may include an installer manifest. The manifest
+is metadata only; it must not contain private prompt bodies or absolute private
+paths.
+
+Example:
+
+```json
+{
+  "schemaVersion": "xuunity.installer.v1",
+  "moduleId": "xcntp",
+  "displayName": "XCNT-P",
+  "recommendedMount": "AIModules/XCNT-P",
+  "requiredFeatures": [
+    "xcntp",
+    "xcntp.game_qa_paid_skill"
+  ],
+  "postInstallChecks": [
+    "xuunity_module_status",
+    "xuunity_module_rollsync"
+  ]
+}
+```
+
+Validate without reading private pack bodies:
+
+```sh
+python3 Modules/XUUnity/scripts/module_registry_tool.py validate-installer \
+  --installer <path-to-installer.json>
+```
 
 ## Entitlement Loader Behavior
 
@@ -355,7 +405,7 @@ Resolution order:
 9. Validate every declared pack for in-scope modules.
 10. Read user-level entitlements.
 11. Mark each pack as `loaded`, `locked`, `invalid`, or `ignored`.
-12. Write resolved output only to user cache unless explicitly requested.
+12. Write resolved output only to user cache.
 
 Discovery must not guess arbitrary sibling folder names. The only implicit
 host-local discovery root is the router-owned `AIModules/` directory.
@@ -376,6 +426,7 @@ Example:
   "resolvedAtUtc": "2026-06-15T00:00:00Z",
   "projectRoot": "/path/to/CompanyProject",
   "writeScope": "user_cache",
+  "outputBoundary": "private_runtime",
   "discoveryRoots": [
     {
       "kind": "host_aimodules",
@@ -406,15 +457,21 @@ Example:
   ],
   "loadedPacks": [
     {
-      "id": "xcntp.game_qa_pro",
+      "id": "xcntp.game_qa_paid_skill",
       "moduleId": "xcntp",
       "source": "personal_private_overlay",
-      "root": "/path/to/XCNT-P/packs/game_qa_pro",
-      "licenseFeature": "xcntp.game_qa_pro",
+      "root": "/path/to/XCNT-P/packs/game_qa_paid_skill",
+      "licenseFeature": "xcntp.game_qa_paid_skill",
+      "capabilities": [
+        "xuunity.game_qa.runtime_ui_validation",
+        "xuunity.game_qa.playmode_smoke_planning"
+      ],
       "entitlementMode": "personal_dev",
+      "entitlementTrustLevel": "local_flag",
+      "entitlementVerified": false,
       "entrypoints": {
         "skills": [
-          "/path/to/XCNT-P/packs/game_qa_pro/skills/routing.md"
+          "/path/to/XCNT-P/packs/game_qa_paid_skill/skills/routing.md"
         ],
         "reviews": [],
         "utilities": [],
@@ -431,7 +488,7 @@ Example:
 Private content protection:
 
 - resolved registry may include private file paths in user cache
-- resolved registry must not be written to the company repo by default
+- resolved registry must not be written outside the user cache
 - reports intended for company/public repos should reference private packs only
   by pack id and version, never by copied content
 - modules in `AIModules/` that are not in XUUnity scope must remain visible in
@@ -639,7 +696,7 @@ Personal local work may have:
 Reports written into company repos may say:
 
 ```text
-Private pack used: xcntp.game_qa_pro@0.1.0
+Private pack used: xcntp.game_qa_paid_skill@0.1.0
 ```
 
 Reports must not include:
@@ -648,14 +705,14 @@ Reports must not include:
 - private review checklist bodies
 - private module absolute paths unless the report is user-local
 
-## First Pack: Game QA Pro
+## First Pack: Game QA Paid Skill
 
 Initial local private pack:
 
 ```text
 XCNT-P/
   packs/
-    game_qa_pro/
+    game_qa_paid_skill/
       pack.json
       skills/
         routing.md
@@ -665,7 +722,7 @@ XCNT-P/
       reviews/
         game_qa_release_review.md
       utilities/
-        game_qa_pack_usage.md
+        usage.md
       tests/
         manifest_validation_cases.json
 ```
@@ -852,7 +909,7 @@ Implemented:
 
 Acceptance:
 
-- sessions can use Game QA Pro when enabled
+- sessions can use Game QA Paid Skill when enabled
 - sessions continue normally when private modules are absent
 - private pack content is not copied into company repo output
 
@@ -904,9 +961,10 @@ Status: completed as a commercialization-ready local contract on 2026-06-15.
 
 Implemented:
 
-1. Kept the same manifest and entitlement schema.
-2. Extended `xuunity.entitlements.v1` with optional `license` and `sync`
-   metadata for signed offline licenses and online entitlement sync caches.
+1. Kept the same manifest and feature resolution model.
+2. Extended `xuunity.entitlements.v1` with a provider contract
+   (`trustLevel`, `verified`) plus optional `license` and `sync` metadata for
+   signed offline licenses and online entitlement sync caches.
 3. Kept `XCNT-P` as a private Git-ready local repo under `_HostLocal/XCNT-P`.
 4. Added installer and publishing docs for paying clients:
    - `_HostLocal/XCNT-P/INSTALL.md`
@@ -917,7 +975,7 @@ Implemented:
 Acceptance:
 
 - existing local pack structure remains valid
-- commercial license backend changes entitlement source, not pack layout
+- commercial license backend changes entitlement provider, not pack layout
 - installer docs describe private Git/package installation without exposing
   private content through public XUUnity
 
@@ -925,7 +983,7 @@ Phase 5 verification:
 
 - local private repo commit contains the paid pack and installer docs
 - `xuunity.entitlements.v1` still accepts `features[]` as the resolver contract
-- commercial modes use `signed_offline` or `online_sync` entitlement sources
+- commercial modes use `signed_offline` or `online_sync` provider inputs
 - no hosted license backend or private Git remote is required for the public
   support layer to remain valid
 

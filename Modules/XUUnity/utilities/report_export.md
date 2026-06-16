@@ -23,6 +23,20 @@ Route generated outputs into the correct project or host-repo destination.
 - When a private/paid XUUnity pack was used, copy only the redacted `private_pack_report_references` from the session contract, such as `Private pack used: xcntp.game_qa_paid_skill`.
 - Do not export private pack bodies, private review checklist text, private module absolute paths, resolved-registry entrypoint lists, or user-local entitlement paths into company/public artifacts.
 
+## Private Module Output Boundaries
+- `private_runtime`: local CLI/session output used to assemble a prompt stack.
+  It may include private module paths and entrypoints, but it must stay local.
+- `user_cache`: resolved registries under `~/.xuunity/cache/`. These may
+  include private paths and entitlement file paths.
+- `redacted_api`: `xuunity_module_status` and `xuunity_module_rollsync`
+  responses. These may include pack ids, counts, status, report references,
+  and provider trust facts only.
+- `company_report`: project or host reports. These may include pack id
+  references only.
+- `public_doc`: generic examples only.
+
+Only `private_runtime` and `user_cache` outputs may include private paths.
+
 ## Default Review Destination Map
 - `reviews/feature_code_review.md` -> `Assets/AIOutput/CodeReviews/`
 - `reviews/git_change_review.md` -> `Assets/AIOutput/CodeReviews/`

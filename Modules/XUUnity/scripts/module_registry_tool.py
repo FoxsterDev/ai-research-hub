@@ -17,6 +17,7 @@ MODULE_SCHEMA_VERSION = "xuunity.module.v1"
 PACK_SCHEMA_VERSION = "xuunity.pack.v1"
 ENTITLEMENTS_SCHEMA_VERSION = "xuunity.entitlements.v1"
 RESOLVED_SCHEMA_VERSION = "xuunity.resolved-modules.v1"
+INSTALLER_SCHEMA_VERSION = "xuunity.installer.v1"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 XUUNITY_ROOT = SCRIPT_DIR.parent
@@ -30,6 +31,9 @@ EXIT_INCOMPATIBLE = 4
 EXIT_UNEXPECTED = 5
 
 ENTRYPOINT_GROUPS = ("roles", "skills", "reviews", "utilities", "knowledge")
+TRUST_LEVELS = {"local_flag", "signed_offline", "server_verified", "unknown"}
+PERSONAL_DEV_MODES = {"personal_dev", "local_personal"}
+POST_INSTALL_CHECKS = {"xuunity_module_status", "xuunity_module_rollsync"}
 
 
 @dataclass
@@ -140,12 +144,25 @@ def load_user_config(home: Path) -> tuple[dict[str, Any], list[str]]:
 
 
 def load_entitlements(path: Path) -> tuple[dict[str, Any], list[str]]:
+    checked_at = now_utc()
     if not path.is_file():
-        return {"schemaVersion": ENTITLEMENTS_SCHEMA_VERSION, "features": [], "mode": "missing", "source": "missing"}, []
+        return {
+            "schemaVersion": ENTITLEMENTS_SCHEMA_VERSION,
+            "features": [],
+            "mode": "missing",
+            "source": "missing",
+            "provider": default_entitlement_provider("none", "missing", "unknown", False, checked_at),
+        }, []
     try:
         payload = read_json(path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
-        return {"schemaVersion": ENTITLEMENTS_SCHEMA_VERSION, "features": [], "mode": "unreadable", "source": str(path)}, [
+        return {
+            "schemaVersion": ENTITLEMENTS_SCHEMA_VERSION,
+            "features": [],
+            "mode": "unreadable",
+            "source": "unreadable",
+            "provider": default_entitlement_provider("local_file", "unreadable", "unknown", False, checked_at),
+        }, [
             f"entitlements unreadable: {path}: {exc}"
         ]
     errors = []
@@ -154,7 +171,67 @@ def load_entitlements(path: Path) -> tuple[dict[str, Any], list[str]]:
     if not isinstance(payload.get("features"), list):
         errors.append("entitlements features must be an array")
         payload["features"] = []
+    provider, provider_errors = normalize_entitlement_provider(payload, checked_at)
+    payload["provider"] = provider
+    payload["mode"] = provider["mode"]
+    payload["source"] = str(payload.get("source") or provider["type"])
+    errors.extend(provider_errors)
     return payload, errors
+
+
+def default_entitlement_provider(
+    provider_type: str,
+    mode: str,
+    trust_level: str,
+    verified: bool,
+    checked_at_utc: str,
+) -> dict[str, Any]:
+    return {
+        "type": provider_type,
+        "mode": mode,
+        "trustLevel": trust_level,
+        "verified": verified,
+        "checkedAtUtc": checked_at_utc,
+    }
+
+
+def normalize_entitlement_mode(value: Any) -> str:
+    mode = str(value or "").strip()
+    if mode in PERSONAL_DEV_MODES:
+        return "personal_dev"
+    return mode or "unknown"
+
+
+def normalize_entitlement_provider(payload: dict[str, Any], checked_at_utc: str) -> tuple[dict[str, Any], list[str]]:
+    errors: list[str] = []
+    raw_provider = payload.get("provider")
+    provider = raw_provider if isinstance(raw_provider, dict) else {}
+    if raw_provider is not None and not isinstance(raw_provider, dict):
+        errors.append("entitlements provider must be an object")
+
+    provider_type = str(provider.get("type") or "local_file").strip() or "local_file"
+    mode = normalize_entitlement_mode(provider.get("mode") or payload.get("mode"))
+    trust_level = str(provider.get("trustLevel") or "").strip()
+    verified_value = provider.get("verified", False)
+    checked_at = str(provider.get("checkedAtUtc") or payload.get("checkedAtUtc") or checked_at_utc).strip()
+
+    if not trust_level:
+        trust_level = "local_flag" if mode == "personal_dev" else "unknown"
+    if trust_level not in TRUST_LEVELS:
+        errors.append(f"unsupported entitlement provider trustLevel: {trust_level!r}")
+        trust_level = "unknown"
+
+    if not isinstance(verified_value, bool):
+        errors.append("entitlements provider.verified must be boolean")
+        verified = False
+    else:
+        verified = verified_value
+
+    if mode == "personal_dev":
+        trust_level = "local_flag"
+        verified = False
+
+    return default_entitlement_provider(provider_type, mode, trust_level, verified, checked_at), errors
 
 
 def normalize_string_list(value: Any) -> list[str]:
@@ -209,6 +286,35 @@ def validate_module_manifest(manifest: dict[str, Any], module_root: Path) -> lis
     return errors
 
 
+def validate_capability_list(value: Any, label: str) -> list[str]:
+    errors: list[str] = []
+    if value is None:
+        return errors
+    if not isinstance(value, list):
+        return [f"{label} must be an array when provided"]
+    for capability in normalize_string_list(value):
+        errors.extend(validate_id(capability, label))
+    return errors
+
+
+def pack_capabilities(manifest: dict[str, Any]) -> list[str]:
+    routing = manifest.get("routing") if isinstance(manifest.get("routing"), dict) else {}
+    mcp = manifest.get("mcp") if isinstance(manifest.get("mcp"), dict) else {}
+    raw_capabilities = [
+        *normalize_string_list(manifest.get("capabilities")),
+        *normalize_string_list(routing.get("capabilities")),
+        *normalize_string_list(mcp.get("providedCapabilities")),
+    ]
+    capabilities: list[str] = []
+    seen: set[str] = set()
+    for capability in raw_capabilities:
+        if capability in seen:
+            continue
+        seen.add(capability)
+        capabilities.append(capability)
+    return capabilities
+
+
 def validate_pack_manifest(manifest: dict[str, Any], pack_root: Path) -> list[str]:
     errors: list[str] = []
     required = ["schemaVersion", "id", "displayName", "licenseFeature", "dependsOn", "entrypoints", "exportPolicy"]
@@ -252,6 +358,14 @@ def validate_pack_manifest(manifest: dict[str, Any], pack_root: Path) -> list[st
     routing = manifest.get("routing")
     if routing is not None and not isinstance(routing, dict):
         errors.append("pack routing must be an object when provided")
+    elif isinstance(routing, dict):
+        errors.extend(validate_capability_list(routing.get("capabilities"), "pack routing.capabilities"))
+    errors.extend(validate_capability_list(manifest.get("capabilities"), "pack capabilities"))
+    mcp = manifest.get("mcp")
+    if mcp is not None and not isinstance(mcp, dict):
+        errors.append("pack mcp must be an object when provided")
+    elif isinstance(mcp, dict):
+        errors.extend(validate_capability_list(mcp.get("providedCapabilities"), "pack mcp.providedCapabilities"))
     return errors
 
 
@@ -415,6 +529,7 @@ def scanned_module_payload(module: ModuleRecord) -> dict[str, Any]:
 
 def pack_payload(pack: PackRecord, status: str, reason: str, entitlements: dict[str, Any]) -> dict[str, Any]:
     report_reference = f"Private pack used: {pack.id}" if pack.id else "Private pack used: [unknown]"
+    provider = entitlements.get("provider") if isinstance(entitlements.get("provider"), dict) else {}
     return {
         "id": pack.id,
         "moduleId": pack.module_id,
@@ -424,7 +539,10 @@ def pack_payload(pack: PackRecord, status: str, reason: str, entitlements: dict[
         "root": str(pack.pack_display_path.parent),
         "resolved_root": str(pack.pack_path.parent),
         "licenseFeature": pack.license_feature,
-        "entitlementMode": str(entitlements.get("mode") or ""),
+        "capabilities": pack_capabilities(pack.manifest),
+        "entitlementMode": str(provider.get("mode") or entitlements.get("mode") or ""),
+        "entitlementTrustLevel": str(provider.get("trustLevel") or "unknown"),
+        "entitlementVerified": bool(provider.get("verified") is True),
         "status": status,
         "reason": reason,
         "entrypoints": entrypoints_payload(pack, display_paths=True),
@@ -439,9 +557,34 @@ def resolved_cache_path(home: Path, project_root: Path) -> Path:
     return home / "cache" / "resolved_modules" / f"{digest}.json"
 
 
-def output_path_is_unsafe(path: Path, project_root: Path, host_root: Path) -> bool:
+def output_path_violation(path: Path, home: Path, project_root: Path, host_root: Path) -> str:
     resolved = safe_resolve(path)
-    return path_is_within(resolved, project_root) or path_is_within(resolved, host_root)
+    if path_is_within(resolved, project_root) or path_is_within(resolved, host_root):
+        return f"refusing to write resolved registry inside project or host root: {path}"
+    if not path_is_within(resolved, home / "cache"):
+        return f"refusing to write resolved registry outside user cache: {path}"
+    return ""
+
+
+def entitlement_summary(entitlements: dict[str, Any], entitlements_path: Path, features: set[str]) -> dict[str, Any]:
+    provider = entitlements.get("provider") if isinstance(entitlements.get("provider"), dict) else {}
+    trust_level = str(provider.get("trustLevel") or "unknown")
+    verified = bool(provider.get("verified") is True)
+    return {
+        "path": str(entitlements_path),
+        "mode": str(provider.get("mode") or entitlements.get("mode") or ""),
+        "source": str(entitlements.get("source") or provider.get("type") or ""),
+        "feature_count": len(features),
+        "trustLevel": trust_level,
+        "verified": verified,
+        "provider": {
+            "type": str(provider.get("type") or ""),
+            "mode": str(provider.get("mode") or ""),
+            "trustLevel": trust_level,
+            "verified": verified,
+            "checkedAtUtc": str(provider.get("checkedAtUtc") or ""),
+        },
+    }
 
 
 def build_resolved_registry(args: argparse.Namespace, *, write: bool = True) -> tuple[dict[str, Any], int]:
@@ -489,13 +632,9 @@ def build_resolved_registry(args: argparse.Namespace, *, write: bool = True) -> 
         "projectRoot": str(project_root),
         "hostRoot": str(host_root),
         "writeScope": "user_cache",
+        "outputBoundary": "private_runtime",
         "cachePath": str(cache_path),
-        "entitlements": {
-            "path": str(entitlements_path),
-            "mode": str(entitlements.get("mode") or ""),
-            "source": str(entitlements.get("source") or ""),
-            "feature_count": len(features),
-        },
+        "entitlements": entitlement_summary(entitlements, entitlements_path, features),
         "discoveryRoots": discovery_roots,
         "scannedModules": [scanned_module_payload(module) for module in modules],
         "loadedModules": [
@@ -512,8 +651,9 @@ def build_resolved_registry(args: argparse.Namespace, *, write: bool = True) -> 
     }
 
     if write:
-        if output_path_is_unsafe(cache_path, project_root, host_root):
-            payload["warnings"].append(f"refusing to write resolved registry inside project or host root: {cache_path}")
+        violation = output_path_violation(cache_path, home, project_root, host_root)
+        if violation:
+            payload["warnings"].append(violation)
             return payload, max(exit_code, EXIT_UNSAFE)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -527,6 +667,7 @@ def command_scan(args: argparse.Namespace) -> int:
     modules, discovery_roots, warnings = load_modules(project_root, args, home)
     payload = {
         "action": "xuunity.module.scan",
+        "outputBoundary": "private_runtime",
         "projectRoot": str(project_root),
         "hostRoot": str(find_host_root(project_root)),
         "discoveryRoots": discovery_roots,
@@ -557,6 +698,7 @@ def command_validate(args: argparse.Namespace) -> int:
     payload = {
         "action": "xuunity.module.validate",
         "status": "valid" if not invalid_modules and not invalid_packs else "invalid",
+        "outputBoundary": "private_runtime",
         "projectRoot": str(project_root),
         "discoveryRoots": discovery_roots,
         "scannedModules": [scanned_module_payload(module) for module in modules],
@@ -582,6 +724,9 @@ def command_rollsync(args: argparse.Namespace) -> int:
     summary = {
         "action": "xuunity.module.rollsync",
         "status": status,
+        "outputBoundary": "private_runtime",
+        "entitlementTrustLevel": (payload.get("entitlements") or {}).get("trustLevel", "unknown"),
+        "entitlementVerified": (payload.get("entitlements") or {}).get("verified", False),
         "loaded_pack_count": len(payload["loadedPacks"]),
         "locked_pack_count": len(payload["lockedPacks"]),
         "invalid_pack_count": len(payload["invalidPacks"]),
@@ -627,6 +772,9 @@ def redacted_pack_payload(pack: dict[str, Any]) -> dict[str, Any]:
         "moduleVersion": pack.get("moduleVersion", ""),
         "displayName": pack.get("displayName", ""),
         "licenseFeature": pack.get("licenseFeature", ""),
+        "capabilities": normalize_string_list(pack.get("capabilities")),
+        "entitlementTrustLevel": pack.get("entitlementTrustLevel", "unknown"),
+        "entitlementVerified": bool(pack.get("entitlementVerified") is True),
         "status": status,
         "reason": reason,
         "reportReference": pack.get("reportReference") or f"Private pack used: {pack.get('id', '[unknown]')}",
@@ -647,20 +795,49 @@ def redacted_module_payload(module: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def redacted_label(value: Any) -> str:
+    label = str(value or "")
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", label):
+        return "redacted_url"
+    if "/" in label or "\\" in label or label.startswith("~"):
+        return "redacted_path"
+    if re.match(r"^[a-zA-Z]:", label):
+        return "redacted_path"
+    return label
+
+
+def redacted_entitlements_payload(entitlements: dict[str, Any]) -> dict[str, Any]:
+    provider = entitlements.get("provider") if isinstance(entitlements.get("provider"), dict) else {}
+    trust_level = str(provider.get("trustLevel") or entitlements.get("trustLevel") or "unknown")
+    verified = bool(provider.get("verified") is True or entitlements.get("verified") is True)
+    return {
+        "mode": str(provider.get("mode") or entitlements.get("mode", "")),
+        "source": redacted_label(entitlements.get("source", "")),
+        "feature_count": entitlements.get("feature_count", 0),
+        "trustLevel": trust_level,
+        "verified": verified,
+        "provider": {
+            "type": redacted_label(provider.get("type", "")),
+            "mode": str(provider.get("mode") or ""),
+            "trustLevel": trust_level,
+            "verified": verified,
+            "checkedAtUtc": str(provider.get("checkedAtUtc") or ""),
+        },
+    }
+
+
 def redacted_registry_payload(payload: dict[str, Any], exit_code: int, action: str) -> dict[str, Any]:
     status = rollsync_status(payload, exit_code)
+    cache_label = "user_cache" if payload.get("cachePath") and exit_code != EXIT_UNSAFE else "none"
     return {
         "action": action,
         "status": status,
         "schemaVersion": payload.get("schemaVersion", ""),
         "resolvedAtUtc": payload.get("resolvedAtUtc", ""),
         "writeScope": payload.get("writeScope", "user_cache"),
-        "cache": "user_cache" if payload.get("cachePath") else "none",
-        "entitlements": {
-            "mode": (payload.get("entitlements") or {}).get("mode", ""),
-            "source": (payload.get("entitlements") or {}).get("source", ""),
-            "feature_count": (payload.get("entitlements") or {}).get("feature_count", 0),
-        },
+        "outputBoundary": "redacted_api",
+        "cache": cache_label,
+        "entitlements": redacted_entitlements_payload(payload.get("entitlements") or {}),
         "counts": {
             "scannedModules": len(payload.get("scannedModules", [])),
             "loadedPacks": len(payload.get("loadedPacks", [])),
@@ -700,6 +877,11 @@ def trigger_matches(task_text: str, pack: dict[str, Any]) -> list[str]:
     return [trigger for trigger in triggers if trigger.lower() in lowered]
 
 
+def capability_matches(required_capabilities: list[str], pack: dict[str, Any]) -> list[str]:
+    capabilities = set(normalize_string_list(pack.get("capabilities")))
+    return [capability for capability in required_capabilities if capability in capabilities]
+
+
 def public_game_qa_path_leak(pack: dict[str, Any]) -> bool:
     public_fragments = (
         "/AIRoot/Modules/XUUnity/skills/game_qa/",
@@ -715,14 +897,22 @@ def public_game_qa_path_leak(pack: dict[str, Any]) -> bool:
     return False
 
 
-def matched_pack_payload(pack: dict[str, Any], matched_triggers: list[str], *, include_entrypoints: bool) -> dict[str, Any]:
+def matched_pack_payload(
+    pack: dict[str, Any],
+    matched_triggers: list[str],
+    matched_capabilities: list[str],
+    *,
+    include_entrypoints: bool,
+) -> dict[str, Any]:
     payload = {
         "id": pack["id"],
         "moduleId": pack["moduleId"],
         "moduleVersion": pack.get("moduleVersion", ""),
         "root": pack["root"],
         "resolved_root": pack["resolved_root"],
+        "capabilities": normalize_string_list(pack.get("capabilities")),
         "matchedTriggers": matched_triggers,
+        "matchedCapabilities": matched_capabilities,
         "reportReference": pack.get("reportReference") or f"Private pack used: {pack['id']}",
         "reportReferenceMode": (pack.get("exportPolicy") or {}).get("reportReferenceMode", "pack_id_only"),
         "publicPathLeakDetected": public_game_qa_path_leak(pack),
@@ -732,12 +922,28 @@ def matched_pack_payload(pack: dict[str, Any], matched_triggers: list[str], *, i
     return payload
 
 
-def matching_packs(task_text: str, packs: list[dict[str, Any]], *, include_entrypoints: bool) -> list[dict[str, Any]]:
+def matching_packs(
+    task_text: str,
+    packs: list[dict[str, Any]],
+    *,
+    required_capabilities: list[str],
+    include_entrypoints: bool,
+) -> list[dict[str, Any]]:
     matches = []
     for pack in packs:
         matched_triggers = trigger_matches(task_text, pack)
-        if matched_triggers:
-            matches.append(matched_pack_payload(pack, matched_triggers, include_entrypoints=include_entrypoints))
+        matched_capabilities = capability_matches(required_capabilities, pack)
+        capability_ok = not required_capabilities or len(matched_capabilities) == len(required_capabilities)
+        trigger_ok = bool(matched_triggers)
+        if capability_ok and (trigger_ok or required_capabilities):
+            matches.append(
+                matched_pack_payload(
+                    pack,
+                    matched_triggers,
+                    matched_capabilities,
+                    include_entrypoints=include_entrypoints,
+                )
+            )
     return matches
 
 
@@ -747,17 +953,29 @@ def command_route_smoke(args: argparse.Namespace) -> int:
         print_json({"action": "xuunity.module.route_smoke", "status": "failed", "error": "task text is required"})
         return EXIT_VALIDATION_FAILED
     payload, exit_code = build_resolved_registry(args, write=True)
-    matches = matching_packs(task_text, payload["loadedPacks"], include_entrypoints=True)
+    required_capabilities = normalize_string_list(getattr(args, "require_capability", []) or [])
+    matches = matching_packs(
+        task_text,
+        payload["loadedPacks"],
+        required_capabilities=required_capabilities,
+        include_entrypoints=True,
+    )
     expected = str(getattr(args, "expect_pack", "") or "").strip()
     expected_found = not expected or any(match["id"] == expected for match in matches)
+    capabilities_found = not required_capabilities or any(
+        len(match["matchedCapabilities"]) == len(required_capabilities) for match in matches
+    )
     leak_found = any(match["publicPathLeakDetected"] for match in matches)
-    status = "passed" if matches and expected_found and not leak_found else "failed"
+    status = "passed" if matches and expected_found and capabilities_found and not leak_found else "failed"
     summary = {
         "action": "xuunity.module.route_smoke",
         "status": status,
+        "outputBoundary": "private_runtime",
         "taskText": task_text,
         "expectedPack": expected,
         "expectedPackFound": expected_found,
+        "requiredCapabilities": required_capabilities,
+        "requiredCapabilitiesFound": capabilities_found,
         "matchedLoadedPacks": matches,
         "publicPathLeakDetected": leak_found,
         "cache_path": payload["cachePath"],
@@ -779,9 +997,25 @@ def command_session_plan(args: argparse.Namespace) -> int:
         print_json({"action": "xuunity.module.session_plan", "status": "failed", "error": "task text is required"})
         return EXIT_VALIDATION_FAILED
     payload, exit_code = build_resolved_registry(args, write=True)
-    loaded_matches = matching_packs(task_text, payload["loadedPacks"], include_entrypoints=True)
-    locked_matches = matching_packs(task_text, payload["lockedPacks"], include_entrypoints=False)
-    invalid_matches = matching_packs(task_text, payload["invalidPacks"], include_entrypoints=False)
+    required_capabilities = normalize_string_list(getattr(args, "require_capability", []) or [])
+    loaded_matches = matching_packs(
+        task_text,
+        payload["loadedPacks"],
+        required_capabilities=required_capabilities,
+        include_entrypoints=True,
+    )
+    locked_matches = matching_packs(
+        task_text,
+        payload["lockedPacks"],
+        required_capabilities=required_capabilities,
+        include_entrypoints=False,
+    )
+    invalid_matches = matching_packs(
+        task_text,
+        payload["invalidPacks"],
+        required_capabilities=required_capabilities,
+        include_entrypoints=False,
+    )
     leak_found = any(match["publicPathLeakDetected"] for match in loaded_matches)
     if leak_found:
         status = "unsafe"
@@ -797,7 +1031,9 @@ def command_session_plan(args: argparse.Namespace) -> int:
     summary = {
         "action": "xuunity.module.session_plan",
         "status": status,
+        "outputBoundary": "private_runtime",
         "taskText": task_text,
+        "requiredCapabilities": required_capabilities,
         "cache_path": payload["cachePath"],
         "matchedLoadedPacks": loaded_matches,
         "matchedLockedPacks": locked_matches,
@@ -806,6 +1042,13 @@ def command_session_plan(args: argparse.Namespace) -> int:
         "sessionContract": {
             "private_pack_source": "resolved_loadedPacks",
             "matched_private_packs": [match["id"] for match in loaded_matches],
+            "matched_private_pack_capabilities": sorted(
+                {
+                    capability
+                    for match in loaded_matches
+                    for capability in normalize_string_list(match.get("matchedCapabilities"))
+                }
+            ),
             "private_pack_report_references": report_references,
             "private_content_report_policy": "pack_id_only",
             "private_paths_user_local_only": True,
@@ -836,6 +1079,7 @@ def command_doctor(args: argparse.Namespace) -> int:
     summary = {
         "action": "xuunity.module.doctor",
         "status": status,
+        "outputBoundary": "private_runtime",
         "pack_id": requested,
         "loaded": loaded,
         "locked": locked,
@@ -851,6 +1095,81 @@ def command_doctor(args: argparse.Namespace) -> int:
     if status == "invalid":
         return EXIT_VALIDATION_FAILED
     return EXIT_VALIDATION_FAILED if exit_code == 0 else exit_code
+
+
+def validate_installer_manifest(manifest: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    required = ["schemaVersion", "moduleId", "recommendedMount", "requiredFeatures", "postInstallChecks"]
+    for key in required:
+        if key not in manifest:
+            errors.append(f"installer missing required field: {key}")
+    if manifest.get("schemaVersion") != INSTALLER_SCHEMA_VERSION:
+        errors.append(f"unsupported installer schemaVersion: {manifest.get('schemaVersion')!r}")
+    errors.extend(validate_id(str(manifest.get("moduleId") or ""), "installer moduleId"))
+
+    mount = str(manifest.get("recommendedMount") or "")
+    if not mount.strip():
+        errors.append("installer recommendedMount is required")
+    elif Path(mount).is_absolute() or ".." in Path(mount).parts:
+        errors.append("installer recommendedMount must be a relative safe mount path")
+
+    if not isinstance(manifest.get("requiredFeatures"), list):
+        errors.append("installer requiredFeatures must be an array")
+    else:
+        features = normalize_string_list(manifest.get("requiredFeatures"))
+        if not features:
+            errors.append("installer requiredFeatures must include at least one feature")
+        for feature in features:
+            errors.extend(validate_id(feature, "installer requiredFeatures"))
+
+    if not isinstance(manifest.get("postInstallChecks"), list):
+        errors.append("installer postInstallChecks must be an array")
+    else:
+        checks = normalize_string_list(manifest.get("postInstallChecks"))
+        if not checks:
+            errors.append("installer postInstallChecks must include at least one check")
+        for check in checks:
+            if check not in POST_INSTALL_CHECKS:
+                errors.append(f"installer postInstallChecks has unsupported check: {check}")
+    return errors
+
+
+def redacted_installer_mount(value: Any) -> str:
+    mount = str(value or "")
+    if not mount:
+        return ""
+    if Path(mount).is_absolute() or mount.startswith("~") or re.match(r"^[a-zA-Z]:", mount):
+        return "redacted_path"
+    if ".." in Path(mount).parts:
+        return "redacted_path"
+    return mount
+
+
+def command_validate_installer(args: argparse.Namespace) -> int:
+    installer_path = safe_resolve(Path(getattr(args, "installer", "") or ""))
+    try:
+        manifest = read_json(installer_path)
+        errors = validate_installer_manifest(manifest)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        manifest = {}
+        errors = [f"installer manifest unreadable or invalid: {exc.__class__.__name__}"]
+
+    status = "valid" if not errors else "invalid"
+    payload = {
+        "action": "xuunity.installer.validate",
+        "status": status,
+        "outputBoundary": "redacted_api",
+        "schemaVersion": str(manifest.get("schemaVersion") or ""),
+        "moduleId": str(manifest.get("moduleId") or ""),
+        "recommendedMount": redacted_installer_mount(manifest.get("recommendedMount")),
+        "requiredFeatures": normalize_string_list(manifest.get("requiredFeatures")),
+        "postInstallChecks": normalize_string_list(manifest.get("postInstallChecks")),
+        "error_count": len(errors),
+        "errors": errors,
+        "privateBodiesRead": False,
+    }
+    print_json(payload)
+    return 0 if status == "valid" else EXIT_VALIDATION_FAILED
 
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -886,11 +1205,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_args(smoke)
     smoke.add_argument("--task-text", required=True)
     smoke.add_argument("--expect-pack", default="")
+    smoke.add_argument("--require-capability", action="append", default=[], help="Require a loaded pack capability. May be repeated.")
     smoke.set_defaults(func=command_route_smoke)
 
-    session = sub.add_parser("session-plan", help="Build the redacted private-pack routing contract for a task session.")
+    session = sub.add_parser("session-plan", help="Build the private-runtime private-pack routing contract for a task session.")
     add_common_args(session)
     session.add_argument("--task-text", required=True)
+    session.add_argument("--require-capability", action="append", default=[], help="Require a loaded pack capability. May be repeated.")
     session.set_defaults(func=command_session_plan)
 
     mcp_status = sub.add_parser("xuunity_module_status", help="MCP/API-safe redacted private module status.")
@@ -905,6 +1226,11 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_args(doctor)
     doctor.add_argument("--pack-id", default="")
     doctor.set_defaults(func=command_doctor)
+
+    installer = sub.add_parser("validate-installer", help="Validate a public-safe XUUnity installer manifest.")
+    add_common_args(installer)
+    installer.add_argument("--installer", required=True, help="Path to installer.json.")
+    installer.set_defaults(func=command_validate_installer)
 
     return parser
 
