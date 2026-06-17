@@ -53,7 +53,7 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 | `XUUNITY_PERSONAL_PAID_MODULE_OVERLAY_DESIGN.md` | implemented | 5 | ✅ 100% | — done | Mother design of the paid/private module system: `module/pack/entitlements` contracts, resolver behavior, CLI surface, session integration. Defines the public/private boundary and load order. |
 | `XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md` | implemented | 5 | ✅ 100% (25/25 tests) | — done | Sets the commercial + security invariants for paid modules (entitlement-provider contract, license ≠ local flag, redaction boundary, capability tags). Errors here become product and security debt. |
 | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned | 5 | ⬜ ~5% (est.) | S · ~1d · Low | Parent safety policy (allowlist, deny-by-default, runtime-critical denylist, mandatory artifact + human gate) that makes *safe* autonomy possible — the most strategically important unbuilt direction.<br>**Left to 100%:** trim to a thin "policy north-star" after the 3 plans land; drop duplicated level/allowlist/gate detail. |
-| `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | draft | 5 | 🟡 ~50% (est.) | M · ~3–5d · High | Lifts routing reliability from prompt-discipline to an enforceable, testable contract. The reliability core and the only path from ~82 to 95+.<br>**Left to 100%:** `knowledge/execution_contract.md` (single owner) + de-dupe 3 inline copies; `routing_trigger_matrix.md`; `scripts/tests/routing_fixtures/`; pre-patch gate checker. |
+| `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active | 5 | 🟡 ~85% (est.) | S · ~1–2d · Med | Lifts routing reliability from prompt-discipline to an enforceable, testable contract. The reliability core and the only path from ~82 to 95+. Executable layer built 2026-06-16: canonical `knowledge/execution_contract.md`, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass).<br>**Left to 100%:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active | 4 | 🟡 ~75% (est.) | S · ~1–2d · Low | Product-facing protocol layer for PMs/producers (explainers, change impact, rollout readiness, dependency maps). Product-critical, but a layer above the engineering core.<br>**Left to 100%:** build `protocols/flow_explainer.md` + `delivery_scope.md` (+ note formats), or trim them from the design. |
 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned | 4 | ⬜ ~5% (est.) | M · ~2–3d · Med | The executable L0–L4 ladder (act alone vs. need approval vs. stays human). Operationalizes the parent policy; the concrete next slice.<br>**Left to 100%:** `knowledge/autonomy_levels.md` (L0–L4) + autonomy hook/fields in `start_session.md`. |
 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned | 4 | ⬜ ~3% (est.) | M · ~2–3d · Med | The allowlist (A–F) + denylist that decides what is *actually* safe. Without it the level model is empty.<br>**Left to 100%:** `knowledge/low_risk_change_categories.md` (allowlist A–F) + `autonomy_exclusions.md` (denylist). |
@@ -67,11 +67,12 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 
 What is **active and still needs doing**, ordered by leverage (impact × what it unblocks). `implemented`
 docs are intentionally absent (done, reference only), as are `archived` docs (retired). The whole
-low-risk-autonomy family is the strategic centre of gravity but is gated behind item 1.
+low-risk-autonomy family is the strategic centre of gravity and is now unblocked — item 1's executable
+routing-acceptance layer (gate checker + fixtures) was built on 2026-06-16.
 
 | # | Design | Status · Imp. · Impl. | What is left / next action |
 | :---: | --- | --- | --- |
-| 1 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | draft · 5 · 🟡 ~50% (est.) | **Highest leverage — unblocks the autonomy gates.** Build the executable layer: `knowledge/execution_contract.md` as the single schema owner (de-dupe the 3 inline copies in `start_session.md`), `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and a pre-patch gate checker. |
+| 1 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active · 5 · 🟡 ~85% (est.) | **Executable layer built (2026-06-16)** — canonical `knowledge/execution_contract.md` + de-duped 3 inline copies, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass). **Residual:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. The autonomy family (#2) is now unblocked. |
 | 2 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | First autonomy slice: create `knowledge/autonomy_levels.md` (L0–L4) + add the autonomy-level hook/fields to `start_session.md`'s execution contract. |
 | 3 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned · 4 · ⬜ ~3% (est.) | Create `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist); precondition for any `L2` auto-route. |
 | 4 | `XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | Create `reviews/autonomy_gate_review.md` + `utilities/autonomy_change_artifact.md` + the artifact template (the 4 gates). Implemented last; inert until items 2–3 exist. |
@@ -113,7 +114,7 @@ so design history lives inside it.
 1. **Implemented (done, source of truth — no work pending):** module architecture, skills system, both
    halves of the paid-module overlay, external repos (dormant by design). The load-bearing frame; works end-to-end.
 2. **Active (in force, small gaps to finish):** product protocols (🟡 ~75% (est.)), fix-contract follow-up tool (ready, loop not run).
-3. **Drafts (in progress, 🟡 30–50%):** root-cause-95, topology bootstrap, tooling automation.
+3. **Drafts (in progress, 🟡 30–50%):** topology bootstrap, tooling automation (`root-cause-95` advanced to active ~85% on 2026-06-16; see below).
 4. **Planned (⬜ ~5% (est.)):** the entire low-risk autonomy family (none of the promised autonomy files exist yet).
 5. **Archived (`./Archived/`):** four Workstream-3 generator prompts (`historical`) + the upstream-submodule tombstone (`legacy`).
 
@@ -146,6 +147,14 @@ These remain the canonical references for current behavior. The four importance-
 
 ### Active (in force, small gaps)
 
+- **`XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md`** — importance **5**, active, **🟡 ~85% (est.)** (executable layer built 2026-06-16).
+  The prose layer was already in production (owner-chain tracing + execution-contract schema in `start_session.md`,
+  patch-shape taxonomy in `bug_fixing.md`, `utilities/routing_debug_template.md`, capability gate via
+  `module_registry_tool.py session-plan --require-capability`). **The executable layer is now built:**
+  `knowledge/execution_contract.md` is the single owner (the 3 inline copies in `start_session.md` are now references — "First Principle 3" closed),
+  `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/` (deep/shallow/legit-`local_fix` cases), and the
+  `scripts/routing_gate_check.py` pre-patch gate (the 5 section-3 rules), covered by `scripts/tests/test_routing_gate.py` (8/8 pass).
+  **Residual:** host-local matrix rows, broader fixture/bug-family coverage, optional CI wiring. *(Backlog #1.)*
 - **`XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md`** — importance **4**, **🟡 ~75% (est.)**.
   6 protocols shipped + 2 beyond plan (`project_health_audit`, `project_memory_freshness`), shorthand routing
   in `start_session.md:424-433`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
@@ -156,12 +165,6 @@ These remain the canonical references for current behavior. The four importance-
 
 ### Drafts (in progress)
 
-- **`XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md`** — importance **5**, draft (newest, Jun 16), **🟡 ~50% (est.)**.
-  The prose layer is already in production: owner-chain tracing and the execution-contract schema in `start_session.md:244-287`,
-  patch-shape taxonomy in `bug_fixing.md:47-90`, `utilities/routing_debug_template.md`, capability gate via
-  `module_registry_tool.py session-plan --require-capability`. **The executable layer is not built** (the highest-leverage items):
-  no `knowledge/execution_contract.md` (canonical owner — the schema is still duplicated inline, violating the design's own "First Principle 3"),
-  no `knowledge/routing_trigger_matrix.md`, no `scripts/tests/routing_fixtures/`, no pre-patch gate checker. *(Backlog #1.)*
 - **`AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md`** — importance **4**, draft, **🟡 ~35% (est.)**.
   There is a topology-first entrypoint `AIRoot/scripts/init_ai_topology.sh` + `host_topology.yaml` write. **Not built**: profiles B/C
   (root-only / symlinked — the doc's main motivation), CLI flags, `mirror_solution.sh`, knowledge files `storage_profiles.md` / `router_override_rules.md`,
@@ -207,7 +210,7 @@ maturity. Reconciled in this update:
 3. **`AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN` and `AI_TOOLING_AUTOMATION_DESIGN`:** `active → draft` (the docs themselves are `draft`, implementation partial).
 4. **4 Workstream-3 prompts + `XUUNITY_UPSTREAM_SUBMODULE_DESIGN`:** `active → archived` and physically moved to `./Archived/`.
 5. **`XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md`** — was **missing from the registry entirely**; added (its operating loop has not started).
-6. **Design self-violation:** the execution-contract schema is duplicated three times inline in `start_session.md` (the step-20b minimum-fields list, the `## Execution Contract` section, and the `## Output` derived-contract block) instead of a single canonical owner — exactly the unmet "First Principle 3" from `ROOT_CAUSE_ROUTING_95`.
+6. **Design self-violation (resolved 2026-06-16):** the execution-contract schema was duplicated three times inline in `start_session.md` (the step-20b minimum-fields list, the `## Execution Contract` section, and the `## Output` derived-contract block) instead of a single canonical owner — exactly the unmet "First Principle 3" from `ROOT_CAUSE_ROUTING_95`. Now fixed: `knowledge/execution_contract.md` is the single owner and the three sites are references.
 
 ### Score by workstream
 
@@ -219,22 +222,23 @@ maturity. Reconciled in this update:
 | Product self-service (protocols) | 🟡 ~75% (est.) (active) |
 | Tooling automation (MCP connectors) | 🟡 ~30% (est.), Unity only (draft) |
 | Topology / bootstrap profiles | 🟡 ~35% (est.) (draft) |
-| Root-cause routing → 95+ | 🟡 ~50% (est.) — prose yes, executable no (draft) |
+| Root-cause routing → 95+ | 🟡 ~85% (est.) — prose + executable gate built (active) |
 | Low-risk autonomy | ⬜ ~5% (est.) (planned) |
 
 ### Current bottleneck and next step
 
-**Bottleneck:** the system is strong on declarative discipline (prompts / routing) but weak on
-**executable gates** — there is no testable routing acceptance layer and no autonomy lane. This is what
-blocks the move from "the AI advises well" to "the AI acts safely on its own".
+**Bottleneck:** the first executable routing-acceptance gate now exists (`scripts/routing_gate_check.py` +
+`scripts/tests/routing_fixtures/`, 8/8 tests), so the remaining weakness is the **autonomy lane** — there is
+still no L0–L4 autonomy routing wired into the system. This is what now blocks the move from "the AI advises
+well" to "the AI acts safely on its own".
 
-**Recommended next milestone (highest leverage):** close the executable half of
-`ROOT_CAUSE_ROUTING_95` (Backlog #1), because it unblocks both routing quality and the autonomy gates.
+**Recommended next milestone (highest leverage):** start the low-risk autonomy family (Backlog #2),
+now unblocked by the routing-acceptance layer built on 2026-06-16.
 
 **Next 3 deliverables:**
-1. `knowledge/execution_contract.md` as the **single** owner of the schema + de-duplication of the three inline copies in `start_session.md` (closes "First Principle 3").
-2. A first popup/runtime-content fixture in `scripts/tests/routing_fixtures/` + a minimal pre-patch gate checker (clears the `draft` status on ROOT_CAUSE).
-3. `knowledge/autonomy_levels.md` + an autonomy hook in `start_session.md` (the first executable slice of the autonomy family — from `LEVEL_MODEL_PLAN`).
+1. `knowledge/autonomy_levels.md` (L0–L4) + the autonomy-level hook/fields in `start_session.md` (from `LEVEL_MODEL_PLAN`).
+2. `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist) (from `CHANGE_CATEGORIES_AND_EXCLUSIONS`).
+3. Broaden `scripts/tests/routing_fixtures/` beyond the runtime-content family and add host-local trigger-matrix rows (finishes `ROOT_CAUSE_ROUTING_95`).
 
 ## Analysis Provenance & Review Notes
 

@@ -16,11 +16,11 @@ The target is 95+ routing quality for cases where the nearest stack frame is not
 ## Design
 
 ### 1. Canonical Execution Contract
-Create one canonical owner for the execution contract, for example:
+The canonical owner exists at:
 
 `AIRoot/Modules/XUUnity/knowledge/execution_contract.md`
 
-Required fields:
+It owns the field set, field meanings, and contract rules. The live field set is, in order:
 - `resolved_project`
 - `primary_task`
 - `overlay_tasks`
@@ -28,13 +28,22 @@ Required fields:
 - `matched_policy_packs`
 - `matched_private_packs`
 - `private_pack_report_references`
+- `trigger_reasons`
 - `risk_class`
 - `root_cause_chain_checked`
 - `patch_shape`
 - `pre_patch_blockers`
+- `primary_validation_lane`
+- `secondary_validation_lane`
+- `lane_selection_reason`
+- `expected_evidence_class`
 - `validation_contract`
 - `why_not_local_fix`
 - `validation_gaps`
+- `required_validation`
+- `required_self_review`
+
+The validation cluster (`primary_validation_lane`, `secondary_validation_lane`, `lane_selection_reason`, `expected_evidence_class`, `validation_gaps`, and the umbrella `validation_contract`) is owned by `knowledge/validation_contract.md`; the execution-contract owner references it rather than redefining it.
 
 All task, review, and utility files should reference this owner instead of copying the full schema.
 
@@ -155,3 +164,18 @@ For popup/runtime UI warnings:
 Build the first executable routing acceptance test before adding more prose.
 
 The test should fail if a popup/runtime-content warning is classified as a local UI fix before startup/config ownership, active config/profile, content availability, and runtime UI validation obligations are accounted for.
+
+## Implementation Status (2026-06-16)
+The executable layer is built:
+- Step 1 — canonical owner `knowledge/execution_contract.md` (done).
+- Step 2 — the three copied field lists in `tasks/start_session.md` replaced with references to the owner (done).
+- Step 3 — `knowledge/routing_trigger_matrix.md` added; runtime-warning families routed through it from `tasks/start_session.md` and `tasks/bug_fixing.md` (done).
+- Step 4 — routing smoke fixtures in `scripts/tests/routing_fixtures/` — 2 fixtures: a popup/runtime-content case (deep-pass + shallow-fail contracts) and a legitimate-`local_fix` case (done).
+- Step 5 — pre-patch gate checker `scripts/routing_gate_check.py` enforcing the five section-3 rules, covered by `scripts/tests/test_routing_gate.py` (done).
+- Step 6 — private capability requirements already route through `scripts/module_registry_tool.py session-plan --require-capability` (pre-existing).
+- Step 7 — routing debug on recovery already mandated via `utilities/routing_debug_template.md` (pre-existing).
+
+Remaining:
+- host-local trigger-matrix rows (section 5) in the host overlay.
+- broader fixture and bug-family owner-chain coverage (the public matrix currently details the runtime-content family).
+- optional wiring of the gate checker into a pre-commit or CI step.

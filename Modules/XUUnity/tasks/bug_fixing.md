@@ -45,6 +45,7 @@ Resolve a concrete defect with the minimum safe change while preserving producti
   - active config/profile
   - content or manifest availability
 - If the chain finds a disabled, absent, stale, or mismatched owner config, prefer `configuration_fix` or `sequencing_fix`; do not classify the task as `local_fix` just because the warning is emitted from a local UI or service class.
+- Route these warning families through `knowledge/routing_trigger_matrix.md` to select the required owner chain, allowed patch shapes, and validation lane, and validate the derived routing contract with `scripts/routing_gate_check.py` before patching.
 
 ## Patch Shape Classification
 - Before patching, classify the fix using the narrowest primary patch shape:
