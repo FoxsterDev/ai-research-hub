@@ -1,0 +1,88 @@
+{
+  "id": "popup_runtime_content_warning",
+  "title": "Popup logs a missing-content warning; symptom emitted by UI code",
+  "description": "A popup logs a missing runtime-content/design warning. The visible symptom is in popup/presenter UI code, but the likely owner is startup/config/content availability (disabled init, inactive profile, or unpublished remote content). The gate must reject a shallow local-UI classification.",
+  "signal": "popup/runtime-content warning + remote content",
+  "scenario": {
+    "task_text": "xuunity fix this popup warning: 'missing design for reward popup' logged when opening the daily reward popup",
+    "referenced_paths": ["<Project>/Assets/Scripts/UI/Popups/RewardPopupPresenter.cs"]
+  },
+  "expected": {
+    "resolved_project": "single project resolved from the referenced path",
+    "primary_task": "tasks/bug_fixing.md",
+    "overlay_tasks": ["startup/config ownership", "ui-heavy"],
+    "policy_packs": ["reviews/policy_packs/ui_heavy_changes.md"],
+    "required_root_cause_chain": [
+      "symptom",
+      "immediate caller",
+      "service/wrapper",
+      "initialization owner",
+      "active config/profile",
+      "content/manifest availability"
+    ],
+    "allowed_patch_shapes": ["configuration_fix", "sequencing_fix", "ownership_fix"],
+    "local_fix_allowed_only_if": "upstream ownership (init enabled, active profile, published content) is disproven",
+    "required_private_capability_checks": [
+      "runtime UI validation or playmode smoke planning when a private pack is available; otherwise an explicit runtime validation gap"
+    ],
+    "expected_validation_lane": "interactive_mcp or scenario for full proof; config_inspection with explicit runtime gap for partial proof"
+  },
+  "contracts": [
+    {
+      "kind": "good",
+      "expect": "pass",
+      "note": "deep classification: full owner chain traced, configuration_fix, startup/config overlay loaded, runtime gap recorded",
+      "contract": {
+        "signal": "popup/runtime-content warning + remote content",
+        "bug_family": "runtime_content_warning",
+        "runtime_warning": true,
+        "remote_content": true,
+        "runtime_ui_validation_required": true,
+        "primary_task": "tasks/bug_fixing.md",
+        "overlay_tasks": ["startup/config ownership", "ui-heavy"],
+        "patch_shape": "configuration_fix",
+        "root_cause_chain_checked": [
+          "symptom",
+          "immediate caller",
+          "service/wrapper",
+          "initialization owner",
+          "active config/profile",
+          "content/manifest availability"
+        ],
+        "pre_patch_blockers": "none",
+        "why_not_local_fix": "the warning is emitted by the popup presenter, but the owner is the content service init plus the active remote profile; suppressing at the log site would hide an unpublished-content or disabled-init defect",
+        "private_capability_check": "none",
+        "validation_gaps": "interactive runtime not exercised this session; config_inspection only",
+        "primary_validation_lane": "interactive_mcp"
+      }
+    },
+    {
+      "kind": "bad",
+      "expect": "fail",
+      "note": "shallow classification: treated the popup warning as a narrow local UI fix",
+      "expected_violations": [
+        "local_fix_without_config_inspection",
+        "missing_startup_config_overlay",
+        "runtime_ui_validation_unaccounted",
+        "empty_why_not_local_fix",
+        "incomplete_root_cause_chain"
+      ],
+      "contract": {
+        "signal": "popup/runtime-content warning + remote content",
+        "bug_family": "runtime_content_warning",
+        "runtime_warning": true,
+        "remote_content": true,
+        "runtime_ui_validation_required": true,
+        "primary_task": "tasks/bug_fixing.md",
+        "overlay_tasks": [],
+        "patch_shape": "local_fix",
+        "root_cause_chain_checked": ["symptom", "immediate caller"],
+        "pre_patch_blockers": "none",
+        "why_not_local_fix": "none",
+        "private_capability_check": "none",
+        "validation_gaps": "none",
+        "primary_validation_lane": "none"
+      }
+    }
+  ]
+}

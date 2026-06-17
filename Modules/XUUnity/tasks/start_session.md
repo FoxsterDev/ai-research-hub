@@ -129,6 +129,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/remote_only_failure_bisection.md` when a failure reproduces only in CI or another non-interactive environment and each verification costs a push-and-wait round-trip. Trigger keywords include `hang`, `timed out`, `only fails in CI`, `cannot reproduce locally`, canceled stuck job.
 - Load `knowledge/mcp_scenario_authoring.md` when the task authors, reviews, or debugs Unity MCP scenario JSON or ordered MCP smoke flows, especially when steps include `project_defined_hook`, `project_refresh`, `compile_player_scripts`, `playmode_set`, build profile switches, scripting define mutation, or package/asset/project-settings mutation.
 - Load `knowledge/validation_contract.md` when the task must produce or update a stable validation schema across session routing, planning, implementation, or review.
+- Load `knowledge/routing_trigger_matrix.md` when classifying a runtime-warning, exception, popup, remote-content, or startup/config-ownership family; it maps signal -> required stack, required owner chain, allowed patch shapes, validation lane, and private capability check, and routes the derived routing contract through the pre-patch gate checker `scripts/routing_gate_check.py` (worked examples in `scripts/tests/routing_fixtures/`).
 - Load `knowledge/risk_classification.md` when task assembly needs an explicit risk class or matched policy pack, especially for SDK, startup, manifest/native, monetization, save/load, UI-heavy, or other critical-flow-sensitive work.
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
@@ -224,6 +225,7 @@ If the active repo router, project router, or project registry declares a differ
 - Prefer ownership and sequencing fixes over payload-only patching when the bug touches startup, consent, async delivery, or SDK state.
 - A local patch such as `set the id immediately before sending the event` is not sufficient by default when the real breakage surface may be SDK readiness, delayed delivery, consent order, or startup ownership.
 - A local patch such as `ignore missing content`, `suppress the warning`, or `fallback to loaded true` is not sufficient by default when the real breakage surface may be disabled initialization, inactive config, missing manifest registration, remote-content publication, or service startup ownership.
+- For runtime-content warning families, select the required owner chain and allowed patch shapes from `knowledge/routing_trigger_matrix.md`, and validate the derived routing contract with `scripts/routing_gate_check.py` before a source patch; a `local_fix` classification that fails the gate must be reclassified, not forced.
 
 ## Execution Contract
 - Derive and surface the compact execution contract before patching, large review output, or implementation planning.
