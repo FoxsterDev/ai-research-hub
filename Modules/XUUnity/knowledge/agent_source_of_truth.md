@@ -24,6 +24,13 @@ Keep `xuunity` guidance durable, shared, and reusable when multiple AI agents or
 - Project memory is correct for project architecture, product behavior, local footguns, project-specific SDK setup, and constraints that would not make sense outside that project.
 - Agent-private memory is correct only for how a specific agent finds and applies the shared truth.
 
+## Entrypoint Contract
+- A selected router, protocol entrypoint, or start-session file is atomic context: load it from first line through EOF before applying it.
+- A partial read, summary, excerpt, search hit, or fixed line window is not valid entrypoint loading.
+- Keep default-loaded entrypoints small: target 150-220 lines; split by 300 lines.
+- Put detailed rules, command catalogs, and matrices in explicitly routed owner files.
+- Longer knowledge, review, skill, and reference files are valid only when trigger-loaded; they are not default entrypoints.
+
 ## Review Questions
 - Is this rule reusable outside the current project?
 - Is it public-safe, or does it depend on host-private workflow?
