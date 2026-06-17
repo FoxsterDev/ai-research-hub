@@ -69,35 +69,7 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
   - platform storage backend
 19b. For cache, persistence, startup override, or remote-config tasks, prefer the smallest architecture that satisfies the derived product contract and restate that contract before broader implementation if redesign churn appears.
 20. Decide the safest implementation shape before writing code.
-20a. Before implementation, review, or planning output is finalized, derive a compact execution contract for the session.
-20b. Minimum execution-contract fields:
-  - `resolved_project`
-  - `primary_task`
-  - `overlay_tasks`
-  - `matched_skills`
-  - `matched_policy_packs`
-  - `matched_private_packs`
-  - `private_pack_report_references`
-  - `trigger_reasons`
-  - `risk_class`
-  - `root_cause_chain_checked`
-  - `patch_shape`
-  - `pre_patch_blockers`
-  - `primary_validation_lane`
-  - `secondary_validation_lane`
-  - `lane_selection_reason`
-  - `expected_evidence_class`
-  - `validation_contract`
-  - `why_not_local_fix`
-  - `validation_gaps`
-  - `required_validation`
-  - `required_self_review`
-20c. Keep the execution contract short and concrete. Use `none` when a field is intentionally empty instead of omitting it.
-20d. If investigation changes the inferred stack, risk class, or validation obligations, update the execution contract before proposing a patch or final recommendation.
-20e. For `tasks/bug_fixing.md`, treat `required_validation` as provisional until patch-shape classification is known, then derive it from patch shape and bug family instead of leaving it at generic wording such as `validate fix`.
-20f. If investigation reveals queues, flush paths, cache fallbacks, delay gates, helper wrappers, or other orchestration ballast, add those signals to `trigger_reasons` and make `required_self_review` explicitly cover simplification and complexity-budget review.
-20g. If the user is likely to copy code, commands, config, prompts, or patch text from the answer, add a copy-safety check to `required_self_review` and plan the final answer around clean fenced blocks.
-20h. If new tests are authored, extend `required_self_review` to include a quick test-quality pass against `skills/tests/testing_doctrine.md` and `reviews/test_quality_review.md`.
+20a. Before implementation, review, or planning output is finalized, derive the compact execution contract for the session. `knowledge/execution_contract.md` is the single owner of the field set, field meanings, and contract rules (brevity, `none` instead of omitting, update-on-change, `required_validation` derivation for `tasks/bug_fixing.md`, and `required_self_review` obligations). Reference the owner instead of re-listing the fields here.
 21. If the task depends on validation, confirm whether the available tool path is representative for a Unity project before running it; if not, avoid defaulting to substitute shell-driven validation and plan for an explicit validation gap.
 22. Do not treat the mere presence of a Unity binary or CLI entrypoint as proof that direct shell-launched Unity validation is allowed for the current repo.
 22a. If the project exposes a supported Unity MCP path, treat that MCP path as the default Unity-aware validation surface.
@@ -254,36 +226,8 @@ If the active repo router, project router, or project registry declares a differ
 - A local patch such as `ignore missing content`, `suppress the warning`, or `fallback to loaded true` is not sufficient by default when the real breakage surface may be disabled initialization, inactive config, missing manifest registration, remote-content publication, or service startup ownership.
 
 ## Execution Contract
-- Derive and surface a compact execution contract before patching, large review output, or implementation planning.
-- Use this shape:
-  - `resolved_project`
-  - `primary_task`
-  - `overlay_tasks`
-  - `matched_skills`
-  - `matched_policy_packs`
-  - `matched_private_packs`
-  - `private_pack_report_references`
-  - `trigger_reasons`
-  - `risk_class`
-  - `root_cause_chain_checked`
-  - `patch_shape`
-  - `pre_patch_blockers`
-  - `primary_validation_lane`
-  - `secondary_validation_lane`
-  - `lane_selection_reason`
-  - `expected_evidence_class`
-  - `validation_contract`
-  - `why_not_local_fix`
-  - `validation_gaps`
-  - `required_validation`
-  - `required_self_review`
-- `required_validation` should name the narrowest representative proof currently required, such as affected assembly compile, representative build target, explicit runtime validation gap, or a review-only limitation.
-- The validation-contract fields should use the exact schema from `knowledge/validation_contract.md`.
-- When a supported Unity MCP path exists for the project, prefer `interactive_mcp` or MCP-backed `batch_compile` over non-MCP substitutes.
-- For `tasks/bug_fixing.md`, update `required_validation` after patch-shape classification so it reflects patch shape and bug family rather than generic session risk alone.
-- `required_self_review` should say what must still be re-checked before closure, such as hidden behavior drift, queue cleanup, ownership fallout, or contract fallout from moved call paths.
-- When queues, flags, wrappers, flush paths, or cache-backed fallbacks appear during investigation, include them in `trigger_reasons` and require explicit simplification and complexity-budget review before closure.
-- If investigation changes routing or patch shape later in the session, update the execution contract before patching or final closure.
+- Derive and surface the compact execution contract before patching, large review output, or implementation planning.
+- `knowledge/execution_contract.md` is the single owner of the field set, field meanings, and contract rules; its validation cluster is owned by `knowledge/validation_contract.md`. Reference the owner instead of copying the field list.
 - Use `utilities/routing_debug_template.md` when the user asks for routing/start-session debug, when private-pack loading must be accounted for, or when root-cause gating blocks a local patch and the loaded stack must be made explicit.
 
 ## Shorthand Expansion Rules
@@ -705,28 +649,7 @@ Use these utilities when the task is about the protocol system itself:
 ## Output
 - Selected stack
 - Inferred risk class, if any
-- Derived execution contract:
-  - `resolved_project`
-  - `primary_task`
-  - `overlay_tasks`
-  - `matched_skills`
-  - `matched_policy_packs`
-  - `matched_private_packs`
-  - `private_pack_report_references`
-  - `trigger_reasons`
-  - `risk_class`
-  - `root_cause_chain_checked`
-  - `patch_shape`
-  - `pre_patch_blockers`
-  - `primary_validation_lane`
-  - `secondary_validation_lane`
-  - `lane_selection_reason`
-  - `expected_evidence_class`
-  - `validation_contract`
-  - `why_not_local_fix`
-  - `validation_gaps`
-  - `required_validation`
-  - `required_self_review`
+- Derived execution contract (the field set defined in `knowledge/execution_contract.md`)
 - Missing project memory, if any
 - Main risk areas for the session
 - Critical flows that must not regress
