@@ -8,6 +8,8 @@ The canonical shareable AI handoff file is `AI_ASSISTED_SETUP_PROMPT.md`.
 Start here:
 - `AI_ASSISTED_SETUP_PROMPT.md` for the one-file AI-driven setup handoff
 - `AI_EASY_SETUP.md` for the shortest human-friendly setup path
+- `AIROOT_INSTALL_RETRO_PROMPT.md` when setup failed, was confusing, or needed
+  manual workaround and you want a useful client report
 
 Use these next:
 - `SETUP_INDEX.md` for script-level bootstrap entrypoints

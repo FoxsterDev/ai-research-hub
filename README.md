@@ -219,6 +219,7 @@ HostRepo/
 Use:
 - [AI_EASY_SETUP.md](./Operations/Setup/AI_EASY_SETUP.md) for the simplest first-use path
 - [AI_ASSISTED_SETUP_PROMPT.md](./Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md) when an AI agent should drive setup
+- [AIROOT_INSTALL_RETRO_PROMPT.md](./Operations/Setup/AIROOT_INSTALL_RETRO_PROMPT.md) when setup failed or needed manual recovery
 - [Operations/README.md](./Operations/README.md) for public operation and tool surfaces after bootstrap
 - [INTEGRATION.md](./INTEGRATION.md) for the host contract
 - [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) for setup entrypoints

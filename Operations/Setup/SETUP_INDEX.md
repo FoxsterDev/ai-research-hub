@@ -10,11 +10,13 @@ For most people, do not start here.
 Start with:
 - `AI_EASY_SETUP.md` for the simplest human-friendly path
 - `AI_ASSISTED_SETUP_PROMPT.md` when an AI agent should drive setup
+- `AIROOT_INSTALL_RETRO_PROMPT.md` when setup failed or needed manual recovery
 
 ## Start Here
 
 - Easy user-facing setup guide: `AI_EASY_SETUP.md`
 - AI-assisted setup prompt: `AI_ASSISTED_SETUP_PROMPT.md`
+- Install retro report prompt: `AIROOT_INSTALL_RETRO_PROMPT.md`
 - Main setup guide: `AI_SETUP.md`
 - Host/module integration guide: `../INTEGRATION.md`
 

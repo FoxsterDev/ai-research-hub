@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_ASSISTED_SETUP_PROMPT.md</code></span>
-        <span class="pill">Generated: 2026-05-13 13:54:38 UTC</span>
+        <span class="pill">Generated: 2026-06-18 12:52:26 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_ASSISTED_SETUP_PROMPT.md">Open Markdown Source</a>
@@ -330,6 +330,7 @@ h1 {
         <a href="#prompt">Prompt</a>
         <a href="#main-rule">Main Rule</a>
         <a href="#post-validation-rule">Post-Validation Rule</a>
+        <a href="#if-setup-fails-or-needs-manual-recovery">If Setup Fails Or Needs Manual Recovery</a>
         <a href="#recommended-send-order">Recommended Send Order</a>
       </div>
     </section>
@@ -434,11 +435,27 @@ Rules:
 <li><code>xuunity product health this project</code></li>
 <li><code>xuunity project memory freshness this project</code></li>
 </ul>
+<h2 id="if-setup-fails-or-needs-manual-recovery">If Setup Fails Or Needs Manual Recovery</h2>
+<p>Do not lose the first failing state.</p>
+<p>Use <code>AIROOT_INSTALL_RETRO_PROMPT.md</code> to produce a client-safe install retro
+report with:</p>
+<ul>
+<li>first failing step</li>
+<li>exact command and current directory</li>
+<li>OS, shell, AI client, and launcher flavor</li>
+<li>CRLF/LF and Git line-ending evidence when scripts or Windows wrappers failed</li>
+<li>generated setup files that exist or are missing</li>
+<li>the smallest setup change that would have prevented or diagnosed the problem</li>
+</ul>
 <h2 id="recommended-send-order">Recommended Send Order</h2>
 <p>If you are sending only one file to a teammate for a generic <code>AIRoot</code>-based repo, send this one first.</p>
 <p>If they need a more human-readable fallback after that:</p>
 <ul>
 <li><code>AI_EASY_SETUP.md</code></li>
+</ul>
+<p>If they hit setup friction and you need maintainer-quality evidence:</p>
+<ul>
+<li><code>AIROOT_INSTALL_RETRO_PROMPT.md</code></li>
 </ul>
 
       </article>
