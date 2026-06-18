@@ -138,3 +138,8 @@ After setup is done:
 - for normal product-facing work, use `../AI_PRODUCT_FACING_GUIDE.md`
 - for deeper script-level bootstrap details, use `SETUP_INDEX.md`
 - for full setup contract details, use `AI_SETUP.md`
+
+If setup fails, feels confusing, or required manual recovery:
+- use `AIROOT_INSTALL_RETRO_PROMPT.md`
+- capture the first failing command before changing state
+- send the resulting report back to the maintainer so setup can be improved

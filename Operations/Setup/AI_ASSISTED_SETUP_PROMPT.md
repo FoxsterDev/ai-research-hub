@@ -103,9 +103,25 @@ If the host already has initialized projects, recommend the first readiness chec
 - `xuunity product health this project`
 - `xuunity project memory freshness this project`
 
+## If Setup Fails Or Needs Manual Recovery
+
+Do not lose the first failing state.
+
+Use `AIROOT_INSTALL_RETRO_PROMPT.md` to produce a client-safe install retro
+report with:
+- first failing step
+- exact command and current directory
+- OS, shell, AI client, and launcher flavor
+- CRLF/LF and Git line-ending evidence when scripts or Windows wrappers failed
+- generated setup files that exist or are missing
+- the smallest setup change that would have prevented or diagnosed the problem
+
 ## Recommended Send Order
 
 If you are sending only one file to a teammate for a generic `AIRoot`-based repo, send this one first.
 
 If they need a more human-readable fallback after that:
 - `AI_EASY_SETUP.md`
+
+If they hit setup friction and you need maintainer-quality evidence:
+- `AIROOT_INSTALL_RETRO_PROMPT.md`

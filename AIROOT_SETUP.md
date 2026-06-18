@@ -37,6 +37,7 @@ When an agent sees this command, it should:
 - `Operations/Setup/README.md`
 - `Operations/Setup/AI_ASSISTED_SETUP_PROMPT.md`
 - `Operations/Setup/AI_EASY_SETUP.md`
+- `Operations/Setup/AIROOT_INSTALL_RETRO_PROMPT.md`
 - `Operations/Setup/SETUP_INDEX.md`
 - `Operations/Setup/AI_SETUP.md`
 

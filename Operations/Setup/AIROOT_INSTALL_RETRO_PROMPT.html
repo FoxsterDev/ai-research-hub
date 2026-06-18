@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIRoot Install Retro Prompt</title>
+  <style>
+:root {
+  --bg: #efe5d7;
+  --panel: rgba(255, 250, 244, 0.94);
+  --panel-strong: #fff5ea;
+  --text: #211b17;
+  --muted: #665d55;
+  --border: #dbcdbd;
+  --accent: #214f5c;
+  --accent-soft: #e2eff4;
+  --accent-2: #815235;
+  --shadow: 0 18px 40px rgba(44, 34, 24, 0.09);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.1), transparent 28%),
+    linear-gradient(180deg, #e8dccd 0%, var(--bg) 100%);
+  line-height: 1.62;
+}
+
+a {
+  color: var(--accent);
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 18px 64px;
+}
+
+.hero,
+.content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 26px;
+  margin-bottom: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.08), transparent 30%),
+    linear-gradient(180deg, #fffaf5 0%, var(--panel) 100%);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: clamp(32px, 5vw, 44px);
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 0;
+  font-size: 18px;
+  color: var(--muted);
+  max-width: 850px;
+}
+
+.hero-meta,
+.hero-links,
+.hero-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.pill,
+.hero-links a,
+.hero-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--border);
+}
+
+.pill {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.hero-links a {
+  background: #fff;
+}
+
+.hero-nav a {
+  background: var(--accent-soft);
+  border-color: #c5d7de;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content > article > :first-child {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  scroll-margin-top: 24px;
+}
+
+.content h2 {
+  margin-top: 34px;
+  padding-top: 6px;
+  font-size: 28px;
+}
+
+.content h3 {
+  margin-top: 26px;
+  font-size: 22px;
+}
+
+.content p,
+.content li,
+.content blockquote {
+  color: var(--muted);
+}
+
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content li + li {
+  margin-top: 6px;
+}
+
+.content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 28px 0;
+}
+
+.content blockquote {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid var(--accent);
+  background: #f6fbfc;
+  border-radius: 12px;
+}
+
+.content code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+.content pre {
+  margin: 18px 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f7f0e7;
+  color: #372f29;
+}
+
+.content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.table-wrap th:last-child,
+.table-wrap td:last-child {
+  border-right: 0;
+}
+
+.table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-wrap th {
+  background: #f8efe3;
+}
+
+.mermaid {
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.diagram-shell {
+  margin: 20px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 247, 240, 0.98) 100%);
+  box-shadow: 0 14px 30px rgba(44, 34, 24, 0.08);
+  overflow: hidden;
+}
+
+.diagram-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(circle at right, rgba(33, 79, 92, 0.08), transparent 35%),
+    linear-gradient(180deg, #fffaf5 0%, #f9efe4 100%);
+}
+
+.diagram-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-body {
+  padding: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(33, 79, 92, 0.05), transparent 30%),
+    #fff;
+}
+
+.diagram-body .mermaid[data-rendered="false"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #3f352d;
+  white-space: pre-wrap;
+}
+
+.footer {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+
+  .hero,
+  .content {
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .content h2 {
+    font-size: 24px;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <p class="eyebrow">Codex Markdown View</p>
+      <h1>AIRoot Install Retro Prompt</h1>
+      <p class="lead">Date: `2026-06-18` Status: `active public prompt`</p>
+      <div class="hero-meta">
+        <span class="pill">Source: <code>AIROOT_INSTALL_RETRO_PROMPT.md</code></span>
+        <span class="pill">Generated: 2026-06-18 12:52:25 UTC</span>
+      </div>
+      <div class="hero-links">
+        <a href="./AIROOT_INSTALL_RETRO_PROMPT.md">Open Markdown Source</a>
+      </div>
+
+      <div class="hero-nav">
+        <a href="#purpose">Purpose</a>
+        <a href="#use-when">Use When</a>
+        <a href="#do-not-use-when">Do Not Use When</a>
+        <a href="#redaction-rule">Redaction Rule</a>
+        <a href="#inputs-to-gather-first">Inputs To Gather First</a>
+        <a href="#preferred-command-evidence">Preferred Command Evidence</a>
+        <a href="#prompt">Prompt</a>
+        <a href="#report-template">Report Template</a>
+        <a href="#expected-outputs">Expected Outputs</a>
+        <a href="#promotion-targets">Promotion Targets</a>
+        <a href="#notes">Notes</a>
+      </div>
+    </section>
+
+    <main class="content">
+      <article>
+<p>Date: <code>2026-06-18</code>
+Status: <code>active public prompt</code></p>
+<h2 id="purpose">Purpose</h2>
+<p>Use this prompt after installing or onboarding <code>AIRoot</code> into a new client repo
+when setup failed, felt confusing, required manual workaround, or succeeded only
+after undocumented help.</p>
+<p>The goal is to collect a structured install retro report that can improve:</p>
+<ul>
+<li><code>AI_EASY_SETUP.md</code></li>
+<li><code>AI_ASSISTED_SETUP_PROMPT.md</code></li>
+<li><code>AIROOT_SETUP_PROTOCOL.md</code></li>
+<li>setup scripts under <code>AIRoot/scripts/</code></li>
+<li>generated routers, setup checks, and recovery diagnostics</li>
+</ul>
+<p>This prompt is intentionally about AIRoot setup itself. It is not a normal
+project work prompt and it is not the XUUnity Light Unity MCP install retro.</p>
+<h2 id="use-when">Use When</h2>
+<ul>
+<li>the easy setup path did not get the client to a working repo</li>
+<li>the AI-assisted setup prompt produced unclear or wrong actions</li>
+<li>the client tried to set up AIRoot manually and got stuck</li>
+<li><code>.sh</code>, <code>.cmd</code>, <code>.bat</code>, <code>.ps1</code>, Git Bash, PowerShell, <code>cmd.exe</code>, WSL, or an AI
+client terminal behaved differently than expected</li>
+<li>a script failed because of CRLF/LF line endings, executable bits, shell
+selection, path quoting, or missing Bash</li>
+<li>clone, auth, local folder selection, or &quot;open the repo root&quot; was confusing</li>
+<li>the agent started from the wrong directory or tried to mutate the <code>AIRoot</code>
+repo itself instead of a host repo containing <code>AIRoot/</code></li>
+<li>topology classification was ambiguous: single-project versus monorepo</li>
+<li><code>--dry-run</code>, apply, <code>--check</code>, or <code>--fix</code> failed</li>
+<li><code>Agents.md</code>, <code>AIOutput/Registry/setup_status.yaml</code>,
+<code>AIOutput/Registry/host_topology.yaml</code>, project routers, or
+<code>Assets/AIOutput/ProjectMemory/</code> did not appear as expected</li>
+<li>setup succeeded but the next user-facing step was unclear</li>
+</ul>
+<h2 id="do-not-use-when">Do Not Use When</h2>
+<ul>
+<li>normal project work is already running through <code>xuunity</code></li>
+<li>the problem is specifically XUUnity Light Unity MCP package installation or
+MCP client wiring; use the MCP install retro prompt for that surface</li>
+<li>the report would require exposing private source, secrets, tokens, passwords,
+private repo URLs, customer names, or unrelated logs</li>
+</ul>
+<h2 id="redaction-rule">Redaction Rule</h2>
+<p>Before sharing the report, replace private values with stable placeholders:</p>
+<ul>
+<li><code>&lt;client-repo&gt;</code></li>
+<li><code>&lt;host-root&gt;</code></li>
+<li><code>&lt;unity-project&gt;</code></li>
+<li><code>&lt;user-home&gt;</code></li>
+<li><code>&lt;private-remote&gt;</code></li>
+<li><code>&lt;ai-client&gt;</code></li>
+</ul>
+<p>Do not include API keys, auth tokens, passwords, private SSH keys, private repo
+URLs with credentials, machine usernames, or full unrelated logs.</p>
+<p>Keep useful public-safe evidence:</p>
+<ul>
+<li>OS and shell names</li>
+<li>AIRoot commit, tag, or branch</li>
+<li>command names</li>
+<li>sanitized paths</li>
+<li>exact error codes and short error excerpts</li>
+<li>Git line-ending metadata</li>
+<li>setup script output</li>
+<li>generated file presence or absence</li>
+</ul>
+<h2 id="inputs-to-gather-first">Inputs To Gather First</h2>
+<p>At minimum, collect:</p>
+<ol>
+<li>OS and version.</li>
+<li>Shell or terminal used for each command: PowerShell, <code>cmd.exe</code>, Git Bash,
+WSL, macOS Terminal, VS Code terminal, AI client terminal, or other.</li>
+<li>AI client used: VS Code, ChatGPT desktop, Codex CLI, Claude Desktop, Claude
+Code, Cursor, Rider, or other.</li>
+<li>Whether the AI client had local folder access and terminal execution.</li>
+<li>Repo clone URL source, redacted as <code>&lt;private-remote&gt;</code> if needed.</li>
+<li>Local folder chosen, redacted as <code>&lt;host-root&gt;</code>.</li>
+<li>Whether the opened folder was the host repo root or <code>AIRoot/</code> itself.</li>
+<li>AIRoot version evidence: commit, branch, tag, or archive date.</li>
+<li>Which setup doc was followed first.</li>
+<li>Exact commands attempted, in order, with current directory for each.</li>
+<li>First visible error, before any retry changed state.</li>
+<li>Any manual workaround applied.</li>
+<li>Whether files were modified by setup before the failure.</li>
+<li>Which generated files exist now and which are missing.</li>
+<li>If Windows or mixed shell behavior was involved, the launcher flavor for
+each command: <code>.sh</code>, <code>.cmd</code>, <code>.bat</code>, <code>.ps1</code>, direct <code>bash</code>, direct <code>python</code>,
+Git Bash, PowerShell, <code>cmd.exe</code>, WSL, or AI client stdio.</li>
+</ol>
+<p>If a command cannot run, record the command, current directory, and exact error
+instead of guessing.</p>
+<h2 id="preferred-command-evidence">Preferred Command Evidence</h2>
+<p>Run only the commands that match the actual setup route. Prefer <code>--dry-run</code>
+before mutating setup.</p>
+<h3 id="cross-platform-repo-facts">Cross-platform repo facts</h3>
+<pre><code class="language-bash">git rev-parse --show-toplevel
+git status --short
+git log -1 --oneline
+git submodule status
+</code></pre>
+<p>If <code>AIRoot</code> is a submodule or nested folder:</p>
+<pre><code class="language-bash">git -C AIRoot log -1 --oneline
+git -C AIRoot status --short
+</code></pre>
+<h3 id="macos-linux-or-git-bash-setup-evidence">macOS, Linux, or Git Bash setup evidence</h3>
+<p>From the host repo root that contains <code>AIRoot/</code>:</p>
+<pre><code class="language-bash">pwd
+ls -la
+ls -la AIRoot/scripts
+bash AIRoot/scripts/init_ai_topology.sh --help
+bash AIRoot/scripts/init_ai_topology.sh --profile &lt;single_project_default|monorepo_overlay_default&gt; --dry-run
+bash AIRoot/scripts/init_ai_topology.sh --profile &lt;single_project_default|monorepo_overlay_default&gt; --check
+</code></pre>
+<p>For project-level setup:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_project.sh --project &lt;project-path-or-name&gt; --repo-mode &lt;auto|single-project|monorepo&gt; --dry-run
+bash AIRoot/scripts/init_ai_project.sh --project &lt;project-path-or-name&gt; --repo-mode &lt;auto|single-project|monorepo&gt; --check
+</code></pre>
+<p>For repo-level setup without topology wrapper:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_repo.sh --repo-mode &lt;auto|single-project|monorepo&gt; --dry-run
+bash AIRoot/scripts/init_ai_repo.sh --repo-mode &lt;auto|single-project|monorepo&gt; --check
+</code></pre>
+<h3 id="windows-launcher-and-line-ending-evidence">Windows launcher and line-ending evidence</h3>
+<p>From PowerShell at the host repo root:</p>
+<pre><code class="language-powershell">Get-Location
+git rev-parse --show-toplevel
+git status --short
+git log -1 --oneline
+git config --show-origin --get core.autocrlf
+git ls-files --eol AIRoot/scripts/init_ai_topology.sh AIRoot/scripts/init_ai_repo.sh AIRoot/scripts/init_ai_project.sh
+Get-ChildItem .\AIRoot\scripts
+where.exe bash
+bash --version
+bash -n AIRoot/scripts/init_ai_topology.sh
+bash AIRoot/scripts/init_ai_topology.sh --help
+</code></pre>
+<p>Then run the same <code>--dry-run</code> and <code>--check</code> commands through the launcher that
+actually failed. Record whether the failing boundary was:</p>
+<ul>
+<li>PowerShell calling <code>bash</code></li>
+<li><code>cmd.exe</code> calling <code>bash</code></li>
+<li>Git Bash directly</li>
+<li>WSL</li>
+<li>an AI client terminal</li>
+<li>a <code>.cmd</code>, <code>.bat</code>, or <code>.ps1</code> wrapper supplied by the host project</li>
+</ul>
+<p>If CRLF/LF is suspected, keep the first error text exactly. Useful examples:</p>
+<ul>
+<li><code>$&#39;\r&#39;: command not found</code></li>
+<li><code>env: bash\r: No such file or directory</code></li>
+<li><code>syntax error near unexpected token $&#39;\r&#39;</code></li>
+<li>a <code>.cmd</code> or <code>.bat</code> wrapper opening and closing with no visible output</li>
+<li>PowerShell execution policy blocking a <code>.ps1</code></li>
+</ul>
+<p>Do not silently convert line endings before capturing evidence. If conversion
+was already done, report which tool was used and whether the command passed
+afterward.</p>
+<h3 id="generated-setup-state">Generated setup state</h3>
+<p>After a setup attempt, collect file presence without pasting private contents:</p>
+<pre><code class="language-bash">test -f Agents.md &amp;&amp; echo &quot;root Agents.md exists&quot; || echo &quot;root Agents.md missing&quot;
+test -f AIOutput/Registry/setup_status.yaml &amp;&amp; echo &quot;setup_status exists&quot; || echo &quot;setup_status missing&quot;
+test -f AIOutput/Registry/host_topology.yaml &amp;&amp; echo &quot;host_topology exists&quot; || echo &quot;host_topology missing&quot;
+find . -maxdepth 4 -name Agents.md 2&gt;/dev/null | sort
+find . -maxdepth 8 -path &quot;*/Assets/AIOutput/ProjectMemory&quot; 2&gt;/dev/null | sort
+</code></pre>
+<p>PowerShell equivalent:</p>
+<pre><code class="language-powershell">Test-Path .\Agents.md
+Test-Path .\AIOutput\Registry\setup_status.yaml
+Test-Path .\AIOutput\Registry\host_topology.yaml
+Get-ChildItem -Recurse -Filter Agents.md -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+Get-ChildItem -Recurse -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -like &quot;*Assets*AIOutput*ProjectMemory*&quot; } |
+  Select-Object -ExpandProperty FullName
+</code></pre>
+<h2 id="prompt">Prompt</h2>
+<pre><code class="language-text">Analyze this AIRoot installation/setup experience and produce an install retro report that AIRoot maintainers can use to improve setup.
+
+Goal:
+- identify the first failing setup step
+- separate documentation confusion, clone/auth issues, AI client limitations, wrong working directory, shell/launcher problems, line-ending problems, topology ambiguity, script behavior, generated-file gaps, and post-setup handoff gaps
+- preserve the smallest reproduction path maintainers can act on
+- capture enough evidence to improve AIRoot setup without leaking private client information
+
+Required questions:
+1. Which setup path was attempted first: AI_EASY_SETUP, AI_ASSISTED_SETUP_PROMPT, AIROOT_SETUP_PROTOCOL, direct script use, manual copy, or another path?
+2. What did the client expect to happen at that step?
+3. What actually happened, including the first visible error?
+4. What was the current working directory for the first failed command?
+5. Was the opened folder the host repo root that contains AIRoot, or the AIRoot folder itself?
+6. Which AI client was used, and did it have local repo access and terminal access?
+7. Which OS, terminal, shell, and launcher flavor were used for each attempted command?
+8. On Windows, did the failure differ between PowerShell, cmd.exe, Git Bash, WSL, and the AI client terminal?
+9. If a .sh, .cmd, .bat, or .ps1 failed, what exact file was launched and what exact error appeared?
+10. If CRLF/LF is suspected, what did git ls-files --eol show for AIRoot setup scripts, and what did bash -n report?
+11. Was Git installed and visible to the terminal or AI client?
+12. Was Bash installed and visible when a shell script was attempted?
+13. Did any path contain spaces or non-ASCII characters, and did only one shell/client boundary fail there?
+14. Was the target topology single-project, monorepo/multi-project, or unclear?
+15. Was a dry-run shown before any mutating setup command?
+16. Did the client explicitly approve the mutating command?
+17. Which command first changed files, if any?
+18. Did --check run after setup, and what did it report?
+19. Which generated outputs exist now: root Agents.md, AIOutput/Registry/setup_status.yaml, AIOutput/Registry/host_topology.yaml, project Agents.md files, and Assets/AIOutput/ProjectMemory?
+20. What manual workaround, if any, made progress possible?
+21. What should the setup flow have explained earlier to prevent the failure?
+22. What should setup detect automatically next time?
+
+Evidence to inspect:
+- client-provided timeline or chat transcript
+- OS, shell, terminal, and AI client name/version
+- sanitized repo path and whether it is the host root
+- AIRoot commit, branch, tag, or archive date
+- setup document followed first
+- exact commands and outputs
+- git status and git log evidence
+- git config core.autocrlf
+- git ls-files --eol for AIRoot setup scripts
+- bash -n output for failing shell scripts
+- directory listing of AIRoot/scripts
+- dry-run output
+- apply command output, if one was approved
+- --check output
+- generated file presence/absence
+- sanitized root Agents.md header when useful
+- sanitized setup_status.yaml and host_topology.yaml when useful
+- host-specific wrapper scripts if the failure involved .cmd, .bat, or .ps1
+- screenshots only when terminal text cannot be copied
+
+Output format:
+1. Issue title
+2. Executive summary
+3. Environment table
+4. Client and terminal matrix
+5. Repo layout and AIRoot version
+6. Setup route attempted
+7. Expected behavior
+8. Actual behavior
+9. First failing step
+10. Timeline of attempted actions
+11. Shell, launcher, and line-ending evidence
+12. Topology decision evidence
+13. Dry-run, apply, and check evidence
+14. Generated setup state
+15. Manual workaround applied
+16. Failure classification
+17. Most likely causes
+18. Smallest reproduction steps
+19. Setup improvements recommended
+20. Documentation improvements recommended
+21. Attachments or logs to include
+22. Redaction notes
+23. Maintainer questions that remain
+
+Failure classification vocabulary:
+- clone_auth_failed
+- git_missing_or_not_visible
+- ai_client_no_local_access
+- ai_client_no_terminal_access
+- wrong_repo_root
+- airroot_folder_missing
+- setup_doc_path_unclear
+- ai_hallucinated_command
+- topology_classification_ambiguous
+- dry_run_not_shown
+- dry_run_failed
+- mutation_without_confirmation
+- setup_apply_failed
+- setup_check_failed
+- existing_router_conflict
+- project_path_not_found
+- project_router_missing
+- project_memory_missing
+- setup_status_missing
+- host_topology_missing
+- bash_missing_or_not_visible
+- windows_launcher_flavor_mismatch
+- windows_execution_policy_blocked
+- line_endings_crlf_in_shell_script
+- git_eol_autocrlf_conflict
+- executable_permission_missing
+- path_with_spaces_argument_split
+- bat_or_cmd_wrapper_missing
+- wrapper_closed_without_output
+- docs_missing_recovery_step
+- success_with_manual_workaround
+- success_but_next_step_unclear
+- unknown_setup_failure
+
+Redaction rule:
+- remove secrets, tokens, private repo URLs, usernames, machine-specific home paths, customer names, and large unrelated logs
+- keep command names, public AIRoot paths, sanitized paths, OS/shell/client names, error codes, line-ending metadata, and short relevant error excerpts
+
+Do not stop at describing frustration.
+End with an issue-ready maintainer summary and the smallest setup change that would have prevented or diagnosed this install problem.
+</code></pre>
+<h2 id="report-template">Report Template</h2>
+<pre><code class="language-md"># AIRoot Install Retro Report
+
+## 1. Issue Title
+&lt;Short title that names the first failing boundary&gt;
+
+## 2. Executive Summary
+&lt;5-10 lines. Include whether setup failed, succeeded after workaround, or succeeded with confusing steps.&gt;
+
+## 3. Environment Table
+| Field | Value |
+| --- | --- |
+| OS | &lt;Windows/macOS/Linux + version&gt; |
+| AI client | &lt;client + version if known&gt; |
+| Terminal/shell | &lt;PowerShell/cmd/Git Bash/WSL/zsh/bash/etc.&gt; |
+| Git visible | &lt;yes/no/unknown&gt; |
+| Bash visible | &lt;yes/no/unknown/not needed&gt; |
+| AIRoot version | &lt;commit/tag/branch/archive date&gt; |
+| Host repo layout | &lt;single-project/monorepo/unknown&gt; |
+
+## 4. First Failing Step
+- Step:
+- Command:
+- Current directory:
+- Expected:
+- Actual:
+- Exact error:
+
+## 5. Timeline
+1. &lt;action, command, result&gt;
+2. &lt;action, command, result&gt;
+
+## 6. Shell, Launcher, And Line-Ending Evidence
+- Launcher attempted:
+- `core.autocrlf`:
+- `git ls-files --eol` summary:
+- `bash -n` result:
+- Did conversion or workaround happen:
+
+## 7. Setup State
+- Root `Agents.md`: &lt;exists/missing/not expected&gt;
+- `AIOutput/Registry/setup_status.yaml`: &lt;exists/missing&gt;
+- `AIOutput/Registry/host_topology.yaml`: &lt;exists/missing/not expected&gt;
+- Project routers: &lt;exists/missing/not checked&gt;
+- Project memory: &lt;exists/missing/not checked&gt;
+
+## 8. Failure Classification
+&lt;one or more values from the vocabulary&gt;
+
+## 9. Most Likely Causes
+- &lt;cause with evidence&gt;
+
+## 10. Smallest Reproduction Steps
+1. &lt;step&gt;
+2. &lt;step&gt;
+3. &lt;step&gt;
+
+## 11. Recommended Setup Improvements
+- &lt;script detection, clearer error, wrapper, docs, check, or recovery improvement&gt;
+
+## 12. Recommended Documentation Improvements
+- &lt;where the doc should explain the missing step earlier&gt;
+
+## 13. Attachments Or Logs
+- &lt;sanitized file/output list&gt;
+
+## 14. Redaction Notes
+- &lt;what was removed or replaced&gt;
+
+## 15. Maintainer Questions
+- &lt;only questions that remain after evidence review&gt;
+</code></pre>
+<h2 id="expected-outputs">Expected Outputs</h2>
+<p>A good AIRoot install retro should produce:</p>
+<ul>
+<li>a concise issue title</li>
+<li>a first-failing-step classification</li>
+<li>enough sanitized command evidence to reproduce the issue</li>
+<li>clear separation between client/tooling problems and AIRoot setup problems</li>
+<li>exact line-ending and launcher evidence when shell scripts or Windows wrappers
+were involved</li>
+<li>a smallest reproduction path</li>
+<li>setup and documentation improvement candidates</li>
+<li>explicit missing information when evidence is incomplete</li>
+</ul>
+<h2 id="promotion-targets">Promotion Targets</h2>
+<p>When the retro finds reusable value, prefer promoting it into:</p>
+<ul>
+<li><code>AI_EASY_SETUP.md</code> for human-first guidance</li>
+<li><code>AI_ASSISTED_SETUP_PROMPT.md</code> for AI-driven setup handoff improvements</li>
+<li><code>AIROOT_SETUP_PROTOCOL.md</code> for agent behavior rules</li>
+<li><code>AI_SETUP.md</code> for deeper setup contract changes</li>
+<li><code>SETUP_INDEX.md</code> for script-level entrypoint clarity</li>
+<li><code>AIRoot/scripts/init_ai_topology.sh</code></li>
+<li><code>AIRoot/scripts/init_ai_repo.sh</code></li>
+<li><code>AIRoot/scripts/init_ai_project.sh</code></li>
+<li>generated <code>Agents.md</code> templates</li>
+<li>setup <code>--check</code> and <code>--fix</code> diagnostics</li>
+<li>repo <code>.gitattributes</code> or script packaging rules if line endings caused the
+failure</li>
+</ul>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Prefer evidence from the first stuck state. A report after recovery is still
+useful, but it should say what was captured before versus after workaround.</li>
+<li>Do not collapse all Windows failures into &quot;Windows issue&quot;. The failing
+boundary matters: PowerShell, <code>cmd.exe</code>, Git Bash, WSL, AI client terminal,
+<code>.sh</code>, <code>.cmd</code>, <code>.bat</code>, and <code>.ps1</code> are different setup surfaces.</li>
+<li>Do not classify every path with spaces as broken because one shell command
+split arguments. Record which boundary failed.</li>
+<li><code>--dry-run</code> proves the setup plan. <code>--check</code> proves current setup state. Do
+not treat either one as a substitute for the other.</li>
+<li>A successful setup that required undocumented manual help is still a setup
+improvement candidate.</li>
+</ul>
+
+      </article>
+    </main>
+
+    <div class="footer">
+      Generated by <code>AIRoot/Operations/CodexMdToHtml/render_md_to_html.sh</code>.
+    </div>
+  </div>
+
+</body>
+</html>
