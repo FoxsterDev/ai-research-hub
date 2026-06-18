@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Use this file as the script-level bootstrap index for initializing a new host repo or project.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>SETUP_INDEX.md</code></span>
-        <span class="pill">Generated: 2026-06-18 12:52:26 UTC</span>
+        <span class="pill">Generated: 2026-06-18 16:17:09 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./SETUP_INDEX.md">Open Markdown Source</a>
@@ -379,6 +379,21 @@ The agent should resolve it through:</p>
 </code></pre>
 <p>Monorepo / multi-project default:</p>
 <pre><code class="language-bash">bash AIRoot/scripts/init_ai_topology.sh --profile monorepo_overlay_default --dry-run
+</code></pre>
+<h3 id="shell-line-ending-preflight">Shell line-ending preflight</h3>
+<p>On macOS, Linux, or Git Bash, check AIRoot setup scripts before running the
+topology command:</p>
+<pre><code class="language-bash">git -C AIRoot ls-files --eol &#39;scripts/*.sh&#39;
+bash -n AIRoot/scripts/init_ai_topology.sh
+</code></pre>
+<p>If Bash reports <code>^M</code>, <code>bash\r</code>, or <code>pipefail^M</code>, the shell scripts were checked
+out with CRLF endings. Fix the checkout or line endings before continuing.</p>
+<h3 id="python-interpreter-selection">Python interpreter selection</h3>
+<p>AIRoot setup uses Python for path normalization. By default it tries
+<code>AIRROOT_PYTHON</code>, <code>PYTHON</code>, <code>python3</code>, then <code>python</code>.</p>
+<p>On Windows Git Bash, if Python is installed at a native path with backslashes,
+set one of the environment variables and let the setup launcher normalize it:</p>
+<pre><code class="language-bash">AIRROOT_PYTHON=&quot;C:\Path\To\python.exe&quot; bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --dry-run
 </code></pre>
 <h3 id="topology-first-script">Topology-first script</h3>
 <ul>
@@ -447,6 +462,9 @@ The agent should resolve it through:</p>
 <li>Existing repo <code>Agents.md</code> is not rewritten silently.</li>
 <li>Existing project <code>Agents.md</code> is not rewritten silently.</li>
 <li>Use <code>--refresh-managed-router</code> only for a managed router you intentionally want to refresh.</li>
+<li>Use <code>--preserve-existing-router</code> when an unmanaged router should remain
+authoritative while setup creates or checks scaffold, registry, aliases, and
+project memory.</li>
 <li>Use <code>--adopt-existing-router</code> only after explicitly deciding to replace an unmanaged router.</li>
 </ul>
 <h2 id="monorepo-alias-wiring">Monorepo Alias Wiring</h2>

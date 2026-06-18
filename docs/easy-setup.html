@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_EASY_SETUP.md</code></span>
-        <span class="pill">Generated: 2026-06-18 12:52:26 UTC</span>
+        <span class="pill">Generated: 2026-06-18 16:17:09 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_EASY_SETUP.md">Open Markdown Source</a>
@@ -475,6 +475,19 @@ h1 {
 <li>review the plan</li>
 <li>apply only after confirmation</li>
 </ul>
+<p>Before running shell setup on macOS, Linux, or Git Bash, the agent should verify
+that AIRoot shell scripts are checked out with LF endings:</p>
+<pre><code class="language-bash">git -C AIRoot ls-files --eol &#39;scripts/*.sh&#39;
+bash -n AIRoot/scripts/init_ai_topology.sh
+</code></pre>
+<p>If Bash reports <code>^M</code>, <code>bash\r</code>, or <code>pipefail^M</code>, stop and treat it as a
+line-ending checkout problem. Do not diagnose it as normal setup logic.</p>
+<p>If the repo already has its own unmanaged <code>Agents.md</code>, bootstrap can preserve it
+instead of adopting or replacing it:</p>
+<pre><code class="language-bash">bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --preserve-existing-router --dry-run
+</code></pre>
+<p>Use <code>--adopt-existing-router</code> only when the current router has been reviewed and
+replacement is explicitly approved.</p>
 <h2 id="handoff">Handoff</h2>
 <p>After setup is done:</p>
 <ul>

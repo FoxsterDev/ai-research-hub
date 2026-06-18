@@ -50,6 +50,11 @@ Task:
    - single-project
    - monorepo / multi-project
 4. Show the exact dry-run command first.
+4a. On macOS, Linux, or Git Bash, check line endings before running setup:
+   - `git -C AIRoot ls-files --eol 'scripts/*.sh'`
+   - `bash -n AIRoot/scripts/init_ai_topology.sh`
+   If the shell reports `^M`, `bash\r`, or `pipefail^M`, stop and explain that
+   AIRoot shell scripts were checked out with CRLF endings.
 5. Explain what setup will create at a high level:
    - repo router
    - AIOutput scaffold
@@ -77,6 +82,11 @@ Fallback references only when needed:
 Rules:
 - If project memory and code disagree, code wins for current behavior.
 - For startup, SDK, manifest, plist, entitlement, privacy, or compliance-sensitive questions, use code-first verification.
+- If an unmanaged `Agents.md` already exists and should stay in place, use
+  `--preserve-existing-router` so setup can scaffold and check generated state
+  without rewriting that router.
+- Use `--adopt-existing-router` only after reviewing the existing router and
+  explicitly approving replacement with a managed router.
 ```
 
 ## Main Rule
@@ -98,6 +108,9 @@ Setup is complete only after:
 - the expected routing files exist
 - the expected `AIOutput/Registry/` status files exist
 - the next `xuunity` entrypoint is clear
+
+If the host intentionally preserves an unmanaged router, the matching `--check`
+command must also include `--preserve-existing-router`.
 
 If the host already has initialized projects, recommend the first readiness checks after setup:
 - `xuunity product health this project`
