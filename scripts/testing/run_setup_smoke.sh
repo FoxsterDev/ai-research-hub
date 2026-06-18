@@ -58,6 +58,18 @@ assert_contains() {
   grep -q "$pattern" "$path" || fail "Expected '$pattern' in $path"
 }
 
+assert_contains_either() {
+  local path="$1"
+  local pattern_a="$2"
+  local pattern_b="$3"
+
+  if grep -q "$pattern_a" "$path" || grep -q "$pattern_b" "$path"; then
+    return 0
+  fi
+
+  fail "Expected '$pattern_a' or '$pattern_b' in $path"
+}
+
 file_sha256() {
   local path="$1"
 
@@ -170,7 +182,7 @@ chmod +x "$fakebin/ln"
 )
 [ -f "$host_root/Game/Agents.repo.md" ] || fail "Alias fallback file missing"
 assert_contains "$host_root/Game/Agents.repo.md" "alias-fallback"
-assert_contains "$host_root/Game/Agents.repo.md" "target: ../Agents.md"
+assert_contains_either "$host_root/Game/Agents.repo.md" "target: ../Agents.md" "target: ..\\\\Agents.md"
 
 log "Python fallback"
 tmp_root="$(mktemp -d)"
