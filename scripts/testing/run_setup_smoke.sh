@@ -58,6 +58,28 @@ assert_contains() {
   grep -q "$pattern" "$path" || fail "Expected '$pattern' in $path"
 }
 
+file_sha256() {
+  local path="$1"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | awk '{print $1}'
+    return 0
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | awk '{print $1}'
+    return 0
+  fi
+
+  "$PYTHON_BIN" - "$path" <<'PY'
+import hashlib
+import sys
+
+with open(sys.argv[1], "rb") as f:
+    print(hashlib.sha256(f.read()).hexdigest())
+PY
+}
+
 PYTHON_BIN="$(resolve_python_bin)"
 
 log "Syntax"
@@ -105,13 +127,13 @@ tmp_root="$(mktemp -d)"
 host_root="$tmp_root/preserve"
 make_host_fixture "$host_root"
 printf '# Existing Router\nkeep me\n' > "$host_root/Agents.md"
-before_sum="$(shasum "$host_root/Agents.md" | awk '{print $1}')"
+before_sum="$(file_sha256 "$host_root/Agents.md")"
 (
   cd "$host_root"
   bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --preserve-existing-router
   bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --preserve-existing-router --check
 )
-after_sum="$(shasum "$host_root/Agents.md" | awk '{print $1}')"
+after_sum="$(file_sha256 "$host_root/Agents.md")"
 [ "$before_sum" = "$after_sum" ] || fail "Preserved unmanaged router changed"
 assert_contains "$host_root/AIOutput/Registry/setup_status.yaml" "preserved_unmanaged_repo_router"
 assert_contains "$host_root/AIOutput/Registry/host_topology.yaml" "preserved_unmanaged_repo_router"
