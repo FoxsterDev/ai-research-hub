@@ -53,6 +53,31 @@ Monorepo / multi-project default:
 bash AIRoot/scripts/init_ai_topology.sh --profile monorepo_overlay_default --dry-run
 ```
 
+### Shell line-ending preflight
+
+On macOS, Linux, or Git Bash, check AIRoot setup scripts before running the
+topology command:
+
+```bash
+git -C AIRoot ls-files --eol 'scripts/*.sh'
+bash -n AIRoot/scripts/init_ai_topology.sh
+```
+
+If Bash reports `^M`, `bash\r`, or `pipefail^M`, the shell scripts were checked
+out with CRLF endings. Fix the checkout or line endings before continuing.
+
+### Python interpreter selection
+
+AIRoot setup uses Python for path normalization. By default it tries
+`AIRROOT_PYTHON`, `PYTHON`, `python3`, then `python`.
+
+On Windows Git Bash, if Python is installed at a native path with backslashes,
+set one of the environment variables and let the setup launcher normalize it:
+
+```bash
+AIRROOT_PYTHON="C:\Path\To\python.exe" bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --dry-run
+```
+
 ### Topology-first script
 
 - `AIRoot/scripts/init_ai_topology.sh`
@@ -150,6 +175,9 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode monor
 - Existing repo `Agents.md` is not rewritten silently.
 - Existing project `Agents.md` is not rewritten silently.
 - Use `--refresh-managed-router` only for a managed router you intentionally want to refresh.
+- Use `--preserve-existing-router` when an unmanaged router should remain
+  authoritative while setup creates or checks scaffold, registry, aliases, and
+  project memory.
 - Use `--adopt-existing-router` only after explicitly deciding to replace an unmanaged router.
 
 ## Monorepo Alias Wiring

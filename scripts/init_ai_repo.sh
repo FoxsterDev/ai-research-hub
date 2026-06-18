@@ -9,15 +9,17 @@ REPO_MODE="auto"
 REPO_NAME=""
 ALLOW_MANAGED_REFRESH=0
 ALLOW_ADOPT_EXISTING=0
+ALLOW_PRESERVE_EXISTING=0
 WITH_XUUNITY_INTERNAL_OVERLAY=0
 REFRESH_MANAGED_OVERLAY=0
 DRY_RUN=0
 HOST_ROOT_ARG=""
+PYTHON_BIN=""
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash AIRoot/scripts/init_ai_repo.sh [--host-root <path>] [--repo-mode auto|single-project|monorepo] [--repo-name "CustomName"] [--with-xuunity-internal-overlay] [--refresh-managed-router] [--refresh-managed-overlay] [--adopt-existing-router] [--dry-run] [--check|--fix]
+  bash AIRoot/scripts/init_ai_repo.sh [--host-root <path>] [--repo-mode auto|single-project|monorepo] [--repo-name "CustomName"] [--with-xuunity-internal-overlay] [--refresh-managed-router] [--refresh-managed-overlay] [--preserve-existing-router] [--adopt-existing-router] [--dry-run] [--check|--fix]
 
 Examples:
   bash AIRoot/scripts/init_ai_repo.sh --repo-mode single-project --dry-run
@@ -36,6 +38,30 @@ fail() {
   exit 1
 }
 
+normalize_bash_path() {
+  printf '%s' "$1" | tr '\\' '/'
+}
+
+resolve_python_bin() {
+  local candidate
+  local normalized
+  local resolved
+
+  for candidate in "${AIRROOT_PYTHON:-}" "${PYTHON:-}" python3 python; do
+    [ -n "$candidate" ] || continue
+    normalized="$(normalize_bash_path "$candidate")"
+    if resolved="$(command -v "$normalized" 2>/dev/null)" && "$resolved" - <<'PY' >/dev/null 2>&1; then
+import sys
+raise SystemExit(0 if sys.version_info[0] >= 3 else 1)
+PY
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  done
+
+  fail "Python 3 was not found. Set AIRROOT_PYTHON or PYTHON to a Python 3 interpreter path."
+}
+
 dry_log() {
   printf 'DRY RUN: %s\n' "$1"
 }
@@ -48,7 +74,7 @@ resolve_root_dir() {
     return 0
   fi
 
-  python3 - "$value" <<'PY'
+  "$PYTHON_BIN" - "$value" <<'PY'
 import os
 import sys
 
@@ -60,7 +86,7 @@ path_contains() {
   local root="$1"
   local child="$2"
 
-  python3 - "$root" "$child" <<'PY'
+  "$PYTHON_BIN" - "$root" "$child" <<'PY'
 import os
 import sys
 
@@ -74,7 +100,7 @@ relative_path() {
   local target="$1"
   local start="$2"
 
-  python3 - "$target" "$start" <<'PY'
+  "$PYTHON_BIN" - "$target" "$start" <<'PY'
 import os
 import sys
 
@@ -113,6 +139,14 @@ validate_file() {
 router_is_managed() {
   local path="$1"
   [ -f "$path" ] && grep -Eq '^<!-- Managed by (scripts|AIRoot/scripts)/init_ai_repo\.sh -->$' "$path"
+}
+
+preflight_repo_router_conflict() {
+  if [ -f "$ROUTER_PATH" ] && ! router_is_managed "$ROUTER_PATH" && [ "$ALLOW_ADOPT_EXISTING" != "1" ] && [ "$ALLOW_PRESERVE_EXISTING" != "1" ]; then
+    fail "Repo router exists and is not managed by AIRoot/scripts/init_ai_repo.sh: $ROUTER_PATH
+Refusing to modify or validate setup around an unmanaged repo router without an explicit router mode.
+Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router only if replacement is approved."
+  fi
 }
 
 overlay_file_is_managed() {
@@ -684,6 +718,10 @@ while [ "$#" -gt 0 ]; do
       REFRESH_MANAGED_OVERLAY=1
       shift
       ;;
+    --preserve-existing-router)
+      ALLOW_PRESERVE_EXISTING=1
+      shift
+      ;;
     --adopt-existing-router)
       ALLOW_ADOPT_EXISTING=1
       shift
@@ -706,6 +744,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+PYTHON_BIN="$(resolve_python_bin)"
 ROOT_DIR="$(resolve_root_dir "$HOST_ROOT_ARG")"
 validate_host_root
 [ -n "$REPO_NAME" ] || REPO_NAME="$(basename "$ROOT_DIR")"
@@ -734,6 +773,8 @@ AI_OUTPUT_DIR="$ROOT_DIR/AIOutput"
 AI_OUTPUT_OPERATIONS_DIR="$ROOT_DIR/AIOutput/Operations"
 AI_OUTPUT_REPORTS_DIR="$ROOT_DIR/AIOutput/Reports"
 AI_OUTPUT_REGISTRY_DIR="$ROOT_DIR/AIOutput/Registry"
+
+preflight_repo_router_conflict
 
 log "AI repo init: $ROOT_DIR"
 log "Mode: $MODE"
@@ -782,13 +823,11 @@ Re-run with --refresh-managed-router if you want to rewrite the managed repo rou
       fi
     fi
   else
-    if [ "$MODE" = "--check" ] || [ "$ALLOW_ADOPT_EXISTING" != "1" ]; then
+    if [ "$ALLOW_PRESERVE_EXISTING" = "1" ]; then
       if [ "$DRY_RUN" = "1" ]; then
-        dry_log "unmanaged repo router exists and would not be replaced without --adopt-existing-router: $ROUTER_PATH"
+        dry_log "would preserve existing unmanaged repo router unchanged: $ROUTER_PATH"
       else
-        fail "Repo router exists and is not managed by AIRoot/scripts/init_ai_repo.sh: $ROUTER_PATH
-Refusing to modify an existing repo router without explicit approval.
-Read the current router, decide whether to merge or replace it, then re-run with --adopt-existing-router only if replacement is approved."
+        log "Preserved existing unmanaged repo router unchanged: $ROUTER_PATH"
       fi
     elif [ -e "$LEGACY_PATH" ]; then
       fail "Cannot preserve existing repo router because backup already exists: $LEGACY_PATH"

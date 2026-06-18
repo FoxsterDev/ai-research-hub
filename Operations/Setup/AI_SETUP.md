@@ -127,6 +127,23 @@ If the current working directory is not the host repo root, use:
 bash /path/to/host/AIRoot/scripts/init_ai_topology.sh --host-root /path/to/host --profile <profile> --dry-run
 ```
 
+Before running setup shell scripts on macOS, Linux, or Git Bash, verify that the
+checkout preserved LF endings:
+
+```bash
+git -C AIRoot ls-files --eol 'scripts/*.sh'
+bash -n AIRoot/scripts/init_ai_topology.sh
+```
+
+If Bash reports `^M`, `bash\r`, or `pipefail^M`, stop and fix the checkout or
+line endings first. This is a launcher/line-ending failure, not a topology
+classification failure.
+
+AIRoot setup uses Python for path normalization. Interpreter selection is:
+`AIRROOT_PYTHON`, `PYTHON`, `python3`, then `python`. On Windows Git Bash,
+native backslash paths in `AIRROOT_PYTHON` or `PYTHON` are normalized before
+execution.
+
 This topology-first path:
 - resolves the host profile explicitly
 - bootstraps the repo router
@@ -179,6 +196,16 @@ If the repo already has a non-managed root router and the automation flow explic
 bash AIRoot/scripts/init_ai_repo.sh --repo-mode <single-project|monorepo> --adopt-existing-router
 ```
 
+If the repo already has a non-managed root router that should remain
+authoritative, preserve it instead of adopting it:
+
+```bash
+bash AIRoot/scripts/init_ai_repo.sh --repo-mode <single-project|monorepo> --preserve-existing-router
+```
+
+Use the same flag on the matching `--check` command when preserved unmanaged
+routers are an intentional valid state.
+
 The agent must not use these flags blindly. It should read the current root router first and request a merge, replace, or leave-unchanged decision before modifying it.
 
 ## New Project Setup
@@ -216,11 +243,20 @@ If the project already has a non-managed router and the automation flow explicit
 bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode <single-project|monorepo> --adopt-existing-router
 ```
 
+If the project already has a non-managed router that should remain
+authoritative, preserve it instead:
+
+```bash
+bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode <single-project|monorepo> --preserve-existing-router
+```
+
 ## Existing Router Safety Rules
 
 - Existing repo `Agents.md` is not rewritten silently.
 - Existing project `Agents.md` is not rewritten silently.
 - Use `--refresh-managed-router` only for a managed router you intentionally want to refresh.
+- Use `--preserve-existing-router` when an unmanaged router should stay in
+  place while setup scaffolds or checks the rest of the AI topology.
 - Use `--adopt-existing-router` only after explicitly deciding to replace an unmanaged router.
 
 ## Monorepo Alias Wiring

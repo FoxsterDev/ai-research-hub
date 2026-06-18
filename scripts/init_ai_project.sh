@@ -13,13 +13,15 @@ HAS_XUUNITY_INTERNAL=0
 REPO_MODE="auto"
 ALLOW_MANAGED_REFRESH=0
 ALLOW_ADOPT_EXISTING=0
+ALLOW_PRESERVE_EXISTING=0
 DRY_RUN=0
 HOST_ROOT_ARG=""
+PYTHON_BIN=""
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash AIRoot/scripts/init_ai_project.sh [--host-root <path>] --project <path-or-name> [--kind <project-kind>] [--priority "custom priority"] [--repo-mode auto|single-project|monorepo] [--refresh-managed-router] [--adopt-existing-router] [--dry-run] [--check|--fix]
+  bash AIRoot/scripts/init_ai_project.sh [--host-root <path>] --project <path-or-name> [--kind <project-kind>] [--priority "custom priority"] [--repo-mode auto|single-project|monorepo] [--refresh-managed-router] [--preserve-existing-router] [--adopt-existing-router] [--dry-run] [--check|--fix]
 
 Examples:
   bash AIRoot/scripts/init_ai_project.sh --project NewGame
@@ -40,6 +42,30 @@ fail() {
   exit 1
 }
 
+normalize_bash_path() {
+  printf '%s' "$1" | tr '\\' '/'
+}
+
+resolve_python_bin() {
+  local candidate
+  local normalized
+  local resolved
+
+  for candidate in "${AIRROOT_PYTHON:-}" "${PYTHON:-}" python3 python; do
+    [ -n "$candidate" ] || continue
+    normalized="$(normalize_bash_path "$candidate")"
+    if resolved="$(command -v "$normalized" 2>/dev/null)" && "$resolved" - <<'PY' >/dev/null 2>&1; then
+import sys
+raise SystemExit(0 if sys.version_info[0] >= 3 else 1)
+PY
+      printf '%s\n' "$resolved"
+      return 0
+    fi
+  done
+
+  fail "Python 3 was not found. Set AIRROOT_PYTHON or PYTHON to a Python 3 interpreter path."
+}
+
 dry_log() {
   printf 'DRY RUN: %s\n' "$1"
 }
@@ -52,7 +78,7 @@ resolve_root_dir() {
     return 0
   fi
 
-  python3 - "$value" <<'PY'
+  "$PYTHON_BIN" - "$value" <<'PY'
 import os
 import sys
 
@@ -64,7 +90,7 @@ path_contains() {
   local root="$1"
   local child="$2"
 
-  python3 - "$root" "$child" <<'PY'
+  "$PYTHON_BIN" - "$root" "$child" <<'PY'
 import os
 import sys
 
@@ -90,7 +116,7 @@ The host root must be the repo that contains AIRoot as a subdirectory."
 resolve_path() {
   local value="$1"
 
-  python3 - "$ROOT_DIR" "$value" <<'PY'
+  "$PYTHON_BIN" - "$ROOT_DIR" "$value" <<'PY'
 import os
 import sys
 
@@ -110,7 +136,7 @@ relative_path() {
   local target="$1"
   local start="$2"
 
-  python3 - "$target" "$start" <<'PY'
+  "$PYTHON_BIN" - "$target" "$start" <<'PY'
 import os
 import sys
 
@@ -134,45 +160,108 @@ is_supported_project_kind() {
   esac
 }
 
-is_expected_symlink() {
+is_expected_alias_path() {
   local link_path="$1"
   local expected_target="$2"
 
-  [ -L "$link_path" ] || return 1
-  [ "$(readlink "$link_path")" = "$expected_target" ]
+  if [ -L "$link_path" ] && [ "$(readlink "$link_path")" = "$expected_target" ]; then
+    return 0
+  fi
+
+  if [ -f "$link_path" ] && grep -Fxq '<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->' "$link_path" && grep -Fxq "target: $expected_target" "$link_path"; then
+    return 0
+  fi
+
+  if [ -d "$link_path" ] && [ ! -L "$link_path" ] && [ -f "$link_path/README.md" ] && grep -Fxq '<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->' "$link_path/README.md" && grep -Fxq "target: $expected_target" "$link_path/README.md"; then
+    return 0
+  fi
+
+  return 1
 }
 
-ensure_symlink() {
+is_managed_alias_fallback() {
+  local link_path="$1"
+
+  if [ -f "$link_path" ] && grep -Fxq '<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->' "$link_path"; then
+    return 0
+  fi
+
+  if [ -d "$link_path" ] && [ ! -L "$link_path" ] && [ -f "$link_path/README.md" ] && grep -Fxq '<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->' "$link_path/README.md"; then
+    return 0
+  fi
+
+  return 1
+}
+
+write_alias_fallback() {
   local target="$1"
   local link_path="$2"
 
-  if is_expected_symlink "$link_path" "$target"; then
+  if [ "${link_path%.md}" != "$link_path" ]; then
+    cat > "$link_path" <<EOF
+<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->
+# AIRoot Alias Fallback
+
+This file replaces a symlink on hosts where symlink creation is unavailable.
+
+target: $target
+EOF
+  else
+    mkdir -p "$link_path"
+    cat > "$link_path/README.md" <<EOF
+<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->
+# AIRoot Directory Alias Fallback
+
+This directory replaces a symlink on hosts where symlink creation is unavailable.
+
+target: $target
+EOF
+  fi
+}
+
+ensure_alias_path() {
+  local target="$1"
+  local link_path="$2"
+
+  if is_expected_alias_path "$link_path" "$target"; then
     log "OK: $link_path -> $target"
     return 0
   fi
 
   if [ "$MODE" = "--check" ]; then
-    fail "Invalid or missing symlink: $link_path -> $target"
+    fail "Invalid or missing alias path: $link_path -> $target"
   fi
 
   if [ "$DRY_RUN" = "1" ]; then
-    dry_log "would configure symlink $link_path -> $target"
+    dry_log "would configure alias path $link_path -> $target"
     return 0
   fi
 
   if [ -L "$link_path" ]; then
     rm "$link_path"
-  elif [ -e "$link_path" ]; then
-    fail "Refusing to replace non-symlink path: $link_path"
+  elif [ -e "$link_path" ] && ! is_managed_alias_fallback "$link_path"; then
+    fail "Refusing to replace unmanaged alias path: $link_path"
   fi
 
-  ln -s "$target" "$link_path"
-  log "Configured: $link_path -> $target"
+  if ln -s "$target" "$link_path" 2>/dev/null; then
+    log "Configured symlink: $link_path -> $target"
+  else
+    write_alias_fallback "$target" "$link_path"
+    log "Configured portable alias fallback: $link_path -> $target"
+  fi
 }
 
 router_is_managed() {
   local path="$1"
   [ -f "$path" ] && grep -Eq '^<!-- Managed by (scripts|AIRoot/scripts)/init_ai_project\.sh -->$' "$path"
+}
+
+preflight_project_router_conflict() {
+  if [ -f "$ROUTER_PATH" ] && ! router_is_managed "$ROUTER_PATH" && [ "$ALLOW_ADOPT_EXISTING" != "1" ] && [ "$ALLOW_PRESERVE_EXISTING" != "1" ]; then
+    fail "Project router exists and is not managed by AIRoot/scripts/init_ai_project.sh: $ROUTER_PATH
+Refusing to modify or validate setup around an unmanaged project router without an explicit router mode.
+Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router only if replacement is approved."
+  fi
 }
 
 write_router() {
@@ -487,6 +576,10 @@ while [ "$#" -gt 0 ]; do
       ALLOW_MANAGED_REFRESH=1
       shift
       ;;
+    --preserve-existing-router)
+      ALLOW_PRESERVE_EXISTING=1
+      shift
+      ;;
     --adopt-existing-router)
       ALLOW_ADOPT_EXISTING=1
       shift
@@ -509,6 +602,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+PYTHON_BIN="$(resolve_python_bin)"
 ROOT_DIR="$(resolve_root_dir "$HOST_ROOT_ARG")"
 validate_host_root
 
@@ -551,6 +645,8 @@ REPO_ALIAS_PATH="$PROJECT_DIR/Agents.repo.md"
 AIMODULES_ALIAS_PATH="$PROJECT_DIR/AIModules"
 PROJECT_MEMORY_DIR="$PROJECT_DIR/Assets/AIOutput/ProjectMemory"
 PROJECT_OUTPUT_DIR="$PROJECT_DIR/Assets/AIOutput"
+
+preflight_project_router_conflict
 
 REPO_ROUTER_PATH="$ROOT_DIR/Agents.md"
 PROJECT_PARENT_DIR="$(dirname "$PROJECT_DIR")"
@@ -598,9 +694,9 @@ if [ "$MODE" = "--check" ]; then
   seed_project_memory_baseline "$PROJECT_NAME" "$PROJECT_KIND"
 fi
 
-ensure_symlink "$REPO_ROUTER_REL" "$REPO_ALIAS_PATH"
+ensure_alias_path "$REPO_ROUTER_REL" "$REPO_ALIAS_PATH"
 if [ "$REPO_MODE" = "monorepo" ] && [ "$HAS_AIMODULES" = "1" ]; then
-  ensure_symlink "$AIMODULES_REL" "$AIMODULES_ALIAS_PATH"
+  ensure_alias_path "$AIMODULES_REL" "$AIMODULES_ALIAS_PATH"
 fi
 
 if [ -f "$ROUTER_PATH" ]; then
@@ -621,15 +717,13 @@ Re-run with --refresh-managed-router if you want to rewrite the managed router."
       fi
     fi
   else
-    if [ "$MODE" = "--check" ] || [ "$ALLOW_ADOPT_EXISTING" != "1" ]; then
+    if [ "$ALLOW_PRESERVE_EXISTING" = "1" ]; then
       if [ "$DRY_RUN" = "1" ]; then
-        dry_log "unmanaged router exists and would not be replaced without --adopt-existing-router: $ROUTER_PATH"
-        goto_router_done=1
+        dry_log "would preserve existing unmanaged router unchanged: $ROUTER_PATH"
       else
-        fail "Project router exists and is not managed by AIRoot/scripts/init_ai_project.sh: $ROUTER_PATH
-Refusing to modify an existing project router without explicit approval.
-Read the current router, decide whether to merge or replace it, then re-run with --adopt-existing-router only if replacement is approved."
+        log "Preserved existing unmanaged router unchanged: $ROUTER_PATH"
       fi
+      goto_router_done=1
     fi
 
     if [ "${goto_router_done:-0}" = "1" ]; then

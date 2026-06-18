@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_ASSISTED_SETUP_PROMPT.md</code></span>
-        <span class="pill">Generated: 2026-06-18 12:52:26 UTC</span>
+        <span class="pill">Generated: 2026-06-18 16:17:09 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_ASSISTED_SETUP_PROMPT.md">Open Markdown Source</a>
@@ -382,6 +382,11 @@ Task:
    - single-project
    - monorepo / multi-project
 4. Show the exact dry-run command first.
+4a. On macOS, Linux, or Git Bash, check line endings before running setup:
+   - `git -C AIRoot ls-files --eol &#39;scripts/*.sh&#39;`
+   - `bash -n AIRoot/scripts/init_ai_topology.sh`
+   If the shell reports `^M`, `bash\r`, or `pipefail^M`, stop and explain that
+   AIRoot shell scripts were checked out with CRLF endings.
 5. Explain what setup will create at a high level:
    - repo router
    - AIOutput scaffold
@@ -409,6 +414,11 @@ Fallback references only when needed:
 Rules:
 - If project memory and code disagree, code wins for current behavior.
 - For startup, SDK, manifest, plist, entitlement, privacy, or compliance-sensitive questions, use code-first verification.
+- If an unmanaged `Agents.md` already exists and should stay in place, use
+  `--preserve-existing-router` so setup can scaffold and check generated state
+  without rewriting that router.
+- Use `--adopt-existing-router` only after reviewing the existing router and
+  explicitly approving replacement with a managed router.
 </code></pre>
 <h2 id="main-rule">Main Rule</h2>
 <p>If the repo is already initialized, normal use is:</p>
@@ -430,6 +440,8 @@ Rules:
 <li>the expected <code>AIOutput/Registry/</code> status files exist</li>
 <li>the next <code>xuunity</code> entrypoint is clear</li>
 </ul>
+<p>If the host intentionally preserves an unmanaged router, the matching <code>--check</code>
+command must also include <code>--preserve-existing-router</code>.</p>
 <p>If the host already has initialized projects, recommend the first readiness checks after setup:</p>
 <ul>
 <li><code>xuunity product health this project</code></li>

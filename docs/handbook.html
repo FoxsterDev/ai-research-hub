@@ -317,7 +317,7 @@ h1 {
       <p class="lead">Rendered from trusted local Markdown with the CodexMdToHtml workflow.</p>
       <div class="hero-meta">
         <span class="pill">Source: <code>AI_PROTOCOL_HANDBOOK.md</code></span>
-        <span class="pill">Generated: 2026-05-13 13:54:37 UTC</span>
+        <span class="pill">Generated: 2026-06-18 16:17:09 UTC</span>
       </div>
       <div class="hero-links">
         <a href="./AI_PROTOCOL_HANDBOOK.md">Open Markdown Source</a>
@@ -436,12 +436,14 @@ Use it to understand:</p>
 <ul>
 <li><code>AIRoot/Operations/XUUnityLightUnityMcp/BUILD_AUTOMATION.md</code></li>
 <li><code>AIRoot/Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md</code></li>
+<li><code>AIRoot/Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md</code></li>
 <li><code>AIRoot/Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md</code></li>
 </ul>
 <p>Working rule:</p>
 <ul>
 <li>if the active host or project exposes a supported Unity MCP path, prefer that path for Unity-aware validation</li>
 <li>do not treat shell compile, generated project builds, or ad hoc shell scripts as equivalent to Unity MCP evidence</li>
+<li>treat MCP package <code>devmode</code> and <code>prodmode</code> as dependency-source switches, not validation evidence; after either switch, run package refresh and the relevant Unity validation lane</li>
 <li>host repos may add narrower local rules or wrappers on top of this public baseline</li>
 </ul>
 <h3 id="slack-mcp">Slack MCP</h3>
@@ -493,6 +495,9 @@ Use it to understand:</p>
 <li><code>xuunity feature implement this flow</code></li>
 <li><code>xuunity arch plan this subsystem split</code></li>
 <li><code>xuunity rollout plan this feature</code></li>
+<li><code>xuunity sdk discover AppsFlyer</code></li>
+<li><code>xuunity sdk discover AppLovin Pangle</code></li>
+<li><code>xuunity sdk profile design Mixpanel</code></li>
 <li><code>xuunity sdk review this integration</code></li>
 <li><code>xuunity sdk breakage review this integration</code></li>
 <li><code>xuunity native review this iOS bridge</code></li>
@@ -660,7 +665,9 @@ Use it to understand:</p>
 </ol>
 <h3 id="sdk-upgrade-or-review">SDK Upgrade Or Review</h3>
 <ol>
-<li><code>xuunity sdk review this integration</code></li>
+<li><code>xuunity sdk discover AppsFlyer</code> to run the full update-candidate research flow for the active project</li>
+<li>Use <code>xuunity sdk discover AppsFlyer for ApperfunHub</code> when the project must be explicit</li>
+<li><code>xuunity sdk review this integration</code> after a candidate is selected or implemented</li>
 <li>If breakage risk is high, use <code>xuunity sdk breakage review this integration</code></li>
 <li>If rollout risk matters, follow with <code>xuunity product rollout this feature</code></li>
 </ol>
@@ -671,6 +678,29 @@ Use it to understand:</p>
 <li>QA manual validation recommendations</li>
 <li>candidate test cases when useful</li>
 <li>release recommendation or residual risk</li>
+</ul>
+<p>Expected SDK discovery output:</p>
+<ul>
+<li>saved report under the resolved project&#39;s SDK review output destination</li>
+<li>exact recommended candidate or explicit <code>do not update</code></li>
+<li>rejected candidates with reasons</li>
+</ul>
+<h3 id="new-sdk-research-profile">New SDK Research Profile</h3>
+<ol>
+<li><code>xuunity sdk profile design Mixpanel</code> to design a new full vendor profile before enabling one-command discovery</li>
+<li>Use <code>xuunity sdk research profile Firebase</code> or <code>xuunity system design sdk research profile OneSignal</code> for the same flow</li>
+<li>After the profile is integrated, use <code>xuunity sdk discover &lt;Vendor&gt;</code> for project-specific candidate research</li>
+</ol>
+<p>Expected profile-design output:</p>
+<ul>
+<li>source-of-truth ladder</li>
+<li>exact candidate identity</li>
+<li>wrapper-to-native version mapping</li>
+<li>breaking-change and API migration checkpoint</li>
+<li>hard gates and no-update conditions</li>
+<li>report requirements and command examples</li>
+<li>business, marketing, monetization, compliance, and runtime risk notes</li>
+<li>validation and staged rollout requirements</li>
 </ul>
 <p>Canonical generic review template:</p>
 <ul>

@@ -132,6 +132,27 @@ When bootstrap is needed:
 - review the plan
 - apply only after confirmation
 
+Before running shell setup on macOS, Linux, or Git Bash, the agent should verify
+that AIRoot shell scripts are checked out with LF endings:
+
+```bash
+git -C AIRoot ls-files --eol 'scripts/*.sh'
+bash -n AIRoot/scripts/init_ai_topology.sh
+```
+
+If Bash reports `^M`, `bash\r`, or `pipefail^M`, stop and treat it as a
+line-ending checkout problem. Do not diagnose it as normal setup logic.
+
+If the repo already has its own unmanaged `Agents.md`, bootstrap can preserve it
+instead of adopting or replacing it:
+
+```bash
+bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --preserve-existing-router --dry-run
+```
+
+Use `--adopt-existing-router` only when the current router has been reviewed and
+replacement is explicitly approved.
+
 ## Handoff
 
 After setup is done:
