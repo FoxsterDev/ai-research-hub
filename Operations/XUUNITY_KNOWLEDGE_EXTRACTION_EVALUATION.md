@@ -259,6 +259,10 @@ Maintain one named baseline report for the current extraction workflow.
 Recommended file:
 - `AIOutput/Reports/System/knowledge_extraction_eval_baseline_v1.md`
 
+Use dated authoritative reports as review evidence or history, but keep
+`knowledge_extraction_eval_baseline_v1.md` as the current baseline pointer until
+the reporting tool supports another canonical baseline selector.
+
 When prompts change:
 1. rerun the golden pack
 2. compare against the baseline

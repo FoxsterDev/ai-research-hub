@@ -346,6 +346,7 @@ Interpret short commands by intent:
 - `xuunity system research watch ...` -> `utilities/internet_research_watch.md`
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
 - `xuunity system evaluate ...` -> `utilities/system_self_evaluation.md`
+- `xuunity system protocol clean review ...`, `xuunity system protocol cleanup review ...`, `xuunity system clean protocol review ...`, `xuunity system sanitary review ...`, or `xuunity system public core sanitation ...` -> `utilities/system_protocol_clean_review.md`
 - `xuunity system health review ...` -> `utilities/system_health_review.md`
 - `xuunity design review ...`, `xuunity review designs ...`, `xuunity design retro ...`, `xuunity audit designs ...`, or `xuunity score designs ...` -> `utilities/design_retro_review.md`
 - `xuunity system output cleanup ...` -> `utilities/system_output_cleanup.md`
@@ -651,6 +652,7 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/task_registry_archive.md` when the user wants retention or rollover planning for the task-history surface
 - `utilities/internet_research_watch.md` when the user wants periodic external research focused on improving the current AI system and tooling
 - `utilities/system_self_evaluation.md` when auditing the structure, routing quality, or LLM efficiency of the prompt system
+- `utilities/system_protocol_clean_review.md` when the user wants a sanitary review-and-fix pass over public protocol docs, design registries, templates, routing maps, and current git changes
 - `utilities/system_health_review.md` when focusing on conflicts, redundancy, dead paths, and cleanup priorities
 - `utilities/design_retro_review.md` when auditing a folder of design docs: scoring each for actuality, importance, implementation, and remaining effort against the live repo, then reconciling a prioritized registry and archiving retired designs
 - `utilities/system_evaluation_cadence.md` when deciding whether the system should be evaluated now and how to act on the score

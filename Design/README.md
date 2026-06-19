@@ -5,6 +5,7 @@ Use the design layer with a strict split:
 - cross-cutting public designs -> `AIRoot/Design/`
 - public tool-specific or surface-specific designs ->
   `AIRoot/Operations/<ToolOrSurface>/Designs/`
+- reusable public prompt/scaffold templates -> `AIRoot/Templates/`
 - host-local or private designs -> `AIOutput/Operations/Design/`
 
 Use `AIRoot/Design/` for:
@@ -33,7 +34,7 @@ Retired or fully-consumed designs are not deleted — they move to
 > **Imp.** = importance to the system (1–5). **Impl.** = degree of implementation as of 2026-06-16
 > (✅ done · 🟡 partial · ⬜ not built · 📦 work delivered, doc is a recipe · 🗄 superseded).
 > A `%` is an estimate (`est.`) unless backed by a count (e.g. `100% (25/25 tests)`); `implemented` rows reflect verified completion.
-> Reconciled against the real state of `AIRoot/Modules/XUUnity/`, `AIModules/XUUnityInternal/`, and `~/.xuunity/cache/`.
+> Reconciled against the public `AIRoot` sources and public-safe host integration contracts.
 >
 > **Review: `xuunity system progress review`, 2026-06-16.** Jump to: [Priority Backlog](#priority-backlog-active-work-by-priority) ·
 > [Scoring and Actual Status](#scoring-and-actual-status-review-2026-06-16) · [Archived](#archived) ·
@@ -60,7 +61,6 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 | `XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md` | planned | 4 | ⬜ ~5% (est.) | M · ~2–3d · Med | Enforcement mechanism (classification → scope → validation → artifact gates) that gives autonomy teeth and auditability. Inert until levels + categories exist.<br>**Left to 100%:** `reviews/autonomy_gate_review.md` + `utilities/autonomy_change_artifact.md` + artifact template (4 gates). |
 | `AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md` | draft | 4 | 🟡 ~35% (est.) | L · ~1–2wk · High | Makes onboarding topology explicit and durable instead of implicit bootstrap guessing; matters for scaling to many repo shapes, but evolves an already-working bootstrap rather than being load-bearing today.<br>**Left to 100%:** profiles B/C, CLI flags, `mirror_solution.sh`, `storage_profiles.md` + `router_override_rules.md`, topology health checks, registry fields. |
 | `AI_TOOLING_AUTOMATION_DESIGN.md` | draft | 4 | 🟡 ~30% (est.) | XL · ~2–3wk · High | The bridge from analysis to execution (Jira/Unity/VCS connectors). High-leverage — turns advice into action — but a layer above the core; the system works without the unbuilt connectors.<br>**Left to 100%:** Pack B (Jira) + Pack D (GitLab/Bitbucket draft-PR) connectors; then Pack E (orchestration). |
-| `XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md` | active | 3 | 🟡 ready | S · operational · Low | An operating-loop tool to evolve the `xuunity fix` contract against real incidents. A meta-tool that only fires once incidents accumulate; not the contract itself.<br>**Left to 100%:** run the loop once ≥3–5 real `xuunity_protocol_incident_*` reports exist; consider relocating to `Operations/`. |
 | `XUUNITY_EXTERNAL_REPOS_DESIGN.md` | implemented | 2 | ✅ ~80% (dormant, est.) | XS · n/a · Low | Optional, deliberately dormant capability to promote knowledge to external repos. Peripheral — off by default; value is keeping the door open without committing transport. |
 
 ## Priority Backlog (active work, by priority)
@@ -80,7 +80,6 @@ routing-acceptance layer (gate checker + fixtures) was built on 2026-06-16.
 | 5 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active · 4 · 🟡 ~75% (est.) | Small gap: build `protocols/flow_explainer.md` + `protocols/delivery_scope.md` (+ `decision_note`/`rollout_note` formats), **or** drop them from the design to match reality. |
 | 6 | `AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md` | draft · 4 · 🟡 ~35% (est.) | Build profiles B/C (root-only / symlinked), the CLI flags, `mirror_solution.sh`, `knowledge/storage_profiles.md` + `router_override_rules.md`, topology checks in `system_health_review.md`, and the extra `project_registry.yaml` fields. |
 | 7 | `AI_TOOLING_AUTOMATION_DESIGN.md` | draft · 4 · 🟡 ~30% (est.) | Largest effort, lower urgency: build Pack B (Jira connector) and Pack D (GitLab/Bitbucket draft-PR); Pack E (orchestration) afterwards. Pack A/C already shipped. |
-| 8 | `XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md` | active · 3 · 🟡 | **Operational, not design work**: run the follow-up loop once ≥3–5 real `xuunity_protocol_incident_*` reports accumulate. Consider relocating to `AIRoot/Operations/<Surface>/Designs/`. |
 
 ## Archived
 
@@ -109,11 +108,11 @@ so design history lives inside it.
 
 ### Maturity map
 
-19 designs total — 14 live (in `Design/`) + 5 archived (in `Design/Archived/`):
+18 designs total — 13 live (in `Design/`) + 5 archived (in `Design/Archived/`):
 
 1. **Implemented (done, source of truth — no work pending):** module architecture, skills system, both
    halves of the paid-module overlay, external repos (dormant by design). The load-bearing frame; works end-to-end.
-2. **Active (in force, small gaps to finish):** product protocols (🟡 ~75% (est.)), fix-contract follow-up tool (ready, loop not run).
+2. **Active (in force, small gaps to finish):** root-cause routing (🟡 ~85% (est.)) and product protocols (🟡 ~75% (est.)).
 3. **Drafts (in progress, 🟡 30–50%):** topology bootstrap, tooling automation (`root-cause-95` advanced to active ~85% on 2026-06-16; see below).
 4. **Planned (⬜ ~5% (est.)):** the entire low-risk autonomy family (none of the promised autonomy files exist yet).
 5. **Archived (`./Archived/`):** four Workstream-3 generator prompts (`historical`) + the upstream-submodule tombstone (`legacy`).
@@ -123,18 +122,19 @@ so design history lives inside it.
 These remain the canonical references for current behavior. The four importance-5 docs were taken to 100% on 2026-06-16 (their residual was housekeeping, not a design gap); external repos stays intentionally partial (dormant by design).
 
 - **`AIROOT_PUBLIC_MODULE_ARCHITECTURE_DESIGN.md`** — importance **5**, **✅ 100%**.
-  The whole layout follows the contract: `AIRoot` as a submodule (`.gitmodules`), `AIModules/XUUnityInternal/`,
-  host-local `AIOutput/{Registry,Reports,Operations}/`, project-local `Assets/AIOutput/ProjectMemory/`.
-  *Done (2026-06-16): `backup_Apr_12_2026/` removed from the public surface (deletion staged in the `AIRoot` submodule).*
+  The whole layout follows the public / host-local / project-local contract: reusable public modules live in
+  `AIRoot`, host-specific overlays and generated evidence stay outside the public core, and project memory
+  remains project-local.
+  *Done (2026-06-16): obsolete public-surface backup content was removed.*
 - **`XUUNITY_SKILLS_SYSTEM_DESIGN.md`** — importance **5**, **✅ 100%**.
   All declared skill families physically exist, plus 2 beyond the design (`refactoring/`, `ui_tweens/`) — 16 family directories total;
   `skills/registry.md` (459 lines), baseline `skills/core/`, routing wired into `tasks/start_session.md`.
-  Implementation is broader than the design. *Done (2026-06-16): Sudoku `SkillOverrides/README.md` normalized to the canonical template; ApperfunHub keeps its hub-specific variant (it references the internal overlay).*
+  Implementation is broader than the design. *Done (2026-06-16): project override guidance was normalized to the canonical template while host-specific variants remain outside the public core.*
 - **`XUUNITY_PERSONAL_PAID_MODULE_OVERLAY_DESIGN.md`** — importance **5**, **✅ 100%**.
   The mother design of paid modules. All 5 schemas present; `module_registry_tool.py` implements every
   designed command + 5 extra (`route-smoke`, `session-plan`, MCP helpers, `validate-installer`);
-  the resolved registry is actually written to `~/.xuunity/cache/resolved_modules/`; `start_session.md` steps 12a–12e;
-  topology `AIModules/XCNT-P → _HostLocal/XCNT-P` (symlink) resolves. *Done (2026-06-16): pack example synced to the shipped `usage.md` naming; remains the contract source of truth. The optional `xuunity module` CLI wrapper stays deferred by design.*
+  generated module resolution is covered by the public tooling contract; `start_session.md` steps 12a-12e
+  route the overlay flow. *Done (2026-06-16): pack example synced to the shipped `usage.md` naming; remains the contract source of truth. The optional `xuunity module` CLI wrapper stays deferred by design.*
 - **`XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md`** — importance **5**, **✅ 100% (25/25 tests)**.
   P0–P2 confirmed: schema `xuunity.entitlements.schema.json` (provider/trustLevel/license/sync),
   resolver/verifier split, redaction boundary (`outputBoundary: redacted_api`, detector `public_game_qa_path_leak()`),
@@ -159,9 +159,6 @@ These remain the canonical references for current behavior. The four importance-
   6 protocols shipped + 2 beyond plan (`project_health_audit`, `project_memory_freshness`), shorthand routing
   in `start_session.md:424-433`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
   (+ `decision_note` / `rollout_note` formats). *Rec: build the missing protocols or drop them from the design. (Backlog #5.)*
-- **`XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md`** — importance **3**, **🟡 tool ready, loop not started**.
-  The 3-mode prompt template is complete and baseline artifacts are in place (`AIOutput/Reports/System/...`), but the
-  operating loop has not run (no real `xuunity_protocol_incident_*` reports). *Rec: run the loop once incidents accumulate; consider moving to `Operations/<Surface>/Designs/`. (Backlog #8.)*
 
 ### Drafts (in progress)
 
@@ -202,15 +199,14 @@ plans and the files they generate. All 4 were mislabeled `active` — corrected 
 
 ### Registry vs. reality (governance log)
 
-Before this review the registry marked **18 of 19** documents `active` (one `draft`), which masked real
+Before this review the registry marked most documents `active`, which masked real
 maturity. Reconciled in this update:
 
 1. **5 mature designs:** `active → implemented` (built and remain the source of truth; backlog-free).
 2. **4 low-risk autonomy docs:** `active → planned` (really ~5% (est.), not built).
 3. **`AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN` and `AI_TOOLING_AUTOMATION_DESIGN`:** `active → draft` (the docs themselves are `draft`, implementation partial).
 4. **4 Workstream-3 prompts + `XUUNITY_UPSTREAM_SUBMODULE_DESIGN`:** `active → archived` and physically moved to `./Archived/`.
-5. **`XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md`** — was **missing from the registry entirely**; added (its operating loop has not started).
-6. **Design self-violation (resolved 2026-06-16):** the execution-contract schema was duplicated three times inline in `start_session.md` (the step-20b minimum-fields list, the `## Execution Contract` section, and the `## Output` derived-contract block) instead of a single canonical owner — exactly the unmet "First Principle 3" from `ROOT_CAUSE_ROUTING_95`. Now fixed: `knowledge/execution_contract.md` is the single owner and the three sites are references.
+5. **Design self-violation (resolved 2026-06-16):** the execution-contract schema was duplicated three times inline in `start_session.md` (the step-20b minimum-fields list, the `## Execution Contract` section, and the `## Output` derived-contract block) instead of a single canonical owner — exactly the unmet "First Principle 3" from `ROOT_CAUSE_ROUTING_95`. Now fixed: `knowledge/execution_contract.md` is the single owner and the three sites are references.
 
 ### Score by workstream
 
@@ -245,7 +241,7 @@ now unblocked by the routing-acceptance layer built on 2026-06-16.
 - **Author:** `xuunity system progress review`, 2026-06-16. This pass also introduced the
   `implemented` status, moved 5 retired docs into `./Archived/`, and added the Priority Backlog.
 - **2026-06-16 closeout:** the four importance-5 `implemented` designs were finished to 100% —
-  `backup_Apr_12_2026/` removed from the public surface, Sudoku `SkillOverrides/README.md` normalized to
+  obsolete public-surface backup content was removed, project override guidance was normalized to
   the canonical template, the paid-overlay pack example synced to `usage.md`, and the 25-passing-test
   count recorded in the paid-module fix plan.
 - **Method:** `xuunity system progress review` discipline — each design read in full, then cross-checked
@@ -256,5 +252,12 @@ now unblocked by the routing-acceptance layer built on 2026-06-16.
   the most subjective column; **Status** and **Implementation %** are evidence-based but were sampled at a
   point in time. The submodule (`AIRoot`) may move independently.
 - **For independent review agents:** treat this as a first-pass assessment to be challenged, not ground
-  truth. Re-verify each row against the current repo before acting — file paths, statuses, and the `~/.xuunity/cache/`
-  contents can drift. Disagreement on the Importance axis is expected and welcome; record dissent rather than silently overwriting.
+  truth. Re-verify each row against the current public repo before acting — file paths, statuses, and
+  generated host-local evidence can drift. Disagreement on the Importance axis is expected and welcome;
+  record dissent rather than silently overwriting.
+
+## Related Public Templates
+
+Operational prompt templates are intentionally kept out of the design registry.
+The public-safe fix-contract follow-up loop lives at
+[`../Templates/XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md`](../Templates/XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md).

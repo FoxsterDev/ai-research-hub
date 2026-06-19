@@ -145,6 +145,24 @@ Short commands:
 - `xuunity system protocol consistency check`
 - `xuunity system prompt cleanup review`
 
+### System Protocol Clean Review
+Use when the user wants one sanitary review-and-fix pass over public `XUUnity` protocol docs, design registries, templates, and review artifacts.
+
+Flow:
+1. `system_protocol_clean_review.md`
+2. `system_health_review.md`
+3. `design_retro_review.md` when `Design/` or design registry claims are in scope
+4. `protocol_consistency_checklist.md` when shared prompts, templates, utilities, reviews, or indexes changed
+5. `reviews/git_change_review.md` for the final current-diff review
+6. `system_output_cleanup.md` only when generated reports or retention are also in scope
+
+Short commands:
+- `xuunity system protocol clean review`
+- `xuunity system protocol cleanup review`
+- `xuunity system clean protocol review`
+- `xuunity system sanitary review`
+- `xuunity system public core sanitation`
+
 ### Routing Debug Template
 Use when the user asks for routing debug, start-session debug, loaded module accounting, private-pack capability accounting, or a root-cause gate blocks a local patch.
 
@@ -405,6 +423,8 @@ Short commands:
   - apply only the approved parts of a reviewed knowledge package
 - `external_promotion_checklist.md`
   - decide whether knowledge should be promoted to an optional external reusable repo
+- `system_protocol_clean_review.md`
+  - orchestrate a sanitary review-and-fix pass across public protocol docs, design registries, templates, routing maps, and current git changes
 - `system_progress_review.md`
   - assess current roadmap progress and recommend the next milestone
 - `system_registry_refresh.md`

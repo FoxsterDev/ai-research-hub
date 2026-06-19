@@ -98,6 +98,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/task_registry_archive.md`
 - `utilities/internet_research_watch.md`
 - `utilities/system_self_evaluation.md`
+- `utilities/system_protocol_clean_review.md`
 - `utilities/system_health_review.md`
 - `utilities/design_retro_review.md`
 - `utilities/system_output_cleanup.md`
@@ -272,6 +273,9 @@ Recommended short commands:
 - `xuunity intake this knowledge`
 - `xuunity integrate approved knowledge`
 - `xuunity system evaluate the protocol structure`
+- `xuunity system protocol clean review`
+- `xuunity system protocol cleanup review`
+- `xuunity system sanitary review`
 - `xuunity system progress review`
 - `xuunity design review`
 - `xuunity review designs`
