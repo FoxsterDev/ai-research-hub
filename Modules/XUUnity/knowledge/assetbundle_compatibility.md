@@ -20,6 +20,7 @@ Use this file when a task touches AssetBundles, Addressables-backed remote conte
 - Unknown enum values, missing optional fields, missing prefab slots, and missing optional references must be ignored or degraded safely.
 - `FormerlySerializedAs` is an editor migration aid; do not rely on it as the only proof that remote bundles remain safe for old clients.
 - Load bundle dependencies before dependent bundles or assets, and keep dependencies alive while dependent objects are alive.
+- For SpriteAtlas-backed remote content, compatibility requires both atlas data and an atlas binding path: Unity's automatic loading/binding when the bundle lane was built with SpriteAtlas `Include in Build` enabled, or explicit late binding when it was disabled. Do not disable `Include in Build` for a shared bundle lane until every target client can register and resolve the remote atlas, or the content is version-gated.
 
 ## Hard Breakers
 
@@ -41,6 +42,7 @@ Use this file when a task touches AssetBundles, Addressables-backed remote conte
 - A new enum value is sent to old clients that cannot safely ignore it.
 - An existing enum integer is renamed with a changed meaning.
 - Server or content data depends on a new prefab slot, view path, shader, font, package, or runtime mapper that old clients do not have.
+- A bundle contains a SpriteAtlas, but old clients cannot auto-bind it and no late-binding handler registers it, so packed sprites render blank.
 - New-client tests pass but the oldest supported client has not been smoke-tested.
 
 ## Review Checklist
@@ -58,11 +60,14 @@ Before publishing a shared production bundle, record:
 9. Scripting defines or platform conditions that change serialized fields.
 10. Required packages, shaders, fonts, materials, and dependent bundles.
 11. Dependency load order and unload/lifetime ownership.
-12. Old-client behavior if new data is ignored.
-13. New-client behavior with old bundle data.
-14. Oldest-client smoke result.
-15. Newest-client smoke result.
-16. Verdict: shared bundle safe, or version-gated content required.
+12. SpriteAtlas `Include in Build` / automatic binding setting used when the bundle lane was built.
+13. Runtime SpriteAtlas late-binding registration or equivalent atlas request path, when automatic binding is disabled.
+14. Atlas registration cleanup on bundle unload and destructive unload-all paths.
+15. Old-client behavior if new data is ignored.
+16. New-client behavior with old bundle data.
+17. Oldest-client smoke result.
+18. Newest-client smoke result.
+19. Verdict: shared bundle safe, or version-gated content required.
 
 ## Decision Test
 
