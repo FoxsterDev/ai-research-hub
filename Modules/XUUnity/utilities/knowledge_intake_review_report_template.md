@@ -6,6 +6,16 @@
 - Scope:
 - Source summary:
 
+## Decision Path
+- Original request contract:
+- User corrections and constraints:
+- Simplification or reasoning prompts:
+- Complexity added then removed:
+- Final accepted shape:
+- Inputs that caused the final shape:
+- Context or compaction risks:
+- Public-safe promotion boundary:
+
 ## Extracted Knowledge
 - Durable rules:
 - Non-durable examples or narrative:
