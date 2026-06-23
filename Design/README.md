@@ -157,7 +157,7 @@ These remain the canonical references for current behavior. The four importance-
   **Residual:** host-local matrix rows, broader fixture/bug-family coverage, optional CI wiring. *(Backlog #1.)*
 - **`XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md`** — importance **4**, **🟡 ~75% (est.)**.
   6 protocols shipped + 2 beyond plan (`project_health_audit`, `project_memory_freshness`), shorthand routing
-  in `start_session.md:424-433`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
+  in `start_session.md:380-389`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
   (+ `decision_note` / `rollout_note` formats). *Rec: build the missing protocols or drop them from the design. (Backlog #5.)*
 
 ### Drafts (in progress)
