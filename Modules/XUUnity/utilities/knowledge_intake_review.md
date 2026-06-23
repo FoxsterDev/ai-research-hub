@@ -31,6 +31,15 @@ Integration may happen only after the user explicitly says one of:
 ## Pipeline
 1. Ingest the knowledge from chat, link, book, or note source.
 2. Extract durable rules and separate them from examples and narrative.
+2a. If the source is a development chat, implementation session, review session, or resumed/compacted thread, reconstruct the decision path before routing candidates:
+   - original user-visible request and non-negotiable outcome
+   - constraints, corrections, and review findings the user added along the way
+   - simplification or reasoning prompts that changed the solution shape
+   - solution turns that increased complexity, then the turn that reduced it
+   - context transitions, summaries, or compaction points that may have dropped earlier constraints
+   - final accepted solution shape and which user inputs caused that shape
+   Preserve decision inputs as review evidence, but do not promote session-specific narrative, host-private detail, or project-local context into public-core knowledge.
+   Do not extract only the final code or final correction. The user's experience is source material; preserve the inputs that produced the better solution.
 3. Map the knowledge to existing public-core `skills/`, `knowledge/`, `codestyle/`, `platforms/`, internal shared overlay destinations, or project overrides.
    - route by semantic type first, not by convenience:
      - `codestyle/` for naming, formatting, code-shape, and local coding conventions
@@ -99,6 +108,8 @@ Interpretation:
 
 ## Output
 - Source summary
+- Decision path summary for development/review sessions
+- Preserved request contract and user corrections that shaped the result
 - Candidate output split
 - Candidate destination
 - Why that destination is semantically correct

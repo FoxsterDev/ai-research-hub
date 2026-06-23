@@ -68,6 +68,8 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 
 ## Complexity Budget
 - If the planned or implemented fix introduces new flags, queues, flush triggers, cache-backed fallbacks, helper wrappers, delay gates, or duplicate trigger paths, do not treat that as neutral implementation detail.
+- Before adding orchestration state, freeze the user-visible request contract in plain terms: what must happen, what must not be skipped, and when the flow may resume. Rebuild the smallest solution from that contract before modeling counters, queues, or deferred paths.
+- If the user asks to simplify, apply first-principles reasoning, or challenges the complexity directly, treat that as new source material. Re-check assumptions instead of only polishing the current patch.
 - If the task enters repeated redesign loops, stop and restate the minimal product invariants before continuing. At minimum restate:
   - actual source count
   - persistence unit

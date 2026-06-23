@@ -29,7 +29,12 @@ Use narrower utilities only when the user already knows the exact target:
 1. Identify the source type and topic.
 2. Separate durable rules from examples, narrative, incidents, and project-local detail.
 2a. If the source is a development chat, implementation session, or review session, run a retrospective pass after the initial extraction.
+   - reconstruct the original user-visible request, the non-negotiable outcome, and the constraints that must survive later simplification
    - reconstruct the important implementation turns, reversals, and user corrections
+   - preserve simplification prompts, first-principles prompts, or other explicit user reasoning interventions when they materially changed the solution shape
+   - identify what the first over-complex solution assumed, what the later simpler solution removed, and which user inputs caused the change
+   - after a resume or context compaction, compare the final answer against the earlier request contract instead of extracting only from the compacted/latest patch
+   - preserve decision inputs as review evidence, but do not promote session-specific narrative, host-private detail, or project-local context into public-core knowledge
    - identify the top 3 process or code-shape problems that most increased complexity, semantic drift, or avoidable user rework
    - classify whether each problem came from:
      - missing invariant freeze before refactor
