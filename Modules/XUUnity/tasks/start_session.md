@@ -46,10 +46,10 @@ Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expecta
 10b. If the task is risk-sensitive, load only the minimum matched policy-pack files from `reviews/policy_packs/` and surface the trigger reason explicitly.
 11. If the host repo provides `AIModules/XUUnityInternal/`, load only the minimum relevant internal shared overlay files after the public `XUUnity` core.
 11a. When a host-local internal overlay exists, prefer starting from its host-local overlay entrypoint before loading narrower internal files.
-12. When the task touches internal presenter-driven UI, choose the narrowest internal UI skill by lifetime shape:
-   - `skills/ui/screen_presenters.md` for long-lived screens, tabs, pages, or root screen composition
-   - `skills/ui/flow_presenters.md` for one-shot popups, modal flows, or explicit flow-result presenters
-   - `skills/ui/presenter_development.md` only as the lifetime-map entry file or when the task spans more than one presenter shape
+12. When the task touches internal presenter-driven UI, choose the narrowest internal UI skill by lifetime shape (these live in the host internal overlay at `AIModules/XUUnityInternal/skills/ui/`, not the public core, and load only when that overlay exists):
+   - internal `skills/ui/screen_presenters.md` for long-lived screens, tabs, pages, or root screen composition
+   - internal `skills/ui/flow_presenters.md` for one-shot popups, modal flows, or explicit flow-result presenters
+   - internal `skills/ui/presenter_development.md` only as the lifetime-map entry file or when the task spans more than one presenter shape
 12a. Resolve optional private/paid module overlays before project memory when the user asks for private modules, paid packs, premium skills, Game QA paid validation, or when a known loaded private-pack trigger matches the task. If `scripts/module_registry_tool.py` exists, prefer the latest user-cache registry from `~/.xuunity/cache/resolved_modules/`; run `python3 Modules/XUUnity/scripts/module_registry_tool.py rollsync --project-root <host-root>` when the cache is missing, stale, or the user explicitly asks to verify loading.
 12b. Treat the resolved registry as a user-local overlay contract:
    - use `loadedPacks[]` as eligible prompt-stack candidates
@@ -142,10 +142,12 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/severity_matrix.md` when the task requires explicit severity classification or release-blocker framing for findings, risks, or system-health issues.
 - Load `knowledge/sdk_stability_scoring.md` when comparing SDK versions, connector tracks, upgrade candidates, or stability-first SDK choices.
 - Load `knowledge/request_recovery.md` when task text or inspected code mentions structured error bodies on non-2xx responses, `HttpResponseCode`, `RawResponse`, application error codes, request retry after auth/session recovery, response cache invalidation, stale persisted identity/session state, idempotency keys, safe replay, or full transport/application error contracts.
+- Load `knowledge/external_store_open_boundaries.md` when the task involves an attributed store open, cross-promo banner click, install-if-missing flow, StoreKit fallback ordering, or installed-app-versus-store-destination identity divergence (for example AppsFlyer-attributed store opens). `knowledge/decision_rules.md:37` remains a secondary cross-reference.
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
 - Load the matching `knowledge/vendors/<vendor>.md` profile when `xuunity sdk discover <Vendor>` or another SDK update research task targets a vendor with a public profile.
 - Load `knowledge/vendors/applovin_max.md` when the task targets AppLovin, AppLovin MAX, MAX, or a MAX-mediated network such as Pangle, ByteDance, Google AdMob, Meta, ironSource, Unity Ads, or Liftoff.
+- `knowledge/review_quality_scoring.md` is intentionally not selected from this block: it is owned and triggered by the review path (`tasks/code_review.md` and `reviews/*` whenever a review reaches a concrete verdict), so it loads through those files rather than here.
 
 ## Skill Routing Hints
 - If the task mentions `PrimeTween`, `DOTween`, tween sequences, UI fade or scale transitions, or null or destroyed tween targets, load the narrowest relevant file from `skills/ui_tweens/`.
@@ -279,9 +281,9 @@ Interpret short commands by intent:
 - `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
 - `xuunity publish the work ...` -> `tasks/change_delivery.md` first, then any host-declared closeout or reporting route from the repo router
 - `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
-- `xuunity task registry reconcile ...` or `xuunity rebuild task index ...` -> `utilities/task_registry_reconcile.md`
+- `xuunity task registry reconcile ...`, `xuunity rebuild task index ...`, or `xuunity sync task snapshots ...` -> `utilities/task_registry_reconcile.md`
 - `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
-- `xuunity task metrics ...` or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
+- `xuunity task metrics ...`, `xuunity task registry metrics ...`, or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
 - `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity delivery risk ...` or `xuunity feature risk review ...` -> `reviews/delivery_risk_review.md`
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
@@ -335,15 +337,6 @@ Interpret short commands by intent:
 - `xuunity system refresh project registry ...` -> `utilities/system_registry_refresh.md`
 - `xuunity system project registry audit ...` -> `utilities/system_project_registry_audit.md`
 - `xuunity system registry audit ...` -> `utilities/system_project_registry_audit.md`
-- `xuunity task registry bootstrap ...`, `xuunity enable task registry ...`, or `xuunity setup task history ...` -> `utilities/task_registry_bootstrap.md`
-- `xuunity start tracking this task ...`, `xuunity open task record ...`, or `xuunity create task record ...` -> `utilities/task_tracking_start.md`
-- `xuunity finish the work ...`, `xuunity close this task ...`, `xuunity record this fix ...`, or `xuunity post and record this work ...` -> `utilities/task_registry_append.md`
-- `xuunity publish the work ...` -> `tasks/change_delivery.md` first, then any host-declared closeout or reporting route from the repo router
-- `xuunity this works ...`, `xuunity this has bugs ...`, `xuunity reopen this task ...`, `xuunity mark this validated ...`, or `xuunity customer says it works ...` -> `utilities/task_feedback_capture.md`
-- `xuunity task registry reconcile ...`, `xuunity rebuild task index ...`, or `xuunity sync task snapshots ...` -> `utilities/task_registry_reconcile.md`
-- `xuunity validate task registry ...`, `xuunity check task events ...`, or `xuunity task registry lint ...` -> `utilities/task_registry_validate.md`
-- `xuunity task metrics ...`, `xuunity task registry metrics ...`, or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
-- `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity system research watch ...` -> `utilities/internet_research_watch.md`
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
 - `xuunity system evaluate ...` -> `utilities/system_self_evaluation.md`
