@@ -6,12 +6,27 @@ Start every new task from a senior mobile-production mindset.
 Support shorthand commands such as `xuunity refactor this code` and expand them into the full working context automatically.
 Assume Unity `6000+`, mobile target constraints, zero-crash and zero-ANR expectations, and no microfreezes on critical flows.
 
-## Entrypoint Contract
-- A selected router, protocol entrypoint, or start-session file is atomic context: load it from first line through EOF before applying it.
-- A partial read, summary, excerpt, search hit, or fixed line window is not valid entrypoint loading.
-- Keep default-loaded entrypoints small: target 150-220 lines; split by 300 lines.
-- Put detailed rules, command catalogs, and matrices in explicitly routed owner files.
-- Longer knowledge, review, skill, and reference files are valid only when trigger-loaded; they are not default entrypoints.
+## Entrypoint Kernel
+This block is head-complete and authoritative: it carries the must-load rule, the routing procedure, and the output/execution contract. Everything below elaborates it. If the body is truncated or skimmed, this kernel alone is sufficient to route correctly and to know what to emit.
+
+**Must-load.** A selected router, protocol entrypoint, or start-session file is atomic context: load it first line through EOF before applying it. A partial read, summary, excerpt, search hit, or fixed line window is not valid entrypoint loading.
+
+**Route (one-shot, then act).** For any request: (1) classify the task; (2) resolve the target project from referenced source paths; (3) infer the primary role and risk class; (4) select the minimum stack — role, codestyle, core skills, task file, and only the matched skills / reviews / utilities / knowledge / policy packs; (5) for SDK, startup, consent, attribution, reward, or runtime-content families, trace the owner chain and pass the root-cause gate BEFORE any source patch. Full procedure is `## Process` below; routing targets are the shorthand and routing-hint sections below.
+
+**Execution contract.** Derive and surface the compact execution contract before patching, large review output, or implementation planning. Field-set owner: `knowledge/execution_contract.md`; validation cluster: `knowledge/validation_contract.md`. Reference the owner instead of copying the field list.
+
+**Root-cause gate.** Source patches for SDK, startup, consent, attribution, reward, or runtime-content families are blocked until the consumer, producer, init owner, active config/profile, and content/manifest availability have been inspected and recorded (`## Root Cause Before Patch`). A `local_fix` that fails `scripts/routing_gate_check.py` must be reclassified, not forced.
+
+**Required output (re-state this immediately before emitting final output — do not assume it stayed salient across a long turn):**
+- Selected stack
+- Inferred risk class, if any
+- Derived execution contract (field set from `knowledge/execution_contract.md`)
+- Missing project memory, if any
+- Main risk areas for the session
+- Critical flows that must not regress
+- Validation focus for thread safety, exception safety, and performance
+
+**Owner-file rule.** Put detailed rules, command catalogs, and matrices in explicitly routed owner files; longer knowledge, review, skill, and reference files are valid only when trigger-loaded and are never default entrypoints. Entrypoint adequacy is governed by the byte-complete-kernel invariant (`scripts/check_entrypoint_kernel.py`: every must-survive marker within the smallest head window, contract restated in the tail), not by a fixed line count.
 
 ## Process
 1. Classify the task from the user request, even if the request is shorthand.
@@ -652,10 +667,4 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/system_evaluation_cadence.md` when deciding whether the system should be evaluated now and how to act on the score
 
 ## Output
-- Selected stack
-- Inferred risk class, if any
-- Derived execution contract (the field set defined in `knowledge/execution_contract.md`)
-- Missing project memory, if any
-- Main risk areas for the session
-- Critical flows that must not regress
-- Validation focus for thread safety, exception safety, and performance
+Re-state the **Required output** contract from the Entrypoint Kernel (top of file) before emitting final output: selected stack · inferred risk class · derived execution contract (`knowledge/execution_contract.md`) · missing project memory · main risk areas · critical flows that must not regress · validation focus for thread safety, exception safety, and performance. This tail restatement is the recency anchor; the kernel block is the authoritative copy.
