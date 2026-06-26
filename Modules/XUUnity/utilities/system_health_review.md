@@ -14,7 +14,11 @@ Review the health of the prompt system itself, not only the product code.
 - Flag any active rule that still treats all reusable knowledge as a single shared layer.
 - Flag any active rule that allows non-public-safe guidance to drift into `AIRoot/Modules/XUUnity/`.
 - Include the health of the knowledge extraction pipeline when `xuunity extract ...` is part of the active system.
-- If the active project keeps an extraction baseline at `<...>/AIOutput/Reports/Tasks/extraction_baselines/`, use the latest baseline file as evidence. Compare current counts (public/internal/skills/hints) against it. The baseline file IS the artifact — there is no separate framework spec to consult.
+- If the active system keeps extraction regression evidence, use the code-owned baseline pointer
+  `AIOutput/Reports/System/knowledge_extraction_eval_baseline_v1.md` and the authoritative
+  latest summary `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` when it exists.
+  Compare current counts (public/internal/skills/hints) against that evidence. The baseline file IS the
+  artifact — there is no separate framework spec to consult.
 - If extraction routing changed recently and no baseline file or recent run exists, flag the gap explicitly.
 - When the active system exposes a Unity MCP operational layer, check whether it also exposes a checked-in smoke route.
 - Prefer checked-in smoke routes over ad hoc manual command lists when verifying MCP operational health.

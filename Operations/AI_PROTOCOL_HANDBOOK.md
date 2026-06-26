@@ -300,7 +300,7 @@ Examples:
 
 ### SDK Upgrade Or Review
 1. `xuunity sdk discover AppsFlyer` to run the full update-candidate research flow for the active project
-2. Use `xuunity sdk discover AppsFlyer for ApperfunHub` when the project must be explicit
+2. Use `xuunity sdk discover AppsFlyer for <ProjectName>` when the project must be explicit
 3. `xuunity sdk review this integration` after a candidate is selected or implemented
 4. If breakage risk is high, use `xuunity sdk breakage review this integration`
 5. If rollout risk matters, follow with `xuunity product rollout this feature`

@@ -68,12 +68,12 @@ Workspace/
         XUUnity/
     AIModules/
       XUUnityInternal/
-      Nexus -> /Users/siarheikha/Private/Nexus
+      Nexus -> <private-module-root>/Nexus
       ExploreTheGame/
-      XCNT-P -> /Users/siarheikha/Private/XCNT-P
+      XCNT-P -> <private-module-root>/XCNT-P
     <UnityProject>/
 
-  /Users/siarheikha/Private/XCNT-P/
+  <private-module-root>/XCNT-P/
     module.json
     packs/
       game_qa_paid_skill/
@@ -106,9 +106,9 @@ Example `~/.xuunity/config.json`:
 {
   "schemaVersion": "xuunity.user-config.v1",
   "additionalModuleSearchPaths": [
-    "/Users/siarheikha/Private/XCNT-P"
+    "<private-module-root>/XCNT-P"
   ],
-  "moduleCacheRoot": "/Users/siarheikha/.xuunity/cache",
+  "moduleCacheRoot": "<user-cache-root>/.xuunity/cache",
   "allowAIModulesDiscovery": true
 }
 ```
@@ -437,7 +437,7 @@ Example:
     {
       "id": "xcntp",
       "root": "/path/to/CompanyProject/AIModules/XCNT-P",
-      "resolvedRoot": "/Users/siarheikha/Private/XCNT-P",
+      "resolvedRoot": "<private-module-root>/XCNT-P",
       "protocolScopes": ["xuunity"],
       "resolution": "in_scope"
     },
@@ -574,7 +574,7 @@ It must check:
   "loaded_pack_count": 1,
   "locked_pack_count": 0,
   "invalid_pack_count": 0,
-  "cache_path": "/Users/siarheikha/.xuunity/cache/resolved_modules/hash.json",
+  "cache_path": "<user-cache-root>/.xuunity/cache/resolved_modules/hash.json",
   "next_actions": []
 }
 ```
