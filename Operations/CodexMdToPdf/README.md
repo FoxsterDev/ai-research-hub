@@ -138,6 +138,6 @@ This pattern produced a much cleaner result for the `Connectivity Checker Pro` R
 
 ```bash
 bash AIRoot/Operations/CodexMdToPdf/render_md_to_pdf.sh \
-  /Users/Shared/ConnectivityCheckerPro_1.1.0_release/Assets/FoxsterDev/ConnectivityCheckerPro/README.md \
-  /Users/Shared/ConnectivityCheckerPro_1.1.0_release/Assets/ConnectivityCheckerPro/Documentation/README.pdf
+  <source-markdown> \
+  <output-pdf>
 ```
