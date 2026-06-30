@@ -103,6 +103,20 @@ Short commands:
 - `xuunity install working discipline`
 - `xuunity refresh working discipline`
 
+### AI CLI Orchestrator
+Use when a normal XUUnity task should be routed through an external AI CLI
+provider by explicit user selector.
+
+Canonical command:
+- `xuunity <task> via claude`
+
+Flow:
+1. classify the normal XUUnity task without the provider selector
+2. add `utilities/ai_cli_orchestrator.md` as an execution overlay
+3. use `AIRoot/Operations/XUUnityAiCliOrchestrator/` with provider `claude_cli`
+4. continue locally and report a provider gap if Claude is unavailable or fails
+   the proof gate
+
 ### Review Artifact Extraction
 Use when the user wants to convert a long engineering chat or design discussion into a reusable review artifact.
 
