@@ -20,13 +20,16 @@
 - Treat any upstream HTML-shaped string as a foreign format that must be transformed at the data boundary before reaching a TMP component. Do not feed raw HTML to a `TextMeshProUGUI` and expect the parser to "handle" it.
 - Build the transform as a small pure formatter co-located with the data model, not inside the view component. The view should receive TMP-ready text.
 - Convert known HTML to TMP-native equivalents:
-  - `<a href="URL">label</a>` → `<link="URL"><color=#RRGGBB><u>label</u></color></link>` — pick a project-consistent link color and add `<u>` only if links should be visually distinct.
+  - `<a href="URL">label</a>` → `<link="URL"><color=#RRGGBB><u>label</u></color></link>` is acceptable for short, controlled config URLs; pick a project-consistent link color and add `<u>` only if links should be visually distinct.
   - `<br>`, `<br/>`, `<br />` → `\n` (single newline).
   - `<p>...</p>` → strip wrappers, preserve inner text. Paragraphs become spaces unless the upstream consistently wraps with blank lines, in which case insert a single newline between paragraphs.
+- Do not put unbounded upstream URLs directly into `<link="...">`. TMP parses the whole tag before it can render the label, and long link ids can exceed the installed TMP parser tag buffer. Prefer short structural link ids such as `terms`, `vendor_terms_42`, or generated ids, then resolve them to full URLs in the click handling layer.
+- Preserve existing direct URL ids from controlled config. A resolver that supports registered short ids should pass through unknown/direct ids unless they are explicitly registered for rewriting.
 - Drop unknown HTML tags by removing the tag and keeping the inner text. Whitelist the TMP-native tag set above so designer-authored TMP markup is preserved through the same formatter.
 - Decode common HTML entities (`&nbsp;` → space, `&amp;` → `&`, `&lt;` → `<`, `&gt;` → `>`, `&quot;` → `"`, `&#39;` and `&apos;` → `'`). Stop at this minimal set unless evidence of broader entity use appears.
 - Collapse runs of whitespace to a single space (but preserve `\n`). Trim leading and trailing whitespace once at the end.
 - For clickable links, host a `TMProLinkClickHandler`-equivalent component on the same GameObject and route `OnLinkClicked(linkId)` to whatever opens external URLs. Do not bake URLs directly into click handlers — keep the click event keyed by `linkId`.
+- When a view assigns dynamic link-bearing text, verify the target text has an active raycast path and a link-click handler on the same GameObject, or an equivalent explicitly wired click path.
 - If a label hosts a Show More / Show Less affordance over a long string, build the toggle link the same way (`<link="expand_toggle"><color=#xxxxxx><u>Show more</u></color></link>`) and reuse the same handler. Use the non-breaking space ` ` between "Show" and "more/less" so the label never wraps mid-affordance.
 - Never trust the upstream `</tag>` count to match opens. The formatter must produce valid TMP markup even when the source HTML is unbalanced.
 - After transform, the formatter is the single source of truth for what TMP sees. The view's `OnValidate` should NOT re-process the string.
