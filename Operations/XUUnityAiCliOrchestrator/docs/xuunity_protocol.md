@@ -36,12 +36,26 @@ Execution boundary:
   returned an invalid or inconclusive report, produced suspicious evidence, or
   the user asks for independent confirmation.
 
+Phased execution:
+
+- Use `auto_phased` by default for broad, risky, or long-running tasks.
+- The worker should create a small phase plan before deep execution.
+- Each phase needs an objective, allowed actions, expected evidence, exit
+  criteria, and timeout budget.
+- The worker should report phase results as it completes them and stop when the
+  goal is reached, policy would be exceeded, or evidence becomes inconclusive.
+- Use `single_run` only for already-small tasks.
+- Use `phase_plan_only` when the host agent wants a plan before spending quota
+  on execution.
+
 Expected worker report shape:
 
 ```json
 {
   "worker_status": "completed|failed|blocked|inconclusive",
   "task_status": "passed|failed|changed|unchanged|unavailable",
+  "phase_plan": [],
+  "phase_results": [],
   "actions_taken": [],
   "evidence": [],
   "artifacts": [],

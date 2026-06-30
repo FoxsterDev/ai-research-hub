@@ -26,6 +26,34 @@ For `via claude` and equivalent external AI routes:
   report creates doubt, the XUUnity host agent may verify, challenge, or
   continue locally.
 
+## Phased Delegation
+
+Large tasks should not be handed to an external worker as one opaque run. The
+default delegation mode is:
+
+```text
+auto_phased
+```
+
+In this mode, the worker must split broad work into small phases before deep
+execution. Each phase should have an objective, allowed actions, expected
+evidence, exit criteria, and a timeout budget. The host agent can then follow
+progress at phase boundaries and decide whether to continue, verify, or stop.
+
+Supported modes:
+
+- `auto_phased`: split broad/risky work into bounded phases; execute phases
+  until the goal is reached or policy says to stop.
+- `single_run`: use one bounded worker run for already-small tasks.
+- `phase_plan_only`: ask the worker for the phase plan without executing it.
+
+Default limits:
+
+```text
+maxPhaseCount: 6
+maxPhaseSeconds: 600
+```
+
 ## Priority
 
 ```text
@@ -65,7 +93,10 @@ bash Operations/XUUnityAiCliOrchestrator/xuunity_ai_cli_orchestrator.sh doctor
 bash Operations/XUUnityAiCliOrchestrator/xuunity_ai_cli_orchestrator.sh providers
 bash Operations/XUUnityAiCliOrchestrator/xuunity_ai_cli_orchestrator.sh run \
   --project-root /absolute/project \
-  --prompt-file /absolute/task.md
+  --prompt-file /absolute/task.md \
+  --delegation-mode auto_phased \
+  --max-phases 6 \
+  --max-phase-seconds 600
 ```
 
 Use JSON output for automation:
@@ -103,6 +134,9 @@ external_ai:
   apiBilling: forbidden
   web: forbidden
   writes: forbidden
+  delegationMode: auto_phased
+  maxPhaseCount: 6
+  maxPhaseSeconds: 600
 ```
 
 If no external AI provider is ready, the runner reports
@@ -117,6 +151,8 @@ equivalents:
 {
   "worker_status": "completed|failed|blocked|inconclusive",
   "task_status": "passed|failed|changed|unchanged|unavailable",
+  "phase_plan": [],
+  "phase_results": [],
   "actions_taken": [],
   "evidence": [],
   "artifacts": [],

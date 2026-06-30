@@ -28,6 +28,9 @@ external AI CLI providers through official account login or OAuth.
   owns provider selection, proof gates, safety policy, final relay, and
   follow-up verification when the worker report is invalid, failed, suspicious,
   or user-challenged.
+- Keep broad external AI work phased. The public contract is
+  `auto_phased` by default, with `single_run` only for small tasks and
+  `phase_plan_only` when the host agent wants a plan before execution.
 - Shell launchers must stay thin. Put behavior in Python under `templates/`.
 
 ## Validation

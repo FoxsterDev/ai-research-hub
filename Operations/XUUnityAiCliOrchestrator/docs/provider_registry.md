@@ -15,6 +15,13 @@ Provider order is controlled by:
 The orchestrator chooses the first enabled, ready provider in that list unless a
 prompt or command-line override selects a provider.
 
+## Policy Fields
+
+- `providerPreference`: provider selection order.
+- `delegationMode`: default task shape, usually `auto_phased`.
+- `maxPhaseCount`: maximum worker phases for broad tasks.
+- `maxPhaseSeconds`: maximum time budget per worker phase.
+
 ## Provider Fields
 
 - `id`: stable provider id.

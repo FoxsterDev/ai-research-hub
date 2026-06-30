@@ -9,6 +9,7 @@ xuunity.ai_cli.best_available_model
 xuunity.ai_cli.project_readonly
 xuunity.ai_cli.web_allowed
 xuunity.ai_cli.write_allowed
+xuunity.ai_cli.phased_delegation
 xuunity.ai_cli.subscription_quota
 xuunity.ai_cli.metered_paid_budget_cap
 ```
@@ -40,11 +41,24 @@ Ownership split:
 - The XUUnity host agent should inspect artifacts directly only for invalid,
   failed, suspicious, or user-challenged worker reports.
 
+Phased delegation:
+
+- Default mode is `auto_phased`.
+- Broad or long-running tasks should be split into bounded phases.
+- Each phase must declare objective, allowed actions, expected evidence, exit
+  criteria, and timeout budget.
+- The host agent should be able to stop after any phase without losing the
+  useful evidence already gathered.
+- Future multi-run schedulers should use the same phase fields instead of a
+  second protocol.
+
 The worker report should include:
 
 ```text
 worker_status
 task_status
+phase_plan
+phase_results
 actions_taken
 evidence
 artifacts
