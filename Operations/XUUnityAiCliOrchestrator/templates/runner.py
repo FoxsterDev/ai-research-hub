@@ -24,13 +24,22 @@ from providers.provider_contract import ProviderAdapter, ProviderStatus
 
 SCHEMA_VERSION = "xuunity.ai-cli-orchestrator.config.v1"
 RESULT_SCHEMA_VERSION = "xuunity.ai-cli-orchestrator.result.v1"
+DELEGATION_MODES = {"auto_phased", "single_run", "phase_plan_only"}
 WORKER_REPORT_CONTRACT = [
     "Delegation contract:",
     "The external AI worker owns task execution, evidence collection, first-pass interpretation, and the final worker report.",
     "Spend provider context on the noisy work: inspect relevant project files, run allowed project commands, read generated artifacts/logs, and compress the result into decision-grade evidence.",
-    "Return one final report with: worker_status, task_status, actions_taken, evidence, artifacts, workspace_side_effects, interpretation, and doubts_or_escalation.",
+    "Return one final report with: worker_status, task_status, phase_plan, phase_results, actions_taken, evidence, artifacts, workspace_side_effects, interpretation, and doubts_or_escalation.",
     "If blocked or inconclusive, report the exact blocked command, tool, path, or missing evidence.",
     "Do not leave routine evidence collection or artifact interpretation to the caller.",
+]
+PHASED_DELEGATION_CONTRACT = [
+    "Phased delegation contract:",
+    "For broad, risky, or long-running tasks, split the work into small phases before deep execution.",
+    "Each phase must have an objective, allowed actions, expected evidence, exit criteria, and a timeout budget.",
+    "Finish and report useful phase evidence before starting the next phase.",
+    "Stop early when the goal is achieved, the next phase would exceed policy, or evidence becomes inconclusive.",
+    "Prefer several short bounded phases over one opaque long run.",
 ]
 
 CLAUDE_SELECTOR_RE = re.compile(
@@ -56,6 +65,9 @@ DEFAULT_CONFIG = {
         "allowApiBilling": False,
         "allowWeb": False,
         "allowWrites": False,
+        "delegationMode": "auto_phased",
+        "maxPhaseCount": 6,
+        "maxPhaseSeconds": 600,
     },
     "providers": [
         {
@@ -111,6 +123,9 @@ class PromptControl:
     api_billing: str = "forbidden"
     web: str = "forbidden"
     writes: str = "forbidden"
+    delegation_mode: str = ""
+    max_phases: int = 0
+    max_phase_seconds: int = 0
 
 
 def config_path() -> Path:
@@ -145,6 +160,12 @@ def validate_config(payload: dict[str, Any]) -> None:
         raise ValueError("defaultPolicy.priority must be subscription_quota_first")
     if default_policy.get("authPolicy") != "official_login_only":
         raise ValueError("defaultPolicy.authPolicy must be official_login_only")
+    delegation_mode = default_policy.get("delegationMode")
+    if delegation_mode and normalize_delegation_mode(str(delegation_mode), "") not in DELEGATION_MODES:
+        raise ValueError("defaultPolicy.delegationMode must be auto_phased, single_run, or phase_plan_only")
+    for field_name in ("maxPhaseCount", "maxPhaseSeconds"):
+        if field_name in default_policy and parse_positive_int(str(default_policy.get(field_name))) <= 0:
+            raise ValueError(f"defaultPolicy.{field_name} must be a positive integer")
 
     for provider in payload.get("providers") or []:
         provider_id = provider.get("id")
@@ -174,6 +195,19 @@ def write_default_config(path: Path) -> bool:
 
 def parse_boolish_allowed(value: str) -> bool:
     return value.strip().lower() in {"allowed", "allow", "true", "yes", "1"}
+
+
+def parse_positive_int(value: str, default: int = 0) -> int:
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def normalize_delegation_mode(value: str, default: str = "auto_phased") -> str:
+    normalized = str(value or "").strip().lower().replace("-", "_")
+    return normalized if normalized in DELEGATION_MODES else default
 
 
 def parse_prompt_control(text: str) -> PromptControl:
@@ -233,6 +267,12 @@ def parse_prompt_control(text: str) -> PromptControl:
                 control.web = value or "forbidden"
             elif normalized_key in {"writes", "write"}:
                 control.writes = value or "forbidden"
+            elif normalized_key in {"delegationmode", "executionmode", "phasemode"}:
+                control.delegation_mode = normalize_delegation_mode(value, "")
+            elif normalized_key in {"maxphases", "maxphasecount"}:
+                control.max_phases = parse_positive_int(value)
+            elif normalized_key in {"maxphaseseconds", "phasetimeoutseconds"}:
+                control.max_phase_seconds = parse_positive_int(value)
 
     return control
 
@@ -372,15 +412,29 @@ def compose_policy_prompt(
     allow_web: bool,
     allow_writes: bool,
     allow_api_billing: bool,
+    delegation_mode: str = "auto_phased",
+    max_phase_count: int = 6,
+    max_phase_seconds: int = 600,
 ) -> str:
+    normalized_delegation_mode = normalize_delegation_mode(delegation_mode)
     rules = [
         "You are running under XUUnityAiCliOrchestrator.",
         f"Project root: {project_root}",
         "Use the provider's official account login or OAuth session only.",
         "Do not use or ask for model API keys.",
         "Do not read personal folders outside the project root.",
+        f"Delegation mode: {normalized_delegation_mode}.",
+        f"Maximum phases: {max_phase_count}.",
+        f"Maximum seconds per phase: {max_phase_seconds}.",
         *WORKER_REPORT_CONTRACT,
     ]
+    if normalized_delegation_mode == "auto_phased":
+        rules.extend(PHASED_DELEGATION_CONTRACT)
+    elif normalized_delegation_mode == "phase_plan_only":
+        rules.extend(PHASED_DELEGATION_CONTRACT)
+        rules.append("Return the phase plan only; do not execute the planned phases.")
+    else:
+        rules.append("Use a single bounded run only when the task is already small enough.")
     if not allow_writes:
         rules.append("Do not modify files, create branches, commit, push, tag, or stash.")
     if not allow_web:
@@ -542,12 +596,30 @@ def run_prompt(args: argparse.Namespace) -> int:
         return 0
 
     requested_model = args.model or control.model or str(default_policy.get("modelPreference") or "best_available")
+    delegation_mode = normalize_delegation_mode(
+        args.delegation_mode or control.delegation_mode or str(default_policy.get("delegationMode") or "auto_phased")
+    )
+    max_phase_count = (
+        parse_positive_int(str(args.max_phases))
+        or control.max_phases
+        or parse_positive_int(str(default_policy.get("maxPhaseCount") or ""))
+        or 6
+    )
+    max_phase_seconds = (
+        parse_positive_int(str(args.max_phase_seconds))
+        or control.max_phase_seconds
+        or parse_positive_int(str(default_policy.get("maxPhaseSeconds") or ""))
+        or 600
+    )
     policy_prompt = compose_policy_prompt(
         prompt_text=prompt_text,
         project_root=project_root,
         allow_web=web_allowed,
         allow_writes=writes_allowed,
         allow_api_billing=api_billing_allowed,
+        delegation_mode=delegation_mode,
+        max_phase_count=max_phase_count,
+        max_phase_seconds=max_phase_seconds,
     )
 
     try:
@@ -578,6 +650,11 @@ def run_prompt(args: argparse.Namespace) -> int:
             },
             "project_root": str(project_root),
             "prompt_file": str(prompt_file),
+            "delegation": {
+                "mode": delegation_mode,
+                "max_phase_count": max_phase_count,
+                "max_phase_seconds": max_phase_seconds,
+            },
             "provider_status": status.to_dict(),
             "error": str(exc),
         }
@@ -604,6 +681,11 @@ def run_prompt(args: argparse.Namespace) -> int:
         },
         "project_root": str(project_root),
         "prompt_file": str(prompt_file),
+        "delegation": {
+            "mode": delegation_mode,
+            "max_phase_count": max_phase_count,
+            "max_phase_seconds": max_phase_seconds,
+        },
         "provider_status": status.to_dict(),
         "result": result.to_dict(),
     }
@@ -641,6 +723,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--allow-web", action="store_true", help="Runtime web allowance; prompt must also allow it.")
     run.add_argument("--allow-writes", action="store_true", help="Runtime write allowance; prompt and config must also allow it.")
     run.add_argument("--allow-api-billing", action="store_true", help="Runtime API billing allowance; prompt and config must also allow it.")
+    run.add_argument("--delegation-mode", choices=sorted(DELEGATION_MODES), default="", help="Task delegation shape.")
+    run.add_argument("--max-phases", type=int, default=0, help="Maximum worker phases for auto_phased runs.")
+    run.add_argument("--max-phase-seconds", type=int, default=0, help="Maximum seconds per worker phase.")
     run.add_argument("--timeout-seconds", type=int, default=1800, help="Provider subprocess timeout.")
     run.add_argument("--config-path", default="", help="Override config path.")
     run.set_defaults(func=run_prompt)

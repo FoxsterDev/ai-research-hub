@@ -24,6 +24,9 @@ external_ai:
   apiBilling: forbidden
   web: allowed
   writes: forbidden
+  delegationMode: auto_phased
+  maxPhaseCount: 4
+  maxPhaseSeconds: 300
 ---
 Body
 """
@@ -33,6 +36,9 @@ Body
         self.assertEqual(control.model, "best_available")
         self.assertEqual(control.web, "allowed")
         self.assertEqual(control.writes, "forbidden")
+        self.assertEqual(control.delegation_mode, "auto_phased")
+        self.assertEqual(control.max_phases, 4)
+        self.assertEqual(control.max_phase_seconds, 300)
 
     def test_no_marker_is_not_allowed(self):
         control = runner.parse_prompt_control("Do the task.")

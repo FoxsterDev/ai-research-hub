@@ -12,7 +12,10 @@
     "modelPreference": "best_available",
     "allowApiBilling": false,
     "allowWeb": false,
-    "allowWrites": false
+    "allowWrites": false,
+    "delegationMode": "auto_phased",
+    "maxPhaseCount": 6,
+    "maxPhaseSeconds": 600
   },
   "providers": [
     {

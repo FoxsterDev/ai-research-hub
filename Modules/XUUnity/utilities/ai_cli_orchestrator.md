@@ -28,6 +28,8 @@ xuunity architecture plan this subsystem via claude
 - Delegate the expensive concrete work to the external worker: execution,
   evidence collection, artifact/log reading, first-pass interpretation, and a
   compact worker report.
+- For broad, risky, or long-running tasks, use phased delegation instead of one
+  opaque worker run.
 - Keep the XUUnity host agent focused on routing, proof gates, safety policy,
   final relay, and follow-up verification when the worker report is failed,
   invalid, suspicious, or user-challenged.
@@ -49,7 +51,24 @@ external_ai:
   provider: claude_cli
   model: best_available
   apiBilling: forbidden
+  delegationMode: auto_phased
+  maxPhaseCount: 6
+  maxPhaseSeconds: 600
 ```
+
+## Phased Delegation
+Default mode: `auto_phased`.
+
+The worker should split large tasks into small phases. Each phase should name:
+
+- objective
+- allowed actions
+- expected evidence
+- exit criteria
+- timeout budget
+
+Use `single_run` only for already-small tasks. Use `phase_plan_only` when the
+host agent wants a plan before spending quota on execution.
 
 ## Proof Gate
 The provider is selectable only after these are proven:
@@ -67,6 +86,8 @@ The external worker should return one compact report with:
 
 - `worker_status`
 - `task_status`
+- `phase_plan`
+- `phase_results`
 - `actions_taken`
 - `evidence`
 - `artifacts`

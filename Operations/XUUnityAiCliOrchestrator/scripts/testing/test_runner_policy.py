@@ -49,6 +49,9 @@ class RunnerPolicyTests(unittest.TestCase):
 
     def test_default_config_validates(self):
         runner.validate_config(runner.DEFAULT_CONFIG)
+        self.assertEqual(runner.DEFAULT_CONFIG["defaultPolicy"]["delegationMode"], "auto_phased")
+        self.assertEqual(runner.DEFAULT_CONFIG["defaultPolicy"]["maxPhaseCount"], 6)
+        self.assertEqual(runner.DEFAULT_CONFIG["defaultPolicy"]["maxPhaseSeconds"], 600)
 
     def test_proof_gate_rejects_ready_status_without_proofs(self):
         provider = {
@@ -119,7 +122,26 @@ class RunnerPolicyTests(unittest.TestCase):
         self.assertIn("evidence collection", prompt)
         self.assertIn("artifact interpretation", prompt)
         self.assertIn("worker_status", prompt)
+        self.assertIn("phase_plan", prompt)
+        self.assertIn("phase_results", prompt)
         self.assertIn("doubts_or_escalation", prompt)
+
+    def test_policy_prompt_includes_phase_limits(self):
+        prompt = runner.compose_policy_prompt(
+            prompt_text="external_ai: allowed\n\nInvestigate the issue.",
+            project_root=Path("/tmp/example-project"),
+            allow_web=False,
+            allow_writes=False,
+            allow_api_billing=False,
+            delegation_mode="auto_phased",
+            max_phase_count=4,
+            max_phase_seconds=300,
+        )
+
+        self.assertIn("Delegation mode: auto_phased.", prompt)
+        self.assertIn("Maximum phases: 4.", prompt)
+        self.assertIn("Maximum seconds per phase: 300.", prompt)
+        self.assertIn("Each phase must have an objective", prompt)
 
 
 if __name__ == "__main__":
