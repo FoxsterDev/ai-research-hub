@@ -302,6 +302,20 @@ Interpret short commands by intent:
 - `xuunity task metrics ...`, `xuunity task registry metrics ...`, or `xuunity ai delivery metrics ...` -> `utilities/task_metrics_rollup.md`
 - `xuunity archive task registry ...`, `xuunity task registry rollover ...`, or `xuunity review task registry retention ...` -> `utilities/task_registry_archive.md`
 - `xuunity delivery risk ...` or `xuunity feature risk review ...` -> `reviews/delivery_risk_review.md`
+- any normal XUUnity task command that includes an explicit Claude execution
+  selector such as `via claude`, `with claude`, `use claude`, `through claude`,
+  `using claude`, `через claude`, or `с claude` -> keep the normal task routing
+  and add the external AI CLI overlay:
+  - provider selector: `claude_cli`
+  - operation: `AIRoot/Operations/XUUnityAiCliOrchestrator/`
+  - auth policy: official login/OAuth only
+  - billing policy: subscription quota first, no API-key fallback
+  - proof gate: Claude must prove official subscription login, subscription
+    quota, enforced access policy, and resolved model before selection
+  - if Claude is unavailable or fails proof gate, continue with the local
+    XUUnity stack and report the provider gap
+  - do not change the primary task file; `xuunity fix the bug via claude` still
+    routes as bug fixing, `xuunity review ... via claude` still routes as review
 - `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`
   - always include the testing baseline from `skills/tests/testing_doctrine.md`
 - `xuunity review the git change ...` -> `reviews/git_change_review.md`

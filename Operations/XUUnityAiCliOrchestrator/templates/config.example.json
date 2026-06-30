@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "xuunity.ai-cli-orchestrator.config.v1",
+  "defaultPolicy": {
+    "enabled": true,
+    "priority": "subscription_quota_first",
+    "authPolicy": "official_login_only",
+    "providerPreference": [
+      "claude_cli",
+      "gemini_cli",
+      "antigravity"
+    ],
+    "modelPreference": "best_available",
+    "allowApiBilling": false,
+    "allowWeb": false,
+    "allowWrites": false
+  },
+  "providers": [
+    {
+      "id": "claude_cli",
+      "kind": "subscription_cli",
+      "enabled": true,
+      "authMode": "official_oauth_login",
+      "costMode": "subscription_quota",
+      "apiKeyAuthAllowed": false,
+      "command": "claude",
+      "acceptedSubscriptionTypes": [
+        "pro",
+        "team",
+        "max",
+        "enterprise"
+      ],
+      "modelPolicy": {
+        "default": "best_available",
+        "fallbacks": [
+          "opus"
+        ]
+      }
+    },
+    {
+      "id": "gemini_cli",
+      "kind": "subscription_cli",
+      "enabled": true,
+      "authMode": "official_google_login",
+      "costMode": "subscription_quota",
+      "apiKeyAuthAllowed": false,
+      "command": "gemini",
+      "modelPolicy": {
+        "default": "best_available"
+      },
+      "runArgs": [
+        "-p",
+        "{prompt}"
+      ]
+    },
+    {
+      "id": "antigravity",
+      "kind": "subscription_cli",
+      "enabled": true,
+      "authMode": "official_google_account_login",
+      "costMode": "subscription_or_account_quota",
+      "apiKeyAuthAllowed": false,
+      "command": "antigravity",
+      "modelPolicy": {
+        "default": "best_available"
+      }
+    },
+    {
+      "id": "metered_api_stub",
+      "kind": "metered_api",
+      "enabled": false,
+      "costMode": "metered_paid",
+      "requiresExplicitOptIn": true,
+      "budgetPolicy": {
+        "required": true,
+        "maxRunUsd": 1.0
+      }
+    }
+  ]
+}

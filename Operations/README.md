@@ -27,6 +27,9 @@ These are not part of the host bootstrap path.
   Fixed-surface Slack delivery setup and usage.
 - `XUUnityLightUnityMcp/`
   Public lightweight Unity MCP surface for `xuunity`.
+- `XUUnityAiCliOrchestrator/`
+  Public subscription-first AI CLI orchestration surface for opt-in XUUnity
+  external AI runs.
 - `XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
   Public-safe report for the `xuunity` task registry surface.
 
