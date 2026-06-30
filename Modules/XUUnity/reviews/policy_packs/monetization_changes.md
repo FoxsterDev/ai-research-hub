@@ -53,6 +53,7 @@ Strengthen the review and validation stack for monetization-sensitive work where
 - rewarded flow: grant exactly once after verified completion, never on simple close or failed show
 - interstitial flow: no dead-end UI, blocked progression, missing resume recovery, or accidental reward side effects
 - no-fill and failure flow: safe fallback, no crash, no stuck loading state, no repeated rapid retry loop
+- ad-gated UI presentation: if a popup or screen waits for rewarded/interstitial completion, gate failures should fail closed, retry, or cancel presentation instead of logging and continuing into possible full-screen ad overlap
 - revenue callback flow: correct event ordering, identity availability, currency and placement metadata, and no double-reporting across SDKs
 - consent and startup flow: monetization does not load, show, or report before the current product and platform contract allows it
 - rollout flow: default config, stale config, experiment variants, and disabled monetization paths remain safe
@@ -63,6 +64,7 @@ Strengthen the review and validation stack for monetization-sensitive work where
 - duplicate grants after duplicate callbacks, scene re-entry, resume handling, retry, or queued delivery
 - missed grants when the app backgrounds, the callback arrives after the view is destroyed, or the SDK completes after a timeout
 - no-fill or show failure leaves a screen blocked, a spinner alive, input disabled, or progression gated forever
+- a failed rewarded/interstitial wait gate logs and continues into popup presentation while a full-screen ad may still be active
 - revenue is logged before consent, SDK readiness, user identity, attribution identity, or required placement metadata is available
 - revenue is double-reported after SDK migration, wrapper refactor, event replay, or multiple analytics adapters listening to the same callback
 - remote-config or rollout defaults change reward value, ad frequency, offer visibility, or entitlement behavior without matching validation

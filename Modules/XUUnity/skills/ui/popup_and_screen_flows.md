@@ -16,6 +16,7 @@
 - Keep screen transitions free of blocking asset loads on the main thread.
 - Fail safely if remote content or SDK-backed UI data is late or unavailable.
 - Validate resume, interruption, and ad return paths on real devices.
+- If the product contract says a popup is handled once the player sees it, persist the seen or handled marker immediately after presentation begins. Do not wait for close/result unless the handling contract explicitly depends on that result.
 
 ## Multi-Gate User-Data Reuse
 When a flow has two or more sequential gates that each need the same user-provided data (location, age, identity, payment method), the second-and-later gate must NOT re-prompt for data the first gate already collected.
