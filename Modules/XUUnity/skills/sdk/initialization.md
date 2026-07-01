@@ -9,6 +9,8 @@
 - Make init completion, timeout, and fallback behavior explicit.
 - Contain initialization failures without crashing the app.
 - Expected native or plugin init failure must resolve to explicit non-operational state with actionable error information; do not let recoverable init failure look like successful startup.
+- Validate required SDK identifiers and environment-specific config before calling vendor initialization or native bridge code.
+- If an SDK is optional for first interactive startup, predictable invalid local config may let the loading step continue only through an explicit skipped or non-operational SDK state.
 - If callback or listener registration fails during init, fail initialization deterministically instead of only logging and continuing.
 - Do not collapse `failed to initialize`, `not initialized yet`, and `initialized but no data yet` into the same public wrapper state.
 - Protect initialization from concurrent double execution when multiple callers can race to initialize the same SDK.

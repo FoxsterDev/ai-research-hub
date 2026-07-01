@@ -9,6 +9,9 @@
 - Assume Unity objects require main-thread access unless project memory documents a safe exception.
 - Be explicit about where thread hops happen.
 - When an async API promises main-thread completion, enforce that promise at the final returned task completion boundary, not only at an intermediate callback or inner await point.
+- For `await using (UniTask.ReturnToMainThread())`, the hop to main happens when the async-using
+  scope is disposed. If an awaited inner operation resumes on a background thread, code still inside
+  the scope can run there; put Unity-bound finalization after the scope or explicitly hop before it.
 - Keep main-thread continuations short and allocation-light.
 - Do not move expensive parsing, deserialization, or synchronization back onto the main thread without evidence.
 - When a background pipeline fans back into Unity main-thread callbacks under potentially bursty load, bound each queue stage explicitly instead of relying on one unbounded backlog and one catch-up drain.

@@ -20,6 +20,8 @@
 - Before designing a wrapper API, explicitly confirm whether the API is main-thread-only or required to be fully thread-safe. Do not assume full thread safety unless the requirement is stated.
 - If a wrapper promises any-thread public entry, normalize thread ingress at the public facade boundary before Unity-dependent work, Unity networking, or platform bridge code begins.
 - If initialization is the single main-thread-only public entry point, state that explicitly and do not invent pre-init any-thread queue semantics unless product requirements clearly demand them.
+- Classify public wrapper APIs as pre-init inputs, initialization release signals, or post-init SDK operations before applying initialization guards.
+- Guard post-init SDK operations behind initialized state, but do not block pre-init inputs that the SDK startup contract explicitly requires later.
 - When a family of public wrapper APIs shares the same threading and error contract, prefer one consistent internal execution path instead of helper stacks that diverge by method.
 - Keep public method shape, callback contract, threading guarantees, and error semantics stable during refactors unless the contract change is intentional, documented, and propagated through all callers.
 - If public ingress normalization already happens at the facade or dispatch layer, remove redundant lower-layer thread posting instead of stacking two dispatch owners for the same call path.
