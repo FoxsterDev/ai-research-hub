@@ -10,5 +10,6 @@
 - Avoid loading large audio assets synchronously on sensitive flows.
 - Keep mobile memory ceilings in mind for Android low-memory devices and older iPhones.
 - Audit compression, sample rate, and channel count for runtime value, not only quality.
+- Include build-size impact in compression, sample-rate, and channel-count reviews. PCM versus compressed import choices must be measured against the clip's runtime requirements.
 - Treat large `DecompressOnLoad` clips as stability risks during ad, startup, and scene-transition flows on memory-constrained devices.
 - Favor lighter channel count and memory footprint for UI and short feedback sounds unless the content clearly needs stereo detail.

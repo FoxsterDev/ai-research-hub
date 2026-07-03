@@ -7,6 +7,7 @@
 
 ## Rules
 - Enforce import settings that are critical for mobile memory, texture size, and compression.
+- Treat texture format, audio format, and font coverage/subsetting as mobile build-size settings that need validation and reporting, not only visual or audio quality settings. Keep exact size deltas project-local unless they were measured in the target project.
 - Avoid hidden import-time mutations that are hard to debug.
 - Keep import hooks deterministic and idempotent.
 - Separate validation from auto-fix when the change may be risky.

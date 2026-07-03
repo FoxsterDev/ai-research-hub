@@ -20,6 +20,7 @@
 - Prefer `HasCharacters(string text, out uint[] missingCharacters, bool searchFallbacks: true, bool tryAddCharacter: false)`. It exists in every TMP version from 2.x onward, walks surrogate pairs correctly, searches the fallback chain in one call, and returns the missing-codepoint set in one pass.
 - Pass `tryAddCharacter: false` for read-only coverage checks. `true` mutates the dynamic atlas at runtime — only opt in when the font asset is configured for runtime atlas population AND the caller wants it.
 - Before writing any `HasCharacter` call, verify the installed package version via `Packages/packages-lock.json` and check the actual overload set in `Library/PackageCache/<package>/.../TMP_FontAsset.cs`. Don't assume the latest docs match the installed surface.
+- Treat broad CJK source fonts, large dynamic fonts, and fallback chains as artifact-size decisions as well as coverage decisions. Measure the product's shipped character coverage and prefer a subset, fallback, or downloadable-language strategy when a full source font is not justified.
 
 ## Sanitizer Recipe
 1. Call `HasCharacters(text, out var missing, searchFallbacks: true, tryAddCharacter: false)`. If `true`, return the string unchanged.

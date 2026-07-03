@@ -148,6 +148,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/review_quality_scoring.md`
 - `knowledge/request_recovery.md`
 - `knowledge/severity_matrix.md`
+- `knowledge/unity_build_size_measurement.md`
 - `knowledge/unity_validation_boundaries.md`
 - `knowledge/validation_contract.md`
 - `knowledge/validation_lanes.md`
