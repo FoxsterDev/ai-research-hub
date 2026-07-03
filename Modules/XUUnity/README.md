@@ -97,6 +97,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/task_metrics_rollup.md`
 - `utilities/task_registry_archive.md`
 - `utilities/internet_research_watch.md`
+- `utilities/ai_cli_orchestrator.md`
 - `utilities/system_self_evaluation.md`
 - `utilities/system_protocol_clean_review.md`
 - `utilities/system_health_review.md`
