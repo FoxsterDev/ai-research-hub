@@ -17,6 +17,7 @@
 - privacy and store declarations
 - dependency version risk
 - version and connector inventory accuracy
+- shipped asset and build-size footprint (bundled textures/atlases/fonts, native and DEX size); cross-ref `knowledge/unity_build_size_measurement.md`
 - startup cost and repeated bridge crossings
 - public API misuse risk
 - wrapper contract quality
