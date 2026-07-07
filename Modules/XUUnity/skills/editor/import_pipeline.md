@@ -15,3 +15,4 @@
 - Treat a regenerated GUID as a new asset identity, not as a harmless import detail.
 - Before broad YAML reference rewrites after an asset move, check whether restoring the original `.meta` GUID would preserve references with a smaller, safer diff.
 - When consolidating child-project copies into a shared asset, audit duplicate GUIDs and visually identical local copies before deleting assets or rewriting references.
+- You cannot persist `.meta` edits on registry or git UPM packages (the package cache is immutable; `SaveAndReimport` on a package asset does not stick). To retune import settings on third-party package assets non-destructively and upgrade-safely, drive an `AssetPostprocessor.OnPreprocessTexture` (it runs for package assets) from a version-controlled override table (path-glob to per-platform max size / format / crunch). Apply only to explicit table entries, never as a blanket rule. Alternative: vendor the asset into the project.
