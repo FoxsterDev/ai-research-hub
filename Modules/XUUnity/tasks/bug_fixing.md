@@ -5,6 +5,7 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 
 ## Focus
 - Narrow the defect to ownership, threading, lifecycle, marshaling, state, or initialization order.
+- Treat the reporter's stated root cause as a hypothesis, not a finding. Before organizing the investigation around it, check the report's own evidence against it; the evidence can refute the stated cause (and can be self-refuting). Verify the mechanism in source before accepting the label.
 - Prefer low-risk fixes before structural redesign.
 - Treat `skills/tests/testing_doctrine.md` as a default constraint for this task, not an optional add-on.
 - Do not default to writing tests immediately while the fix shape is still moving.
