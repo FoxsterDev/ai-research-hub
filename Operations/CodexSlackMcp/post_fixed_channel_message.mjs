@@ -29,6 +29,21 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg === "--upload") {
+      (parsed.uploads ??= []).push(readValue(argv, ++index, arg));
+      continue;
+    }
+
+    if (arg === "--title") {
+      parsed.title = readValue(argv, ++index, arg);
+      continue;
+    }
+
+    if (arg === "--thread") {
+      parsed.threadTs = readValue(argv, ++index, arg);
+      continue;
+    }
+
     if (arg === "--run-sh") {
       parsed.runSh = readValue(argv, ++index, arg);
       continue;
@@ -74,7 +89,7 @@ function requireText(value) {
   return text;
 }
 
-async function postToSlack(text, runSh) {
+async function runOnServer(runSh, toolName, toolArgs) {
   await access(runSh);
 
   const client = new McpClient(runSh);
@@ -84,15 +99,15 @@ async function postToSlack(text, runSh) {
     await client.call("initialize", {
       protocolVersion: "2025-03-26",
       capabilities: {},
-      clientInfo: { name: "codex-slack-fixed-channel-cli", version: "1.0.0" },
+      clientInfo: { name: "codex-slack-fixed-channel-cli", version: "1.1.0" },
     });
 
     client.notify("notifications/initialized");
 
     const response = await client.call("tools/call", {
-      name: "slack_post_message",
-      arguments: { text },
-    }, 60000);
+      name: toolName,
+      arguments: toolArgs,
+    }, 120000);
 
     return response.structuredContent ?? response;
   } finally {
@@ -204,18 +219,26 @@ class McpClient {
 }
 
 function printHelp() {
-  console.log(`Post a message to the configured fixed Slack MCP channel.
+  console.log(`Post a message (and optionally attach files) to the configured fixed Slack MCP channel.
 
 Usage:
   node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs --file /path/to/message.txt
   node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs --text "message"
+  # one message with text + attachments (dashboard image + md report):
+  node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs \\
+    --file msg.txt --upload dashboard.png --upload report.md
 
 Options:
   --file <path>      Read Slack message text from a file.
-  --text <message>  Slack message text.
-  --run-sh <path>   Override the installed Slack MCP run.sh path.
-  --help            Show this help.
+  --text <message>   Slack message text.
+  --upload <path>    Attach a local file (repeatable). Text becomes the file share's comment,
+                     so text + all files land as ONE Slack message.
+  --title <title>    Slack title (single-file uploads).
+  --thread <ts>      Post/upload inside an existing thread.
+  --run-sh <path>    Override the installed Slack MCP run.sh path.
+  --help             Show this help.
 
+Allowed upload types are enforced by the server (text/markdown/json/csv/log, images, html, pdf).
 This helper reads Slack credentials only through the installed fixed-channel MCP wrapper.
 It does not print tokens or accept a channel override.`);
 }
@@ -228,8 +251,27 @@ async function main() {
     return;
   }
 
-  const text = await loadMessageText(args);
-  const result = await postToSlack(text, args.runSh ?? DEFAULT_RUN_SH);
+  const runSh = args.runSh ?? DEFAULT_RUN_SH;
+  const uploads = args.uploads ?? [];
+  const text = (args.text || args.file) ? await loadMessageText(args) : null;
+
+  let result;
+  if (uploads.length > 0) {
+    // one Slack message: the text becomes the file share's initial comment
+    const toolArgs = { paths: uploads };
+    if (text) toolArgs.initial_comment = text;
+    if (args.title) toolArgs.title = args.title;
+    if (args.threadTs) toolArgs.thread_ts = args.threadTs;
+    result = await runOnServer(runSh, "slack_upload_file", toolArgs);
+  } else {
+    if (!text) {
+      throw new Error("Missing message. Use --text or --file, or --upload for files.");
+    }
+    const toolArgs = { text };
+    if (args.threadTs) toolArgs.thread_ts = args.threadTs;
+    result = await runOnServer(runSh, "slack_post_message", toolArgs);
+  }
+
   console.log(JSON.stringify(result, null, 2));
 }
 

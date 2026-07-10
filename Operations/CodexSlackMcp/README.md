@@ -59,8 +59,20 @@ post a prepared message with:
 node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs --file /path/to/message.txt
 ```
 
+To post text **and attach files as one Slack message** (e.g. a dashboard image +
+a markdown report), add `--upload` (repeatable) — the message text becomes the
+file share's comment, so text + all files land as a single message:
+
+```bash
+node AIRoot/Operations/CodexSlackMcp/post_fixed_channel_message.mjs \
+  --file /path/to/message.txt \
+  --upload /path/to/dashboard.png \
+  --upload /path/to/report.md
+```
+
 This helper is reusable across projects. It does not accept channel overrides
-and reads secrets only through the installed local wrapper.
+and reads secrets only through the installed local wrapper. Uploads go through
+the server's `slack_upload_file` tool (fixed channel only).
 
 ## What It Installs
 
@@ -342,11 +354,17 @@ approval_mode = "prompt"
 `slack_upload_file` is intentionally narrow:
 
 - uploads only to `SLACK_ALLOWED_CHANNEL_ID`
-- accepts only local `.md`, `.markdown`, and `.txt` files
-- defaults to a 1 MiB maximum file size
+- accepts a single `path` or multiple `paths` (uploaded as one message)
+- allowed types: `.md` `.markdown` `.txt` `.json` `.csv` `.log`, images
+  (`.png` `.jpg` `.jpeg` `.gif` `.webp` `.svg`), `.html` `.htm`, `.pdf`
+- defaults to an 8 MiB maximum file size (override with `SLACK_MAX_UPLOAD_BYTES`)
+- optional `initial_comment` (the one message body) and `thread_ts`
 - uses Slack's current external upload flow:
   - `files.getUploadURLExternal`
   - `files.completeUploadExternal`
+
+Requires the bot scope `files:write`. When you broaden allowed types to include
+images/HTML, keep the upload approval pinned (`approval_mode = "prompt"`).
 
 ## Prompt Templates
 
