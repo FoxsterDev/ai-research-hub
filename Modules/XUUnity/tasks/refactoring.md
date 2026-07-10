@@ -22,6 +22,7 @@ Improve structure without changing intended behavior or weakening Unity mobile p
 - Prefer staged migration, thin adapters, and reversible steps over one-shot rewrites on high-risk flows.
 - Do not introduce new waits, blocking work, hidden main-thread stalls, or unhandled exception paths during refactor work.
 - Add regression protection where breakage is expensive, especially before deleting the old path.
+- Before removing a class, component, or subsystem, inventory the behavior coupled *inside* it: one type can bundle unrelated concerns (for example a notification scheduler that also grants currency). Preserve and re-home the coupled behavior (rename or extract it), or flag it explicitly for product — never let removing one concern silently drop a coupled reward, economy, save, or side-effect path.
 - When loaded as a bug-fixing overlay, simplify temporary ownership or orchestration added during diagnosis until the remaining structure is the smallest stable model that still preserves behavior.
 - When loaded as a bug-fixing overlay, justify any remaining queues, flags, wrappers, fallback paths, or delay gates that survive simplification.
 - For small persisted-state, startup-cache, or remote-override problems, default to a single-document storage model unless concrete product constraints prove that manifests, per-entry files, or broader storage orchestration are required.
