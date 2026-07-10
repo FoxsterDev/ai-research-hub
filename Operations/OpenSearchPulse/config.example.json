@@ -1,0 +1,76 @@
+{
+  "base_url": null,
+  "base_url_env": "OPENSEARCH_PULSE_URL",
+  "api_key_env": null,
+  "api_key_header": "x-api-key",
+  "window_days": 3,
+  "max_workers": 8,
+  "min_dau": 100,
+  "server_type": { "field": "ServerType.keyword", "value": "Prod" },
+  "levels": { "error": "Error", "warn": "Warn" },
+  "fields": {
+    "level": "LogLevel.keyword",
+    "message_keyword": "Message.keyword",
+    "message_text": "Message",
+    "category": "Category.keyword",
+    "user": "UUID.keyword",
+    "app_id": "AppId.keyword",
+    "version": "GameVersion.keyword",
+    "platform": "Platform.keyword"
+  },
+  "sources": [
+    {
+      "index_prefix": "shared-core-logs-",
+      "split_by_app_id": true,
+      "app_names": { "APP1": "First App", "APP2": "Second App" }
+    },
+    {
+      "index_prefix": "standalone-core-logs-",
+      "split_by_app_id": false,
+      "key": "STANDALONE",
+      "name": "Standalone App"
+    }
+  ],
+  "signals": {
+    "http_429": { "phrase": "429 Too Many Requests", "label": "HTTP 429 rate-limit" },
+    "timeout": { "phrase": "Request timed out", "label": "Request timeout" }
+  },
+  "funnels": [
+    {
+      "key": "signup",
+      "label": "Signup",
+      "apps": ["APP1"],
+      "note": "optional note shown under the funnel",
+      "stages": [
+        { "key": "start", "label": "Started",   "phrase": "signup started",   "category": "Auth" },
+        { "key": "done",  "label": "Completed",  "phrase": "signup completed", "category": "Auth" },
+        { "key": "failed","label": "Failed",     "phrase": "signup failed",    "category": "Auth" }
+      ],
+      "rates": [
+        { "label": "completion",   "num": "done",   "den": "start",           "good": "high", "good_at": 95, "bad_at": 85, "business": "share of entrants who finish" },
+        { "label": "success rate", "num": "done",   "den": ["done", "failed"], "good": "high", "good_at": 98, "bad_at": 95, "business": "of terminal outcomes, share that succeeded" },
+        { "label": "reach",        "num": "start",  "den": "dau",             "good": "high", "business": "share of DAU entering signup (volume — left uncoloured)" }
+      ]
+    }
+  ],
+  "hygiene": {
+    "default": { "verdict": "review" },
+    "rules": [
+      { "match": { "empty_message": true }, "verdict": "fix",
+        "ux": "unhandled exception with no message", "business": "instability / retention risk",
+        "owner": "Client Runtime", "action": "enrich the log + fix the root exception" },
+      { "match": { "category": "Ads", "phrase": ["no fill", "timeout"] }, "verdict": "ux-assess",
+        "ux": "an ad failed to load/show", "business": "lost ad impressions / rewards",
+        "owner": "Monetization", "action": "investigate no-fill/timeouts per network" },
+      { "match": { "regex": "missing script|referenced script" }, "verdict": "mute",
+        "ux": "none (build hygiene chatter)", "business": "no user impact",
+        "owner": "Client/Content", "action": "fix in-editor; suppress in prod" }
+    ]
+  },
+  "thresholds": {
+    "degraded_pct": 40,
+    "watch_pct": 15,
+    "new_release_min_share": 0.02
+  },
+  "brand": { "org": "Your Org", "product": "Production Pulse" }
+}
