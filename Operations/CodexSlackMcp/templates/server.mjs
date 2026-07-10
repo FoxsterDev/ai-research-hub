@@ -6,8 +6,12 @@ import path from "node:path";
 const SERVER_NAME = "slack-single-channel";
 const SERVER_VERSION = "0.1.0";
 const PROTOCOL_VERSION = "2025-03-26";
-const MAX_UPLOAD_BYTES = 1024 * 1024;
-const ALLOWED_UPLOAD_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
+const MAX_UPLOAD_BYTES = Number.parseInt(process.env.SLACK_MAX_UPLOAD_BYTES ?? "", 10) || 8 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+  ".md", ".markdown", ".txt", ".json", ".csv", ".log",
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+  ".html", ".htm", ".pdf",
+]);
 
 const token = process.env.SLACK_BOT_TOKEN ?? "";
 const readToken = process.env.SLACK_READ_TOKEN?.trim() || token;
@@ -206,29 +210,33 @@ function buildTools() {
     {
       name: "slack_upload_file",
       description:
-        "Upload one local markdown or text file to the fixed Slack channel. This server cannot upload to any other destination.",
+        "Upload one or more local files to the fixed Slack channel as a single message. Allowed types: text/markdown/json/csv/log, images (png/jpg/jpeg/gif/webp/svg), html, pdf. This server cannot upload to any other destination.",
       inputSchema: {
         type: "object",
         properties: {
           path: {
             type: "string",
             minLength: 1,
-            description: "Absolute or relative path to a local .md, .markdown, or .txt file.",
+            description: "Path to a single local file to upload.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+            description: "Multiple local file paths uploaded together as one Slack message.",
           },
           title: {
             type: "string",
-            description: "Optional Slack title for the uploaded file.",
+            description: "Optional Slack title (applied when uploading a single file).",
           },
           initial_comment: {
             type: "string",
-            description: "Optional message text to accompany the file share.",
+            description: "Optional message text shown with the file share (the one message body).",
           },
           thread_ts: {
             type: "string",
             description: "Optional parent timestamp to upload inside a thread.",
           },
         },
-        required: ["path"],
         additionalProperties: false,
       },
     },
@@ -315,36 +323,43 @@ async function callTool(params) {
       });
     }
     case "slack_upload_file": {
-      const filePath = requireNonEmptyString(args.path, "path");
+      const single = optionalNonEmptyString(args.path);
+      const many = Array.isArray(args.paths)
+        ? args.paths.filter((p) => typeof p === "string" && p.trim() !== "")
+        : [];
+      const filePaths = many.length ? many : (single ? [single] : []);
+      if (filePaths.length === 0) {
+        throw new Error("Provide 'path' (single file) or 'paths' (array of files).");
+      }
       const title = optionalNonEmptyString(args.title);
       const initialComment = optionalNonEmptyString(args.initial_comment);
       const threadTs = optionalNonEmptyString(args.thread_ts);
-      const file = await loadUploadFile(filePath);
-      const upload = await slackApiForm("files.getUploadURLExternal", {
-        filename: file.filename,
-        length: String(file.buffer.length),
-      });
-      await uploadBytes(upload.upload_url, file.filename, file.buffer);
+      const uploaded = [];
+      for (const fp of filePaths) {
+        const file = await loadUploadFile(fp);
+        const upload = await slackApiForm("files.getUploadURLExternal", {
+          filename: file.filename,
+          length: String(file.buffer.length),
+        });
+        await uploadBytes(upload.upload_url, file.filename, file.buffer);
+        uploaded.push({
+          id: upload.file_id,
+          title: filePaths.length === 1 && title ? title : file.filename,
+        });
+      }
       const complete = await slackApi("files.completeUploadExternal", {
-        files: [
-          {
-            id: upload.file_id,
-            title: title ?? file.filename,
-          },
-        ],
+        files: uploaded.map((u) => ({ id: u.id, title: u.title })),
         channel_id: allowedChannelId,
         ...(initialComment ? { initial_comment: initialComment } : {}),
         ...(threadTs ? { thread_ts: threadTs } : {}),
       });
-      const completedFile = complete.files?.[0] ?? null;
       return toolResult({
         ok: true,
         channel_id: allowedChannelId,
-        file_id: upload.file_id,
-        file_name: completedFile?.name ?? file.filename,
-        title: completedFile?.title ?? title ?? file.filename,
-        permalink: completedFile?.permalink ?? null,
-        mimetype: completedFile?.mimetype ?? null,
+        count: uploaded.length,
+        files: (complete.files ?? []).map((f) => ({
+          file_id: f.id, name: f.name, title: f.title, permalink: f.permalink ?? null,
+        })),
         thread_ts: threadTs,
       });
     }
