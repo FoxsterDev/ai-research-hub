@@ -351,8 +351,11 @@ def fetch_samples(client, cfg, prefix, app_id, day, limit=6):
                                  {"exists": {"field": F["stacktrace"]}}]
     if app_id:
         filt.append({"term": {F["app_id"]: app_id}})
+    src = [F["message_text"], F["category"], F["version"], F["platform"], F["device"], F["stacktrace"]]
+    if F.get("attributes"):
+        src.append(F["attributes"])
     q = {"size": limit, "collapse": {"field": F["message_keyword"]},
-         "_source": [F["message_text"], F["category"], F["version"], F["platform"], F["device"], F["stacktrace"]],
+         "_source": src,
          "query": {"bool": {"filter": filt}}}
     try:
         hits = client.search(prefix + day, q)["hits"]["hits"]
@@ -362,9 +365,12 @@ def fetch_samples(client, cfg, prefix, app_id, day, limit=6):
     for h in hits:
         s = h["_source"]
         stack = redact(str(s.get(F["stacktrace"], ""))[:800])
-        out.append({"msg": norm_msg(s.get(F["message_text"], "")), "cat": s.get(F["category"], ""),
-                    "ver": s.get(F["version"], ""), "plat": plat_label(s.get(F["platform"], "")),
-                    "device": s.get(F["device"], ""), "stack": stack})
+        rec = {"msg": norm_msg(s.get(F["message_text"], "")), "cat": s.get(F["category"], ""),
+               "ver": s.get(F["version"], ""), "plat": plat_label(s.get(F["platform"], "")),
+               "device": s.get(F["device"], ""), "stack": stack}
+        if F.get("attributes"):
+            rec["attrs"] = redact(str(s.get(F["attributes"], "") or "")[:400])
+        out.append(rec)
     return out
 
 
@@ -1373,6 +1379,8 @@ def render_md(report, samples):
             L.append("")
             for s in samples[p["key"]][:5]:
                 L.append(f"- **{s['msg'][:90]}** · {s['cat']} · {s['ver']} · {s['plat']} · {s['device']}")
+                if s.get("attrs"):
+                    L.append(f"  - attributes: `{s['attrs'][:200]}`")
                 L.append("  ```")
                 for ln in s["stack"].splitlines()[:6]:
                     L.append("  " + ln.strip())
