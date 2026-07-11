@@ -4,6 +4,7 @@
 - a bash script, wrapper, or CI step must also run on Windows (Git Bash / MSYS)
 - a Windows CI job hangs with zero output while macOS/Linux legs pass
 - tests spawn bash or shell scripts via `subprocess` from Python or another native host
+- a long-lived host/daemon process spawns helper subprocesses (`tasklist`, PowerShell, `ps`, `lsof`, `wslpath`, `git`) or force-kills recorded pids
 
 ## Rules
 - Path-upward walks via `dirname` must terminate on a fixed point (`candidate == previous`), never on `== "/"`. Windows path forms walk `D:/a → D: → . → .` and never reach `/`; inside `$(...)` this hangs with zero output.
@@ -15,6 +16,14 @@
 - If a Git Bash/MSYS installer persists a path for later native Windows Python/cmd/PowerShell consumption, write a host-native path (`cygpath -w`) or make the reader explicitly convert MSYS paths. Persisted marker files are plain text; they do not receive MSYS process-launch conversion.
 - Porting bash `cd ... && pwd` to Python: use `os.path.abspath` (logical, keeps `/tmp` on macOS), not `Path.resolve()`; keep `realpath` only where the original explicitly used it. Otherwise symlinked temp dirs (`/var` vs `/private/var`) create false output diffs.
 - A platform-support claim requires a CI leg per claimed platform. Assumptions accumulate invisibly on platforms CI never executes.
+
+## Helper Subprocess And Process-Control Discipline (production, not just tests)
+- Every short helper spawn gets `timeout=` and handles `subprocess.TimeoutExpired` explicitly — it is **not** an `OSError`; an `except OSError` guard silently lets the hang escape and crash the caller. A hung probe otherwise blocks a daemon forever with zero diagnostics.
+- Decode helper output as `encoding="utf-8", errors="replace"`, never the host ANSI codepage (cp1251/cp866 hosts corrupt it), and pass `CREATE_NO_WINDOW` on Windows when the parent is GUI-hosted — helper spawns must not flash console windows.
+- "No timeout" is legitimate only when the child IS the workload (a delegated server run, a batch lane that enforces its own deadline). Encode those as an explicit allowlist in an AST-sweep contract test over every `subprocess.run` call, so the next spawn cannot silently regress.
+- A pid recorded in a session/state file goes stale across crashes and reboots — the OS reuses pids, so the number can now belong to an unrelated process, and a liveness check proves only that *some* process exists. Before force-killing a recorded pid, re-verify identity now (command line still targets the expected project/process class); if identity cannot be confirmed, refuse and report a classification instead of killing. Membership checks go **before** the kill.
+- Kill process trees (`taskkill /F /T` / `killpg`), and bound the kill helper spawn itself like any other helper.
+- Reference implementation: `xuunity-mcp` repo — `tests/test_subprocess_timeout_contract.py` (AST sweep + allowlist), `templates/server_editor_host_lifecycle.py` (identity gate before kill), `tests/test_editor_host_kill_identity.py`.
 
 ## Thin Launcher End-State
 - The durable fix for fragile operator bash is not more guards — guards cover known traps, MSYS emulation is a permanent risk *class*. Shrink every shell entrypoint to "find a Python ≥ N interpreter + exec" (≤ ~30 lines) and move the body into Python.
