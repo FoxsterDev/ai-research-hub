@@ -93,6 +93,7 @@ If the command specifically says `publish the work`, treat change delivery as th
    - `Validation:` what was checked, or the explicit validation gap
    - optional `Depends on:` when a root repo commit depends on a nested repo commit already pushed
    - optional `Follow-up:` when part of the local delta is intentionally left for later
+   - bind validation evidence and release artifacts to the exact source state they describe; if behavior, dependency wiring, asmdefs, public contracts, or release documentation changes afterward, refresh the affected tests and evidence, then re-check the commit body and tag target before publication
 6. Stage and verify one commit unit at a time:
    - stage only the intended files or hunks
    - inspect the staged diff before committing
