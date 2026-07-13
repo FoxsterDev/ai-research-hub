@@ -1,5 +1,7 @@
 # AI Automation Roadmap
 
+> **Re-baselined 2026-07-12.** Phases 1, 3, 4 are delivered; Phase 5 mostly; Phases 2 and 7 partial; Phase 6 designed but not built. Per-item status, evidence, and the current gap register live in [`AI_AUTOMATION_ROADMAP_FEATURE_GAP_AND_MILESTONE_STATUS.md`](./AI_AUTOMATION_ROADMAP_FEATURE_GAP_AND_MILESTONE_STATUS.md) — treat that as the living checklist.
+
 ## Purpose
 This document defines the long-term roadmap for the AI protocol system as it scales from the current monorepo setup to a platform that can support 100 small Unity projects with:
 - shared reusable engineering intelligence
@@ -65,7 +67,21 @@ People focus shifts:
 
 ## Roadmap
 
+Status snapshot (2026-07-12):
+
+| Phase | Status |
+|---|---|
+| 1 Strong Foundation | ✅ Done |
+| 2 Portfolio Standardization | 🟡 Partial |
+| 3 AI-Guided Delivery Flows | ✅ Done |
+| 4 Policy-Driven Review | ✅ Done |
+| 5 Product Owner Self-Service | 🟢 Mostly done |
+| 6 Semi-Autonomous Implementation | 📐 Designed, not built |
+| 7 Portfolio Orchestration | 🟡 Partial |
+
 ## Phase 1: Strong Foundation
+Status: ✅ Done.
+
 Target:
 - make the current monorepo stable, consistent, and reusable
 
@@ -85,6 +101,8 @@ Success metrics:
 - shared prompts no longer drift chaotically
 
 ## Phase 2: Portfolio Standardization
+Status: 🟡 Partial — health-audit + memory-freshness protocols delivered; automated bootstrap, onboarding checklist, minimum project-memory templates, and a persisted per-project AI-readiness score still missing.
+
 Target:
 - onboard 20 to 30 projects with predictable structure
 
@@ -107,6 +125,8 @@ Success metrics:
 - product-facing protocols work across most projects without manual prompt assembly
 
 ## Phase 3: AI-Guided Delivery Flows
+Status: ✅ Done — full feature-delivery chain shipped and wired to memory, skills, code-verification lanes, and reviews.
+
 Target:
 - turn feature work into guided AI workflows instead of open-ended prompting
 
@@ -134,6 +154,8 @@ Success metrics:
 - fewer ad-hoc code review comments on common mistakes
 
 ## Phase 4: Policy-Driven Review
+Status: ✅ Done — six change-type policy packs + automatic risk-class review-stack assembly (`full_review` Deterministic Bundle Matrix) + release gate.
+
 Target:
 - reduce routine tech lead review load through policy-based AI review layers
 
@@ -159,6 +181,8 @@ Success metrics:
 - reduced regression rate on repeated change categories
 
 ## Phase 5: Product Owner Self-Service
+Status: 🟢 Mostly done — product protocols + standard response format + plain-language command guide shipped; per-role / project-side quickstart docs still missing.
+
 Target:
 - enable product owners to work directly with project AI safely
 
@@ -184,6 +208,8 @@ Success metrics:
 - fewer clarification cycles before feature kickoff
 
 ## Phase 6: Semi-Autonomous Implementation
+Status: 📐 Designed, not built — the L0–L4 model, change categories, exclusions, and four-gate artifact contract are fully specified in `Design/`, but no runtime files exist, there are no `start_session`/`execution_contract` hooks, and the task-registry is not autonomy-aware. This is the current frontier milestone.
+
 Target:
 - AI can implement low-risk feature work in a controlled lane
 
@@ -211,6 +237,8 @@ Success metrics:
 - reduced lead time for repetitive feature work
 
 ## Phase 7: Portfolio Orchestration
+Status: 🟡 Partial — a populated project-registry index + maintenance procedures exist; cross-project health dashboard, capability matrix, knowledge-promotion analytics, and shared incident-pattern tracking are unbuilt.
+
 Target:
 - manage 100 projects as a coordinated AI-assisted portfolio, not as 100 isolated folders
 
@@ -298,25 +326,36 @@ Everything else should move toward:
 
 ## Required Platform Additions
 
+Legend: ✅ done · 🟡 partial · 📐 designed, not built · ⬜ not started.
+
 ### Short-Term
-- project health audit protocol
-- project memory freshness protocol
-- feature-delivery protocol family
-- review policy packs
-- risk classification model
+- ✅ project health audit protocol
+- ✅ project memory freshness protocol
+- ✅ feature-delivery protocol family
+- ✅ review policy packs
+- ✅ risk classification model
 
 ### Mid-Term
-- project registry
-- capability tags per project
-- release gate protocols
-- portfolio-wide reporting
-- autonomous low-risk change lane
+- 🟡 project registry (populated index; metadata dimensions + portfolio report incomplete)
+- ⬜ capability tags per project
+- ✅ release gate protocols
+- 🟡 portfolio-wide reporting (rollup command is still a stub)
+- 📐 autonomous low-risk change lane (designed, not built)
 
 ### Long-Term
-- centralized dashboard for project AI readiness
-- portfolio incident-to-skill promotion pipeline
-- cross-project rollout and remediation automation
-- org-level metrics on AI-assisted delivery quality
+- ⬜ centralized dashboard for project AI readiness
+- ⬜ portfolio incident-to-skill promotion pipeline
+- ⬜ cross-project rollout and remediation automation
+- ⬜ org-level metrics on AI-assisted delivery quality
+
+## Already Delivered Beyond Plan
+Capabilities shipped that this roadmap never scoped — now tracked so they stop being invisible work:
+- XUUnity Light Unity MCP — file-IPC Unity editor bridge (compile, play, scene, scenario, screenshot validation); the concrete backbone behind the code-verification lanes.
+- knowledge-extraction eval harness — eval script + golden cases + authoritative-approval checklist.
+- AIReferenceWatch module — reference-selection doctrine + feature-bag extract/compare prompts.
+- CLI orchestration — opt-in, billing-forbidden by default.
+- ops surfaces — OpenSearch prod-health pulse, Slack delivery MCP, MD→HTML / MD→PDF export, published docs site.
+- bug-fix execution rigor — patch-shape classification, complexity budget, deterministic verification policy, kernel-invariant checker.
 
 ## KPIs
 - project onboarding time
@@ -345,12 +384,14 @@ Everything else should move toward:
 - explicit exception escalation to tech leads
 
 ## Immediate Next Moves
-1. Build a project health and project memory freshness protocol.
-2. Define a feature-delivery protocol family inside `XUUnity`.
-3. Add risk-class routing for review and implementation tasks.
-4. Standardize minimum project memory across all active projects.
-5. Create a project registry for the portfolio.
-6. Define autonomy levels and what categories are allowed at each level.
+
+Done (2026-07-12): project health + memory-freshness protocols (1), feature-delivery protocol family (2), risk-class routing (3), project registry foundation (5), and autonomy levels defined in `Design/` (6 — design only).
+
+Current frontier:
+1. Implement the low-risk autonomy lane — convert the `Design/` L0–L4 model, change categories, exclusions, and four-gate artifact contract into runtime files; add autonomy fields to the execution contract + task-registry schema; wire self-classification into `start_session`. (Phase 6)
+2. Finish the portfolio registry — add the missing metadata dimensions (monetization stack, numeric AI-readiness score, critical flows) and ship the portfolio index/report command. (Phase 7 foundation; the registry validator drift was fixed 2026-07-12.)
+3. Add Phase-2 standardization primitives — automated project bootstrap, onboarding checklist, minimum project-memory templates, and persisted per-project readiness scores.
+4. Build Phase-7 orchestration analytics — cross-project health dashboard, capability matrix, knowledge-promotion analytics, incident-pattern tracking.
 
 ## Final Position
 The winning strategy is not "AI writes more code."
