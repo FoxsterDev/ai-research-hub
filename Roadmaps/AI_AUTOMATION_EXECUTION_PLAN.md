@@ -1,5 +1,7 @@
 # AI Automation Execution Plan
 
+> **Re-baselined 2026-07-12.** This 8–12 week plan is largely delivered: WS1, WS2, WS3, WS5 done; WS4 mostly done; WS6, WS7 partial. Sprints 1–4 are complete. 11 of the 12 "build first" deliverables are done (#8 partial). Verified, per-item status and the current gap register live in [`AI_AUTOMATION_ROADMAP_FEATURE_GAP_AND_MILESTONE_STATUS.md`](./AI_AUTOMATION_ROADMAP_FEATURE_GAP_AND_MILESTONE_STATUS.md).
+
 ## Purpose
 This document turns the long-term roadmap into a practical 2-3 month execution plan.
 It focuses on the highest-leverage work needed to move the current AI protocol system toward:
@@ -29,6 +31,8 @@ By the end of this plan:
 ## Workstreams
 
 ## Workstream 1: Project Health And Freshness
+Status: ✅ Done.
+
 Goal:
 - make every project measurable as an AI-ready project
 
@@ -52,6 +56,8 @@ Priority:
 - highest
 
 ## Workstream 2: Feature Delivery Protocols
+Status: ✅ Done.
+
 Goal:
 - replace open-ended feature prompting with structured AI delivery flows
 
@@ -78,6 +84,8 @@ Priority:
 - highest
 
 ## Workstream 3: Risk Routing And Policy Packs
+Status: ✅ Done.
+
 Goal:
 - route risky work into stronger review automatically
 
@@ -105,6 +113,8 @@ Priority:
 - highest
 
 ## Workstream 4: Product Owner Self-Service
+Status: 🟢 Mostly done — one format deviation: add a `risk` line to `product_summary_format.md` (risk currently lives per-protocol only).
+
 Goal:
 - reduce engineering interruption for implementation-detail questions
 
@@ -132,6 +142,8 @@ Priority:
 - high
 
 ## Workstream 5: Review Artifact Pipeline
+Status: ✅ Done.
+
 Goal:
 - make engineering reasoning reusable instead of ephemeral
 
@@ -150,6 +162,8 @@ Priority:
 - high
 
 ## Workstream 6: Portfolio Registry
+Status: 🟡 Partial — registry index populated (3 of 6 metadata dimensions); monetization stack, numeric AI-readiness score, and critical flows missing; portfolio index/report command is a stub. (Validator drift fixed 2026-07-12: the validator now derives its project scope from `project_registry.yaml` and checks the registry's own path/router/memory invariants.)
+
 Goal:
 - stop managing projects only through folder discovery
 
@@ -172,6 +186,8 @@ Priority:
 - medium-high
 
 ## Workstream 7: Low-Risk Autonomy Lane
+Status: 🟡 Partial — 📐 design-complete (4 `Design/` docs specify the L0–L4 model, change categories, exclusions, and four-gate artifact contract), but ⬜ zero runtime implementation: no autonomy files in `Modules/`, no `start_session`/`execution_contract` hooks, task-registry not autonomy-aware.
+
 Goal:
 - define what AI can safely do with minimal human review
 
@@ -190,24 +206,24 @@ Priority:
 
 ## Recommended Sequence
 
-### Sprint 1
+### Sprint 1 — ✅ Done
 - project health audit
 - project memory freshness review
 - scoring and report format
 - minimum project memory checklist
 
-### Sprint 2
+### Sprint 2 — ✅ Done
 - feature request intake
 - feature design brief
 - implementation plan
 - validation plan
 
-### Sprint 3
+### Sprint 3 — ✅ Done
 - risk classes
 - policy packs for SDK, startup, and manifest changes
 - auto-routing updates in `start_session.md`
 
-### Sprint 3 Follow-Up
+### Sprint 3 Follow-Up — ✅ Done
 - minimum bug-fix execution contract slice
   - add a lightweight execution contract to `tasks/start_session.md`
   - add patch-shape classification to `tasks/bug_fixing.md`
@@ -216,29 +232,30 @@ Priority:
   - add complexity-budget hardening
   - add deterministic verification mapping
 
-### Sprint 4
+### Sprint 4 — ✅ Done
 - product protocol refinement
 - product-owner quick workflows
 - review artifact pipeline finalization
 
-### Sprint 5
+### Sprint 5 — 🟡 In progress
 - portfolio registry
 - low-risk autonomy model
 - first autonomy-safe task categories
 
 ## Concrete Deliverables To Build First
-1. `AIRoot/Modules/XUUnity/product/protocols/project_health_audit.md`
-2. `AIRoot/Modules/XUUnity/product/protocols/project_memory_freshness.md`
-3. `AIRoot/Modules/XUUnity/tasks/feature_request_intake.md`
-4. `AIRoot/Modules/XUUnity/tasks/feature_design_brief.md`
-5. `AIRoot/Modules/XUUnity/tasks/implementation_plan.md`
-6. `AIRoot/Modules/XUUnity/reviews/delivery_risk_review.md`
-7. `AIRoot/Modules/XUUnity/knowledge/risk_classification.md`
-8. host registry file in `AIOutput/Registry/`
-9. execution-contract hardening in `AIRoot/Modules/XUUnity/tasks/start_session.md`
-10. bug-fix closure hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
-11. complexity-budget hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
-12. deterministic verification mapping in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
+Status as of 2026-07-12 — 11 of 12 done, #8 partial:
+1. ✅ `AIRoot/Modules/XUUnity/product/protocols/project_health_audit.md`
+2. ✅ `AIRoot/Modules/XUUnity/product/protocols/project_memory_freshness.md`
+3. ✅ `AIRoot/Modules/XUUnity/tasks/feature_request_intake.md`
+4. ✅ `AIRoot/Modules/XUUnity/tasks/feature_design_brief.md`
+5. ✅ `AIRoot/Modules/XUUnity/tasks/implementation_plan.md`
+6. ✅ `AIRoot/Modules/XUUnity/reviews/delivery_risk_review.md`
+7. ✅ `AIRoot/Modules/XUUnity/knowledge/risk_classification.md`
+8. 🟡 host registry file in `AIOutput/Registry/` — populated index, but skeleton metadata (monetization stack / numeric AI-readiness score / critical flows missing) and the index/report + validator are incomplete
+9. ✅ execution-contract hardening in `AIRoot/Modules/XUUnity/tasks/start_session.md`
+10. ✅ bug-fix closure hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
+11. ✅ complexity-budget hardening in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
+12. ✅ deterministic verification mapping in `AIRoot/Modules/XUUnity/tasks/bug_fixing.md`
 
 ## Decision Rules
 - if a deliverable improves many projects at once, build it before project-specific polish
@@ -290,13 +307,14 @@ Notes:
 - do not push heavy portfolio orchestration before project health scoring exists
 
 ## Final Priority Order
-1. project health and freshness
-2. structured feature delivery
-3. risk routing and policy packs
-4. product-owner self-service
-5. review artifact reuse
-6. project registry
-7. low-risk autonomy
+
+Delivered (2026-07-12): project health and freshness, structured feature delivery, risk routing and policy packs, product-owner self-service, review artifact reuse.
+
+Remaining, in priority order:
+1. low-risk autonomy lane — implement the designed L0–L4 model as runtime protocol + gates (highest leverage; the only fully-designed, zero-built milestone)
+2. portfolio registry completion — missing metadata dimensions, portfolio index/report command (validator drift fixed 2026-07-12)
+3. Phase-2 standardization primitives — bootstrap, onboarding checklist, minimum project-memory templates, persisted readiness scores
+4. Phase-7 orchestration analytics — dashboard, capability matrix, promotion analytics, incident-pattern tracking
 
 ## Final Position
 The next 2-3 months should not be spent on adding more prompt volume.
