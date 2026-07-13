@@ -31,6 +31,7 @@ import json
 import os
 import re
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 DATE_RE = re.compile(r"^(.*-)(\d{4})-(\d{2})-(\d{2})$")
@@ -56,6 +57,7 @@ def load_config(path):
     cfg.setdefault("max_workers", 8)
     cfg.setdefault("min_dau", 100)
     cfg.setdefault("signals", {})
+    cfg.setdefault("operations", [])  # config-driven endpoint/provider health sections
     cfg.setdefault("funnels", [])          # business-metric funnels (phrase-counted stages)
     cfg.setdefault("funnel_top_dau", None)  # if set, only the top-N DAU projects render funnels
     hy = cfg.setdefault("hygiene", {})     # shared issue rule table (log-sanitation + impact bar)
@@ -79,6 +81,7 @@ def load_config(path):
     F.setdefault("app_id", "AppId.keyword")
     F.setdefault("version", "GameVersion.keyword")
     F.setdefault("platform", "Platform.keyword")
+    F.setdefault("attributes", "Attributes")
     F.setdefault("stacktrace", "Stacktrace")
     F.setdefault("device", "DeviceModel")
     F.setdefault("time", "TimeUTC")  # timestamp field; bounds the report day to exact UTC 00:00–24:00
@@ -263,6 +266,239 @@ def stage_filter(F, st):
     return {"bool": {"must": must}}
 
 
+# ------------------------------------------------------------------ operational endpoint health
+
+OP_CLASS_LABELS = {
+    "transport_timeout": "Transport timeout",
+    "transport_failure": "Transport failure",
+    "http_failure": "HTTP 4xx/5xx",
+    "server_business": "Server/business rejection",
+    "unknown": "Unclassified",
+}
+
+
+def operation_scope_filter(F, flow):
+    """Config-driven scope for a provider/endpoint flow.
+
+    `Message` and `Attributes` are both supported because provider identity is often
+    written only into the opaque Attributes envelope.
+    """
+    scope = flow.get("scope", {})
+    must = []
+    if scope.get("message_phrase"):
+        must.append({"match_phrase": {F["message_text"]: scope["message_phrase"]}})
+    if scope.get("attributes_phrase"):
+        must.append({"match_phrase": {F["attributes"]: scope["attributes_phrase"]}})
+    if scope.get("category"):
+        must.append({"term": {F["category"]: scope["category"]}})
+    return must
+
+
+def operation_outcome_filter(F, flow, outcome):
+    must = operation_scope_filter(F, flow)
+    phrase = flow.get(outcome)
+    if not phrase:
+        return None
+    must.append({"match_phrase": {F["message_text"]: phrase}})
+    return {"bool": {"must": must}}
+
+
+def classify_http_attributes(attributes):
+    """Classify a standard log Attributes envelope without rendering raw content."""
+    text = (attributes or "").lower()
+    m = re.search(r'["\']?httpcode["\']?\s*[:=]\s*["\']?(\d+)', text)
+    http_code = int(m.group(1)) if m else None
+    timeout = "timeout" in text or "timed out" in text
+    transport = "transport" in text or "apperror" in text or "network" in text
+    server = "responsecode" in text and "error" in text
+    if http_code == 0:
+        return "transport_timeout" if timeout else "transport_failure"
+    if http_code is not None and http_code >= 400:
+        return "http_failure"
+    if server or (http_code == 200 and ("server error" in text or "rejection" in text)):
+        return "server_business"
+    if timeout and transport:
+        return "transport_timeout"
+    if transport:
+        return "transport_failure"
+    return "unknown"
+
+
+def operation_reason(attributes, flow):
+    """Return the first configured, safe reason bucket; no raw response is retained."""
+    text = (attributes or "").lower()
+    for bucket in flow.get("reason_buckets", []):
+        if any(needle.lower() in text for needle in bucket.get("contains", [])):
+            return bucket.get("label", bucket.get("key", "Other"))
+    return flow.get("default_reason", "Other")
+
+
+def operation_attention(flow, failure_rate, retry_reach):
+    th = flow.get("thresholds", {})
+    return ((failure_rate is not None and failure_rate >= th.get("terminal_failure_watch_pct", float("inf"))) or
+            (retry_reach is not None and retry_reach >= th.get("retry_reach_watch_pct_dau", float("inf"))))
+
+
+def operation_status(flow, failure_rate, retry_reach):
+    th = flow.get("thresholds", {})
+    alert = ((failure_rate is not None and failure_rate >= th.get("terminal_failure_alert_pct", float("inf"))) or
+             (retry_reach is not None and retry_reach >= th.get("retry_reach_alert_pct_dau", float("inf"))))
+    return "alert" if alert else ("watch" if operation_attention(flow, failure_rate, retry_reach) else "healthy")
+
+
+def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=None, include_detail=True):
+    """Collect terminal/retry reliability plus safe class buckets for one configured flow."""
+    F = cfg["fields"]
+    base = server_filter(cfg) + time_filter(cfg, day)
+    if app_id:
+        base.append({"term": {F["app_id"]: app_id}})
+    scope = operation_scope_filter(F, flow)
+    outcomes = {}
+    for name in ("success", "failure", "retry"):
+        matcher = operation_outcome_filter(F, flow, name)
+        if matcher:
+            outcomes[name] = matcher
+    outcome_body = {
+        "size": 0, "track_total_hits": False,
+        "query": {"bool": {"filter": base + scope}},
+        "aggs": {"dau": {"cardinality": {"field": F["user"]}},
+                 "outcomes": {"filters": {"filters": outcomes},
+                              "aggs": {"users": {"cardinality": {"field": F["user"]}}}}},
+    }
+    aggs = client.search(prefix + day, outcome_body)["aggregations"]
+    agg = aggs["outcomes"]["buckets"]
+    effective_dau = dau if dau is not None else aggs["dau"]["value"]
+    result = {name: {"events": val["doc_count"], "users": val.get("users", {}).get("value", 0)}
+              for name, val in agg.items()}
+    result.setdefault("success", {"events": 0, "users": 0})
+    result.setdefault("failure", {"events": 0, "users": 0})
+    result.setdefault("retry", {"events": 0, "users": 0})
+    terminal = result["success"]["events"] + result["failure"]["events"]
+    failure_rate = round(result["failure"]["events"] / terminal * 100, 3) if terminal else None
+    retry_reach = round(result["retry"]["users"] / effective_dau * 100, 3) if effective_dau else 0.0
+
+    # Only final failures and retries are fetched. Success volume can be large and is
+    # represented by exact aggregations above. No raw record or identifier is rendered.
+    non_success = [operation_outcome_filter(F, flow, name) for name in ("failure", "retry")
+                   if operation_outcome_filter(F, flow, name)]
+    classes, reasons = Counter(), Counter()
+    drilldown = None
+    truncated = False
+    if non_success and include_detail:
+        # OpenSearch defaults to index.max_result_window=10k.  Counts remain exact
+        # through aggregations; only the optional attribute-class scan can be capped.
+        limit = min(10000, int(flow.get("max_classification_records", 10000)))
+        detail_body = {
+            "size": limit, "track_total_hits": True,
+            "_source": [F["message_text"], F["attributes"]],
+            "query": {"bool": {"filter": base + scope, "should": non_success, "minimum_should_match": 1}},
+            "aggs": {
+                "hours": {"date_histogram": {"field": F["time"], "fixed_interval": "1h", "min_doc_count": 1}},
+                "versions": {"terms": {"field": F["version"], "size": 4}, "aggs": {"users": {"cardinality": {"field": F["user"]}}}},
+                "platforms": {"terms": {"field": F["platform"], "size": 4}, "aggs": {"users": {"cardinality": {"field": F["user"]}}}},
+            },
+        }
+        detail = client.search(prefix + day, detail_body)
+        total = detail["hits"]["total"]["value"]
+        truncated = total > limit
+        retry_phrase = (flow.get("retry") or "").lower()
+        for hit in detail["hits"].get("hits", []):
+            src = hit.get("_source", {})
+            bucket = "retry" if retry_phrase and retry_phrase in str(src.get(F["message_text"], "")).lower() else "failure"
+            label = classify_http_attributes(str(src.get(F["attributes"], "") or ""))
+            classes[(bucket, label)] += 1
+            if bucket == "failure" and flow.get("reason_buckets"):
+                reasons[operation_reason(str(src.get(F["attributes"], "") or ""), flow)] += 1
+        if operation_attention(flow, failure_rate, retry_reach):
+            aggs = detail["aggregations"]
+            drilldown = {
+                "hours": [{"hour": b.get("key_as_string", str(b["key"])), "events": b["doc_count"]}
+                          for b in sorted(aggs["hours"]["buckets"], key=lambda b: -b["doc_count"])[:3]],
+                "versions": [{"value": b["key"], "events": b["doc_count"], "users": b["users"]["value"]}
+                             for b in aggs["versions"]["buckets"]],
+                "platforms": [{"value": plat_label(b["key"]), "events": b["doc_count"], "users": b["users"]["value"]}
+                              for b in aggs["platforms"]["buckets"]],
+            }
+    return {
+        "key": flow["key"], "label": flow.get("label", flow["key"]), "success": result["success"],
+        "failure": result["failure"], "retry": result["retry"],
+        "terminal_failure_rate_pct": failure_rate, "retry_reach_pct_dau": retry_reach,
+        "retry_events_per_user": round(result["retry"]["events"] / result["retry"]["users"], 2) if result["retry"]["users"] else 0.0,
+        "classes": {bucket: {label: count for (kind, label), count in classes.items() if kind == bucket}
+                    for bucket in ("failure", "retry")},
+        "reasons": dict(reasons), "status": operation_status(flow, failure_rate, retry_reach),
+        "drilldown": drilldown, "classification_truncated": truncated,
+    }
+
+
+def collect_operations(client, cfg, key, prefix, app_id, day, dau):
+    out = []
+    for profile in cfg.get("operations", []):
+        if profile.get("apps") and key not in profile["apps"] and app_id not in profile["apps"]:
+            continue
+        flows = []
+        for flow in profile.get("flows", []):
+            flows.append(collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau))
+        if flows:
+            out.append({"key": profile["key"], "label": profile.get("label", profile["key"]), "flows": flows})
+    return out
+
+
+def prior_operation_flow(project, profile_key, flow_key):
+    for profile in project.get("operations", []):
+        if profile.get("key") != profile_key:
+            continue
+        for flow in profile.get("flows", []):
+            if flow.get("key") == flow_key:
+                return flow
+    return None
+
+
+def attach_operation_baselines(client, cfg, key, prefix, app_id, operations, prior_by_date,
+                               disk_dates_desc, operation_base_dates):
+    """Attach a per-flow baseline, preferring saved daily operation blocks.
+
+    Before seven operation-enabled Pulse reports accumulate, the fallback asks OpenSearch
+    for the preceding complete days, but only for the small terminal/retry aggregations.
+    """
+    profiles_cfg = {p.get("key"): p for p in cfg.get("operations", [])}
+    default_days = int(cfg.get("operation_baseline_days", 7))
+    for profile in operations:
+        profile_cfg = profiles_cfg.get(profile.get("key"), {})
+        flows_cfg = {f.get("key"): f for f in profile_cfg.get("flows", [])}
+        for flow in profile.get("flows", []):
+            flow_cfg = flows_cfg.get(flow.get("key"), {})
+            n = int(flow_cfg.get("baseline_days", default_days))
+            saved = []
+            for day in disk_dates_desc:
+                prior = prior_by_date.get(day, {}).get(key)
+                prior_flow = prior_operation_flow(prior, profile.get("key"), flow.get("key")) if prior else None
+                if prior_flow:
+                    saved.append(prior_flow)
+                if len(saved) >= n:
+                    break
+            if len(saved) >= n:
+                snapshots, source = saved[:n], "saved reports"
+            else:
+                dates = operation_base_dates[-n:]
+                snapshots = [collect_operation_flow(client, cfg, prefix, app_id, day, profile_cfg, flow_cfg,
+                                                    dau=None, include_detail=False)
+                             for day in dates]
+                source = "OpenSearch" if snapshots else "none"
+            failure_rates = [s.get("terminal_failure_rate_pct") for s in snapshots
+                             if s.get("terminal_failure_rate_pct") is not None]
+            retry_reaches = [s.get("retry_reach_pct_dau") for s in snapshots]
+            base_failure = round(mean(failure_rates), 3) if failure_rates else None
+            base_retry = round(mean(retry_reaches), 3) if retry_reaches else None
+            flow["baseline"] = {
+                "days": len(snapshots), "source": source,
+                "terminal_failure_rate_pct": base_failure, "retry_reach_pct_dau": base_retry,
+            }
+            flow["terminal_failure_delta_pct"] = delta_pct(flow.get("terminal_failure_rate_pct"), base_failure)
+            flow["retry_reach_delta_pct"] = delta_pct(flow.get("retry_reach_pct_dau"), base_retry)
+    return operations
+
+
 def baseline_query(cfg, app_id=None, base_dates=None):
     """Light per-day agg for the OpenSearch baseline fallback."""
     F = cfg["fields"]
@@ -381,7 +617,7 @@ def per_user(count, dau):
 
 
 def delta_pct(cur, base):
-    return None if base <= 0 else (cur - base) / base * 100.0
+    return None if cur is None or base is None or base <= 0 else (cur - base) / base * 100.0
 
 
 def classify(err_delta, th):
@@ -498,7 +734,7 @@ def build_impact(top_errors, top_warns, limit=5):
 
 
 def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_dates,
-                  prior_by_date, disk_dates_desc, n):
+                  operation_base_dates, prior_by_date, disk_dates_desc, n):
     today = collect_day(client, cfg, prefix, app_id, report_day)
     if today["dau"] == 0:
         return None
@@ -509,8 +745,8 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     # baseline: prefer the most recent N prior reports on disk that include this project
     # (even weeks old); else fall back to OpenSearch over the immediate window.
     prior_days = [d for d in disk_dates_desc if key in prior_by_date.get(d, {})][:n]
-    prior_err_sigs, recent_err_sigs, prior_versions = set(), set(), set()
-    recent_top = []
+    prior_err_sigs, prior_warn_sigs, prior_versions = set(), set(), set()
+    recent_err_top, recent_warn_top = [], []
     if prior_days:
         base_source = "saved reports"
         base_err_pu = mean([prior_by_date[d][key].get("err_per_user") for d in prior_days])
@@ -519,11 +755,13 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         for d in prior_days:
             for t in prior_by_date[d][key].get("top_errors", []):
                 prior_err_sigs.add(t["msg"])
+            for t in prior_by_date[d][key].get("top_warns", []):
+                prior_warn_sigs.add(t["msg"])
             for v in prior_by_date[d][key].get("versions", []):
                 prior_versions.add(v[0] if isinstance(v, (list, tuple)) else v)
         recent = max(prior_days)
-        recent_top = prior_by_date[recent][key].get("top_errors", [])
-        recent_err_sigs = {t["msg"] for t in recent_top}
+        recent_err_top = prior_by_date[recent][key].get("top_errors", [])
+        recent_warn_top = prior_by_date[recent][key].get("top_warns", [])
         prior_status = prior_by_date[recent][key].get("status")
     else:
         ob = collect_baseline_os(client, cfg, prefix, app_id, os_base_dates) if os_base_dates else \
@@ -540,12 +778,16 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     status = "nodata" if low_data else classify(err_d, th)
 
     today_err_msgs = {t["msg"] for t in today["top_errors"]}
+    today_warn_msgs = {t["msg"] for t in today["top_warns"]}
     appeared = [t for t in today["top_errors"] if prior_err_sigs and t["msg"] not in prior_err_sigs]
-    disappeared = [t for t in recent_top if t.get("msg") not in today_err_msgs]
+    disappeared = [t for t in recent_err_top if t.get("msg") not in today_err_msgs]
+    appeared_warns = [t for t in today["top_warns"] if prior_warn_sigs and t["msg"] not in prior_warn_sigs]
+    disappeared_warns = [t for t in recent_warn_top if t.get("msg") not in today_warn_msgs]
     total_docs = sum(c for _, c in today["versions"]) or 1
     new_releases = [v for v, c in today["versions"]
                     if v not in prior_versions and c / total_docs >= th["new_release_min_share"]] if prior_versions else []
     worst = max(today["top_errors"], key=lambda t: t["pct"], default=None)
+    worst_warn = max(today["top_warns"], key=lambda t: t["pct"], default=None)
 
     # per-signature baseline %DAU (avg across baseline days where the signature appears)
     def base_sig_map(field):
@@ -578,6 +820,9 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     hygiene_buckets = build_hygiene(top_errors + top_warns)
     funnels = assemble_funnels(cfg, today["funnels_raw"], today["dau"], key)
     impact = build_impact(top_errors, top_warns)
+    operations = collect_operations(client, cfg, key, prefix, app_id, report_day, today["dau"])
+    operations = attach_operation_baselines(client, cfg, key, prefix, app_id, operations,
+                                             prior_by_date, disk_dates_desc, operation_base_dates)
 
     # per-release rollout share of DAU + error rate (compare old vs new version)
     versions_detail = []
@@ -610,12 +855,15 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         "top_errors": top_errors, "top_warns": top_warns,
         "top_error_reach": round(worst["pct"], 1) if worst else 0.0,
         "top_error_reach_msg": worst["msg"] if worst else "",
+        "top_warn_reach": round(worst_warn["pct"], 1) if worst_warn else 0.0,
+        "top_warn_reach_msg": worst_warn["msg"] if worst_warn else "",
         "errors_by_cat": today["errors_by_cat"], "warns_by_cat": today["warns_by_cat"],
         "versions": today["versions"][:8], "versions_detail": versions_detail,
         "platforms": today["platforms"], "signals": today["signals"],
         "appeared_errors": appeared[:6], "disappeared_errors": disappeared[:6],
+        "appeared_warnings": appeared_warns[:6], "disappeared_warnings": disappeared_warns[:6],
         "new_releases": new_releases,
-        "hygiene": hygiene_buckets, "funnels": funnels, "impact": impact,
+        "hygiene": hygiene_buckets, "funnels": funnels, "impact": impact, "operations": operations,
     }
 
 
@@ -655,6 +903,8 @@ def build_report(client, cfg, report_day, out_dir, slug):
     n = cfg["baseline_days"]
     # prior day-model reports on disk (any dates < report_day, most-recent first)
     prior_by_date, disk_dates_desc = load_prior_reports(out_dir, slug, report_day)
+    operation_baseline_days = max([int(f.get("baseline_days", cfg.get("operation_baseline_days", 7)))
+                                   for p in cfg.get("operations", []) for f in p.get("flows", [])] or [0])
     jobs = []
     for src in cfg["sources"]:
         prefix = src["index_prefix"]
@@ -662,19 +912,20 @@ def build_report(client, cfg, report_day, out_dir, slug):
             continue
         before = [d for d in idx[prefix] if d < report_day]
         os_base_dates = before[-n:]  # OpenSearch fallback window (immediate N index days)
+        operation_base_dates = before[-operation_baseline_days:] if operation_baseline_days else []
         if src.get("split_by_app_id"):
             app_names = src.get("app_names", {})
             for app_id in discover_app_ids(client, cfg, prefix, report_day):
-                jobs.append((app_id, app_names.get(app_id, app_id), prefix, app_id, os_base_dates))
+                jobs.append((app_id, app_names.get(app_id, app_id), prefix, app_id, os_base_dates, operation_base_dates))
         else:
             key = src.get("key") or prefix.rstrip("-")
-            jobs.append((key, src.get("name") or key, prefix, None, os_base_dates))
+            jobs.append((key, src.get("name") or key, prefix, None, os_base_dates, operation_base_dates))
 
     def run(job):
-        key, name, prefix, app_id, os_base_dates = job
+        key, name, prefix, app_id, os_base_dates, operation_base_dates = job
         try:
             return build_project(client, cfg, key, name, prefix, app_id, report_day,
-                                 os_base_dates, prior_by_date, disk_dates_desc, n)
+                                 os_base_dates, operation_base_dates, prior_by_date, disk_dates_desc, n)
         except Exception as e:
             return {"key": key, "name": name, "error": str(e)}
 
@@ -699,7 +950,7 @@ def build_report(client, cfg, report_day, out_dir, slug):
     used_dates = sorted({d for p in ok for d in p.get("baseline_dates_used", [])})
     from_disk = any(p["baseline_source"] == "saved reports" for p in ok)
     return {
-        "schema": 2,
+        "schema": 3,
         "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "report_day": report_day, "baseline_dates": used_dates, "baseline_days": n,
         "window_utc": window_label(report_day),
@@ -833,6 +1084,7 @@ def overview_row(p):
         f'<td class="num" data-sort="{p["top_error_reach"]}" title="{html.escape(p["top_error_reach_msg"])}">{p["top_error_reach"]:.1f}%</td>'
         f'<td class="num" data-sort="{p["warn_total"]}">{fmt_int(p["warn_total"])}</td>'
         f'<td class="num" data-sort="{p["warn_per_user"]}">{p["warn_per_user"]:.1f} {fmt_delta(p["warn_per_user_delta_pct"])}</td>'
+        f'<td class="num" data-sort="{p["top_warn_reach"]}" title="{html.escape(p["top_warn_reach_msg"])}">{p["top_warn_reach"]:.1f}%</td>'
         f'<td data-sort="{SEVERITY_RANK.get(st, 4)}"><span class="status-chip {st}">{STATUS_LABEL[st]}</span></td></tr>')
 
 
@@ -846,10 +1098,10 @@ def overview_table(report):
   <div class="table-scroll"><table class="ov">
     <thead><tr><th>Project</th><th class="num">DAU</th><th class="num">Errors</th>
       <th class="num">err/user</th><th class="num">worst err %</th>
-      <th class="num">Warns</th><th class="num">warn/user</th><th>Status</th></tr></thead>
+      <th class="num">Warns</th><th class="num">warn/user</th><th class="num">worst warn %</th><th>Status</th></tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <p class="ov-note">All figures are for <b>{report['report_day']}</b>. err/user & warn/user show the <b>diff vs the {report['baseline_days']}-day baseline</b> ({base_lbl}, from {report['baseline_source']}). worst err % = the single error touching the largest share of that day's DAU. <b>Click a column header to sort</b> (again to reverse).</p>
+  <p class="ov-note">All figures are for <b>{report['report_day']}</b>. err/user & warn/user show the <b>diff vs the {report['baseline_days']}-day baseline</b> ({base_lbl}, from {report['baseline_source']}). Worst error/warn % = the single signature at that level touching the largest share of that day's DAU. <b>Click a column header to sort</b> (again to reverse).</p>
 </section>
 """
 
@@ -988,6 +1240,63 @@ def hygiene_section(p):
             '<div class="hy-grid">' + "".join(cols) + "</div>")
 
 
+def operation_delta(flow, key):
+    """Compact higher-is-worse delta label against the flow's saved/OpenSearch baseline."""
+    delta = flow.get(key)
+    baseline = flow.get("baseline") or {}
+    days = baseline.get("days", 0)
+    if delta is None or not days:
+        return ""
+    arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "–")
+    return f" {arrow}{abs(delta):.0f}% vs {days}d"
+
+
+def operation_section(p):
+    """Endpoint/provider health: terminal outcome, retry friction, ownership, drilldown."""
+    cards = []
+    for profile in p.get("operations", []):
+        for flow in profile.get("flows", []):
+            failure_rate = flow.get("terminal_failure_rate_pct")
+            failure_text = "n/a" if failure_rate is None else f"{failure_rate:.3f}%{operation_delta(flow, 'terminal_failure_delta_pct')}"
+            retry = flow.get("retry") or {}
+            retry_text = ""
+            if retry.get("events") or retry.get("users"):
+                retry_text = (f'<br>Retry: <b>{flow.get("retry_reach_pct_dau", 0):.3f}% DAU{operation_delta(flow, "retry_reach_delta_pct")}</b> '
+                              f'· {fmt_int(retry.get("events", 0))} events · {flow.get("retry_events_per_user", 0):.2f}/affected user')
+            classes = []
+            for bucket, prefix in (("failure", "final"), ("retry", "retry")):
+                for kind, count in (flow.get("classes", {}).get(bucket, {}) or {}).items():
+                    classes.append(f'{prefix} {OP_CLASS_LABELS.get(kind, kind)} {fmt_int(count)}')
+            reasons = [f'{label} {fmt_int(count)}' for label, count in (flow.get("reasons") or {}).items()]
+            drill = flow.get("drilldown")
+            extra = []
+            if classes:
+                extra.append("Classes: " + "; ".join(classes))
+            if reasons:
+                extra.append("Failure reasons: " + "; ".join(reasons))
+            if drill:
+                peaks = ", ".join(f'{x["hour"]}: {fmt_int(x["events"])}' for x in drill.get("hours", []))
+                versions = ", ".join(f'{x["value"]} {fmt_int(x["events"])}ev/{fmt_int(x["users"])}u' for x in drill.get("versions", []))
+                platforms = ", ".join(f'{x["value"]} {fmt_int(x["events"])}ev/{fmt_int(x["users"])}u' for x in drill.get("platforms", []))
+                if peaks: extra.append("Top non-success hours: " + peaks)
+                if versions: extra.append("Version split: " + versions)
+                if platforms: extra.append("Platform split: " + platforms)
+            if flow.get("classification_truncated"):
+                extra.append("Class scan capped; aggregate outcomes remain exact")
+            cards.append(
+                '<div class="op-card %s"><div class="op-title">%s <span class="op-status">%s</span></div>'
+                '<div class="op-metrics">Terminal: <b>%s failed</b> · %s success · %s failure%s</div>'
+                '%s</div>'
+                % (flow.get("status", "healthy"), html.escape(profile.get("label", "Operation") + " — " + flow.get("label", flow.get("key", ""))),
+                   html.escape(flow.get("status", "healthy")), failure_text,
+                   fmt_int(flow.get("success", {}).get("events", 0)), fmt_int(flow.get("failure", {}).get("events", 0)),
+                   retry_text, ('<div class="op-detail">' + "<br>".join(html.escape(x) for x in extra) + "</div>") if extra else ""))
+    if not cards:
+        return ""
+    return ('<h3 class="sub">Provider / endpoint health <span class="sub-hint">terminal outcome · retry friction · failure ownership</span></h3>'
+            '<div class="op-grid">' + "".join(cards) + "</div>")
+
+
 def project_card(p, signals_meta):
     st = p["status"]
     rel = ('<div class="release">New release: '
@@ -1000,6 +1309,14 @@ def project_card(p, signals_meta):
     if appeared or disappeared:
         churn = (f'<div class="cols"><div class="col"><h3 class="sub">New errors today</h3>{appeared or "<p class=empty>none</p>"}</div>'
                  f'<div class="col"><h3 class="sub">Gone since baseline</h3>{disappeared or "<p class=empty>none</p>"}</div></div>')
+    appeared_warns = chg_list(p["appeared_warnings"], "app",
+                              lambda t: f'🆕 {html.escape(t["msg"][:90])} <span class="muted">({fmt_int(t["total"])} · {t["pct"]:.1f}% DAU)</span>')
+    disappeared_warns = chg_list(p["disappeared_warnings"], "gone",
+                                 lambda t: f'✅ {html.escape(t["msg"][:90])} <span class="muted">(was {fmt_int(t["total"])} · {t.get("pct", 0):.1f}% DAU)</span>')
+    warn_churn = ""
+    if appeared_warns or disappeared_warns:
+        warn_churn = (f'<div class="cols"><div class="col"><h3 class="sub">New warning signatures today</h3>{appeared_warns or "<p class=empty>none</p>"}</div>'
+                      f'<div class="col"><h3 class="sub">Warnings gone since baseline</h3>{disappeared_warns or "<p class=empty>none</p>"}</div></div>')
     return f"""
 <section class="card">
   <header class="card-head">
@@ -1015,8 +1332,12 @@ def project_card(p, signals_meta):
       <div class="tile-lbl">errors per user {fmt_delta(p['err_per_user_delta_pct'])}<br><span class="tile-sub">baseline {p['err_per_user_base']:.1f}</span></div></div>
     <div class="tile"><div class="tile-val">{p['top_error_reach']:.1f}<span class="unit">%</span></div>
       <div class="tile-lbl">worst error &middot; % of DAU<br><span class="tile-sub" title="{html.escape(p['top_error_reach_msg'])}">{html.escape(p['top_error_reach_msg'][:32]) or '—'}</span></div></div>
+    <div class="tile"><div class="tile-val">{p['warn_per_user']:.1f}<span class="unit">/user</span></div>
+      <div class="tile-lbl">warnings per user {fmt_delta(p['warn_per_user_delta_pct'])}<br><span class="tile-sub">baseline {p['warn_per_user_base']:.1f}</span></div></div>
+    <div class="tile"><div class="tile-val">{p['top_warn_reach']:.1f}<span class="unit">%</span></div>
+      <div class="tile-lbl">worst warning &middot; % of DAU<br><span class="tile-sub" title="{html.escape(p['top_warn_reach_msg'])}">{html.escape(p['top_warn_reach_msg'][:32]) or '—'}</span></div></div>
     <div class="tile"><div class="tile-val">{fmt_int(p['err_total'])}</div>
-      <div class="tile-lbl">total errors (day)<br><span class="tile-sub">{fmt_int(p['warn_total'])} warnings</span></div></div>
+      <div class="tile-lbl">errors (day)<br><span class="tile-sub">{fmt_int(p['warn_total'])} warnings</span></div></div>
   </div>
   {impact_section(p)}
   <div class="cols">
@@ -1024,7 +1345,9 @@ def project_card(p, signals_meta):
     <div class="col"><h3 class="sub">Top 10 warnings <span class="sub-hint">total · users · % of DAU</span></h3>{sig_bars(p['top_warns'], 'warn')}</div>
   </div>
   {churn}
+  {warn_churn}
   {funnels_section(p)}
+  {operation_section(p)}
   {hygiene_section(p)}
   <div class="cols">
     <div class="col"><h3 class="sub">Errors by category</h3>{cat_bars(p['errors_by_cat'], 'err')}</div>
@@ -1223,6 +1546,12 @@ table.ver tbody tr:hover{background:var(--surface-2)}
 .hy-meta{font-size:10px;color:var(--muted);font-family:ui-monospace,"SF Mono",Menlo,monospace}
 .hy-list{margin:0;padding-left:15px;font-size:11.5px;line-height:1.55;color:var(--ink-2)}
 .hy-list .muted{font-size:10px;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.op-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+.op-card{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px}
+.op-card.watch{border-color:var(--watch-line)}.op-card.alert{border-color:var(--bad-line)}
+.op-title{font-weight:750;font-size:13px;margin-bottom:8px}.op-status{font-size:10px;margin-left:6px;text-transform:uppercase;color:var(--muted)}
+.op-metrics{font-size:12px;line-height:1.6;color:var(--ink-2)}.op-metrics b{color:var(--ink)}
+.op-detail{font-size:11px;line-height:1.55;color:var(--muted);margin-top:7px}
 .foot{margin-top:8px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:11.5px}
 @media (max-width:720px){.tiles{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr;gap:8px}.fn-grid{grid-template-columns:1fr}.fs-fn{flex-direction:column;gap:3px}.fs-fn-name{min-width:0}.page-head{flex-direction:column}.head-meta{text-align:left}}
 </style>"""
@@ -1251,15 +1580,24 @@ def render_slack(report):
     lines.append("*All projects (by DAU):*")
     for p in report["projects"]:
         ed = "" if p["err_per_user_delta_pct"] is None else f" ({p['err_per_user_delta_pct']:+.0f}%)"
+        wd = "" if p["warn_per_user_delta_pct"] is None else f" ({p['warn_per_user_delta_pct']:+.0f}%)"
         relm = " (new build)" if p["new_releases"] else ""
         lines.append(f"{icon[p['status']]} *{p['name']}*{relm} — {fmt_int(p['dau'])} DAU · "
                      f"{fmt_int(p['err_total'])} err ({p['err_per_user']:.1f}/user{ed}, worst {p['top_error_reach']:.1f}% DAU) · "
-                     f"{fmt_int(p['warn_total'])} warn")
+                     f"{fmt_int(p['warn_total'])} warn ({p['warn_per_user']:.1f}/user{wd}, worst {p['top_warn_reach']:.1f}% DAU)")
         for fn in p.get("funnels", []):
             rates = [r for r in fn["rates"] if r["pct"] is not None]
             if rates:
                 rl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in rates[:3])
                 lines.append(f"    ↳ _{fn['label']}_ — {rl}")
+        for profile in p.get("operations", []):
+            for flow in profile.get("flows", []):
+                fr = flow.get("terminal_failure_rate_pct")
+                terminal = "n/a" if fr is None else f"{fr:.3f}% terminal fail{operation_delta(flow, 'terminal_failure_delta_pct')}"
+                retry = flow.get("retry") or {}
+                retry_text = (f" · retry {flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')} "
+                              f"({flow.get('retry_events_per_user', 0):.2f}/u)") if retry.get("events") else ""
+                lines.append(f"    ↳ _{profile['label']} / {flow['label']}_ — {terminal}{retry_text} [{flow.get('status', 'healthy').upper()}]")
         lines.append("")   # blank line between projects
     worst = [p for p in report["projects"] if p["status"] not in ("healthy", "nodata")]
     if worst:
@@ -1294,6 +1632,23 @@ def render_slack(report):
         if len(resolved_all) > 8:
             lines.append(f"  +{len(resolved_all) - 8} more")
 
+    appeared_warn_all = [(p["name"], t) for p in report["projects"] for t in p.get("appeared_warnings", [])]
+    resolved_warn_all = [(p["name"], t) for p in report["projects"] for t in p.get("disappeared_warnings", [])]
+    if appeared_warn_all:
+        lines.append("")
+        lines.append("*🆕 New warning signatures today:*")
+        for name, t in appeared_warn_all[:8]:
+            lines.append(f"• {name}: {t['msg'][:70]} — {fmt_int(t['total'])} ({t['pct']:.1f}% DAU)")
+        if len(appeared_warn_all) > 8:
+            lines.append(f"  +{len(appeared_warn_all) - 8} more")
+    if resolved_warn_all:
+        lines.append("")
+        lines.append("*✅ Warning signatures gone since baseline:*")
+        for name, t in resolved_warn_all[:8]:
+            lines.append(f"• {name}: {t['msg'][:70]} — was {fmt_int(t['total'])} ({t.get('pct', 0):.1f}% DAU)")
+        if len(resolved_warn_all) > 8:
+            lines.append(f"  +{len(resolved_warn_all) - 8} more")
+
     lines.append("")
     lines.append("Full dashboard + structured .md attached. Reply to turn any signal into a backlog task.")
     return "\n".join(lines)
@@ -1312,8 +1667,10 @@ def render_md(report, samples):
     for p in report["projects"]:
         L.append(f"## {p['name']} — {STATUS_LABEL[p['status']]}")
         d = p["err_per_user_delta_pct"]
+        wd = p["warn_per_user_delta_pct"]
         L.append(f"- DAU {fmt_int(p['dau'])} (baseline ~{fmt_int(p['base_dau'])}/day) · errors {fmt_int(p['err_total'])} "
-                 f"({p['err_per_user']:.1f}/user{'' if d is None else f', {d:+.0f}% vs baseline'}) · warnings {fmt_int(p['warn_total'])}")
+                 f"({p['err_per_user']:.1f}/user{'' if d is None else f', {d:+.0f}% vs baseline'}, worst {p['top_error_reach']:.1f}% DAU) · "
+                 f"warnings {fmt_int(p['warn_total'])} ({p['warn_per_user']:.1f}/user{'' if wd is None else f', {wd:+.0f}% vs baseline'}, worst {p['top_warn_reach']:.1f}% DAU)")
         if p["new_releases"]:
             L.append(f"- New release: {', '.join(p['new_releases'])}")
         vd = p.get("versions_detail", [])
@@ -1326,10 +1683,46 @@ def render_md(report, samples):
                 total, users = _sig_tu(v)
                 sg.append(f"{report['signals_meta'].get(k, k)}={fmt_int(total)}" + (f"/{fmt_int(users)}u" if users else ""))
             L.append("- Signals: " + ", ".join(sg))
+        for profile in p.get("operations", []):
+            L.append("")
+            L.append(f"### {profile['label']} — daily endpoint health")
+            for flow in profile.get("flows", []):
+                fr = flow.get("terminal_failure_rate_pct")
+                terminal = "n/a" if fr is None else f"{fr:.3f}%{operation_delta(flow, 'terminal_failure_delta_pct')}"
+                retry = flow.get("retry") or {}
+                terminal_total = flow["success"]["events"] + flow["failure"]["events"]
+                L.append(f"- **{flow['label']}** — terminal failure **{terminal}** "
+                         f"({fmt_int(flow['failure']['events'])} failed / {fmt_int(terminal_total)} terminal); "
+                         f"retry reach **{flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')}** "
+                         f"({fmt_int(retry.get('events', 0))} events; {flow.get('retry_events_per_user', 0):.2f}/affected user); "
+                         f"status **{flow.get('status', 'healthy').upper()}**.")
+                class_text = []
+                for bucket, prefix in (("failure", "final"), ("retry", "retry")):
+                    class_text += [f"{prefix} {OP_CLASS_LABELS.get(kind, kind)} {fmt_int(count)}"
+                                   for kind, count in (flow.get("classes", {}).get(bucket, {}) or {}).items()]
+                if class_text:
+                    L.append("  - Failure classes: " + "; ".join(class_text))
+                if flow.get("reasons"):
+                    L.append("  - Failure reasons: " + "; ".join(f"{k} {fmt_int(v)}" for k, v in flow["reasons"].items()))
+                if flow.get("drilldown"):
+                    dr = flow["drilldown"]
+                    if dr.get("hours"):
+                        L.append("  - Top non-success hours: " + ", ".join(f"{x['hour']} ({fmt_int(x['events'])})" for x in dr["hours"]))
+                    if dr.get("versions"):
+                        L.append("  - Version split: " + ", ".join(f"{x['value']} {fmt_int(x['events'])}ev/{fmt_int(x['users'])}u" for x in dr["versions"]))
+                    if dr.get("platforms"):
+                        L.append("  - Platform split: " + ", ".join(f"{x['value']} {fmt_int(x['events'])}ev/{fmt_int(x['users'])}u" for x in dr["platforms"]))
         L.append("")
         L.append("| Top error | total | users | %DAU | vs base |")
         L.append("|---|--:|--:|--:|--:|")
         for t in p["top_errors"][:8]:
+            m = t["msg"][:90].replace("|", "\\|")
+            vb = "new" if t.get("base_pct") is None else (f"{t['pct_delta']:+d}%" if t.get("pct_delta") is not None else "—")
+            L.append(f"| {m} | {fmt_int(t['total'])} | {fmt_int(t['users'])} | {t['pct']:.1f}% | {vb} |")
+        L.append("")
+        L.append("| Top warning | total | users | %DAU | vs base |")
+        L.append("|---|--:|--:|--:|--:|")
+        for t in p["top_warns"][:8]:
             m = t["msg"][:90].replace("|", "\\|")
             vb = "new" if t.get("base_pct") is None else (f"{t['pct_delta']:+d}%" if t.get("pct_delta") is not None else "—")
             L.append(f"| {m} | {fmt_int(t['total'])} | {fmt_int(t['users'])} | {t['pct']:.1f}% | {vb} |")
@@ -1373,6 +1766,11 @@ def render_md(report, samples):
             L.append("**New errors today:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_errors"]))
         if p["disappeared_errors"]:
             L.append("**Resolved / no longer detected:** " + "; ".join(f"{t['msg'][:70]} (was {t.get('pct', 0):.1f}%DAU)" for t in p["disappeared_errors"]))
+        if p["appeared_warnings"]:
+            L.append("")
+            L.append("**New warning signatures today:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_warnings"]))
+        if p["disappeared_warnings"]:
+            L.append("**Warnings gone since baseline:** " + "; ".join(f"{t['msg'][:70]} (was {t.get('pct', 0):.1f}%DAU)" for t in p["disappeared_warnings"]))
         if p["key"] in samples and samples[p["key"]]:
             L.append("")
             L.append("<details><summary>Representative error stacktraces (fix context)</summary>")
