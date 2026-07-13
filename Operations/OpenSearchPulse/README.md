@@ -70,9 +70,11 @@ Optional: `--day YYYY-MM-DD` (the completed day to report on; default = yesterda
 - `<slug>_<day>.html` — standalone dashboard (theme-aware, self-contained, sortable),
   incl. the impact bar, business funnels and log-hygiene sections per project
 - `<slug>_<day>.inner.html` — body-only fragment for embedding / preview
-- `<slug>_<day>.slack.txt` — delivery-ready summary text (with the worst-issue action + funnel highlights)
-- `<slug>_<day>.md` — structured, fix-oriented report (per-signature total/users/%DAU,
-  the impact bar, funnels, hygiene buckets, versions by platform, new/resolved errors,
+- `<slug>_<day>.slack.txt` — delivery-ready summary text (error/warning rate and reach deltas,
+  new/gone signatures, the worst-issue action, and funnel highlights)
+- `<slug>_<day>.md` — structured, fix-oriented report (per-signature total/users/%DAU and
+  baseline dynamics for errors and warnings, the impact bar, funnels, hygiene buckets, versions by platform,
+  new/resolved signatures,
   representative stacktraces) for AI/engineer triage
 
 Delivery (Slack, email, etc.) is a separate, explicit step owned by the caller.

@@ -101,7 +101,7 @@ Success metrics:
 - shared prompts no longer drift chaotically
 
 ## Phase 2: Portfolio Standardization
-Status: 🟡 Partial — health-audit + memory-freshness protocols delivered; automated bootstrap, onboarding checklist, minimum project-memory templates, and a persisted per-project AI-readiness score still missing.
+Status: 🟡 Partial — health-audit + memory-freshness protocols delivered, and a persisted per-project AI-readiness score is now materialized in the registry (2026-07-13); automated bootstrap, onboarding checklist, and minimum project-memory templates still missing.
 
 Target:
 - onboard 20 to 30 projects with predictable structure
@@ -237,7 +237,7 @@ Success metrics:
 - reduced lead time for repetitive feature work
 
 ## Phase 7: Portfolio Orchestration
-Status: 🟡 Partial — a populated project-registry index + maintenance procedures exist; cross-project health dashboard, capability matrix, knowledge-promotion analytics, and shared incident-pattern tracking are unbuilt.
+Status: 🟡 Partial — registry foundation complete (2026-07-13: all 6 per-project metadata dimensions + a portfolio report/readiness command via `AIRoot/Operations/project_registry_report.py`); cross-project health dashboard, capability matrix, knowledge-promotion analytics, and shared incident-pattern tracking are still unbuilt.
 
 Target:
 - manage 100 projects as a coordinated AI-assisted portfolio, not as 100 isolated folders
@@ -389,9 +389,10 @@ Done (2026-07-12): project health + memory-freshness protocols (1), feature-deli
 
 Current frontier:
 1. Implement the low-risk autonomy lane — convert the `Design/` L0–L4 model, change categories, exclusions, and four-gate artifact contract into runtime files; add autonomy fields to the execution contract + task-registry schema; wire self-classification into `start_session`. (Phase 6)
-2. Finish the portfolio registry — add the missing metadata dimensions (monetization stack, numeric AI-readiness score, critical flows) and ship the portfolio index/report command. (Phase 7 foundation; the registry validator drift was fixed 2026-07-12.)
-3. Add Phase-2 standardization primitives — automated project bootstrap, onboarding checklist, minimum project-memory templates, and persisted per-project readiness scores.
-4. Build Phase-7 orchestration analytics — cross-project health dashboard, capability matrix, knowledge-promotion analytics, incident-pattern tracking.
+2. Add Phase-2 standardization primitives — automated project bootstrap, onboarding checklist, and minimum project-memory templates. (Persisted per-project readiness scores done 2026-07-13.)
+3. Build Phase-7 orchestration analytics — cross-project health dashboard, capability matrix, knowledge-promotion analytics, incident-pattern tracking.
+
+Done 2026-07-13: portfolio registry completion — all 6 per-project metadata dimensions + the portfolio report/readiness command (`AIRoot/Operations/project_registry_report.py`); registry validator drift (2026-07-12).
 
 ## Final Position
 The winning strategy is not "AI writes more code."

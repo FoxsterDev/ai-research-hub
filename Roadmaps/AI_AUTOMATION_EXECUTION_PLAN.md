@@ -162,7 +162,7 @@ Priority:
 - high
 
 ## Workstream 6: Portfolio Registry
-Status: 🟡 Partial — registry index populated (3 of 6 metadata dimensions); monetization stack, numeric AI-readiness score, and critical flows missing; portfolio index/report command is a stub. (Validator drift fixed 2026-07-12: the validator now derives its project scope from `project_registry.yaml` and checks the registry's own path/router/memory invariants.)
+Status: ✅ Done (2026-07-13) — the registry carries all 6 metadata dimensions (type, platforms, monetization_stack, ai_readiness, memory status, critical_flows), and `AIRoot/Operations/project_registry_report.py` renders the portfolio report + materializes a structural AI-readiness score per project (`AIOutput/Registry/portfolio_status.md`). Validator drift fixed 2026-07-12. (Broader Phase-7 orchestration analytics — cross-project dashboard, capability matrix, promotion analytics, incident tracking — are tracked under roadmap Phase 7, not WS6.)
 
 Goal:
 - stop managing projects only through folder discovery
@@ -312,9 +312,10 @@ Delivered (2026-07-12): project health and freshness, structured feature deliver
 
 Remaining, in priority order:
 1. low-risk autonomy lane — implement the designed L0–L4 model as runtime protocol + gates (highest leverage; the only fully-designed, zero-built milestone)
-2. portfolio registry completion — missing metadata dimensions, portfolio index/report command (validator drift fixed 2026-07-12)
-3. Phase-2 standardization primitives — bootstrap, onboarding checklist, minimum project-memory templates, persisted readiness scores
-4. Phase-7 orchestration analytics — dashboard, capability matrix, promotion analytics, incident-pattern tracking
+2. Phase-2 standardization primitives — bootstrap, onboarding checklist, minimum project-memory templates (persisted readiness scores done 2026-07-13)
+3. Phase-7 orchestration analytics — dashboard, capability matrix, promotion analytics, incident-pattern tracking
+
+Done 2026-07-13: portfolio registry completion — all 6 per-project metadata dimensions + the portfolio report/readiness command.
 
 ## Final Position
 The next 2-3 months should not be spent on adding more prompt volume.
