@@ -20,6 +20,7 @@
 - Do not add broad test-only delegates, hook fields, or override points unless they have runtime design value outside the test suite.
 - If full branch coverage requires invasive seams that do not improve runtime design, stop. Test pure policy, persistence boundaries, and wrapper contracts instead.
 - Make time and platform dependencies overridable in tests when they drive behavior.
+- For singleton PlayMode isolation, reset only mutable test state and scene objects. Do not dispose or recreate lifetime infrastructure that production cannot safely re-establish, such as a long-lived cancellation source; keep cleanup test-owned or behind a narrow production-valid seam.
 
 ## Review Focus
 - seam size

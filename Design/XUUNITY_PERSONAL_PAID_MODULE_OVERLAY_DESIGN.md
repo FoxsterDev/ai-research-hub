@@ -68,7 +68,6 @@ Workspace/
         XUUnity/
     AIModules/
       XUUnityInternal/
-      Nexus -> <private-module-root>/Nexus
       ExploreTheGame/
       XCNT-P -> <private-module-root>/XCNT-P
     <UnityProject>/
@@ -85,8 +84,8 @@ Workspace/
 ```
 
 The preferred discovery surface is `AIModules/` because the host router already
-uses it for private/local modules such as `XUUnityInternal`, `Nexus`, and
-non-Unity modules such as `ExploreTheGame`.
+uses it for private/local modules such as `XUUnityInternal` and non-Unity
+modules such as `ExploreTheGame`.
 
 For personal paid modules, the `AIModules/XCNT-P` entry may be a symlink to a
 folder outside the company project checkout. That keeps development convenient
@@ -690,8 +689,8 @@ Personal local work may have:
 - an untracked or ignored `AIModules/XCNT-P` symlink to a local paid module repo
 - tracked host-local modules such as `XUUnityInternal` when the host already
   owns that convention
-- unrelated private modules such as `Nexus` or `ExploreTheGame`, as long as
-  their manifests declare the correct `protocolScopes`
+- unrelated private modules, as long as their manifests declare the correct
+  `protocolScopes`
 
 Reports written into company repos may say:
 
