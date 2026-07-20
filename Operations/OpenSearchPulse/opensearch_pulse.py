@@ -30,6 +30,7 @@ import html
 import json
 import os
 import re
+import time
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -55,6 +56,8 @@ def load_config(path):
         cfg = json.load(f)
     cfg.setdefault("baseline_days", cfg.get("window_days", 3))
     cfg.setdefault("max_workers", 8)
+    cfg.setdefault("http_timeout", 120)
+    cfg.setdefault("http_retries", 3)
     cfg.setdefault("min_dau", 100)
     cfg.setdefault("signals", {})
     cfg.setdefault("operations", [])  # config-driven endpoint/provider health sections
@@ -111,17 +114,30 @@ def resolve_headers(cfg):
 # ------------------------------------------------------------------ client
 
 class Client:
-    def __init__(self, base, headers, timeout=120):
+    def __init__(self, base, headers, timeout=120, retries=3, backoff=2.0):
         self.base = base.rstrip("/")
         self.headers = headers
         self.timeout = timeout
+        self.retries = retries
+        self.backoff = backoff
 
     def _req(self, path, body=None):
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(self.base + path, data=data,
-                                     method="POST" if body is not None else "GET", headers=self.headers)
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            return json.loads(resp.read().decode())
+        last = None
+        for attempt in range(self.retries):
+            req = urllib.request.Request(self.base + path, data=data,
+                                         method="POST" if body is not None else "GET", headers=self.headers)
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    return json.loads(resp.read().decode())
+            except Exception as e:
+                last = e
+                msg = str(e).lower()
+                transient = "timed out" in msg or "timeout" in msg or "reset" in msg or "temporarily" in msg
+                if not transient or attempt == self.retries - 1:
+                    raise
+                time.sleep(self.backoff * (2 ** attempt))
+        raise last
 
     def cat_indices(self):
         return self._req("/_cat/indices?h=index&format=json")
@@ -252,6 +268,12 @@ def day_query(cfg, app_id=None, day=None):
         aggs["funnels"] = {"filters": {"filters": {
             f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn in cfg["funnels"] for st in fn["stages"]}},
             "aggs": {"u": {"cardinality": {"field": U}}}}
+        breakdown_stages = [(fn, st) for fn in cfg["funnels"] for st in fn["stages"] if st.get("breakdown")]
+        if breakdown_stages:
+            aggs["funnel_breakdowns"] = {"filters": {"filters": {
+                f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn, st in breakdown_stages}},
+                "aggs": {"reasons": {"terms": {"field": F["message_keyword"], "size": 15},
+                                     "aggs": {"u": {"cardinality": {"field": U}}}}}}
     return {"size": 0, "track_total_hits": False,
             "query": {"bool": {"filter": filt}} if filt else {"match_all": {}}, "aggs": aggs}
 
@@ -562,6 +584,10 @@ def collect_day(client, cfg, prefix, app_id, day):
                     for k, v in a.get("signals", {}).get("buckets", {}).items()},
         "funnels_raw": {k: {"total": v["doc_count"], "users": v.get("u", {}).get("value", 0)}
                         for k, v in a.get("funnels", {}).get("buckets", {}).items()},
+        "funnel_breakdowns": {k: [{"msg": bb["key"], "total": bb["doc_count"],
+                                   "users": bb.get("u", {}).get("value", 0)}
+                                  for bb in v.get("reasons", {}).get("buckets", [])]
+                              for k, v in a.get("funnel_breakdowns", {}).get("buckets", {}).items()},
     }
 
 
@@ -680,7 +706,7 @@ def build_hygiene(sigs):
     return out
 
 
-def assemble_funnels(cfg, funnels_raw, dau, key):
+def assemble_funnels(cfg, funnels_raw, funnel_breakdowns, dau, key):
     """Reassemble per-funnel stage users/%DAU + config-defined conversion rates."""
     out = []
     for fn in cfg["funnels"]:
@@ -688,12 +714,28 @@ def assemble_funnels(cfg, funnels_raw, dau, key):
         if apps and key not in apps:
             continue
         stages = []
+        breakdowns = []
         for st in fn["stages"]:
             r = funnels_raw.get(f'{fn["key"]}::{st["key"]}', {})
             u = r.get("users", 0)
             stages.append({"key": st["key"], "label": st["label"], "users": u,
                            "total": r.get("total", 0),
                            "pct": round(min(100.0, u / dau * 100.0), 1) if dau else 0.0})
+            bd = st.get("breakdown")
+            if bd:
+                rows = funnel_breakdowns.get(f'{fn["key"]}::{st["key"]}', [])
+                strip = bd.get("strip_prefix", "")
+                reasons = []
+                for row in rows:
+                    msg = row["msg"]
+                    if strip and msg.startswith(strip):
+                        msg = msg[len(strip):].strip() or "(no reason logged)"
+                    ru = row["users"]
+                    reasons.append({"reason": msg, "users": ru, "total": row["total"],
+                                    "pct": round(ru / dau * 100.0, 1) if dau else 0.0})
+                reasons.sort(key=lambda x: -x["users"])
+                breakdowns.append({"stage": st["key"], "label": bd.get("breakdown_label", st["label"]),
+                                   "reasons": reasons[:bd.get("top", 5)]})
         if not any(s["users"] for s in stages):
             continue  # funnel not applicable to this app
         su = {s["key"]: s["users"] for s in stages}
@@ -712,7 +754,7 @@ def assemble_funnels(cfg, funnels_raw, dau, key):
                           "good": rt.get("good", "high"), "business": rt.get("business"),
                           "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at")})
         out.append({"key": fn["key"], "label": fn["label"], "stages": stages,
-                    "rates": rates, "note": fn.get("note")})
+                    "rates": rates, "note": fn.get("note"), "breakdowns": breakdowns})
     return out
 
 
@@ -818,7 +860,7 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     for t in top_warns:
         t["hygiene"] = classify_sig(t, "warn", hygiene)
     hygiene_buckets = build_hygiene(top_errors + top_warns)
-    funnels = assemble_funnels(cfg, today["funnels_raw"], today["dau"], key)
+    funnels = assemble_funnels(cfg, today["funnels_raw"], today.get("funnel_breakdowns", {}), today["dau"], key)
     impact = build_impact(top_errors, top_warns)
     operations = collect_operations(client, cfg, key, prefix, app_id, report_day, today["dau"])
     operations = attach_operation_baselines(client, cfg, key, prefix, app_id, operations,
@@ -1122,8 +1164,21 @@ def funnels_summary(report):
                 '<span class="fs-rate %s" title="%s"><b>%.0f%%</b> %s</span>'
                 % (rate_tone(r), html.escape(r.get("business") or ""), r["pct"], html.escape(r["label"]))
                 for r in rates)
+            bd_html = ""
+            for bd in fn.get("breakdowns", []):
+                if not bd["reasons"]:
+                    continue
+                items = "".join(
+                    '<li><span class="fs-bd-r">%s</span>'
+                    '<span class="fs-bd-v"><b>%s</b>u · %.1f%% DAU</span></li>'
+                    % (html.escape(rz["reason"][:90]), fmt_int(rz["users"]), rz["pct"])
+                    for rz in bd["reasons"])
+                bd_html += ('<div class="fs-bd"><span class="fs-bd-h">Top %s reasons</span>'
+                            '<ul class="fs-bd-list">%s</ul></div>'
+                            % (html.escape(bd["label"]), items))
             fns.append('<div class="fs-fn"><span class="fs-fn-name">%s</span>'
-                       '<div class="fs-rates">%s</div></div>' % (html.escape(fn["label"]), chips))
+                       '<div class="fs-rates">%s</div>%s</div>'
+                       % (html.escape(fn["label"]), chips, bd_html))
         if fns:
             blocks.append('<div class="fs-proj"><div class="fs-proj-name">'
                           '<span class="status-dot %s"></span>%s</div>%s</div>'
@@ -1540,6 +1595,14 @@ table.ver tbody tr:hover{background:var(--surface-2)}
 .fs-rate.watch b,.fn-rate.watch b{color:var(--watch)}
 .fs-rate.bad,.fn-rate.bad{background:var(--bad-bg);border-color:var(--bad-line)}
 .fs-rate.bad b,.fn-rate.bad b{color:var(--bad)}
+.fs-bd{flex-basis:100%;margin:5px 0 3px 190px}
+.fs-bd-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+.fs-bd-list{margin:3px 0 0;padding:0;list-style:none}
+.fs-bd-list li{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--ink-2);padding:1.5px 0;border-bottom:1px dotted var(--line)}
+.fs-bd-list li:last-child{border-bottom:none}
+.fs-bd-r{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fs-bd-v{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+.fs-bd-v b{color:var(--ink);margin-right:2px}
 .hy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .hy-col{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
 .hy-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
@@ -1566,9 +1629,16 @@ def render_slack(report):
     icon = {"healthy": "\U0001f7e2", "watch": "\U0001f7e1", "degraded": "\U0001f534", "nodata": "⚪"}
     b = report["brand"]
     lc = " (last complete UTC day)" if report.get("is_last_complete") else ""
+    errs = report.get("errors", [])
+    total = len(report["projects"]) + len(errs)
+    proj_count = f"{len(report['projects'])}/{total} projects ({len(errs)} failed)" if errs else f"{len(report['projects'])} projects"
     lines = [f"*{b['org']} {b['product']} — {report['report_day']}*{lc}  {icon[report['overall_status']]} *{STATUS_LABEL[report['overall_status']]}*",
              f"_covers {report['window_utc']}_",
-             f"_{len(report['projects'])} projects · day vs {report['baseline_days']}-day baseline ({report['baseline_source']}) · generated {report['generated_utc']}_"]
+             f"_{proj_count} · day vs {report['baseline_days']}-day baseline ({report['baseline_source']}) · generated {report['generated_utc']}_"]
+    if errs:
+        lines.append("")
+        lines.append(f"⚠️ *{len(errs)} projects not reported (query failed):* "
+                     + ", ".join(f"{e['name']} ({e['error'][:40]})" for e in errs))
     # status transitions
     trans = [f"{p['name']} {STATUS_LABEL[p['prior_status']]}→{STATUS_LABEL[p['status']]}"
              for p in report["projects"] if p.get("prior_status") and p["prior_status"] != p["status"]]
@@ -1590,6 +1660,9 @@ def render_slack(report):
             if rates:
                 rl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in rates[:3])
                 lines.append(f"    ↳ _{fn['label']}_ — {rl}")
+            for bd in fn.get("breakdowns", []):
+                for rz in bd["reasons"][:5]:
+                    lines.append(f"        · {rz['reason'][:60]} — {fmt_int(rz['users'])}u ({rz['pct']:.1f}%)")
         for profile in p.get("operations", []):
             for flow in profile.get("flows", []):
                 fr = flow.get("terminal_failure_rate_pct")
@@ -1657,13 +1730,21 @@ def render_slack(report):
 def render_md(report, samples):
     b = report["brand"]
     lc = " (last complete UTC day)" if report.get("is_last_complete") else ""
+    errs = report.get("errors", [])
+    total = len(report["projects"]) + len(errs)
+    proj_line = (f"{len(report['projects'])}/{total} projects ({len(errs)} failed to report)"
+                 if errs else f"{len(report['projects'])} projects")
     L = [f"# {b['org']} {b['product']} — {report['report_day']}{lc}", "",
          f"- Window: **{report['window_utc']}**",
-         f"- Overall: **{STATUS_LABEL[report['overall_status']]}**  ·  {len(report['projects'])} projects",
+         f"- Overall: **{STATUS_LABEL[report['overall_status']]}**  ·  {proj_line}",
          f"- Baseline: {report['baseline_days']} days before, from **{report['baseline_source']}** ({', '.join(report['baseline_dates']) or 'n/a'})",
          f"- Generated: {report['generated_utc']}  ·  source: {report['source']}",
          "- All metrics are for the report day; `diff%` = report day vs baseline daily average; `%DAU` = unique affected users ÷ that day's DAU.",
          "", "> Structured for AI/engineer triage: each project lists its top signatures with affected-user % and, for projects needing attention, representative stacktraces with version/platform.", ""]
+    if errs:
+        L.append(f"> ⚠️ **{len(errs)} projects are missing from this report** — their queries failed and no data was collected: "
+                 + "; ".join(f"{e['name']} (`{e['error']}`)" for e in errs) + ". Portfolio totals and Overall status below EXCLUDE these projects.")
+        L.append("")
     for p in report["projects"]:
         L.append(f"## {p['name']} — {STATUS_LABEL[p['status']]}")
         d = p["err_per_user_delta_pct"]
@@ -1754,6 +1835,12 @@ def render_md(report, samples):
                     val = "n/a" if r["pct"] is None else f"{r['pct']:.0f}%"
                     bm = f" — {r['business']}" if r.get("business") else ""
                     L.append(f"  - {r['label']}: **{val}**{bm}")
+                for bd in fn.get("breakdowns", []):
+                    if not bd["reasons"]:
+                        continue
+                    L.append(f"  - _Top {bd['label']} reasons:_")
+                    for rz in bd["reasons"]:
+                        L.append(f"    - {rz['reason'][:100]} — {fmt_int(rz['users'])}u ({rz['pct']:.1f}% DAU), {fmt_int(rz['total'])} ev")
         # log hygiene (item 2)
         hy = p.get("hygiene") or {}
         hy_line = [f"{v}: {b['count']} sig / {fmt_int(b['events'])} ev"
@@ -1807,7 +1894,8 @@ def main():
     cfg = load_config(args.config)
     if args.baseline_days:
         cfg["baseline_days"] = args.baseline_days
-    client = Client(resolve_base_url(cfg), resolve_headers(cfg))
+    client = Client(resolve_base_url(cfg), resolve_headers(cfg),
+                    timeout=cfg["http_timeout"], retries=cfg["http_retries"])
     report = build_report(client, cfg, args.day, args.out, args.slug)
 
     # sample stacktraces for attention projects (bounded), for the MD report
