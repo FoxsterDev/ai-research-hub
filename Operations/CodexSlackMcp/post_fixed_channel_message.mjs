@@ -89,6 +89,27 @@ function requireText(value) {
   return text;
 }
 
+// Slack splits a file share's initial_comment longer than ~4000 chars into several
+// messages and re-renders the attachment block under EACH of them. Keep the comment
+// under the limit and post the rest as plain follow-up messages (no duplicated files).
+const SLACK_TEXT_LIMIT = 3500;
+
+function splitText(text, limit = SLACK_TEXT_LIMIT) {
+  const chunks = [];
+  let rest = text;
+  while (rest.length > limit) {
+    let cut = rest.lastIndexOf("\n\n", limit);
+    if (cut < limit * 0.5) cut = rest.lastIndexOf("\n", limit);
+    if (cut <= 0) cut = limit;
+    chunks.push(rest.slice(0, cut).trimEnd());
+    rest = rest.slice(cut).replace(/^\n+/, "");
+  }
+  if (rest.trim()) {
+    chunks.push(rest.trimEnd());
+  }
+  return chunks;
+}
+
 async function runOnServer(runSh, toolName, toolArgs) {
   await access(runSh);
 
@@ -231,8 +252,9 @@ Usage:
 Options:
   --file <path>      Read Slack message text from a file.
   --text <message>   Slack message text.
-  --upload <path>    Attach a local file (repeatable). Text becomes the file share's comment,
-                     so text + all files land as ONE Slack message.
+  --upload <path>    Attach a local file (repeatable). Text becomes the file share's comment;
+                     text over ~3500 chars is posted as ordered plain messages first and the
+                     files ride on the LAST chunk (keeps order; no duplicated attachments).
   --title <title>    Slack title (single-file uploads).
   --thread <ts>      Post/upload inside an existing thread.
   --run-sh <path>    Override the installed Slack MCP run.sh path.
@@ -257,19 +279,37 @@ async function main() {
 
   let result;
   if (uploads.length > 0) {
-    // one Slack message: the text becomes the file share's initial comment
+    // Long text is posted as ordered plain messages FIRST; the files are attached to the
+    // LAST chunk. The file share lands asynchronously, so attaching it to an earlier chunk
+    // would let later chunks overtake it in the channel; and a >limit comment would be
+    // split by Slack itself with the attachment block duplicated under every piece.
+    const chunks = text ? splitText(text) : [];
+    const tail = chunks.pop() ?? null;
+    for (const chunk of chunks) {
+      const leadArgs = { text: chunk };
+      if (args.threadTs) leadArgs.thread_ts = args.threadTs;
+      await runOnServer(runSh, "slack_post_message", leadArgs);
+    }
     const toolArgs = { paths: uploads };
-    if (text) toolArgs.initial_comment = text;
+    if (tail) toolArgs.initial_comment = tail;
     if (args.title) toolArgs.title = args.title;
     if (args.threadTs) toolArgs.thread_ts = args.threadTs;
     result = await runOnServer(runSh, "slack_upload_file", toolArgs);
+    if (chunks.length) {
+      result = { ...result, lead_messages: chunks.length };
+    }
   } else {
     if (!text) {
       throw new Error("Missing message. Use --text or --file, or --upload for files.");
     }
-    const toolArgs = { text };
-    if (args.threadTs) toolArgs.thread_ts = args.threadTs;
-    result = await runOnServer(runSh, "slack_post_message", toolArgs);
+    let first = null;
+    for (const chunk of splitText(text)) {
+      const toolArgs = { text: chunk };
+      if (args.threadTs) toolArgs.thread_ts = args.threadTs;
+      const r = await runOnServer(runSh, "slack_post_message", toolArgs);
+      first ??= r;
+    }
+    result = first;
   }
 
   console.log(JSON.stringify(result, null, 2));
