@@ -63,6 +63,8 @@ def load_config(path):
     cfg.setdefault("operations", [])  # config-driven endpoint/provider health sections
     cfg.setdefault("funnels", [])          # business-metric funnels (phrase-counted stages)
     cfg.setdefault("funnel_top_dau", None)  # if set, only the top-N DAU projects render funnels
+    cfg.setdefault("funnels_summary_note", "")  # HTML note under the funnels summary (org copy lives in config)
+    cfg.setdefault("md_observations", [])       # trailing md bullets (org-specific observations live in config)
     hy = cfg.setdefault("hygiene", {})     # shared issue rule table (log-sanitation + impact bar)
     hy.setdefault("rules", [])
     hy.setdefault("default", {"verdict": "review"})
@@ -118,7 +120,7 @@ class Client:
         self.base = base.rstrip("/")
         self.headers = headers
         self.timeout = timeout
-        self.retries = retries
+        self.retries = max(1, int(retries))
         self.backoff = backoff
 
     def _req(self, path, body=None):
@@ -133,7 +135,8 @@ class Client:
             except Exception as e:
                 last = e
                 msg = str(e).lower()
-                transient = "timed out" in msg or "timeout" in msg or "reset" in msg or "temporarily" in msg
+                transient = ("timed out" in msg or "timeout" in msg or "reset" in msg or "temporarily" in msg
+                             or "429" in msg or "503" in msg or "unavailable" in msg)
                 if not transient or attempt == self.retries - 1:
                     raise
                 time.sleep(self.backoff * (2 ** attempt))
@@ -196,10 +199,48 @@ def time_range_filter(cfg, days):
     return [{"range": {tf: {"gte": lo, "lt": hi}}}]
 
 
-def discover_app_ids(client, cfg, prefix, day):
-    q = {"size": 0, "query": {"bool": {"filter": server_filter(cfg)}},
+# ---------------------------------------------------------------- rolling window (intermediate report)
+
+def time_bounds_filter(cfg, lo, hi):
+    """Explicit [lo, hi) range on the timestamp field — used only by the rolling-window
+    (intermediate) report. The daily report stays index-scoped (this returns nothing there)."""
+    tf = cfg.get("time_field")
+    return [{"range": {tf: {"gte": lo, "lt": hi}}}] if tf else []
+
+
+def _iso_z(dtobj):
+    return dtobj.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def window_dates(lo_dt, hi_dt):
+    """UTC date strings whose per-day indices a [lo, hi) window touches (usually 1-2)."""
+    d, end, out = lo_dt.date(), (hi_dt - dt.timedelta(seconds=1)).date(), []
+    while d <= end:
+        out.append(d.isoformat())
+        d += dt.timedelta(days=1)
+    return out
+
+
+def make_window(cfg, prefix, idx, lo_dt, hi_dt):
+    """A rolling-window descriptor {index, lo, hi, hours, label, partial} or None if no index covers it."""
+    dates = window_dates(lo_dt, hi_dt)
+    avail = [d for d in dates if prefix in idx and d in idx[prefix]]
+    if not avail:
+        return None
+    partial = len(avail) < len(dates)
+    label = f"{lo_dt.strftime('%Y-%m-%d %H:%M')} → {hi_dt.strftime('%Y-%m-%d %H:%M')} UTC"
+    if partial:
+        label += " · partial index coverage"
+    return {"index": ",".join(prefix + d for d in avail),
+            "lo": _iso_z(lo_dt), "hi": _iso_z(hi_dt),
+            "hours": int(round((hi_dt - lo_dt).total_seconds() / 3600)),
+            "label": label, "partial": partial}
+
+
+def discover_app_ids(client, cfg, prefix, day, index=None, extra_filter=None):
+    q = {"size": 0, "query": {"bool": {"filter": server_filter(cfg) + (extra_filter or [])}},
          "aggs": {"apps": {"terms": {"field": cfg["fields"]["app_id"], "size": 100}}}}
-    a = client.search(prefix + day, q)["aggregations"]
+    a = client.search(index or (prefix + day), q)["aggregations"]
     return [b["key"] for b in a["apps"]["buckets"] if b["key"]]
 
 
@@ -230,10 +271,10 @@ def norm_msg(s):
 
 # ------------------------------------------------------------------ query
 
-def day_query(cfg, app_id=None, day=None):
+def day_query(cfg, app_id=None, day=None, win=None):
     F = cfg["fields"]
     U = F["user"]
-    filt = server_filter(cfg) + time_filter(cfg, day)
+    filt = server_filter(cfg) + (time_bounds_filter(cfg, win["lo"], win["hi"]) if win else time_filter(cfg, day))
     if app_id:
         filt.append({"term": {F["app_id"]: app_id}})
 
@@ -260,6 +301,13 @@ def day_query(cfg, app_id=None, day=None):
                      }},
         "by_platform": {"terms": {"field": F["platform"], "size": 6}},
     }
+    tag_f = F.get("tags")
+    fresh_tag = cfg.get("fresh_launch_tag")
+    if tag_f and fresh_tag:
+        aggs["fresh"] = {"filter": {"term": {tag_f: fresh_tag}},
+                         "aggs": {"u": {"cardinality": {"field": U}}}}
+        aggs["nonfresh"] = {"filter": {"bool": {"must_not": [{"term": {tag_f: fresh_tag}}]}},
+                            "aggs": {"u": {"cardinality": {"field": U}}}}
     if cfg["signals"]:
         aggs["signals"] = {"filters": {"filters": {
             k: {"match_phrase": {F["message_text"]: s["phrase"]}} for k, s in cfg["signals"].items()}},
@@ -274,6 +322,16 @@ def day_query(cfg, app_id=None, day=None):
                 f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn, st in breakdown_stages}},
                 "aggs": {"reasons": {"terms": {"field": F["message_keyword"], "size": 15},
                                      "aggs": {"u": {"cardinality": {"field": U}}}}}}
+        if tag_f and fresh_tag:
+            split_stages = [(fn, st) for fn in cfg["funnels"] if fn.get("split_by_tag")
+                            for st in fn["stages"]]
+            if split_stages:
+                aggs["funnels_split"] = {"filters": {"filters": {
+                    f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn, st in split_stages}},
+                    "aggs": {"fresh": {"filter": {"term": {tag_f: fresh_tag}},
+                                       "aggs": {"u": {"cardinality": {"field": U}}}},
+                             "nonfresh": {"filter": {"bool": {"must_not": [{"term": {tag_f: fresh_tag}}]}},
+                                          "aggs": {"u": {"cardinality": {"field": U}}}}}}
     return {"size": 0, "track_total_hits": False,
             "query": {"bool": {"filter": filt}} if filt else {"match_all": {}}, "aggs": aggs}
 
@@ -368,10 +426,11 @@ def operation_status(flow, failure_rate, retry_reach):
     return "alert" if alert else ("watch" if operation_attention(flow, failure_rate, retry_reach) else "healthy")
 
 
-def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=None, include_detail=True):
+def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=None, include_detail=True, win=None):
     """Collect terminal/retry reliability plus safe class buckets for one configured flow."""
     F = cfg["fields"]
-    base = server_filter(cfg) + time_filter(cfg, day)
+    base = server_filter(cfg) + (time_bounds_filter(cfg, win["lo"], win["hi"]) if win else time_filter(cfg, day))
+    index = win["index"] if win else prefix + day
     if app_id:
         base.append({"term": {F["app_id"]: app_id}})
     scope = operation_scope_filter(F, flow)
@@ -387,7 +446,7 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
                  "outcomes": {"filters": {"filters": outcomes},
                               "aggs": {"users": {"cardinality": {"field": F["user"]}}}}},
     }
-    aggs = client.search(prefix + day, outcome_body)["aggregations"]
+    aggs = client.search(index, outcome_body)["aggregations"]
     agg = aggs["outcomes"]["buckets"]
     effective_dau = dau if dau is not None else aggs["dau"]["value"]
     result = {name: {"events": val["doc_count"], "users": val.get("users", {}).get("value", 0)}
@@ -420,7 +479,7 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
                 "platforms": {"terms": {"field": F["platform"], "size": 4}, "aggs": {"users": {"cardinality": {"field": F["user"]}}}},
             },
         }
-        detail = client.search(prefix + day, detail_body)
+        detail = client.search(index, detail_body)
         total = detail["hits"]["total"]["value"]
         truncated = total > limit
         retry_phrase = (flow.get("retry") or "").lower()
@@ -453,14 +512,14 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
     }
 
 
-def collect_operations(client, cfg, key, prefix, app_id, day, dau):
+def collect_operations(client, cfg, key, prefix, app_id, day, dau, win=None):
     out = []
     for profile in cfg.get("operations", []):
         if profile.get("apps") and key not in profile["apps"] and app_id not in profile["apps"]:
             continue
         flows = []
         for flow in profile.get("flows", []):
-            flows.append(collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau))
+            flows.append(collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau, win=win))
         if flows:
             out.append({"key": profile["key"], "label": profile.get("label", profile["key"]), "flows": flows})
     return out
@@ -521,6 +580,32 @@ def attach_operation_baselines(client, cfg, key, prefix, app_id, operations, pri
     return operations
 
 
+def attach_operation_baselines_windows(client, cfg, prefix, app_id, operations, base_windows):
+    """Rolling variant of attach_operation_baselines: per-flow baseline = the same clock
+    window on each of the prior days, always live from OpenSearch (small aggs only)."""
+    profiles_cfg = {p.get("key"): p for p in cfg.get("operations", [])}
+    for profile in operations:
+        profile_cfg = profiles_cfg.get(profile.get("key"), {})
+        flows_cfg = {f.get("key"): f for f in profile_cfg.get("flows", [])}
+        for flow in profile.get("flows", []):
+            flow_cfg = flows_cfg.get(flow.get("key"), {})
+            snapshots = [collect_operation_flow(client, cfg, prefix, app_id, None, profile_cfg, flow_cfg,
+                                                dau=None, include_detail=False, win=w)
+                         for w in base_windows]
+            failure_rates = [s.get("terminal_failure_rate_pct") for s in snapshots
+                             if s.get("terminal_failure_rate_pct") is not None]
+            retry_reaches = [s.get("retry_reach_pct_dau") for s in snapshots]
+            base_failure = round(mean(failure_rates), 3) if failure_rates else None
+            base_retry = round(mean(retry_reaches), 3) if retry_reaches else None
+            flow["baseline"] = {
+                "days": len(snapshots), "source": "prior windows",
+                "terminal_failure_rate_pct": base_failure, "retry_reach_pct_dau": base_retry,
+            }
+            flow["terminal_failure_delta_pct"] = delta_pct(flow.get("terminal_failure_rate_pct"), base_failure)
+            flow["retry_reach_delta_pct"] = delta_pct(flow.get("retry_reach_pct_dau"), base_retry)
+    return operations
+
+
 def baseline_query(cfg, app_id=None, base_dates=None):
     """Light per-day agg for the OpenSearch baseline fallback."""
     F = cfg["fields"]
@@ -559,8 +644,9 @@ def cat_list(agg):
     return [{"cat": b["key"], "total": b["doc_count"]} for b in agg.get("buckets", [])]
 
 
-def collect_day(client, cfg, prefix, app_id, day):
-    a = client.search(prefix + day, day_query(cfg, app_id, day))["aggregations"]
+def collect_day(client, cfg, prefix, app_id, day, win=None):
+    index = win["index"] if win else prefix + day
+    a = client.search(index, day_query(cfg, app_id, day, win))["aggregations"]
     dau = a["dau"]["value"]
     versions_detail = []
     for b in a["versions"]["buckets"]:
@@ -588,6 +674,11 @@ def collect_day(client, cfg, prefix, app_id, day):
                                    "users": bb.get("u", {}).get("value", 0)}
                                   for bb in v.get("reasons", {}).get("buckets", [])]
                               for k, v in a.get("funnel_breakdowns", {}).get("buckets", {}).items()},
+        "fresh_users": a.get("fresh", {}).get("u", {}).get("value", 0),
+        "nonfresh_users": a.get("nonfresh", {}).get("u", {}).get("value", 0),
+        "funnels_split": {k: {"fresh": v.get("fresh", {}).get("u", {}).get("value", 0),
+                              "nonfresh": v.get("nonfresh", {}).get("u", {}).get("value", 0)}
+                          for k, v in a.get("funnels_split", {}).get("buckets", {}).items()},
     }
 
 
@@ -604,6 +695,37 @@ def collect_baseline_os(client, cfg, prefix, app_id, base_dates):
     return {"err_per_user": mean(per_day_err), "warn_per_user": mean(per_day_warn),
             "dau": mean(daus), "versions": {b["key"] for b in a["by_version"]["buckets"]},
             "source": "OpenSearch"}
+
+
+def collect_baseline_windows(client, cfg, prefix, app_id, base_windows):
+    """Baseline for the rolling report = the same clock window on each of the prior N days,
+    pulled live from OpenSearch (never from disk, so intermediate runs don't touch the daily
+    baseline history). Returns averaged per-user rates + DAU and the prior top signatures."""
+    errs, warns, daus, versions = [], [], [], set()
+    err_sigs, warn_sigs = set(), set()
+    err_sig_pcts, warn_sig_pcts = {}, {}
+    recent_err_top, recent_warn_top = [], []
+    for i, w in enumerate(base_windows):
+        d = collect_day(client, cfg, prefix, app_id, None, win=w)
+        if d["dau"]:
+            daus.append(d["dau"])
+            errs.append(d["err_total"] / d["dau"])
+            warns.append(d["warn_total"] / d["dau"])
+        for t in d["top_errors"]:
+            err_sigs.add(t["msg"])
+            err_sig_pcts.setdefault(t["msg"], []).append(t.get("pct", 0))
+        for t in d["top_warns"]:
+            warn_sigs.add(t["msg"])
+            warn_sig_pcts.setdefault(t["msg"], []).append(t.get("pct", 0))
+        for v in d["versions"]:
+            versions.add(v[0] if isinstance(v, (list, tuple)) else v)
+        if i == 0:  # most-recent prior window drives "resolved since" comparison
+            recent_err_top, recent_warn_top = d["top_errors"], d["top_warns"]
+    return {"err_per_user": mean(errs), "warn_per_user": mean(warns), "dau": mean(daus),
+            "versions": versions, "err_sigs": err_sigs, "warn_sigs": warn_sigs,
+            "err_sig_pcts": {k: mean(v) for k, v in err_sig_pcts.items()},
+            "warn_sig_pcts": {k: mean(v) for k, v in warn_sig_pcts.items()},
+            "recent_err_top": recent_err_top, "recent_warn_top": recent_warn_top}
 
 
 def fetch_samples(client, cfg, prefix, app_id, day, limit=6):
@@ -706,8 +828,32 @@ def build_hygiene(sigs):
     return out
 
 
-def assemble_funnels(cfg, funnels_raw, funnel_breakdowns, dau, key):
+def _funnel_rates(fn, su, dau):
+    """Config-defined conversion rates for a stage-users map `su` against cohort `dau`."""
+    rates = []
+    for rt in fn.get("rates", []):
+        num = su.get(rt["num"], 0)
+        d = rt.get("den")
+        if d == "dau":
+            den = dau
+        elif isinstance(d, list):        # sum of stages, e.g. success/(success+failed)
+            den = sum(su.get(k, 0) for k in d)
+        else:
+            den = su.get(d, 0)
+        rates.append({"label": rt["label"], "num": num, "den": den,
+                      "pct": round(num / den * 100.0, 1) if den else None,
+                      "good": rt.get("good", "high"), "business": rt.get("business"),
+                      "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at")})
+    return rates
+
+
+def assemble_funnels(cfg, today, dau, key):
     """Reassemble per-funnel stage users/%DAU + config-defined conversion rates."""
+    funnels_raw = today["funnels_raw"]
+    funnel_breakdowns = today.get("funnel_breakdowns", {})
+    funnels_split = today.get("funnels_split", {})
+    fresh_dau = today.get("fresh_users", 0)
+    nonfresh_dau = today.get("nonfresh_users", 0)
     out = []
     for fn in cfg["funnels"]:
         apps = fn.get("apps")
@@ -739,22 +885,22 @@ def assemble_funnels(cfg, funnels_raw, funnel_breakdowns, dau, key):
         if not any(s["users"] for s in stages):
             continue  # funnel not applicable to this app
         su = {s["key"]: s["users"] for s in stages}
-        rates = []
-        for rt in fn.get("rates", []):
-            num = su.get(rt["num"], 0)
-            d = rt.get("den")
-            if d == "dau":
-                den = dau
-            elif isinstance(d, list):        # sum of stages, e.g. success/(success+failed)
-                den = sum(su.get(k, 0) for k in d)
-            else:
-                den = su.get(d, 0)
-            rates.append({"label": rt["label"], "num": num, "den": den,
-                          "pct": round(num / den * 100.0, 1) if den else None,
-                          "good": rt.get("good", "high"), "business": rt.get("business"),
-                          "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at")})
+        rates = _funnel_rates(fn, su, dau)
+        splits = []
+        if fn.get("split_by_tag"):
+            for cohort, cdau in (("Fresh launch", fresh_dau), ("Returning (warm)", nonfresh_dau)):
+                field = "fresh" if cohort == "Fresh launch" else "nonfresh"
+                cstages = [{"key": st["key"], "label": st["label"],
+                            "users": funnels_split.get(f'{fn["key"]}::{st["key"]}', {}).get(field, 0)}
+                           for st in fn["stages"]]
+                for s in cstages:
+                    s["pct"] = round(min(100.0, s["users"] / cdau * 100.0), 1) if cdau else 0.0
+                csu = {s["key"]: s["users"] for s in cstages}
+                splits.append({"cohort": cohort, "dau": cdau, "stages": cstages,
+                               "rates": _funnel_rates(fn, csu, cdau)})
         out.append({"key": fn["key"], "label": fn["label"], "stages": stages,
-                    "rates": rates, "note": fn.get("note"), "breakdowns": breakdowns})
+                    "rates": rates, "note": fn.get("note"), "breakdowns": breakdowns,
+                    "splits": splits})
     return out
 
 
@@ -776,8 +922,9 @@ def build_impact(top_errors, top_warns, limit=5):
 
 
 def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_dates,
-                  operation_base_dates, prior_by_date, disk_dates_desc, n):
-    today = collect_day(client, cfg, prefix, app_id, report_day)
+                  operation_base_dates, prior_by_date, disk_dates_desc, n,
+                  win=None, base_windows=None):
+    today = collect_day(client, cfg, prefix, app_id, report_day, win=win)
     if today["dau"] == 0:
         return None
     th = cfg["thresholds"]
@@ -789,7 +936,16 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     prior_days = [d for d in disk_dates_desc if key in prior_by_date.get(d, {})][:n]
     prior_err_sigs, prior_warn_sigs, prior_versions = set(), set(), set()
     recent_err_top, recent_warn_top = [], []
-    if prior_days:
+    if win is not None:
+        # rolling-window report: baseline = same clock window on the prior N days (live from OS)
+        bw = collect_baseline_windows(client, cfg, prefix, app_id, base_windows or [])
+        base_source = f"prior {win['hours']}h windows"
+        base_err_pu, base_warn_pu, base_dau = bw["err_per_user"], bw["warn_per_user"], bw["dau"]
+        prior_err_sigs, prior_warn_sigs, prior_versions = bw["err_sigs"], bw["warn_sigs"], bw["versions"]
+        recent_err_top, recent_warn_top = bw["recent_err_top"], bw["recent_warn_top"]
+        prior_status = None
+        base_dates_used = [w["label"] for w in (base_windows or [])]
+    elif prior_days:
         base_source = "saved reports"
         base_err_pu = mean([prior_by_date[d][key].get("err_per_user") for d in prior_days])
         base_warn_pu = mean([prior_by_date[d][key].get("warn_per_user") for d in prior_days])
@@ -805,6 +961,7 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         recent_err_top = prior_by_date[recent][key].get("top_errors", [])
         recent_warn_top = prior_by_date[recent][key].get("top_warns", [])
         prior_status = prior_by_date[recent][key].get("status")
+        base_dates_used = prior_days
     else:
         ob = collect_baseline_os(client, cfg, prefix, app_id, os_base_dates) if os_base_dates else \
             {"err_per_user": 0.0, "warn_per_user": 0.0, "dau": 0.0, "versions": set()}
@@ -812,12 +969,14 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         base_err_pu, base_warn_pu, base_dau = ob["err_per_user"], ob["warn_per_user"], ob["dau"]
         prior_versions = ob["versions"]
         prior_status = None
-    base_dates_used = prior_days if prior_days else os_base_dates
+        base_dates_used = os_base_dates
 
     err_d = delta_pct(err_pu, base_err_pu)
     warn_d = delta_pct(warn_pu, base_warn_pu)
     low_data = today["dau"] < cfg["min_dau"]
-    status = "nodata" if low_data else classify(err_d, th)
+    # No usable baseline (err_d is None <=> base_err_pu <= 0) means we cannot judge a trend —
+    # report it as nodata (unknown), not watch, so a baseline-less app never false-alarms.
+    status = "nodata" if (low_data or err_d is None) else classify(err_d, th)
 
     today_err_msgs = {t["msg"] for t in today["top_errors"]}
     today_warn_msgs = {t["msg"] for t in today["top_warns"]}
@@ -848,8 +1007,8 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
             out.append({**t, "base_pct": base, "pct_delta": rel})
         return out
 
-    base_err_map = base_sig_map("top_errors")
-    base_warn_map = base_sig_map("top_warns")
+    base_err_map = bw["err_sig_pcts"] if win is not None else base_sig_map("top_errors")
+    base_warn_map = bw["warn_sig_pcts"] if win is not None else base_sig_map("top_warns")
     top_errors = with_base(today["top_errors"], base_err_map)
     top_warns = with_base(today["top_warns"], base_warn_map)
 
@@ -860,11 +1019,16 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     for t in top_warns:
         t["hygiene"] = classify_sig(t, "warn", hygiene)
     hygiene_buckets = build_hygiene(top_errors + top_warns)
-    funnels = assemble_funnels(cfg, today["funnels_raw"], today.get("funnel_breakdowns", {}), today["dau"], key)
+    funnels = assemble_funnels(cfg, today, today["dau"], key)
     impact = build_impact(top_errors, top_warns)
-    operations = collect_operations(client, cfg, key, prefix, app_id, report_day, today["dau"])
-    operations = attach_operation_baselines(client, cfg, key, prefix, app_id, operations,
-                                             prior_by_date, disk_dates_desc, operation_base_dates)
+    if win is not None:
+        operations = collect_operations(client, cfg, key, prefix, app_id, None, today["dau"], win=win)
+        operations = attach_operation_baselines_windows(client, cfg, prefix, app_id, operations,
+                                                        base_windows or [])
+    else:
+        operations = collect_operations(client, cfg, key, prefix, app_id, report_day, today["dau"])
+        operations = attach_operation_baselines(client, cfg, key, prefix, app_id, operations,
+                                                 prior_by_date, disk_dates_desc, operation_base_dates)
 
     # per-release rollout share of DAU + error rate (compare old vs new version)
     versions_detail = []
@@ -883,7 +1047,8 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
     return {
         "key": key, "name": name, "prefix": prefix, "app_id": app_id,
         "status": status, "prior_status": prior_status, "low_data": low_data,
-        "report_day": report_day, "baseline_dates_used": sorted(base_dates_used),
+        "report_day": win["label"] if win else report_day,
+        "baseline_dates_used": sorted(base_dates_used),
         "baseline_source": base_source,
         "dau": today["dau"],
         "err_total": today["err_total"], "err_users": today["err_users"],
@@ -894,6 +1059,9 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         "err_per_user_delta_pct": None if (low_data or err_d is None) else round(err_d, 1),
         "warn_per_user_delta_pct": None if (low_data or warn_d is None) else round(warn_d, 1),
         "base_dau": round(base_dau),
+        "fresh_users": today.get("fresh_users", 0),
+        "nonfresh_users": today.get("nonfresh_users", 0),
+        "fresh_pct": round(today.get("fresh_users", 0) / today["dau"] * 100, 1) if today["dau"] else 0.0,
         "top_errors": top_errors, "top_warns": top_warns,
         "top_error_reach": round(worst["pct"], 1) if worst else 0.0,
         "top_error_reach_msg": worst["msg"] if worst else "",
@@ -975,14 +1143,16 @@ def build_report(client, cfg, report_day, out_dir, slug):
         projects = [p for p in ex.map(run, jobs) if p]
     ok = [p for p in projects if "error" not in p]
     ok.sort(key=lambda p: (1 if p["status"] == "nodata" else 0, -p["dau"]))
-    # funnels: keep only the top-N DAU projects (per-app scoping already limits which
-    # projects have funnel data; this bounds the report to the biggest apps).
+    # funnels: app-specific funnels (those with an `apps` scope) are bounded to the top-N
+    # DAU projects; universal funnels (no `apps` scope, e.g. the cross-project loading
+    # funnel) are kept for every project.
     top_n = cfg.get("funnel_top_dau")
     if top_n:
+        universal = {fn["key"] for fn in cfg["funnels"] if not fn.get("apps")}
         keep = {p["key"] for p in sorted(ok, key=lambda p: -p["dau"])[:top_n]}
         for p in ok:
             if p["key"] not in keep:
-                p["funnels"] = []
+                p["funnels"] = [fn for fn in p["funnels"] if fn["key"] in universal]
     overall = "healthy"
     for p in ok:
         if p["status"] == "degraded":
@@ -999,6 +1169,76 @@ def build_report(client, cfg, report_day, out_dir, slug):
         "is_last_complete": report_day == (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)).isoformat(),
         "baseline_source": "saved reports" if from_disk else ("OpenSearch" if used_dates else "none"),
         "overall_status": overall, "brand": cfg["brand"],
+        "fresh_tag": cfg.get("fresh_launch_tag") or "",
+        "funnels_note": cfg["funnels_summary_note"], "md_observations": cfg["md_observations"],
+        "signals_meta": {k: v.get("label", k) for k, v in cfg["signals"].items()},
+        "projects": ok, "source": client.base.split("//")[-1].split(".")[0],
+        "errors": [p for p in projects if "error" in p],
+    }
+
+
+def build_report_window(client, cfg, hours, now_dt):
+    """Rolling-window (intermediate) report over [now - hours, now], baseline = the same
+    clock window on each of the prior N days. Never reads/writes the daily baseline history."""
+    idx = discover_indices(client)
+    n = cfg["baseline_days"]
+    hi_dt = now_dt.replace(second=0, microsecond=0)
+    lo_dt = hi_dt - dt.timedelta(hours=hours)
+    jobs = []
+    for src in cfg["sources"]:
+        prefix = src["index_prefix"]
+        win = make_window(cfg, prefix, idx, lo_dt, hi_dt)
+        if not win:
+            continue
+        base_windows = [w for w in (make_window(cfg, prefix, idx, lo_dt - dt.timedelta(days=k),
+                                                 hi_dt - dt.timedelta(days=k)) for k in range(1, n + 1)) if w]
+        if src.get("split_by_app_id"):
+            app_names = src.get("app_names", {})
+            # discover over the whole window (all indices it touches, bounded to [lo, hi]) so an
+            # app active only in the older half of a cross-midnight window is not missed.
+            for app_id in discover_app_ids(client, cfg, prefix, None, index=win["index"],
+                                           extra_filter=time_bounds_filter(cfg, win["lo"], win["hi"])):
+                jobs.append((app_id, app_names.get(app_id, app_id), prefix, app_id, win, base_windows))
+        else:
+            key = src.get("key") or prefix.rstrip("-")
+            jobs.append((key, src.get("name") or key, prefix, None, win, base_windows))
+
+    def run(job):
+        key, name, prefix, app_id, win, base_windows = job
+        try:
+            return build_project(client, cfg, key, name, prefix, app_id, None, [], [], {}, [], n,
+                                 win=win, base_windows=base_windows)
+        except Exception as e:
+            return {"key": key, "name": name, "error": str(e)}
+
+    with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
+        projects = [p for p in ex.map(run, jobs) if p]
+    ok = [p for p in projects if "error" not in p]
+    ok.sort(key=lambda p: (1 if p["status"] == "nodata" else 0, -p["dau"]))
+    universal = {fn["key"] for fn in cfg["funnels"] if not fn.get("apps")}
+    top_n = cfg.get("funnel_top_dau")
+    if top_n:
+        keep = {p["key"] for p in sorted(ok, key=lambda p: -p["dau"])[:top_n]}
+        for p in ok:
+            if p["key"] not in keep:
+                p["funnels"] = [fn for fn in p["funnels"] if fn["key"] in universal]
+    overall = "healthy"
+    for p in ok:
+        if p["status"] == "degraded":
+            overall = "degraded"; break
+        if p["status"] == "watch":
+            overall = "watch"
+    label = f"{lo_dt.strftime('%Y-%m-%d %H:%M')} → {hi_dt.strftime('%Y-%m-%d %H:%M')} UTC"
+    return {
+        "schema": 3, "kind": "rolling", "window_hours": hours,
+        "generated_utc": now_dt.strftime("%Y-%m-%d %H:%M UTC"),
+        "report_day": hi_dt.strftime("%Y-%m-%dT%H%MZ"),
+        "window_label": f"last {hours}h", "baseline_dates": [], "baseline_days": n,
+        "window_utc": label, "is_last_complete": False,
+        "baseline_source": f"prior {n}×{hours}h windows",
+        "overall_status": overall, "brand": cfg["brand"],
+        "fresh_tag": cfg.get("fresh_launch_tag") or "",
+        "funnels_note": cfg["funnels_summary_note"], "md_observations": cfg["md_observations"],
         "signals_meta": {k: v.get("label", k) for k, v in cfg["signals"].items()},
         "projects": ok, "source": client.base.split("//")[-1].split(".")[0],
         "errors": [p for p in projects if "error" in p],
@@ -1009,6 +1249,76 @@ def build_report(client, cfg, report_day, out_dir, slug):
 
 STATUS_LABEL = {"healthy": "Healthy", "watch": "Watch", "degraded": "Degraded", "nodata": "Low data"}
 SEVERITY_RANK = {"degraded": 0, "watch": 1, "healthy": 2, "nodata": 3}
+
+
+def day_label(report):
+    """Headline label: the report day for the daily report, or 'last Nh' for the rolling one."""
+    return report.get("window_label") or report["report_day"]
+
+
+def scope_word(report):
+    """Time-scope word for 'new/resolved' sections: 'today' (daily) or 'in the last Nh' (rolling)."""
+    return f"in the last {report.get('window_hours')}h" if report.get("kind") == "rolling" else "today"
+
+
+def build_attention(report):
+    """Everything that needs attention, portfolio-wide, in one scannable list.
+
+    Sources: failed project queries, degraded/watch project status (with the top actionable
+    impact item), operation flows at watch/alert, and funnel rates in their configured 'bad'
+    zone. Severity: 'degraded' (red) before 'watch' (yellow); projects keep DAU order."""
+    items = []
+    for e in report.get("errors", []):
+        items.append({"sev": "degraded", "proj": e["name"],
+                      "text": f"query failed — project missing from this report ({e['error'][:60]})"})
+    for p in report["projects"]:
+        st = p["status"]
+        if st in ("degraded", "watch"):
+            d = p.get("err_per_user_delta_pct")
+            dtxt = "" if d is None else f" ({d:+.0f}% vs baseline)"
+            worst = (f"; worst: {p['top_error_reach_msg'][:60]} ({p['top_error_reach']:.1f}% DAU)"
+                     if p.get("top_error_reach_msg") else "")
+            imp = (p.get("impact") or [None])[0]
+            act = f" → {imp['action'][:90]}" if imp and imp.get("action") else ""
+            items.append({"sev": st, "proj": p["name"],
+                          "text": f"errors {p['err_per_user']:.1f}/user{dtxt}{worst}{act}"})
+        for profile in p.get("operations", []):
+            for flow in profile.get("flows", []):
+                fst = flow.get("status")
+                if fst in ("watch", "alert"):
+                    fr = flow.get("terminal_failure_rate_pct")
+                    frt = "n/a" if fr is None else f"{fr:.2f}%"
+                    items.append({"sev": "degraded" if fst == "alert" else "watch", "proj": p["name"],
+                                  "text": (f"{profile.get('label', profile.get('key', ''))} / "
+                                           f"{flow.get('label', flow.get('key', ''))} — terminal failure {frt}, "
+                                           f"retry {flow.get('retry_reach_pct_dau', 0):.2f}% DAU [{fst.upper()}]")})
+        for fn in p.get("funnels", []):
+            for r in fn.get("rates", []):
+                if rate_tone(r) == "bad":
+                    lim = f"limit ≤{r['bad_at']}%" if r.get("good") == "low" else f"target ≥{r['good_at']}%"
+                    items.append({"sev": "watch", "proj": p["name"],
+                                  "text": f"{fn['label']}: {r['label']} {r['pct']:.0f}% ({lim})"})
+            for sp in fn.get("splits", []):
+                if not sp.get("dau"):
+                    continue
+                for r in sp["rates"]:
+                    if rate_tone(r) == "bad":
+                        lim = f"limit ≤{r['bad_at']}%" if r.get("good") == "low" else f"target ≥{r['good_at']}%"
+                        items.append({"sev": "watch", "proj": p["name"],
+                                      "text": f"{fn['label']} · {sp['cohort']}: {r['label']} {r['pct']:.0f}% ({lim})"})
+    return sorted(items, key=lambda a: 0 if a["sev"] == "degraded" else 1)
+
+
+def attention_section(report):
+    att = build_attention(report)
+    if not att:
+        return ('<section class="card att"><h2 class="ov-title">Needs attention</h2>'
+                '<p class="empty">nothing — all projects healthy vs baseline</p></section>')
+    rows = "".join(
+        f'<div class="att-row"><span class="status-dot {a["sev"]}"></span>'
+        f'<span class="att-text"><b>{html.escape(a["proj"])}</b> — {html.escape(a["text"])}</span></div>'
+        for a in att)
+    return f'<section class="card att"><h2 class="ov-title">⚠ Needs attention ({len(att)})</h2>{rows}</section>'
 
 
 def fmt_int(n):
@@ -1029,6 +1339,8 @@ def rate_tone(r):
     thresholds (good_at/bad_at, interpreted per the rate's `good` direction). No
     thresholds -> neutral, so reach/volume/normal-waterfall rates aren't mislabelled."""
     p = r.get("pct")
+    if p is not None and p > 100:
+        return "watch"  # numerator users exceed denominator users — instrumentation skew
     ga, ba = r.get("good_at"), r.get("bad_at")
     if p is None or ga is None or ba is None:
         return ""
@@ -1121,6 +1433,7 @@ def overview_row(p):
         f'<tr class="{st}">'
         f'<td data-sort="{html.escape(p["name"].lower())}"><span class="status-dot {st}"></span>{html.escape(p["name"])}{rel}</td>'
         f'<td class="num" data-sort="{p["dau"]}">{fmt_int(p["dau"])}</td>'
+        f'<td class="num" data-sort="{p.get("fresh_pct", 0)}" title="{fmt_int(p.get("fresh_users", 0))} users with a cold/fresh-start launch tag">{p.get("fresh_pct", 0):.0f}%</td>'
         f'<td class="num" data-sort="{p["err_total"]}">{fmt_int(p["err_total"])}</td>'
         f'<td class="num" data-sort="{p["err_per_user"]}">{p["err_per_user"]:.1f} {fmt_delta(p["err_per_user_delta_pct"])}</td>'
         f'<td class="num" data-sort="{p["top_error_reach"]}" title="{html.escape(p["top_error_reach_msg"])}">{p["top_error_reach"]:.1f}%</td>'
@@ -1134,16 +1447,19 @@ def overview_table(report):
     rows = "\n".join(overview_row(p) for p in report["projects"])
     base = report["baseline_dates"]
     base_lbl = f'{base[0]} → {base[-1]}' if base else 'n/a'
+    ft = report.get("fresh_tag")
+    fresh_note = (f"<b>Fresh %</b> = share of that day's DAU whose session carried a <code>{html.escape(ft)}</code> tag "
+                  "(a cold/fresh process start rather than a warm resume). ") if ft else ""
     return f"""
 <section class="card overview">
-  <h2 class="ov-title">All projects — {report['report_day']}</h2>
+  <h2 class="ov-title">All projects — {day_label(report)}</h2>
   <div class="table-scroll"><table class="ov">
-    <thead><tr><th>Project</th><th class="num">DAU</th><th class="num">Errors</th>
+    <thead><tr><th>Project</th><th class="num">DAU</th><th class="num">Fresh %</th><th class="num">Errors</th>
       <th class="num">err/user</th><th class="num">worst err %</th>
       <th class="num">Warns</th><th class="num">warn/user</th><th class="num">worst warn %</th><th>Status</th></tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
-  <p class="ov-note">All figures are for <b>{report['report_day']}</b>. err/user & warn/user show the <b>diff vs the {report['baseline_days']}-day baseline</b> ({base_lbl}, from {report['baseline_source']}). Worst error/warn % = the single signature at that level touching the largest share of that day's DAU. <b>Click a column header to sort</b> (again to reverse).</p>
+  <p class="ov-note">All figures are for <b>{day_label(report)}</b>. {fresh_note}err/user & warn/user show the <b>diff vs the {report['baseline_days']}-day baseline</b> ({base_lbl}, from {report['baseline_source']}). Worst error/warn % = the single signature at that level touching the largest share of that day's DAU. <b>Click a column header to sort</b> (again to reverse).</p>
 </section>
 """
 
@@ -1176,22 +1492,30 @@ def funnels_summary(report):
                 bd_html += ('<div class="fs-bd"><span class="fs-bd-h">Top %s reasons</span>'
                             '<ul class="fs-bd-list">%s</ul></div>'
                             % (html.escape(bd["label"]), items))
+            split_html = ""
+            for sp in fn.get("splits", []):
+                if not sp["dau"]:
+                    continue
+                schips = "".join(
+                    '<span class="fs-rate %s"><b>%.0f%%</b> %s</span>'
+                    % (rate_tone(r), r["pct"], html.escape(r["label"]))
+                    for r in sp["rates"] if r["pct"] is not None)
+                split_html += ('<div class="fs-split"><span class="fs-split-c">%s <b>%s</b>u</span>'
+                               '<div class="fs-rates">%s</div></div>'
+                               % (html.escape(sp["cohort"]), fmt_int(sp["dau"]), schips))
             fns.append('<div class="fs-fn"><span class="fs-fn-name">%s</span>'
-                       '<div class="fs-rates">%s</div>%s</div>'
-                       % (html.escape(fn["label"]), chips, bd_html))
+                       '<div class="fs-rates">%s</div>%s%s</div>'
+                       % (html.escape(fn["label"]), chips, split_html, bd_html))
         if fns:
             blocks.append('<div class="fs-proj"><div class="fs-proj-name">'
                           '<span class="status-dot %s"></span>%s</div>%s</div>'
                           % (p["status"], html.escape(p["name"]), "".join(fns)))
     if not blocks:
         return ""
+    note = report.get("funnels_note") or ""
+    note_html = f'<p class="ov-note">{note}</p>' if note else ""
     return ('<section class="card fsum"><h2 class="ov-title">Business funnels — key conversion rates</h2>'
-            '<p class="ov-note">Computed for the top-5 DAU projects; a funnel shows only where the app '
-            "instruments that flow. Today that is Blingz/Hub (consent, startup, ads, cashout) and SolitaireRewards "
-            '(startup, gameplay); the other satellites route consent/ads/monetization through the hub, so they emit '
-            "none. Each rate reads against that project's own DAU / stage cohort (hover for its business meaning). "
-            'Full stage-by-stage funnels are in each project card below.</p>'
-            + "".join(blocks) + "</section>")
+            + note_html + "".join(blocks) + "</section>")
 
 
 def chg_list(items, cls, render):
@@ -1264,8 +1588,19 @@ def funnels_section(p):
                          % (rate_tone(r), html.escape(r.get("business") or ""), val, html.escape(r["label"])))
         note = ('<div class="fn-note">%s</div>' % html.escape(fn["note"])) if fn.get("note") else ""
         rate_html = ('<div class="fn-rates">' + "".join(chips) + "</div>") if chips else ""
-        blocks.append('<div class="fn-card"><div class="fn-title">%s</div>%s%s%s</div>'
-                      % (html.escape(fn["label"]), "".join(rows), rate_html, note))
+        split_html = ""
+        for sp in fn.get("splits", []):
+            if not sp["dau"]:
+                continue
+            schips = "".join(
+                '<span class="fn-rate %s"><b>%s</b> %s</span>'
+                % (rate_tone(r), "n/a" if r["pct"] is None else ("%.0f%%" % r["pct"]), html.escape(r["label"]))
+                for r in sp["rates"])
+            split_html += ('<div class="fn-split"><span class="fn-split-c">%s · <b>%su</b></span>'
+                           '<div class="fn-rates">%s</div></div>'
+                           % (html.escape(sp["cohort"]), fmt_int(sp["dau"]), schips))
+        blocks.append('<div class="fn-card"><div class="fn-title">%s</div>%s%s%s%s</div>'
+                      % (html.escape(fn["label"]), "".join(rows), rate_html, split_html, note))
     return ('<h3 class="sub">Business funnels <span class="sub-hint">users reaching each stage · % of DAU</span></h3>'
             '<div class="fn-grid">' + "".join(blocks) + "</div>")
 
@@ -1352,6 +1687,40 @@ def operation_section(p):
             '<div class="op-grid">' + "".join(cards) + "</div>")
 
 
+def project_card_image(p):
+    """Slim card for the PNG render: status + core tiles + funnel infographics only.
+    Text-heavy sections (business impact, top errors/warnings, hygiene, stacktraces,
+    categories, signals, releases) live in the .md and full .html, not the image."""
+    st = p["status"]
+    rel = ('<div class="release">New release: '
+           + ", ".join(html.escape(v) for v in p["new_releases"]) + "</div>") if p["new_releases"] else ""
+    return f"""
+<section class="card">
+  <header class="card-head">
+    <div class="card-title"><span class="status-dot {st}"></span><h2>{html.escape(p['name'])}</h2>
+      <span class="status-chip {st}">{STATUS_LABEL[st]}</span></div>
+    <div class="card-window">{p['report_day']} &middot; baseline {p['baseline_source']}</div>
+  </header>
+  {rel}
+  <div class="tiles">
+    <div class="tile"><div class="tile-val">{fmt_int(p['dau'])}</div>
+      <div class="tile-lbl">DAU (unique users)<br><span class="tile-sub">baseline ~{fmt_int(p['base_dau'])}/day</span></div></div>
+    <div class="tile"><div class="tile-val">{p.get('fresh_pct', 0):.0f}<span class="unit">%</span></div>
+      <div class="tile-lbl">fresh launches &middot; % of DAU<br><span class="tile-sub">{fmt_int(p.get('fresh_users', 0))} cold/fresh</span></div></div>
+    <div class="tile"><div class="tile-val">{p['err_per_user']:.1f}<span class="unit">/user</span></div>
+      <div class="tile-lbl">errors per user {fmt_delta(p['err_per_user_delta_pct'])}<br><span class="tile-sub">baseline {p['err_per_user_base']:.1f}</span></div></div>
+    <div class="tile"><div class="tile-val">{p['top_error_reach']:.1f}<span class="unit">%</span></div>
+      <div class="tile-lbl">worst error &middot; % of DAU<br><span class="tile-sub" title="{html.escape(p['top_error_reach_msg'])}">{html.escape(p['top_error_reach_msg'][:32]) or '—'}</span></div></div>
+    <div class="tile"><div class="tile-val">{p['warn_per_user']:.1f}<span class="unit">/user</span></div>
+      <div class="tile-lbl">warnings per user {fmt_delta(p['warn_per_user_delta_pct'])}<br><span class="tile-sub">baseline {p['warn_per_user_base']:.1f}</span></div></div>
+    <div class="tile"><div class="tile-val">{fmt_int(p['err_total'])}</div>
+      <div class="tile-lbl">errors (day)<br><span class="tile-sub">{fmt_int(p['warn_total'])} warnings</span></div></div>
+  </div>
+  {funnels_section(p)}
+</section>
+"""
+
+
 def project_card(p, signals_meta):
     st = p["status"]
     rel = ('<div class="release">New release: '
@@ -1414,7 +1783,7 @@ def project_card(p, signals_meta):
 """
 
 
-def render_inner(report):
+def render_inner(report, image=False):
     ov = report["overall_status"]
     counts = {"healthy": 0, "watch": 0, "degraded": 0, "nodata": 0}
     for p in report["projects"]:
@@ -1423,27 +1792,34 @@ def render_inner(report):
     if counts["nodata"]:
         summary += f' &middot; {counts["nodata"]} low-data'
     b = report["brand"]
-    detail = "\n".join(project_card(p, report["signals_meta"]) for p in report["projects"])
+    detail = "\n".join(project_card_image(p) if image else project_card(p, report["signals_meta"])
+                       for p in report["projects"])
+    detail_note = ('<p class="detail-sub muted">Core infographic per project — status, DAU/fresh-launch %, error rates and loading funnels. '
+                   'Full top-errors, business-impact, log-hygiene and stacktraces are in the accompanying <b>.md</b> report.</p>'
+                   if image else "")
+    foot = "" if image else f"""
+  <footer class="foot">
+    <p>Every figure is for the report day <b>{day_label(report)}</b>. Rates (errors/warnings per unique user) and the worst-error reach use that day's DAU as denominator. <b>diff %</b> compares the report day to the average of the {report['baseline_days']} days before it ({report['baseline_source']}). Each signature shows <b>total events · unique users · % of DAU</b>. Message groups are exact signatures; secrets redacted.</p>
+  </footer>"""
     return CSS + f"""
 <div class="wrap">
   <header class="page-head">
     <div class="brand"><div class="pulse-mark {ov}"></div>
       <div><div class="eyebrow">{html.escape(b['org'])} &middot; {html.escape(b['product'])}</div>
-        <h1>Prod health, {report['report_day']}</h1>
+        <h1>Prod health, {day_label(report)}</h1>
         <div class="daywin">{report['window_utc']}{' &middot; last complete UTC day' if report.get('is_last_complete') else ''}</div></div></div>
     <div class="head-meta"><span class="status-chip {ov} big">{STATUS_LABEL[ov]}</span>
       <div class="meta-line">{len(report['projects'])} projects &middot; {summary}</div>
       <div class="meta-line muted">generated {report['generated_utc']} &middot; baseline from {report['baseline_source']}</div></div>
   </header>
+  {attention_section(report)}
   {overview_table(report)}
   {funnels_summary(report)}
-  <h2 class="detail-head">Per-project detail — {report['report_day']}</h2>
-  {detail}
-  <footer class="foot">
-    <p>Every figure is for the report day <b>{report['report_day']}</b>. Rates (errors/warnings per unique user) and the worst-error reach use that day's DAU as denominator. <b>diff %</b> compares the report day to the average of the {report['baseline_days']} days before it ({report['baseline_source']}). Each signature shows <b>total events · unique users · % of DAU</b>. Message groups are exact signatures; secrets redacted.</p>
-  </footer>
+  <h2 class="detail-head">Per-project detail — {day_label(report)}</h2>
+  {detail_note}
+  {detail}{foot}
 </div>
-""" + SORT_SCRIPT
+""" + ("" if image else SORT_SCRIPT)
 
 
 SORT_SCRIPT = """<script>
@@ -1512,6 +1888,10 @@ table.ov td{padding:8px 10px;border-bottom:1px solid var(--line)}
 table.ov td.num,table.ov th.num{text-align:right}
 table.ov tbody tr:hover{background:var(--surface-2)}
 .ov-note{font-size:11px;color:var(--muted);margin-top:10px}
+.att .ov-title{margin-bottom:8px}
+.att-row{display:flex;align-items:baseline;gap:4px;font-size:12.5px;color:var(--ink-2);padding:5px 0;border-bottom:1px dotted var(--line)}
+.att-row:last-child{border-bottom:none}
+.att-text{min-width:0}.att-text b{color:var(--ink)}
 .rel-flag{font-size:11px}
 .card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .card-title{display:flex;align-items:center;gap:10px}
@@ -1579,6 +1959,10 @@ table.ver tbody tr:hover{background:var(--surface-2)}
 .fn-rates{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
 .fn-rate{font-size:11px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
 .fn-rate b{color:var(--accent);font-variant-numeric:tabular-nums}
+.fn-split{display:flex;gap:8px;align-items:baseline;margin-top:7px;flex-wrap:wrap}
+.fn-split-c{font-size:10.5px;color:var(--muted);min-width:130px;font-variant-numeric:tabular-nums}
+.fn-split-c b{color:var(--ink-2)}
+.fn-split .fn-rates{margin-top:0;padding-top:0;border-top:none;gap:5px}
 .fn-note{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
 .fsum .ov-title{margin-bottom:6px}
 .fs-proj{padding:11px 0;border-bottom:1px solid var(--line)}
@@ -1603,6 +1987,9 @@ table.ver tbody tr:hover{background:var(--surface-2)}
 .fs-bd-r{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fs-bd-v{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
 .fs-bd-v b{color:var(--ink);margin-right:2px}
+.fs-split{flex-basis:100%;display:flex;gap:10px;align-items:baseline;margin:4px 0 0 190px}
+.fs-split-c{font-size:10.5px;color:var(--muted);min-width:150px;font-variant-numeric:tabular-nums}
+.fs-split-c b{color:var(--ink-2);margin:0 1px}
 .hy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .hy-col{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
 .hy-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
@@ -1632,13 +2019,26 @@ def render_slack(report):
     errs = report.get("errors", [])
     total = len(report["projects"]) + len(errs)
     proj_count = f"{len(report['projects'])}/{total} projects ({len(errs)} failed)" if errs else f"{len(report['projects'])} projects"
-    lines = [f"*{b['org']} {b['product']} — {report['report_day']}*{lc}  {icon[report['overall_status']]} *{STATUS_LABEL[report['overall_status']]}*",
+    base_desc = f"vs {report['baseline_source']}" if report.get("kind") == "rolling" else f"day vs {report['baseline_days']}-day baseline ({report['baseline_source']})"
+    lines = [f"*{b['org']} {b['product']} — {day_label(report)}*{lc}  {icon[report['overall_status']]} *{STATUS_LABEL[report['overall_status']]}*",
              f"_covers {report['window_utc']}_",
-             f"_{proj_count} · day vs {report['baseline_days']}-day baseline ({report['baseline_source']}) · generated {report['generated_utc']}_"]
+             f"_{proj_count} · {base_desc} · generated {report['generated_utc']}_"]
     if errs:
         lines.append("")
         lines.append(f"⚠️ *{len(errs)} projects not reported (query failed):* "
                      + ", ".join(f"{e['name']} ({e['error'][:40]})" for e in errs))
+    # everything needing attention, portfolio-wide, before anything else
+    att = build_attention(report)
+    lines.append("")
+    if att:
+        lines.append(f"*⚠️ Needs attention ({len(att)}):*")
+        for a in att[:12]:
+            ic = icon["degraded"] if a["sev"] == "degraded" else icon["watch"]
+            lines.append(f"{ic} *{a['proj']}* — {a['text']}")
+        if len(att) > 12:
+            lines.append(f"  +{len(att) - 12} more")
+    else:
+        lines.append("✅ *Nothing needs attention — all projects healthy vs baseline.*")
     # status transitions
     trans = [f"{p['name']} {STATUS_LABEL[p['prior_status']]}→{STATUS_LABEL[p['status']]}"
              for p in report["projects"] if p.get("prior_status") and p["prior_status"] != p["status"]]
@@ -1652,7 +2052,8 @@ def render_slack(report):
         ed = "" if p["err_per_user_delta_pct"] is None else f" ({p['err_per_user_delta_pct']:+.0f}%)"
         wd = "" if p["warn_per_user_delta_pct"] is None else f" ({p['warn_per_user_delta_pct']:+.0f}%)"
         relm = " (new build)" if p["new_releases"] else ""
-        lines.append(f"{icon[p['status']]} *{p['name']}*{relm} — {fmt_int(p['dau'])} DAU · "
+        lines.append(f"{icon[p['status']]} *{p['name']}*{relm} — {fmt_int(p['dau'])} DAU "
+                     f"(fresh {p.get('fresh_pct', 0):.0f}%) · "
                      f"{fmt_int(p['err_total'])} err ({p['err_per_user']:.1f}/user{ed}, worst {p['top_error_reach']:.1f}% DAU) · "
                      f"{fmt_int(p['warn_total'])} warn ({p['warn_per_user']:.1f}/user{wd}, worst {p['top_warn_reach']:.1f}% DAU)")
         for fn in p.get("funnels", []):
@@ -1660,9 +2061,14 @@ def render_slack(report):
             if rates:
                 rl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in rates[:3])
                 lines.append(f"    ↳ _{fn['label']}_ — {rl}")
+            for sp in fn.get("splits", []):
+                if not sp["dau"]:
+                    continue
+                srl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in sp["rates"] if r["pct"] is not None)
+                lines.append(f"        · {sp['cohort']} ({fmt_int(sp['dau'])}u): {srl}")
             for bd in fn.get("breakdowns", []):
                 for rz in bd["reasons"][:5]:
-                    lines.append(f"        · {rz['reason'][:60]} — {fmt_int(rz['users'])}u ({rz['pct']:.1f}%)")
+                    lines.append(f"        · {rz['reason'][:100]} — {fmt_int(rz['users'])}u ({rz['pct']:.1f}%)")
         for profile in p.get("operations", []):
             for flow in profile.get("flows", []):
                 fr = flow.get("terminal_failure_rate_pct")
@@ -1672,27 +2078,12 @@ def render_slack(report):
                               f"({flow.get('retry_events_per_user', 0):.2f}/u)") if retry.get("events") else ""
                 lines.append(f"    ↳ _{profile['label']} / {flow['label']}_ — {terminal}{retry_text} [{flow.get('status', 'healthy').upper()}]")
         lines.append("")   # blank line between projects
-    worst = [p for p in report["projects"] if p["status"] not in ("healthy", "nodata")]
-    if worst:
-        lines.append("")
-        lines.append("*Needs attention:*")
-        for p in worst:
-            imp = (p.get("impact") or [None])[0]
-            if imp:
-                tail = f" — {imp['action']}" if imp.get("action") else ""
-                lines.append(f"• {p['name']}: {imp['issue'][:64]} — {fmt_int(imp['users'])}u "
-                             f"({imp['pct']:.1f}% DAU){tail}")
-            elif p["top_errors"]:
-                t = p["top_errors"][0]
-                lines.append(f"• {p['name']}: {t['msg'][:70]} — {fmt_int(t['total'])} ({t['pct']:.1f}% DAU)")
-
-
     # Both sides of the diff, equal weight: what appeared vs what is no longer detected.
     appeared_all = [(p["name"], t) for p in report["projects"] for t in p.get("appeared_errors", [])]
     resolved_all = [(p["name"], t) for p in report["projects"] for t in p.get("disappeared_errors", [])]
     if appeared_all:
         lines.append("")
-        lines.append("*🆕 New errors today:*")
+        lines.append(f"*🆕 New errors {scope_word(report)}:*")
         for name, t in appeared_all[:8]:
             lines.append(f"• {name}: {t['msg'][:70]} — {fmt_int(t['total'])} ({t['pct']:.1f}% DAU)")
         if len(appeared_all) > 8:
@@ -1709,7 +2100,7 @@ def render_slack(report):
     resolved_warn_all = [(p["name"], t) for p in report["projects"] for t in p.get("disappeared_warnings", [])]
     if appeared_warn_all:
         lines.append("")
-        lines.append("*🆕 New warning signatures today:*")
+        lines.append(f"*🆕 New warning signatures {scope_word(report)}:*")
         for name, t in appeared_warn_all[:8]:
             lines.append(f"• {name}: {t['msg'][:70]} — {fmt_int(t['total'])} ({t['pct']:.1f}% DAU)")
         if len(appeared_warn_all) > 8:
@@ -1734,16 +2125,29 @@ def render_md(report, samples):
     total = len(report["projects"]) + len(errs)
     proj_line = (f"{len(report['projects'])}/{total} projects ({len(errs)} failed to report)"
                  if errs else f"{len(report['projects'])} projects")
-    L = [f"# {b['org']} {b['product']} — {report['report_day']}{lc}", "",
+    rolling = report.get("kind") == "rolling"
+    base_line = (f"- Baseline: **{report['baseline_source']}** (same clock window on the prior {report['baseline_days']} days)"
+                 if rolling else
+                 f"- Baseline: {report['baseline_days']} days before, from **{report['baseline_source']}** ({', '.join(report['baseline_dates']) or 'n/a'})")
+    metric_line = ("- All metrics are for the rolling window; `diff%` = this window vs the same clock window on prior days; `%DAU` = unique affected users ÷ window users."
+                   if rolling else
+                   "- All metrics are for the report day; `diff%` = report day vs baseline daily average; `%DAU` = unique affected users ÷ that day's DAU.")
+    L = [f"# {b['org']} {b['product']} — {day_label(report)}{lc}", "",
          f"- Window: **{report['window_utc']}**",
          f"- Overall: **{STATUS_LABEL[report['overall_status']]}**  ·  {proj_line}",
-         f"- Baseline: {report['baseline_days']} days before, from **{report['baseline_source']}** ({', '.join(report['baseline_dates']) or 'n/a'})",
+         base_line,
          f"- Generated: {report['generated_utc']}  ·  source: {report['source']}",
-         "- All metrics are for the report day; `diff%` = report day vs baseline daily average; `%DAU` = unique affected users ÷ that day's DAU.",
+         metric_line,
          "", "> Structured for AI/engineer triage: each project lists its top signatures with affected-user % and, for projects needing attention, representative stacktraces with version/platform.", ""]
     if errs:
         L.append(f"> ⚠️ **{len(errs)} projects are missing from this report** — their queries failed and no data was collected: "
                  + "; ".join(f"{e['name']} (`{e['error']}`)" for e in errs) + ". Portfolio totals and Overall status below EXCLUDE these projects.")
+        L.append("")
+    att = build_attention(report)
+    if att:
+        L.append("## ⚠ Needs attention — portfolio-wide")
+        for a in att:
+            L.append(f"- **{a['proj']}** ({a['sev']}): {a['text']}")
         L.append("")
     for p in report["projects"]:
         L.append(f"## {p['name']} — {STATUS_LABEL[p['status']]}")
@@ -1752,6 +2156,8 @@ def render_md(report, samples):
         L.append(f"- DAU {fmt_int(p['dau'])} (baseline ~{fmt_int(p['base_dau'])}/day) · errors {fmt_int(p['err_total'])} "
                  f"({p['err_per_user']:.1f}/user{'' if d is None else f', {d:+.0f}% vs baseline'}, worst {p['top_error_reach']:.1f}% DAU) · "
                  f"warnings {fmt_int(p['warn_total'])} ({p['warn_per_user']:.1f}/user{'' if wd is None else f', {wd:+.0f}% vs baseline'}, worst {p['top_warn_reach']:.1f}% DAU)")
+        nonfresh = p.get("nonfresh_users") or (p["dau"] - p.get("fresh_users", 0))
+        L.append(f"- Fresh launches: **{p.get('fresh_pct', 0):.1f}% of DAU** ({fmt_int(p.get('fresh_users', 0))}u cold/fresh vs {fmt_int(nonfresh)}u returning/warm; a user with both session kinds counts in both cohorts)")
         if p["new_releases"]:
             L.append(f"- New release: {', '.join(p['new_releases'])}")
         vd = p.get("versions_detail", [])
@@ -1835,6 +2241,12 @@ def render_md(report, samples):
                     val = "n/a" if r["pct"] is None else f"{r['pct']:.0f}%"
                     bm = f" — {r['business']}" if r.get("business") else ""
                     L.append(f"  - {r['label']}: **{val}**{bm}")
+                for sp in fn.get("splits", []):
+                    if not sp["dau"]:
+                        continue
+                    st = " → ".join(f"{s['label']} {fmt_int(s['users'])}u ({s['pct']:.1f}%)" for s in sp["stages"])
+                    rl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in sp["rates"] if r["pct"] is not None)
+                    L.append(f"  - _{sp['cohort']}_ ({fmt_int(sp['dau'])}u): {st}  →  {rl}")
                 for bd in fn.get("breakdowns", []):
                     if not bd["reasons"]:
                         continue
@@ -1850,12 +2262,12 @@ def render_md(report, samples):
             L.append("**Log hygiene:** " + " · ".join(hy_line))
         if p["appeared_errors"]:
             L.append("")
-            L.append("**New errors today:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_errors"]))
+            L.append(f"**New errors {scope_word(report)}:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_errors"]))
         if p["disappeared_errors"]:
             L.append("**Resolved / no longer detected:** " + "; ".join(f"{t['msg'][:70]} (was {t.get('pct', 0):.1f}%DAU)" for t in p["disappeared_errors"]))
         if p["appeared_warnings"]:
             L.append("")
-            L.append("**New warning signatures today:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_warnings"]))
+            L.append(f"**New warning signatures {scope_word(report)}:** " + "; ".join(f"{t['msg'][:70]} ({t['pct']:.1f}%DAU)" for t in p["appeared_warnings"]))
         if p["disappeared_warnings"]:
             L.append("**Warnings gone since baseline:** " + "; ".join(f"{t['msg'][:70]} (was {t.get('pct', 0):.1f}%DAU)" for t in p["disappeared_warnings"]))
         if p["key"] in samples and samples[p["key"]]:
@@ -1872,11 +2284,11 @@ def render_md(report, samples):
                 L.append("  ```")
             L.append("</details>")
         L.append("")
-    L.append("## Log-system / infra observations")
-    L.append("- The `⟨no message — exception / stack-only⟩` class (Category=Uncategorized, empty Message, 100% stacktrace) is the portfolio's top error and is un-triageable as logged — see the dedicated fix-design report in this folder.")
-    L.append("- HTTP 429 rate-limiting and session-refresh/expired dominate the Network category — a server-capacity / session-lifetime concern.")
-    L.append("- `missing script ref` and `Manifest is missed` are large Unity content/build-integrity warning clusters.")
-    L.append("- Follow xuunity discipline (bug_fixing + async + logging overlays); durable findings belong in `<Project>/Assets/AIOutput/ProjectMemory/`; roadmap in `ROADMAP.md`.")
+    obs = report.get("md_observations") or []
+    if obs:
+        L.append("## Log-system / infra observations")
+        for o in obs:
+            L.append(f"- {o}")
     return "\n".join(L)
 
 
@@ -1889,6 +2301,8 @@ def main():
                     help="report day (the completed day to analyze); default = yesterday UTC")
     ap.add_argument("--baseline-days", "--window", dest="baseline_days", type=int, default=None)
     ap.add_argument("--slug", default="prod_pulse")
+    ap.add_argument("--hours", type=int, default=None,
+                    help="rolling-window (intermediate) report over the last N hours instead of a full day")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -1896,29 +2310,42 @@ def main():
         cfg["baseline_days"] = args.baseline_days
     client = Client(resolve_base_url(cfg), resolve_headers(cfg),
                     timeout=cfg["http_timeout"], retries=cfg["http_retries"])
-    report = build_report(client, cfg, args.day, args.out, args.slug)
 
-    # sample stacktraces for attention projects (bounded), for the MD report
-    samples = {}
-    attention = [p for p in report["projects"] if p["status"] in ("degraded", "watch")][:6]
-    with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
-        futs = {p["key"]: ex.submit(fetch_samples, client, cfg, p["prefix"], p["app_id"], report["report_day"])
-                for p in attention}
-        for k, f in futs.items():
-            try:
-                samples[k] = f.result()
-            except Exception:
-                samples[k] = []
+    rolling = args.hours is not None
+    if rolling:
+        if not cfg.get("time_field"):
+            ap.error("--hours requires cfg['time_field'] (e.g. \"TimeUTC\"); without it the rolling "
+                     "window has no timestamp bound and would silently query whole-day indices.")
+        now_dt = dt.datetime.now(dt.timezone.utc)
+        report = build_report_window(client, cfg, args.hours, now_dt)
+        samples = {}  # no stacktrace samples on the intermediate report
+    else:
+        report = build_report(client, cfg, args.day, args.out, args.slug)
+        # sample stacktraces for attention projects (bounded), for the MD report
+        samples = {}
+        attention = [p for p in report["projects"] if p["status"] in ("degraded", "watch")][:6]
+        with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
+            futs = {p["key"]: ex.submit(fetch_samples, client, cfg, p["prefix"], p["app_id"], report["report_day"])
+                    for p in attention}
+            for k, f in futs.items():
+                try:
+                    samples[k] = f.result()
+                except Exception:
+                    samples[k] = []
 
     os.makedirs(args.out, exist_ok=True)
-    base_path = os.path.join(args.out, f"{args.slug}_{args.day}")
+    base_path = os.path.join(args.out, f"{args.slug}_{report['report_day']}" if rolling
+                             else f"{args.slug}_{args.day}")
     with open(base_path + ".json", "w") as f:
         json.dump(report, f, indent=2, default=list)
+    title = html.escape(f"{cfg['brand']['org']} {cfg['brand']['product']}")
     inner = render_inner(report)
     with open(base_path + ".inner.html", "w") as f:
         f.write(inner)
     with open(base_path + ".html", "w") as f:
-        f.write(SKELETON_HEAD.format(title=html.escape(f"{cfg['brand']['org']} {cfg['brand']['product']}")) + inner + SKELETON_TAIL)
+        f.write(SKELETON_HEAD.format(title=title) + inner + SKELETON_TAIL)
+    with open(base_path + ".render.html", "w") as f:
+        f.write(SKELETON_HEAD.format(title=title) + render_inner(report, image=True) + SKELETON_TAIL)
     with open(base_path + ".slack.txt", "w") as f:
         f.write(render_slack(report))
     with open(base_path + ".md", "w") as f:
@@ -1931,7 +2358,7 @@ def main():
               f"err/user={p['err_per_user']:>5} d={p['err_per_user_delta_pct']} worst={p['top_error_reach']}%")
     if report["errors"]:
         print("  ERRORS:", [(e["name"], e["error"][:60]) for e in report["errors"]])
-    print(f"written: {base_path}.{{json,html,inner.html,slack.txt,md}}")
+    print(f"written: {base_path}.{{json,html,inner.html,render.html,slack.txt,md}}")
 
 
 if __name__ == "__main__":
