@@ -512,6 +512,136 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
     }
 
 
+def collect_session_window_flow(client, cfg, prefix, app_id, day, profile, flow, dau=None, include_detail=True, win=None):
+    """Session-scoped variant of collect_operation_flow: a 'session' is [marker_i, marker_i+1)
+    per user, bounded by a configured session-start marker (e.g. a launch/boot log line), not
+    a per-event cardinality. A session 'has a problem' if any configured problem signal falls
+    inside its window. Denominator is the marker's raw EVENT count (sessions), not cardinality(user);
+    the marker-timestamp fetch is scoped only to the (small, by construction) set of affected users,
+    not the whole cohort, so this stays cheap even though the marker itself fires at high volume.
+
+    Returns the same shape as collect_operation_flow so it renders through the same HTML/Slack/MD
+    paths unchanged: terminal_failure_rate_pct here means '% of sessions with >=1 problem signal'.
+    """
+    F = cfg["fields"]
+    # F["user"] etc. are multi-field query/sort/agg targets (e.g. "UUID.keyword"); _source
+    # filtering and dict reads need the real top-level source key ("UUID") instead.
+    user_src = F["user"].split(".")[0]
+    base = server_filter(cfg) + (time_bounds_filter(cfg, win["lo"], win["hi"]) if win else time_filter(cfg, day))
+    index = win["index"] if win else prefix + day
+    if app_id:
+        base.append({"term": {F["app_id"]: app_id}})
+
+    marker = flow["session_marker"]
+    marker_must = [{"match_phrase": {F["message_text"]: marker["message_phrase"]}}]
+    if marker.get("category"):
+        marker_must.append({"term": {F["category"]: marker["category"]}})
+
+    # The marker's own log Category can independently be put behind a client-side
+    # SessionRolloutPercentage (TheBestLogger `LogTargetCategory`), which silently drops the
+    # marker for excluded sessions with no fallback. That would make total_sessions a silent
+    # undercount. Track the marker's user-reach so a future rollout change is visible instead
+    # of quietly corrupting this metric's denominator.
+    total_body = {
+        "size": 0, "track_total_hits": True,
+        "query": {"bool": {"filter": base, "must": marker_must}},
+        "aggs": {"marker_users": {"cardinality": {"field": F["user"]}}},
+    }
+    total_result = client.search(index, total_body)
+    total_sessions = total_result["hits"]["total"]["value"]
+    marker_users = total_result["aggregations"]["marker_users"]["value"]
+
+    signals = flow.get("problem_signals", [])
+    signal_filters = [{"match_phrase": {F["message_text"]: s["message_phrase"]}} for s in signals]
+    # OpenSearch index.max_result_window caps from+size at 10000 on this cluster; this is a
+    # single-shot query (no search_after pagination), so it must stay at or under that ceiling.
+    limit = min(10000, int(flow.get("max_problem_records", 10000)))
+    problem_body = {
+        "size": limit, "track_total_hits": True,
+        "_source": [user_src, "TimeUTC"],
+        "query": {"bool": {"filter": base, "should": signal_filters, "minimum_should_match": 1}},
+        "sort": [{"TimeUTC": "asc"}],
+        "aggs": {"users": {"cardinality": {"field": F["user"]}},
+                 "by_signal": {"terms": {"field": F["message_keyword"], "size": len(signal_filters) + 5}}},
+    }
+    problem = client.search(index, problem_body)
+    problem_hits = problem["hits"]["hits"]
+    problem_total = problem["hits"]["total"]["value"]
+    users_affected = problem["aggregations"]["users"]["value"]
+    truncated = problem_total > limit
+    by_signal_raw = {b["key"]: b["doc_count"] for b in problem["aggregations"]["by_signal"]["buckets"]}
+    classes_failure = {}
+    for bucket_key, count in by_signal_raw.items():
+        label = next((s.get("label", s["message_phrase"]) for s in signals if s["message_phrase"] in bucket_key), bucket_key)
+        classes_failure[label] = classes_failure.get(label, 0) + count
+
+    sessions_with_problem = 0
+    if problem_hits:
+        affected_uuids = sorted({h["_source"][user_src] for h in problem_hits if h["_source"].get(user_src)})
+        marker_body = {
+            "size": 10000, "track_total_hits": True,
+            "_source": [user_src, "TimeUTC"],
+            "query": {"bool": {"filter": base + [{"terms": {F["user"]: affected_uuids}}], "must": marker_must}},
+            "sort": [{F["user"]: "asc"}, {"TimeUTC": "asc"}],
+        }
+        marker_hits = client.search(index, marker_body)["hits"]["hits"]
+        starts_by_user = {}
+        for h in marker_hits:
+            src = h["_source"]
+            u = src.get(user_src)
+            if u:
+                starts_by_user.setdefault(u, []).append(src["TimeUTC"])
+
+        sessions_seen = set()
+        for h in problem_hits:
+            src = h["_source"]
+            u = src.get(user_src)
+            ts = src.get("TimeUTC")
+            if not u or not ts:
+                continue
+            starts = starts_by_user.get(u, [])
+            # Session index = count of markers at/before ts, 0-based; a problem that precedes this
+            # day's first marker (a trailing request from a session that started the prior day)
+            # still counts, bucketed into session 0 rather than dropped.
+            session_idx = max(sum(1 for s in starts if s <= ts) - 1, 0)
+            sessions_seen.add((u, session_idx))
+        sessions_with_problem = len(sessions_seen)
+
+    clean_sessions = max(total_sessions - sessions_with_problem, 0)
+    failure_rate = round(sessions_with_problem / total_sessions * 100, 4) if total_sessions else None
+    effective_dau = dau if dau is not None else None
+    problem_pct_dau = round(users_affected / effective_dau * 100, 4) if effective_dau else 0.0
+    marker_reach_pct_dau = round(marker_users / effective_dau * 100, 3) if effective_dau else None
+
+    # Self-defense against a future client-side rollout cut on the marker's category (see note
+    # above): if the marker's own DAU reach drops below this floor, total_sessions is likely no
+    # longer a full session count, so force attention regardless of how healthy the raw ratio looks.
+    min_marker_reach_pct_dau = flow.get("min_marker_reach_pct_dau", 90)
+    coverage_ok = marker_reach_pct_dau is None or marker_reach_pct_dau >= min_marker_reach_pct_dau
+    status = operation_status(flow, failure_rate, 0.0)
+    reasons = {}
+    if not coverage_ok:
+        status = "watch" if status == "healthy" else status
+        reasons[f"Session-marker reach dropped to {marker_reach_pct_dau:.1f}% DAU "
+                f"(floor {min_marker_reach_pct_dau}%) — total_sessions likely undercounts true sessions; "
+                f"check the marker category's SessionRolloutPercentage"] = marker_users
+
+    return {
+        "key": flow["key"], "label": flow.get("label", flow["key"]),
+        "success": {"events": clean_sessions, "users": 0},
+        "failure": {"events": sessions_with_problem, "users": users_affected},
+        "retry": {"events": 0, "users": 0},
+        "terminal_failure_rate_pct": failure_rate, "retry_reach_pct_dau": 0.0,
+        "retry_events_per_user": 0.0,
+        "classes": {"failure": classes_failure, "retry": {}},
+        "reasons": reasons, "status": status,
+        "drilldown": None, "classification_truncated": truncated,
+        "total_sessions": total_sessions, "sessions_with_problem": sessions_with_problem,
+        "users_affected": users_affected, "dau": effective_dau, "problem_pct_dau": problem_pct_dau,
+        "marker_reach_pct_dau": marker_reach_pct_dau,
+    }
+
+
 def collect_operations(client, cfg, key, prefix, app_id, day, dau, win=None):
     out = []
     for profile in cfg.get("operations", []):
@@ -519,7 +649,8 @@ def collect_operations(client, cfg, key, prefix, app_id, day, dau, win=None):
             continue
         flows = []
         for flow in profile.get("flows", []):
-            flows.append(collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau, win=win))
+            collect_fn = collect_session_window_flow if flow.get("type") == "session_window" else collect_operation_flow
+            flows.append(collect_fn(client, cfg, prefix, app_id, day, profile, flow, dau, win=win))
         if flows:
             out.append({"key": profile["key"], "label": profile.get("label", profile["key"]), "flows": flows})
     return out
@@ -562,8 +693,9 @@ def attach_operation_baselines(client, cfg, key, prefix, app_id, operations, pri
                 snapshots, source = saved[:n], "saved reports"
             else:
                 dates = operation_base_dates[-n:]
-                snapshots = [collect_operation_flow(client, cfg, prefix, app_id, day, profile_cfg, flow_cfg,
-                                                    dau=None, include_detail=False)
+                collect_fn = collect_session_window_flow if flow_cfg.get("type") == "session_window" else collect_operation_flow
+                snapshots = [collect_fn(client, cfg, prefix, app_id, day, profile_cfg, flow_cfg,
+                                        dau=None, include_detail=False)
                              for day in dates]
                 source = "OpenSearch" if snapshots else "none"
             failure_rates = [s.get("terminal_failure_rate_pct") for s in snapshots
@@ -589,8 +721,9 @@ def attach_operation_baselines_windows(client, cfg, prefix, app_id, operations, 
         flows_cfg = {f.get("key"): f for f in profile_cfg.get("flows", [])}
         for flow in profile.get("flows", []):
             flow_cfg = flows_cfg.get(flow.get("key"), {})
-            snapshots = [collect_operation_flow(client, cfg, prefix, app_id, None, profile_cfg, flow_cfg,
-                                                dau=None, include_detail=False, win=w)
+            collect_fn = collect_session_window_flow if flow_cfg.get("type") == "session_window" else collect_operation_flow
+            snapshots = [collect_fn(client, cfg, prefix, app_id, None, profile_cfg, flow_cfg,
+                                    dau=None, include_detail=False, win=w)
                          for w in base_windows]
             failure_rates = [s.get("terminal_failure_rate_pct") for s in snapshots
                              if s.get("terminal_failure_rate_pct") is not None]
@@ -1653,6 +1786,9 @@ def operation_section(p):
             if retry.get("events") or retry.get("users"):
                 retry_text = (f'<br>Retry: <b>{flow.get("retry_reach_pct_dau", 0):.3f}% DAU{operation_delta(flow, "retry_reach_delta_pct")}</b> '
                               f'· {fmt_int(retry.get("events", 0))} events · {flow.get("retry_events_per_user", 0):.2f}/affected user')
+            if flow.get("users_affected") is not None:
+                retry_text += (f'<br>Reach: <b>{fmt_int(flow["users_affected"])}u ({flow.get("problem_pct_dau", 0):.3f}% DAU)</b> '
+                              f'· sessions {fmt_int(flow.get("sessions_with_problem", 0))}/{fmt_int(flow.get("total_sessions", 0))}')
             classes = []
             for bucket, prefix in (("failure", "final"), ("retry", "retry")):
                 for kind, count in (flow.get("classes", {}).get(bucket, {}) or {}).items():
@@ -2076,6 +2212,9 @@ def render_slack(report):
                 retry = flow.get("retry") or {}
                 retry_text = (f" · retry {flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')} "
                               f"({flow.get('retry_events_per_user', 0):.2f}/u)") if retry.get("events") else ""
+                if flow.get("users_affected") is not None:
+                    retry_text += (f" · {fmt_int(flow['users_affected'])}u ({flow.get('problem_pct_dau', 0):.3f}% DAU) "
+                                  f"· {fmt_int(flow.get('sessions_with_problem', 0))}/{fmt_int(flow.get('total_sessions', 0))} sessions")
                 lines.append(f"    ↳ _{profile['label']} / {flow['label']}_ — {terminal}{retry_text} [{flow.get('status', 'healthy').upper()}]")
         lines.append("")   # blank line between projects
     # Both sides of the diff, equal weight: what appeared vs what is no longer detected.
@@ -2178,10 +2317,15 @@ def render_md(report, samples):
                 terminal = "n/a" if fr is None else f"{fr:.3f}%{operation_delta(flow, 'terminal_failure_delta_pct')}"
                 retry = flow.get("retry") or {}
                 terminal_total = flow["success"]["events"] + flow["failure"]["events"]
+                if flow.get("users_affected") is not None:
+                    reach_clause = (f"reach **{fmt_int(flow['users_affected'])}u ({flow.get('problem_pct_dau', 0):.3f}% DAU)**; "
+                                    f"sessions **{fmt_int(flow.get('sessions_with_problem', 0))}/{fmt_int(flow.get('total_sessions', 0))}**; ")
+                else:
+                    reach_clause = (f"retry reach **{flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')}** "
+                                    f"({fmt_int(retry.get('events', 0))} events; {flow.get('retry_events_per_user', 0):.2f}/affected user); ")
                 L.append(f"- **{flow['label']}** — terminal failure **{terminal}** "
                          f"({fmt_int(flow['failure']['events'])} failed / {fmt_int(terminal_total)} terminal); "
-                         f"retry reach **{flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')}** "
-                         f"({fmt_int(retry.get('events', 0))} events; {flow.get('retry_events_per_user', 0):.2f}/affected user); "
+                         f"{reach_clause}"
                          f"status **{flow.get('status', 'healthy').upper()}**.")
                 class_text = []
                 for bucket, prefix in (("failure", "final"), ("retry", "retry")):
