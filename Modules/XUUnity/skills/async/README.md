@@ -15,6 +15,7 @@ Then add only the needed topic files:
 - `cancellation.md`
 - `main_thread.md`
 - `exception_handling.md`
+- `retry_and_backoff.md` when the task adds or changes retry/backoff logic for an HTTP or async client
 
 ## Mobile Safety
 Async work must respect:
