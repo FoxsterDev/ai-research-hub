@@ -1,7 +1,71 @@
 # XUUnity Utility: System Health Review
 
 ## Goal
-Review the health of the prompt system itself, not only the product code.
+Measure the health of the installed `xuunity` system and, when explicitly
+requested, run a bounded evidence-backed improvement loop.
+
+Keep two independent result axes:
+- `installation_health`: model-independent structure, routing, reachability,
+  ownership, and public/private boundary health
+- `model_surface_fitness`: fixture evidence for one exact model and execution
+  surface
+
+Never collapse these axes into one score. A strong model cannot repair an
+unreachable installation, and a coherent installation does not prove that a
+particular model follows it.
+
+## Modes
+- `review` is the default. It measures and reports without editing protocol
+  sources.
+- `improve` requires explicit user intent such as
+  `xuunity system health improve`. It may evaluate one corrective hypothesis at
+  a time in an isolated candidate worktree, then accept, reject, or mark the
+  result inconclusive.
+- A host may set a lower iteration or cost limit. Never exceed the declared
+  limit, and never infer permission to spend on external model runs when no
+  budget or approved runner is available.
+
+## Ownership
+- `utilities/system_self_evaluation.md` owns the installation/corpus review:
+  routers, roles, skills, knowledge, conflicts, dead paths, design-registry
+  reconciliation, and public-core promotion candidates.
+- A host-local model-fitness runner owns fixture execution, transcript
+  normalization, scoring, aggregation, and immutable run evidence.
+- This utility owns orchestration, comparison, and the final health report.
+- `utilities/system_protocol_clean_review.md` owns approved public protocol
+  cleanup.
+- `utilities/knowledge_integration.md` owns approved knowledge promotion.
+- `utilities/system_evaluation_cadence.md` owns freshness and invalidation
+  decisions.
+
+## Process
+1. Determine `review` or `improve` mode and record the trigger, iteration limit,
+   and cost limit.
+2. Run the deterministic installation audit when available, then use
+   `utilities/system_self_evaluation.md` for the semantic installation review
+   required by the current cadence.
+3. Resolve the current model-surface identity from runtime or host evidence.
+   Never ask the current model to grade its own compliance.
+4. Locate an exact compatible fixture baseline. Run the host fixture suite when
+   an approved adapter and budget are available; otherwise report `not_run` and
+   the concrete gap.
+5. Keep installation findings and model-surface findings separate in diagnosis
+   and scoring.
+6. In `review` mode, stop after the report and ordered recommendations.
+7. In `improve` mode, select exactly one hypothesis with a named deterministic
+   check or fixture metric. Before execution, record its acceptance threshold
+   and the allowed non-regression budget for every protected metric.
+8. Test the candidate outside the live source tree. Re-run the same static
+   checks and the same comparable fixture matrix.
+9. Classify the candidate:
+   - `accepted` only when the predeclared threshold is met, no hard gate fires,
+     and every supported model surface stays within its predeclared
+     non-regression budget
+   - `rejected` when the intended evidence does not move or a regression appears
+   - `inconclusive` when repeated runs disagree or comparison identity differs
+10. Apply an accepted change only through the existing cleanup or knowledge
+    integration owner. Record rejected and inconclusive candidates instead of
+    re-arguing them.
 
 ## Rules
 - Prefer identifying structural problems over rewriting everything.
@@ -30,38 +94,54 @@ Review the health of the prompt system itself, not only the product code.
   - project-local smoke expectations in project memory or project-specific internal knowledge
 - When optional private/paid module support is in scope, include the Private Module Overlay Status subsection and check discovery, entitlement, Rollsync, and routing-smoke health without quoting private pack content.
 - When `xuunity_module_status` or `xuunity_module_rollsync` are available, prefer their redacted output as the MCP/API-facing evidence source for private module overlay health.
-- Audit shared knowledge reachability:
-    - identify shared `knowledge/` or internal overlay knowledge files that have no explicit routing, trigger hints, utility references, or load path
-    - treat knowledge with no realistic selection path as dead ballast
-    - flag knowledge added without corresponding trigger updates as a system-health issue
-- Check storage-consistency explicitly:
-    - repo-level storage rule in `Agents.md`
-    - public core references to `AIRoot/Modules/XUUnity/`
-    - internal shared references to `AIModules/XUUnityInternal/`
-    - project-router references to `Assets/AIOutput/`
-    - project-router references to `Assets/AIOutput/ProjectMemory/`
-    - whether prior-output loading accidentally points only at `ProjectMemory`
-    - whether local routers duplicate or contradict the repo-level storage contract
-- Prefer project routers that reference the repo storage contract over rephrasing it locally.
-- Reconcile the public design registry on every run (standing sanitary step):
-    - re-verify each design in `AIRoot/Design/README.md` (and any `AIRoot/Operations/<Surface>/Designs/README.md`) against actual files/scripts/CLI, never the document's self-assessment
-    - keep columns truthful: `Status` (`implemented` / `active` / `draft` / `planned` / `archived`), `Imp.` (1–5), `Impl.` (% wired into the live module), `Effort` (size·time·complexity remaining), and the concrete `Left to 100%` gap
-    - re-sort rows by importance (desc) then remaining effort (asc) — most important and cheapest-to-finish first
-    - move fully-consumed (a generator whose output already shipped) or retired (superseded) designs into `Design/Archived/` via `git mv` and fix inbound links; never delete
-    - flag registry drift as a finding: a `Status`/`Impl.` that no longer matches the repo, a design file missing from the registry, or an archived doc still referenced as live
-    - keep the registry English-only and evidence-cited; stamp provenance (author + date) when the reconciliation changes statuses
+- When the active system keeps model-fitness fixtures (a host-level fixture runner and scorer that
+  replay known-failure tasks against a model and measure the tool-call transcript), include the
+  Model Fitness / Protocol Compliance Status subsection:
+    - report per model-surface identity, never as a single aggregate: the same
+      model and protocol text can behave differently across adapters, effort,
+      permissions, or tools
+    - treat "gate delivered but not executed" (a required check signed off — e.g. as a closed task
+      item — without being run) as a high-severity, model-specific compliance finding
+    - treat a protocol change that claims to fix a compliance or delivery defect as unproven until
+      a fixture re-run moves the measured metric; fixtures, not opinions
+    - flag as a gap any active model-surface identity with no exact baseline
+- Treat a run as `invalid`, not as a low score or a success, when it times out,
+  exits unsuccessfully, has an unreadable transcript, lacks the required output
+  diff, or does not attempt the fixture task.
+- A critical defect trap is a hard gate and cannot be averaged into a passing
+  grade.
+- Absence of known traps is not task completion. Require the fixture's positive
+  completion assertions or task-specific validator before a run is valid.
+- Reuse an exact baseline only when all baseline identity fields match:
+  - model id and version
+  - reasoning effort
+  - agent surface
+  - adapter and adapter version
+  - tool and permission policy
+  - protocol fingerprint
+  - fixture-suite hash
+  - scorer version
+- For a protocol-improvement A/B experiment, the protocol fingerprint is the
+  recorded treatment variable: baseline and candidate fingerprints must
+  differ, while every other identity field above must match. This is a
+  controlled experiment, not exact-baseline reuse. If any other field changes,
+  the result is `inconclusive`.
+- Use repeated-run range or variance when available. Disagreement that can
+  change the decision is `inconclusive`.
+- Keep raw host transcripts, concrete fixture tasks, and private identifiers out
+  of public reports and public protocol files.
 
 ## Output
+- Mode, trigger, iteration limit, and cost limit
+- Installation health status and installation-review evidence pointer
 - High-severity conflicts
-- Redundant files or sections
-- Missing files or weak layers
 - Knowledge extraction regression status
+- Model fitness / protocol compliance status (per model-surface identity)
 - MCP smoke regression status
-- Knowledge reachability status
 - Public core versus internal overlay boundary status
-- Storage consistency status
-- Design registry reconciliation status
 - Recommended cleanup order
+- Improvement hypothesis and expected metric, or `none`
+- Candidate result: `not_run` | `accepted` | `rejected` | `inconclusive`
 
 ### Private Module Overlay Status Template
 
@@ -98,6 +178,51 @@ Use:
 - `rollsync_status: not_run` when the registry exists but Rollsync was not executed in the current review.
 - `discovery_root: none` when no `AIModules/` root or explicit module root is configured.
 
+### Model Fitness / Protocol Compliance Status Template
+
+When the active system keeps model-fitness fixtures, include a dedicated
+subsection in the report using this exact shape:
+
+```md
+**Model Fitness / Protocol Compliance Status**
+- `fixture_suite`: `<host fixture-runner path or none>`
+- `suite_hash`: `<stable hash or none>`
+- `protocol_fingerprint`: `<stable fingerprint or none>`
+- `current_session_identity`: `<model + version + effort + surface, or unknown>`
+- `current_session_baseline_match`: `exact` | `stale` | `missing` | `not_runnable`
+- `fixtures_run`: `<fixture ids or none>`
+- `models_scored`:
+  - `<model-surface identity>` — baseline `exact` | `stale` | `missing` | `not_runnable`,
+    score `<n>/100` (`fit` | `fit_with_supervision` | `marginal` | `unfit`),
+    valid runs `<n>/<n>`, range `<min>-<max>`, required stack loaded `<n>%`,
+    critical defects `<n>`, gate `executed` | `signed_without_execution` | `absent`
+- `invalid_runs`:
+  - `<model-surface identity> — <reason>` or `none`
+- `compliance_incidents`:
+  - `<model-surface identity> — <one-line incident> — <evidence pointer>` or `none`
+- `cross_model_notes`: `<which models degrade on which protocol mechanism, or none>`
+- `protocol_changes_gated`:
+  - `<change> — metric `moved` | `did_not_move` | `inconclusive` — `accepted` | `rejected` | `inconclusive` or `none`
+- `evidence_date`: `YYYY-MM-DD` or `none`
+- `result_summary`: `<short factual summary>`
+- `gaps`:
+  - `<model in active use with no baseline, fixture not re-run after a protocol change, or none>`
+```
+
+Use:
+- `gate: signed_without_execution` when the run produced a gate artifact (task item, checklist
+  entry, assertion) without evidence in the tool log that the named files were actually read —
+  this is a compliance incident even when the shipped diff happens to be correct.
+- `models_scored` rows come from the scorer's `metrics.json`, never from a model's self-report.
+- Each model row's `baseline: exact` requires every exact-baseline identity
+  field listed in the Rules section to match. The current-session field reports
+  only the active session identity.
+- Do not put invalid runs into the score denominator.
+- `protocol_changes_gated: rejected` is a valid, expected outcome; record it rather than
+  re-arguing the change in prose.
+- Keep fixture task content and host identifiers out of this public template; the host report
+  instance may cite host-local evidence paths.
+
 ### MCP Smoke Regression Status Template
 
 When Unity MCP operational health is in scope, include a dedicated subsection in
@@ -128,27 +253,27 @@ Use:
 Keep `result_summary` short and evidence-based. Do not collapse missing-route,
 not-run, and failed-run cases into the same wording.
 
-### Design Registry Reconciliation Status Template
+### Installation Review Status Template
 
-When the public design registry is in scope, include a dedicated subsection in
-the report using this exact shape:
+Include a dedicated subsection using this exact shape:
 
 ```md
-**Design Registry Reconciliation**
-- `registry`: `AIRoot/Design/README.md`
-- `designs_total`: `<n>`
-- `live`: `<n>` · `archived`: `<n>`
-- `status_breakdown`: `implemented=<n> active=<n> draft=<n> planned=<n>`
-- `resorted`: `yes` | `no`
-- `drift_detected`:
-  - `<design — declared vs verified status/impl, or none>`
-- `moved_to_archive`:
-  - `<design — reason, or none>`
-- `evidence_date`: `YYYY-MM-DD`
+**Installation Review Status**
+- `audit_tool`: `<public audit path or none>`
+- `audit_status`: `clean` | `findings` | `invalid` | `not_run`
+- `review_scope`: `quick` | `full`
+- `installation_score`: `<n>/20` or `not_scored`
+- `report_pointer`: `<host report path or none>`
+- `high_severity_findings`: `<n>`
+- `public_promotion_candidates`: `<n>`
+- `evidence_date`: `YYYY-MM-DD` or `none`
 - `result_summary`: `<short factual summary>`
+- `gaps`:
+  - `<gap or none>`
 ```
 
 Use:
-- `drift_detected: none` only after every row was checked against the live repo.
-- `moved_to_archive` lists designs relocated to `Design/Archived/` this run (generator-consumed or superseded); `none` if no move was needed.
-- `resorted: yes` when row order was changed to importance (desc) then remaining effort (asc).
+- `quick` for deterministic inventory and routing checks.
+- `full` when semantic conflict review, design reconciliation, or promotion
+  decisions were also performed.
+- Keep `installation_score` independent of all model-fitness scores.

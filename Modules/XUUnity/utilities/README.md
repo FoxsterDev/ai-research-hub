@@ -164,7 +164,8 @@ Use when the user wants one sanitary review-and-fix pass over public `XUUnity` p
 
 Flow:
 1. `system_protocol_clean_review.md`
-2. `system_health_review.md`
+2. `system_health_review.md` only when this is a standalone cleanup request;
+   do not re-enter it when applying an accepted health candidate
 3. `design_retro_review.md` when `Design/` or design registry claims are in scope
 4. `protocol_consistency_checklist.md` when shared prompts, templates, utilities, reviews, or indexes changed
 5. `reviews/git_change_review.md` for the final current-diff review
@@ -393,17 +394,24 @@ Short commands:
 - `xuunity system prune old archives`
 - `xuunity system audit ai clutter`
 
-## System Audit
-Use when validating the protocol system itself.
+## System Health And Installation Review
+Use when validating either the installed protocol corpus or the behavior of an
+exact model-and-surface configuration. These are separate evidence axes and
+must not be averaged into one score.
 
 Flow:
-1. `system_self_evaluation.md`
-2. `system_health_review.md` if conflicts, redundancy, or dead paths are suspected
-3. `system_evaluation_cadence.md` to decide whether cleanup is required now
+1. `system_self_evaluation.md` for deterministic installation reachability,
+   routing, storage-boundary, conflict, and corpus-efficiency checks
+2. `system_health_review.md` to orchestrate installation evidence with
+   fixture-based model-surface evidence
+3. `system_evaluation_cadence.md` to decide whether either baseline is stale
+4. `system_protocol_clean_review.md` only to apply an accepted public cleanup
 
 Short commands:
 - `xuunity system evaluate the protocol structure`
+- `xuunity system installation review`
 - `xuunity system health review`
+- `xuunity system health improve`
 - `xuunity system evaluation cadence`
 
 ## Utility Map
@@ -464,9 +472,9 @@ Short commands:
 - `internet_research_watch.md`
   - periodically research external developments that could improve the current system
 - `system_self_evaluation.md`
-  - score stability, quality, professionalism, and usefulness
+  - audit one installation's reachability, routing, boundaries, conflicts, and corpus efficiency with deterministic evidence
 - `system_health_review.md`
-  - find conflicts, duplicates, and cleanup priorities
+  - orchestrate separate installation and exact model-surface evidence, then optionally run one bounded improvement candidate
 - `system_output_cleanup.md`
   - classify stale reports and AI-generated clutter into keep, archive, delete-candidate, and manual-review buckets, including aggressive archive-pruning, family-level retention decisions, and coupled reference-rewrite cleanup plans
 - `system_output_cleanup_scorecard_template.md`
@@ -474,7 +482,7 @@ Short commands:
 - `system_output_cleanup_apply.md`
   - execute only the explicitly approved cleanup actions from a reviewed cleanup plan, including approved minimal reference rewrites that unlock safe archive/delete moves
 - `system_evaluation_cadence.md`
-  - decide when evaluation should run and how to act on the score
+  - decide when installation or model-surface baselines are invalid and how to act on them
 - `agent_private_bootstrap.md`
   - install or refresh a thin agent-private working-discipline router when the agent supports durable private memory
 - `agent_private_bootstrap_template.md`

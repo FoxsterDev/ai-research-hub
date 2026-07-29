@@ -168,7 +168,7 @@ If the active repo router, project router, or project registry declares a differ
 - Load `knowledge/vendors/applovin_max.md` when the task targets AppLovin, AppLovin MAX, MAX, or a MAX-mediated network such as Pangle, ByteDance, Google AdMob, Meta, ironSource, Unity Ads, or Liftoff.
 - `knowledge/review_quality_scoring.md` is intentionally not selected from this block: it is owned and triggered by the review path (`tasks/code_review.md` and `reviews/*` whenever a review reaches a concrete verdict), so it loads through those files rather than here.
 
-## Skill Routing Hints
+## UI Tween Routing Hints
 - If the task mentions `PrimeTween`, `DOTween`, tween sequences, UI fade or scale transitions, or null or destroyed tween targets, load the narrowest relevant file from `skills/ui_tweens/`.
 - Prefer `skills/ui_tweens/primetween.md` when the codebase uses PrimeTween and the bug or review depends on tween target lifetime, callback ownership, or popup close order.
 
@@ -374,9 +374,10 @@ Interpret short commands by intent:
 - `xuunity system registry audit ...` -> `utilities/system_project_registry_audit.md`
 - `xuunity system research watch ...` -> `utilities/internet_research_watch.md`
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
-- `xuunity system evaluate ...` -> `utilities/system_self_evaluation.md`
+- `xuunity system evaluate ...`, `xuunity system installation review ...`, or `xuunity system review this installation ...` -> `utilities/system_self_evaluation.md`
 - `xuunity system protocol clean review ...`, `xuunity system protocol cleanup review ...`, `xuunity system clean protocol review ...`, `xuunity system sanitary review ...`, or `xuunity system public core sanitation ...` -> `utilities/system_protocol_clean_review.md`
-- `xuunity system health review ...` -> `utilities/system_health_review.md`
+- `xuunity system health improve ...` -> `utilities/system_health_review.md` in bounded improve mode
+- `xuunity system health review ...` or `xuunity system health ...` -> `utilities/system_health_review.md` in review mode
 - `xuunity design review ...`, `xuunity review designs ...`, `xuunity design retro ...`, `xuunity audit designs ...`, or `xuunity score designs ...` -> `utilities/design_retro_review.md`
 - `xuunity system output cleanup ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup ...` -> `utilities/system_output_cleanup.md`
@@ -680,9 +681,9 @@ Use these utilities when the task is about the protocol system itself:
 - `utilities/task_metrics_rollup.md` when the user wants delivery metrics or repeated task-pattern summaries
 - `utilities/task_registry_archive.md` when the user wants retention or rollover planning for the task-history surface
 - `utilities/internet_research_watch.md` when the user wants periodic external research focused on improving the current AI system and tooling
-- `utilities/system_self_evaluation.md` when auditing the structure, routing quality, or LLM efficiency of the prompt system
+- `utilities/system_self_evaluation.md` when auditing installation reachability, routing, public-layer boundaries, or corpus efficiency; keep this score separate from model fitness
 - `utilities/system_protocol_clean_review.md` when the user wants a sanitary review-and-fix pass over public protocol docs, design registries, templates, routing maps, and current git changes
-- `utilities/system_health_review.md` when focusing on conflicts, redundancy, dead paths, and cleanup priorities
+- `utilities/system_health_review.md` when orchestrating installation evidence, exact model-surface fixture evidence, conflicts, or a bounded one-candidate improvement loop
 - `utilities/design_retro_review.md` when auditing a folder of design docs: scoring each for actuality, importance, implementation, and remaining effort against the live repo, then reconciling a prioritized registry and archiving retired designs
 - `utilities/system_evaluation_cadence.md` when deciding whether the system should be evaluated now and how to act on the score
 

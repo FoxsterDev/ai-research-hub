@@ -4,7 +4,8 @@
 Enforces that an always-loaded entrypoint stays head-complete: every
 must-survive marker (must-load rule, routing procedure, execution contract,
 root-cause gate, output contract) is byte-complete within the smallest head
-read window, and the output contract is restated within the tail window.
+read window. The canonical skill router and output contract must also remain
+within the tail window.
 
 This replaces the old "150-220 lines / split by 300" line rule. The binding
 constraint is bytes, not lines, because some harnesses truncate file reads:
@@ -19,7 +20,9 @@ import os
 import sys
 
 HEAD_BUDGET = 8192       # target smallest head window, in bytes
-HARD_CEILING = 10240     # Codex CLI shell-output truncation, in bytes
+# Observed reference point for one shell-output lane. This checker does not
+# enforce total file size; it enforces the byte-complete head/tail kernel.
+REFERENCE_TRUNCATION_CEILING = 10240
 
 # (label, literal substring that must START and END within the head window)
 HEAD_MARKERS = [
@@ -27,10 +30,28 @@ HEAD_MARKERS = [
     ("route procedure", "Route (one-shot"),
     ("execution contract", "knowledge/execution_contract.md"),
     ("root-cause gate", "Root-cause gate"),
+    ("pre-edit gate", "**Pre-edit gate.**"),
     ("output contract", "Required output"),
 ]
-# substring that must appear within the tail window (recency restatement)
-TAIL_MARKER = ("output-contract restatement", "Re-state the")
+# Substrings that must appear within the tail window as recency anchors.
+TAIL_MARKERS = [
+    ("canonical skill router", "## Skill Routing Hints", True),
+    ("output-contract restatement", "Re-state the", False),
+]
+
+# Protected headings are exact public routing anchors. A duplicate can make a
+# measurement select the wrong section even when both copies are individually
+# well-formed.
+UNIQUE_MARKERS = [
+    ("canonical skill router", "## Skill Routing Hints"),
+]
+
+
+def contains_marker(data, marker, exact_line):
+    encoded = marker.encode()
+    if exact_line:
+        return any(line.rstrip(b"\r") == encoded for line in data.splitlines())
+    return encoded in data
 
 
 def check(path):
@@ -50,14 +71,24 @@ def check(path):
                 % (label, marker, idx, HEAD_BUDGET))
         else:
             offsets[label] = idx
-    tlabel, tmarker = TAIL_MARKER
-    if tmarker.encode() not in tail:
-        errors.append(
-            "MISSING tail restatement [%s]: %r not within last %d bytes"
-            % (tlabel, tmarker, HEAD_BUDGET))
+    for label, marker in UNIQUE_MARKERS:
+        encoded = marker.encode()
+        count = sum(
+            line.rstrip(b"\r") == encoded
+            for line in data.splitlines()
+        )
+        if count != 1:
+            errors.append(
+                "INVALID COUNT [%s]: %r occurs %d times (expected exactly 1)"
+                % (label, marker, count))
+    for tlabel, tmarker, exact_line in TAIL_MARKERS:
+        if not contains_marker(tail, tmarker, exact_line):
+            errors.append(
+                "MISSING tail marker [%s]: %r not within last %d bytes"
+                % (tlabel, tmarker, HEAD_BUDGET))
 
-    print("%s: %d bytes (head budget %d, hard ceiling %d)"
-          % (path, n, HEAD_BUDGET, HARD_CEILING))
+    print("%s: %d bytes (head budget %d, reference truncation ceiling %d)"
+          % (path, n, HEAD_BUDGET, REFERENCE_TRUNCATION_CEILING))
     if errors:
         print("  FAIL — entrypoint kernel integrity:")
         for e in errors:
@@ -66,7 +97,8 @@ def check(path):
     print("  OK — kernel head-complete:")
     for label, _ in HEAD_MARKERS:
         print("    - %-20s byte %d" % (label, offsets[label]))
-    print("    - tail restatement present within last %d bytes" % HEAD_BUDGET)
+    for label, _, _ in TAIL_MARKERS:
+        print("    - %-20s present within last %d bytes" % (label, HEAD_BUDGET))
     return True
 
 
