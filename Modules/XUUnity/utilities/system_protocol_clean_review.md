@@ -9,6 +9,11 @@ This is an orchestration utility. It does not replace narrower utilities; it
 loads them in a deterministic order, deduplicates their findings, and applies
 small safe fixes when the requested task includes cleanup or repair.
 
+When this utility receives an accepted candidate from `system_health_review.md`
+or a finding set from `system_self_evaluation.md`, treat that artifact as input.
+Do not recursively restart either review. Re-run only the checks needed to
+verify the applied change against the recorded baseline.
+
 ## Use For
 - public `AIRoot` protocol sanitation
 - checking whether design-review artifacts are still truthful
@@ -36,7 +41,8 @@ Short commands:
 ## Load Order
 Load these in order:
 
-1. `utilities/system_health_review.md`
+1. `utilities/system_health_review.md` only for a standalone cleanup request;
+   skip re-entry when this pass was invoked by an active health-improvement loop
 2. `utilities/design_retro_review.md` when `Design/` or design registry claims are in scope
 3. `utilities/protocol_consistency_checklist.md` when shared prompts, tasks, reviews, utilities, templates, or indexes changed
 4. `reviews/git_change_review.md` for the final current-diff review
@@ -106,6 +112,11 @@ mandatory consistency checks for files touched by the cleanup.
 - Update indexes and routing hints when adding, moving, or renaming a protocol
   file.
 - Keep shorthand command routing deterministic in `tasks/start_session.md`.
+- Run the deterministic installation audit when it is available:
+  `python3 AIRoot/Modules/XUUnity/scripts/system_installation_audit.py --host-root <host-root>`.
+- Do not replace an accepted baseline, fixture, or score merely because a
+  cleanup candidate looks simpler. Baseline changes require their owning
+  review and evidence.
 
 ### Evidence And Code Contract Alignment
 - Docs that describe tool behavior must match the code's actual selector,
@@ -152,6 +163,8 @@ Stop and ask before:
 - changing runtime code, scripts, schemas, or CLI behavior when the user only
   requested protocol sanitation
 - promoting host-local/private knowledge into public core
+- promoting a health-review finding as durable doctrine without the explicit
+  `knowledge_integration.md` approval path
 
 ## Output
 Produce findings first, then the cleanup result:
@@ -180,6 +193,8 @@ Report `clean` or `fixed` only when all are true:
 - changed docs match current code-owned behavior
 - `tasks/start_session.md`, `Modules/XUUnity/utilities/README.md`, and
   `Modules/XUUnity/README.md` reference any new public utility
+- the deterministic installation audit was run, or its unavailability is
+  reported explicitly
 - `git diff --check` passes
 - the final response clearly names anything not verified
 

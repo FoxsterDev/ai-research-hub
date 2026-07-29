@@ -275,6 +275,7 @@ Recommended short commands:
 - `xuunity intake this knowledge`
 - `xuunity integrate approved knowledge`
 - `xuunity system evaluate the protocol structure`
+- `xuunity system installation review`
 - `xuunity system protocol clean review`
 - `xuunity system protocol cleanup review`
 - `xuunity system sanitary review`
@@ -302,6 +303,7 @@ Recommended short commands:
 - `xuunity archive task registry`
 - `xuunity system research watch`
 - `xuunity system health review`
+- `xuunity system health improve`
 - `xuunity system output cleanup`
 - `xuunity system cleanup`
 - `xuunity system cleanup projects`
