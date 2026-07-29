@@ -19,6 +19,9 @@
   - do not add queue stages and dispatch budgets by default for tiny or low-risk flows
   - do add them when burst load, fan-out, or delayed catch-up can realistically stall the main thread or grow memory
 - For best-effort or snapshot-like flows, prefer dropping old or stale queued work over letting backlog growth create long main-thread spikes.
+- When the value a Unity API returns is stable for the session (device identifier, permission status, app version, build metadata), prefer publishing it once from a known main-thread point and reading plain fields at the call site over hopping to main at the touch point. Reserve hops for values that must be read live. A published snapshot also removes the thread precondition from every future caller, and it is testable from a background thread.
+- Adding the first Unity API read to a method that previously touched none silently changes the thread contract of every caller. Map the resumption thread of the call path you attach to, not of the code you write: an upstream `SwitchToThreadPool`, or a `.NET Task` await with `ConfigureAwait(false)`, can leave even a UI-facing presenter chain on a pool thread. Tracing one producer and generalizing to the rest is not a trace.
+- An exception thrown before an orchestration layer's return-to-main scope propagates on the foreign thread, so downstream disposal and UI teardown run there too. Adding one new throw site can turn a latent off-main teardown path into a reproducible crash.
 
 ## Review Focus
 - thread affinity correctness
@@ -26,3 +29,4 @@
 - continuation size
 - main-thread stall risk
 - queue and dispatch backpressure risk when callback load can burst
+- session-stable values read live on a path whose thread affinity the caller does not own
