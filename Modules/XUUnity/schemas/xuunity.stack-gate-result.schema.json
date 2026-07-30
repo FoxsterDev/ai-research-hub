@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.stack-gate-result.schema.json",
+  "title": "XUUnity Stack Gate Result",
+  "description": "Mechanical decision that required delivery and semantic preconditions were satisfied before mutation. The only contract that stores delivery-derived satisfaction; plans stay immutable. Audited results must not claim prevention.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "decision",
+    "enforcement_mode",
+    "plan_hash",
+    "ledger_hash",
+    "session_attestation_id",
+    "mutation_cutoff",
+    "mutation_cutoff_confidence",
+    "group_results",
+    "semantic_check_results",
+    "unsupported_events",
+    "ambiguous_events",
+    "post_diff_additions",
+    "reason_codes",
+    "authorization"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.stack-gate-result.v1"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["pass", "fail", "reopen_required", "invalid", "not_runnable"]
+    },
+    "enforcement_mode": {
+      "type": "string",
+      "enum": ["authoritative", "audited"]
+    },
+    "plan_hash": { "$ref": "#/$defs/sha256" },
+    "ledger_hash": { "$ref": "#/$defs/sha256" },
+    "session_attestation_id": { "type": ["string", "null"] },
+    "mutation_cutoff": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["started_seq", "event_id"],
+          "properties": {
+            "started_seq": { "type": "integer" },
+            "completed_seq": { "type": ["integer", "null"] },
+            "event_id": { "type": "string" },
+            "mechanism": { "type": ["string", "null"] },
+            "target": { "type": ["string", "null"] },
+            "actor": {
+              "type": "string",
+              "enum": ["root", "subagent", "host", "unknown"]
+            }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "mutation_cutoff_confidence": {
+      "type": "string",
+      "enum": [
+        "unambiguous",
+        "ambiguous_prior_commands",
+        "no_mutation_observed"
+      ]
+    },
+    "group_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group_id", "mode", "weight", "gate_satisfied", "members"],
+        "properties": {
+          "group_id": { "type": "string", "minLength": 1 },
+          "mode": {
+            "type": "string",
+            "enum": ["all_of", "any_of", "at_least"]
+          },
+          "weight": { "type": "number", "minimum": 0 },
+          "min_count": { "type": ["integer", "null"] },
+          "gate_satisfied": { "type": "boolean" },
+          "leaf_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "state"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "proven_delivered",
+                    "trusted_runtime_delivered",
+                    "runtime_delivered_unverified",
+                    "partial_read",
+                    "failed_read",
+                    "unsupported_observation",
+                    "not_observed"
+                  ]
+                },
+                "evidence_event_ids": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "case_alias": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "semantic_check_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["checker_id", "status"],
+        "properties": {
+          "checker_id": { "type": "string", "minLength": 1 },
+          "checker_sha256": {
+            "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+          },
+          "input_sha256": {
+            "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "invalid_input", "not_run"]
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "unsupported_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flagged_event" }
+    },
+    "ambiguous_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flagged_event" }
+    },
+    "post_diff_additions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "phase"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "phase": {
+            "type": "string",
+            "enum": ["before_first_mutation", "before_closeout", "on_reconcile"]
+          },
+          "source_rule_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "authorization": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["capability_id", "expires", "mutation_generation"],
+          "properties": {
+            "capability_id": { "type": "string", "minLength": 1 },
+            "expires": { "type": "string", "minLength": 1 },
+            "mutation_generation": { "type": "integer", "minimum": 0 },
+            "scope": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "flagged_event": {
+      "type": "object",
+      "required": ["event_id", "started_seq"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "started_seq": { "type": ["integer", "null"] },
+        "completed_seq": { "type": ["integer", "null"] },
+        "programs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "command_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "required_paths_mentioned": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "before_mutation_cutoff": { "type": "boolean" }
+      }
+    }
+  }
+}

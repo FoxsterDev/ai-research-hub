@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.adapter-profile.schema.json",
+  "title": "XUUnity Adapter Profile",
+  "description": "Complete declared surface contract for one adapter/CLI configuration. Everything that can change model behavior or measurement capability is declared here; profile_hash is the strict-surface identity input. Requested-versus-observed identity mismatch is observer-invalid.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "adapter_id",
+    "adapter_version",
+    "surface",
+    "event_schema_versions",
+    "requested_model",
+    "observed_model_identity",
+    "inference_parameters",
+    "cwd_policy",
+    "sandbox",
+    "permission_mode",
+    "approval_policy",
+    "tools",
+    "context_delivery_channels",
+    "mutator_coverage",
+    "request_boundary_attestation",
+    "read_namespace_policy_hash",
+    "network_policy_hash",
+    "environment_allowlist_hash",
+    "broker_support",
+    "profile_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.adapter-profile.v1"
+    },
+    "adapter_id": { "type": "string", "minLength": 1 },
+    "adapter_version": { "type": "string", "minLength": 1 },
+    "surface": { "type": "string", "minLength": 1 },
+    "event_schema_versions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "requested_model": { "type": "string", "minLength": 1 },
+    "observed_model_identity": {
+      "type": "object",
+      "required": ["observable", "model", "provider_backend_revision"],
+      "properties": {
+        "observable": { "type": "boolean" },
+        "model": { "type": ["string", "null"] },
+        "provider_backend_revision": {
+          "type": ["string", "null"],
+          "description": "Immutable backend revision when the provider exposes one; null means the profile cannot participate in exact_repeat or controlled cross-model ranking."
+        }
+      },
+      "additionalProperties": false
+    },
+    "inference_parameters": {
+      "type": "object",
+      "description": "Effort, temperature, and any other declared inference field; every declared field enters the strict profile key."
+    },
+    "cwd_policy": { "type": "string", "minLength": 1 },
+    "sandbox": { "type": "string", "minLength": 1 },
+    "permission_mode": { "type": "string", "minLength": 1 },
+    "approval_policy": { "type": "string", "minLength": 1 },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "context_delivery_channels": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "mutator_coverage": {
+      "type": "string",
+      "enum": ["authoritative", "audited", "none"]
+    },
+    "request_boundary_attestation": { "type": "boolean" },
+    "read_namespace_policy_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }],
+      "description": "Null means no enforced read namespace; the run cannot be adoption-grade."
+    },
+    "network_policy_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }],
+      "description": "Null means model/tool network is not separated from provider transport; the run cannot be adoption-grade."
+    },
+    "environment_allowlist_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "broker_support": { "type": "boolean" },
+    "profile_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

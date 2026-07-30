@@ -1,0 +1,472 @@
+{
+  "schema_version": "xuunity.reduced-stack-rules.v1",
+  "ruleset_id": "xuunity.public.reduced-stack",
+  "ruleset_version": "1.0.0",
+  "override_path_templates": [
+    "{project}/Assets/AIOutput/ProjectMemory/SkillOverrides/{family}.md"
+  ],
+  "rules": [
+    {
+      "id": "entrypoint_kernel",
+      "description": "Protocol entrypoint is always required.",
+      "priority": 10,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "entrypoint",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/start_session.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/tasks/start_session.md"
+    },
+    {
+      "id": "repo_router",
+      "description": "Repository root router is always required.",
+      "priority": 11,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "repo_router",
+          "mode": "any_of",
+          "paths": [
+            "Agents.md",
+            "AGENTS.md",
+            "CLAUDE.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/utilities/module_session_routing.md"
+    },
+    {
+      "id": "base_role",
+      "description": "Base role discipline is always required.",
+      "priority": 12,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "base_role",
+          "mode": "all_of",
+          "paths": [
+            "{module}/role/base_role.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/role/base_role.md"
+    },
+    {
+      "id": "project_router",
+      "description": "Resolved project's own router, when the project declares one.",
+      "priority": 13,
+      "selectors": {
+        "resolved_project_present": true
+      },
+      "requirements": [
+        {
+          "id": "project_router",
+          "mode": "any_of",
+          "paths": [
+            "{project}/Agents.md",
+            "{project}/AGENTS.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation",
+          "optional": true
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/utilities/module_session_routing.md"
+    },
+    {
+      "id": "project_memory",
+      "description": "Project memory documents of the resolved project.",
+      "priority": 14,
+      "selectors": {
+        "resolved_project_present": true
+      },
+      "requirements": [
+        {
+          "id": "project_memory",
+          "mode": "at_least",
+          "from_glob": "{project}/Assets/AIOutput/ProjectMemory/*.md",
+          "min_count": 1,
+          "weight": 2,
+          "phase": "before_first_mutation",
+          "optional": true
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/knowledge/agent_source_of_truth.md"
+    },
+    {
+      "id": "csharp_code_change",
+      "description": "C#/Unity code change loads codestyle and core runtime-safety skills.",
+      "priority": 20,
+      "selectors": {
+        "extensions_any": [
+          ".cs"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "codestyle",
+          "mode": "all_of",
+          "paths": [
+            "{module}/codestyle/csharp.md",
+            "{module}/codestyle/unity.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        },
+        {
+          "id": "skills_core",
+          "mode": "at_least",
+          "from_glob": "{module}/skills/core/*.md",
+          "min_count": 6,
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "override_family": "codestyle",
+      "risk": "normal",
+      "human_owner": "{module}/codestyle/csharp.md"
+    },
+    {
+      "id": "async_threading",
+      "description": "Async/threading work loads the async family and its project override.",
+      "priority": 21,
+      "selectors": {
+        "keywords_any": [
+          "async",
+          "await",
+          "thread",
+          "threading",
+          "unitask",
+          "coroutine",
+          "main thread",
+          "configureawait",
+          "task.run",
+          "synchronization",
+          "race condition",
+          "pool thread",
+          "thread-pool",
+          "thread pool"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "skills_async",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/async/base_async_rules.md",
+            "{module}/skills/async/main_thread.md",
+            "{module}/skills/async/dotnet_task.md"
+          ],
+          "weight": 3,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "override_family": "async",
+      "risk": "high",
+      "human_owner": "{module}/skills/async/routing.md"
+    },
+    {
+      "id": "sdk_privacy",
+      "description": "SDK/privacy/consent work loads privacy compliance and its project override.",
+      "priority": 22,
+      "selectors": {
+        "keywords_any": [
+          "sdk",
+          "consent",
+          "att",
+          "idfa",
+          "idfv",
+          "gdpr",
+          "privacy",
+          "tracking",
+          "appsflyer",
+          "analytics",
+          "mediation",
+          "attribution"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "skills_sdk",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/sdk/privacy_compliance.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "override_family": "sdk",
+      "risk": "high",
+      "human_owner": "{module}/skills/sdk/README.md"
+    },
+    {
+      "id": "monetization_policy",
+      "description": "Monetization-path changes load the monetization policy pack.",
+      "priority": 23,
+      "selectors": {
+        "keywords_any": [
+          "monetization",
+          "ads",
+          "ad revenue",
+          "rewarded",
+          "banner",
+          "interstitial",
+          "iap",
+          "purchase",
+          "subscription",
+          "revenue"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "monetization_pack",
+          "mode": "all_of",
+          "paths": [
+            "{module}/reviews/policy_packs/monetization_changes.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "dependencies": [
+        "sdk_privacy"
+      ],
+      "risk": "critical",
+      "human_owner": "{module}/reviews/policy_packs/monetization_changes.md"
+    },
+    {
+      "id": "startup_policy",
+      "description": "Startup/boot-path changes load startup guidance and its policy pack.",
+      "priority": 24,
+      "selectors": {
+        "keywords_any": [
+          "startup",
+          "boot",
+          "splash",
+          "app launch",
+          "initialization step",
+          "loading step"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "startup_pack",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/mobile/startup.md",
+            "{module}/reviews/policy_packs/startup_changes.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "{module}/reviews/policy_packs/startup_changes.md"
+    },
+    {
+      "id": "task_feature",
+      "description": "Feature development playbook.",
+      "priority": 30,
+      "selectors": {
+        "task_kinds": [
+          "feature_development"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "task_feature",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/feature_development.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/tasks/feature_development.md"
+    },
+    {
+      "id": "task_bug",
+      "description": "Bug-fixing playbook.",
+      "priority": 31,
+      "selectors": {
+        "task_kinds": [
+          "bug_fixing"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "task_bug",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/bug_fixing.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/tasks/bug_fixing.md"
+    },
+    {
+      "id": "task_refactoring",
+      "description": "Refactoring playbook.",
+      "priority": 32,
+      "selectors": {
+        "task_kinds": [
+          "refactoring"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "task_refactoring",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/refactoring.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/tasks/refactoring.md"
+    },
+    {
+      "id": "testing_doctrine",
+      "description": "Code-changing task kinds require the testing doctrine.",
+      "priority": 33,
+      "selectors": {
+        "task_kinds": [
+          "feature_development",
+          "bug_fixing",
+          "refactoring"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "testing_doctrine",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/tests/testing_doctrine.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/skills/tests/testing_doctrine.md"
+    },
+    {
+      "id": "high_risk_contracts",
+      "description": "High/critical risk requires the execution, validation, and risk contracts.",
+      "priority": 40,
+      "selectors": {
+        "risk_classes": [
+          "high",
+          "critical"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "risk_contracts",
+          "mode": "all_of",
+          "paths": [
+            "{module}/knowledge/execution_contract.md",
+            "{module}/knowledge/validation_contract.md",
+            "{module}/knowledge/risk_classification.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "{module}/knowledge/execution_contract.md"
+    },
+    {
+      "id": "routing_gate",
+      "description": "High/critical risk requires a non-shallow routing/execution contract, checked by the existing routing gate checker.",
+      "priority": 50,
+      "selectors": {
+        "risk_classes": [
+          "high",
+          "critical"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "routing_contract",
+          "mode": "semantic_checker",
+          "checker_id": "routing_gate_check",
+          "input_schema": "xuunity.execution-contract.v1",
+          "required_fields": [
+            "bug_family",
+            "root_cause_chain_checked",
+            "patch_shape"
+          ],
+          "empty_input_policy": "fail",
+          "phase": "before_first_mutation",
+          "severity": "blocking"
+        }
+      ],
+      "dependencies": [
+        "high_risk_contracts"
+      ],
+      "risk": "high",
+      "human_owner": "{module}/knowledge/execution_contract.md"
+    },
+    {
+      "id": "sdk_closeout_review",
+      "description": "SDK-sensitive code signals (in inspected sources or in the actual diff) require the SDK change policy pack before closeout.",
+      "priority": 60,
+      "selectors": {
+        "content_regex_any": [
+          "AppsFlyer",
+          "AppTrackingTransparency",
+          "advertisingIdentifier",
+          "vendorIdentifier",
+          "RequestTrackingAuthorization",
+          "\\bIDFA\\b",
+          "\\bIDFV\\b"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "sdk_change_pack",
+          "mode": "all_of",
+          "paths": [
+            "{module}/reviews/policy_packs/sdk_changes.md"
+          ],
+          "weight": 1,
+          "phase": "before_closeout"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "{module}/reviews/policy_packs/sdk_changes.md"
+    }
+  ],
+  "ruleset_hash": "b9184c3c19c4e1e0aec8c86027eaeb628ee8cc2e34a8f01f08145ba2f782af8d"
+}

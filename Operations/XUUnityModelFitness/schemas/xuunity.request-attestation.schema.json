@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.request-attestation.schema.json",
+  "title": "XUUnity Request-Boundary Attestation",
+  "description": "Adapter attestation over the exact post-truncation, post-summarization payload serialized into one provider request. Raw tool logs or local stdout are not this boundary. Only a verified attestation with the truncation canary present upgrades an artifact to trusted_runtime_delivered.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "attestation_id",
+    "session_attestation_id",
+    "session_id",
+    "request_seq",
+    "boundary",
+    "payload_sha256",
+    "payload_length",
+    "embedded_segments",
+    "truncation_canary",
+    "adapter_identity",
+    "attestation_hash",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.request-attestation.v1"
+    },
+    "attestation_id": { "type": "string", "minLength": 1 },
+    "session_attestation_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "request_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Position of this provider request within the session; the attested payload precedes the model inference that may act on it."
+    },
+    "boundary": {
+      "const": "provider_request"
+    },
+    "payload_sha256": { "$ref": "#/$defs/sha256" },
+    "payload_length": { "type": "integer", "minimum": 0 },
+    "embedded_segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "byte_offset", "byte_length"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "byte_offset": { "type": "integer", "minimum": 0 },
+          "byte_length": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": false
+      },
+      "description": "Only artifacts whose exact bytes were located inside the payload; an artifact absent here stays runtime_delivered_unverified."
+    },
+    "truncation_canary": {
+      "type": "object",
+      "required": ["marker_sha256", "present"],
+      "properties": {
+        "marker_sha256": { "$ref": "#/$defs/sha256" },
+        "present": {
+          "type": "boolean",
+          "description": "True only when the canary marker appears in the payload after the last embedded segment."
+        }
+      },
+      "additionalProperties": false
+    },
+    "adapter_identity": { "$ref": "#/$defs/component_identity" },
+    "attestation_hash": { "$ref": "#/$defs/sha256" },
+    "signature": {
+      "type": ["string", "null"],
+      "description": "Parent-owned MAC over attestation_hash in domain xuunity:request-attestation:v1; null only in sanitized projections."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "component_identity": {
+      "type": "object",
+      "required": ["id", "version", "implementation_sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "implementation_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

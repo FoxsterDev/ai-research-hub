@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.mutation-capability.schema.json",
+  "title": "XUUnity Mutation Capability Record",
+  "description": "Broker-owned issuance/consumption record for one one-use mutation capability. The capability token itself never appears in this record or in any model-readable artifact; only its sha256 is stored. Replay, duplicate consumption, expiry, generation rollback, and cross-session use fail closed.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "capability_id",
+    "binding",
+    "issued",
+    "token_sha256",
+    "consumption"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.mutation-capability.v1"
+    },
+    "capability_id": { "type": "string", "minLength": 1 },
+    "binding": {
+      "type": "object",
+      "required": [
+        "attestation_id",
+        "session_id",
+        "repository_content_hash",
+        "plan_hash",
+        "ledger_hash",
+        "semantic_result_hash",
+        "mutation_generation",
+        "scope",
+        "expires"
+      ],
+      "properties": {
+        "attestation_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string", "minLength": 1 },
+        "repository_content_hash": { "$ref": "#/$defs/sha256" },
+        "plan_hash": { "$ref": "#/$defs/sha256" },
+        "ledger_hash": { "$ref": "#/$defs/sha256" },
+        "semantic_result_hash": { "$ref": "#/$defs/sha256" },
+        "mutation_generation": { "type": "integer", "minimum": 0 },
+        "scope": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "expires": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "issued": { "type": "string", "minLength": 1 },
+    "token_sha256": { "$ref": "#/$defs/sha256" },
+    "consumption": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["consumed", "applied", "batch_paths"],
+          "properties": {
+            "consumed": { "type": "string", "minLength": 1 },
+            "applied": { "type": "boolean" },
+            "batch_paths": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "refusal_reason": { "type": ["string", "null"] }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

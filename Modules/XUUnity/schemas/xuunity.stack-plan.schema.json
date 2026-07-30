@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.stack-plan.schema.json",
+  "title": "XUUnity Stack Plan",
+  "description": "Immutable pre-mutation obligation set for one task and repository snapshot. Gate satisfaction and per-leaf observation state never live here — they belong to the stack-gate-result, so evidence collection cannot mutate plan_hash.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_envelope_hash",
+    "ruleset_hash",
+    "repository_content_hash",
+    "protocol_content_hash",
+    "matched_rule_ids",
+    "requirement_groups",
+    "required_artifacts",
+    "semantic_checks",
+    "planned_mutation_scope",
+    "unresolved_signals",
+    "plan_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.stack-plan.v1"
+    },
+    "task_envelope_hash": { "$ref": "#/$defs/sha256" },
+    "ruleset_hash": { "$ref": "#/$defs/sha256" },
+    "repository_content_hash": { "$ref": "#/$defs/sha256" },
+    "protocol_content_hash": { "$ref": "#/$defs/sha256" },
+    "matched_rule_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "requirement_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group_id", "mode", "member_paths", "min_count", "weight", "phase"],
+        "properties": {
+          "group_id": { "type": "string", "minLength": 1 },
+          "mode": {
+            "type": "string",
+            "enum": ["all_of", "any_of", "at_least"]
+          },
+          "member_paths": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "min_count": { "type": ["integer", "null"], "minimum": 1 },
+          "weight": { "type": "integer", "minimum": 0 },
+          "phase": {
+            "type": "string",
+            "enum": ["before_first_mutation", "before_closeout", "on_reconcile"]
+          },
+          "source_rule_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "sha256",
+          "bytes",
+          "lines",
+          "file_mode",
+          "atomicity",
+          "phase",
+          "source_rule_ids",
+          "groups",
+          "weight",
+          "accepted_delivery_modes"
+        ],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "bytes": { "type": "integer", "minimum": 0 },
+          "lines": { "type": "integer", "minimum": 0 },
+          "file_mode": { "type": "string", "minLength": 1 },
+          "atomicity": { "const": "full_file" },
+          "phase": {
+            "type": "string",
+            "enum": ["before_first_mutation", "before_closeout", "on_reconcile"]
+          },
+          "source_rule_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "trigger_reasons": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "groups": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "weight": { "type": "integer", "minimum": 0 },
+          "accepted_delivery_modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "host_injected_bundle",
+                "observed_loader_call",
+                "native_file_reads",
+                "runtime_project_context"
+              ]
+            }
+          },
+          "override_family": { "type": ["string", "null"] },
+          "effective_owner": {
+            "anyOf": [
+              { "type": "string", "enum": ["public", "project"] },
+              { "type": "null" }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "semantic_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "checker_id",
+          "checker_sha256",
+          "input_schema",
+          "input_ref",
+          "input_sha256",
+          "required_fields",
+          "empty_input_policy",
+          "phase",
+          "severity"
+        ],
+        "properties": {
+          "checker_id": { "type": "string", "minLength": 1 },
+          "checker_sha256": {
+            "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+          },
+          "input_schema": { "type": "string", "minLength": 1 },
+          "input_ref": { "type": ["string", "null"] },
+          "input_sha256": {
+            "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+          },
+          "required_fields": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "empty_input_policy": {
+            "type": "string",
+            "enum": ["fail", "skip"]
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["before_first_mutation", "before_closeout", "on_reconcile"]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "advisory"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "planned_mutation_scope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "unresolved_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["signal", "severity"],
+        "properties": {
+          "signal": { "type": "string", "minLength": 1 },
+          "severity": {
+            "type": "string",
+            "enum": ["informational", "critical"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "plan_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

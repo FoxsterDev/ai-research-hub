@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.protected-run-manifest.schema.json",
+  "title": "XUUnity Protected Run Manifest",
+  "description": "Parent-owned record of one scheduled attempt, anchored outside the model-writable worktree before model execution. Binds the attempt to the session attestation, immutable inputs, and the strict profile key; raw-evidence hashes make transcript/meta tampering detectable.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "attempt_id",
+    "session_attestation_id",
+    "session_attestation_hash",
+    "inputs",
+    "task_measurement_key",
+    "strict_profile_key",
+    "start_state",
+    "end_state",
+    "raw_evidence_hashes",
+    "oracle_materialization",
+    "manifest_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.protected-run-manifest.v1"
+    },
+    "attempt_id": { "type": "string", "minLength": 1 },
+    "session_attestation_id": { "type": "string", "minLength": 1 },
+    "session_attestation_hash": { "$ref": "#/$defs/sha256" },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "fixture_hash",
+        "seed_identity",
+        "protocol_content_hash",
+        "ruleset_hash",
+        "task_identity"
+      ],
+      "properties": {
+        "fixture_id": { "type": "string", "minLength": 1 },
+        "fixture_hash": { "$ref": "#/$defs/sha256" },
+        "seed_identity": { "$ref": "#/$defs/sha256" },
+        "protocol_content_hash": { "$ref": "#/$defs/sha256" },
+        "ruleset_hash": { "$ref": "#/$defs/sha256" },
+        "task_identity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Private task hash or host-keyed HMAC; never raw task text."
+        }
+      },
+      "additionalProperties": false
+    },
+    "task_measurement_key": { "$ref": "#/$defs/sha256" },
+    "strict_profile_key": { "$ref": "#/$defs/sha256" },
+    "start_state": {
+      "type": "object",
+      "required": ["seed_identity", "started"],
+      "properties": {
+        "seed_identity": { "$ref": "#/$defs/sha256" },
+        "started": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "end_state": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["final_tree_identity", "ended", "terminal_status"],
+          "properties": {
+            "final_tree_identity": {
+              "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            },
+            "ended": { "type": "string", "minLength": 1 },
+            "terminal_status": {
+              "type": "string",
+              "enum": ["completed", "timeout", "failed", "aborted"]
+            }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    },
+    "raw_evidence_hashes": {
+      "type": "object",
+      "description": "Artifact name to sha256 of its exact bytes; anchored here so later tampering is detectable."
+    },
+    "oracle_materialization": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["identity", "ref"],
+          "properties": {
+            "identity": { "$ref": "#/$defs/sha256" },
+            "ref": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    },
+    "manifest_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
