@@ -1,0 +1,19 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored obligations for the F5 task: the policy document must be delivered in full before the first code edit.",
+  "groups": [
+    {
+      "group_id": "bypass_target.guidance",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["guidance/rules.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "guidance/rules.md",
+      "effective_owner": null
+    }
+  ]
+}

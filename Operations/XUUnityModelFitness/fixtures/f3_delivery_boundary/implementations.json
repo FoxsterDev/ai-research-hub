@@ -1,0 +1,4 @@
+{
+  "f3_expected_stack": "expected_stack.json",
+  "f3_budget_semantics": "oracle.py"
+}

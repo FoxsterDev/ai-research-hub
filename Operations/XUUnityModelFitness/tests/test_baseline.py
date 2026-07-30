@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -192,6 +194,100 @@ class ComparisonKeyTests(BaselineHarness):
         del incomplete["network_policy_hash"]
         with self.assertRaises(baseline.BaselineError):
             baseline.strict_profile_key(task_fields, incomplete)
+
+
+@unittest.skipIf(shutil.which("git") is None, "git not available")
+class GitContentIdentityTests(BaselineHarness):
+    def _git(self, *args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(self.repo), *args],
+            check=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_NAME": "t",
+                "GIT_AUTHOR_EMAIL": "t@local",
+                "GIT_COMMITTER_NAME": "t",
+                "GIT_COMMITTER_EMAIL": "t@local",
+            },
+        )
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo = self.work / "repo"
+        _write_tree(self.repo, TREE, order=sorted(TREE))
+        script = self.repo / "Sub/run.sh"
+        script.write_text("#!/bin/sh\n", encoding="utf-8")
+        script.chmod(0o755)
+        os.symlink("one.txt", self.repo / "Sub/link.txt")
+        self._git("init", "-q")
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "seed")
+
+    def test_git_identity_matches_worktree_identity(self) -> None:
+        self.assertEqual(
+            baseline.content_identity(self.repo / "Sub"),
+            xc.domain_digest(
+                baseline.SEED_IDENTITY_SCHEMA,
+                {
+                    "entries": [
+                        {
+                            **entry,
+                            "path": entry["path"].removeprefix("Sub/"),
+                        }
+                        for entry in baseline.git_content_entries(
+                            self.repo, "HEAD", ["Sub"]
+                        )
+                    ]
+                },
+            ),
+        )
+
+    def test_scoped_and_full_identities_differ(self) -> None:
+        self.assertNotEqual(
+            baseline.git_content_identity(self.repo, "HEAD"),
+            baseline.git_content_identity(self.repo, "HEAD", ["Sub"]),
+        )
+
+    def test_gitlink_fails_closed_without_resolver(self) -> None:
+        inner = self.work / "inner"
+        inner.mkdir()
+        subprocess.run(
+            ["git", "-C", str(inner), "init", "-q"],
+            check=True,
+            capture_output=True,
+        )
+        (inner / "a.txt").write_text("a\n", encoding="utf-8")
+        for args in (
+            ("add", "-A"),
+            ("-c", "user.name=t", "-c", "user.email=t@local",
+             "commit", "-q", "-m", "inner"),
+        ):
+            subprocess.run(
+                ["git", "-C", str(inner), *args],
+                check=True,
+                capture_output=True,
+            )
+        subprocess.run(
+            [
+                "git", "-C", str(self.repo),
+                "-c", "protocol.file.allow=always",
+                "submodule", "add", "-q", str(inner), "vendor",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        self._git("commit", "-q", "-m", "add submodule")
+        with self.assertRaises(baseline.BaselineError):
+            baseline.git_content_entries(self.repo, "HEAD")
+        resolved = baseline.git_content_identity(
+            self.repo,
+            "HEAD",
+            gitlink_resolver=lambda path, oid: xc.sha256_bytes(
+                f"{path}:{oid}".encode("utf-8")
+            ),
+        )
+        self.assertRegex(resolved, "^[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

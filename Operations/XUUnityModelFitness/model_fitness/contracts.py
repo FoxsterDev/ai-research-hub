@@ -37,3 +37,35 @@ def require_valid(schema_name: str, document: Any, label: str) -> None:
     errors = validate_against(schema_name, document)
     if errors:
         raise ContractError(f"{label} schema errors: {errors[:5]}")
+
+
+def hash_payload(value: Any) -> Any:
+    """Map a document with fractional numbers onto the integer-only
+    canonical stream: a non-integer float becomes a tagged shortest
+    round-trip decimal string, an integral float collapses to its int.
+    Used only for digest payloads, never for the stored document."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        return {"__decimal__": repr(value)}
+    if isinstance(value, dict):
+        return {key: hash_payload(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [hash_payload(item) for item in value]
+    return value
+
+
+def fractional_document_hash(document: dict[str, Any], hash_field: str) -> str:
+    import xuunity_canonical as xc
+
+    schema_version = document.get("schema_version")
+    if not isinstance(schema_version, str):
+        raise ContractError("document has no schema_version string")
+    payload = {
+        key: value
+        for key, value in document.items()
+        if key != hash_field
+    }
+    return xc.domain_digest(schema_version, hash_payload(payload))

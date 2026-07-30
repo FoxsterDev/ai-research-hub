@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.fitness-fixture.schema.json",
+  "title": "XUUnity Fitness Fixture",
+  "description": "Public-safe fixture contract. Task payloads, oracle implementations, and semantic inputs stay host-local and are referenced here by opaque ref plus content hash only. Expected stack derivation and semantic outcomes are authored independently of the resolver implementation.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "revision",
+    "family",
+    "seed",
+    "task",
+    "expected_obligation_oracle",
+    "semantic_oracles",
+    "protected_semantic_inputs",
+    "truthful_gaps",
+    "protected_paths",
+    "allowed_mutation_paths",
+    "safety_validators",
+    "dimension_weights",
+    "hard_gates"
+  ],
+  "properties": {
+    "schema_version": { "const": "xuunity.fitness-fixture.v1" },
+    "fixture_id": { "type": "string", "minLength": 1 },
+    "revision": { "type": "string", "minLength": 1 },
+    "family": {
+      "type": "string",
+      "pattern": "^F[0-9]+$",
+      "description": "Fixture family from the design (F0 calibration … F6 blinded holdout)."
+    },
+    "seed": {
+      "type": "object",
+      "required": ["content_hash", "ref"],
+      "properties": {
+        "content_hash": { "$ref": "#/$defs/sha256" },
+        "ref": {
+          "type": ["string", "null"],
+          "description": "Opaque host-local seed pointer; never a payload."
+        }
+      },
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Opaque or host-keyed task identity; the task text itself stays protected."
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "expected_obligation_oracle": {
+      "type": "object",
+      "required": ["id", "implementation_sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "implementation_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "semantic_oracles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "implementation_sha256", "kind", "blocking"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "implementation_sha256": { "$ref": "#/$defs/sha256" },
+          "kind": {
+            "type": "string",
+            "enum": ["compile", "static", "test", "runtime", "task"]
+          },
+          "blocking": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "protected_semantic_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "sha256"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "truthful_gaps": {
+      "type": "object",
+      "required": [
+        "expected_gap_ids",
+        "extra_gap_policy",
+        "precision_weight",
+        "recall_weight"
+      ],
+      "properties": {
+        "expected_gap_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "extra_gap_policy": {
+          "type": "string",
+          "enum": ["forbidden", "reported_allowed", "budgeted"]
+        },
+        "extra_gap_budget": { "type": "integer", "minimum": 0 },
+        "precision_weight": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recall_weight": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "protected_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Repo-relative paths or globs that must be unreadable and unwritable inside the model namespace; a mutation here invalidates the run."
+    },
+    "allowed_mutation_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "safety_validators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "implementation_sha256"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "severity": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "critical"]
+          },
+          "implementation_sha256": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dimension_weights": {
+      "type": "object",
+      "required": [
+        "semantic_outcome",
+        "safety_obligations",
+        "gate_reconciliation",
+        "stack_delivery",
+        "truthful_gaps"
+      ],
+      "properties": {
+        "semantic_outcome": { "$ref": "#/$defs/weight" },
+        "safety_obligations": { "$ref": "#/$defs/weight" },
+        "gate_reconciliation": { "$ref": "#/$defs/weight" },
+        "stack_delivery": { "$ref": "#/$defs/weight" },
+        "truthful_gaps": { "$ref": "#/$defs/weight" }
+      },
+      "additionalProperties": false,
+      "description": "Must total exactly 100; enforced by the scoring engine."
+    },
+    "hard_gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "validator_id", "effect"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "validator_id": { "type": "string", "minLength": 1 },
+          "effect": {
+            "type": "string",
+            "enum": ["unfit", "cap_49_9", "cap_69_9", "no_score"]
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Fixture-owned additional hard gates keyed by validator id. The design-mandated gates (critical/high safety, bypass miss, completion, required gate, validity) always apply and cannot be suppressed here."
+    },
+    "fixture_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "weight": { "type": "number", "minimum": 0, "maximum": 100 }
+  }
+}

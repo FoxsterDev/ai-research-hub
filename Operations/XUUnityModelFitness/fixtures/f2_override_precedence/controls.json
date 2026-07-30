@@ -1,0 +1,26 @@
+[
+  {
+    "id": "known_bad_public_only",
+    "description": "Public guidance applied verbatim; the project override was ignored. Must fail — F2 rejects public-only semantics.",
+    "overlay": {
+      "Project/App/src/TelemetryUploader.cs": "controls/known_bad_public_only.cs"
+    },
+    "expected_status": "failed",
+    "expected_reason": "public_only_semantics_applied"
+  },
+  {
+    "id": "known_good_project_semantics",
+    "description": "Project override semantics applied. Must pass.",
+    "overlay": {
+      "Project/App/src/TelemetryUploader.cs": "controls/known_good_project_semantics.cs"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "Untouched seed has no retry at all. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "project_retry_semantics_missing"
+  }
+]

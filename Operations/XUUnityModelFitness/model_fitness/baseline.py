@@ -11,11 +11,13 @@ produce identical identities, and every clone is verified after copy."""
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import stat
+import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from . import MODULE_SCRIPTS_DIR  # noqa: F401  (bootstraps module imports)
 
@@ -160,6 +162,130 @@ def content_identity(
     gitlink_hashes: dict[str, str] | None = None,
 ) -> str:
     entries = content_entries(root, gitlink_hashes=gitlink_hashes)
+    return xc.domain_digest(SEED_IDENTITY_SCHEMA, {"entries": entries})
+
+
+def _git_lines(repo_root: Path, *args: str) -> list[str]:
+    completed = subprocess.run(
+        ["git", "-C", os.fspath(repo_root), *args],
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise BaselineError(
+            f"git {' '.join(args[:2])} failed: "
+            f"{completed.stderr.decode('utf-8', 'replace').strip()}"
+        )
+    return [
+        line
+        for line in completed.stdout.decode("utf-8").split("\0")
+        if line
+    ]
+
+
+def git_content_entries(
+    repo_root: Path,
+    commit: str,
+    scopes: list[str] | None = None,
+    *,
+    gitlink_resolver: Callable[[str, str], str] | None = None,
+) -> list[dict[str, Any]]:
+    """Content entries read straight from a git commit via plumbing —
+    identical identity semantics to :func:`content_entries` over a
+    materialized worktree of the same tracked content, with no worktree
+    needed. Gitlink boundaries fail closed unless ``gitlink_resolver``
+    returns an attested nested content hash for (path, commit oid)."""
+    repo_root = Path(repo_root)
+    listing = _git_lines(
+        repo_root,
+        "ls-tree", "-r", "-z", "--full-tree", commit, "--", *(scopes or []),
+    )
+    rows: list[tuple[str, str, str, str]] = []
+    for line in listing:
+        meta, _, path = line.partition("\t")
+        mode, _, rest = meta.partition(" ")
+        _, _, oid = rest.partition(" ")
+        rows.append((mode, oid.strip(), xc.nfc(path), line))
+
+    entries: list[dict[str, Any]] = []
+    blob_rows = [row for row in rows if row[0] != "160000"]
+    for mode, oid, path, _ in rows:
+        if mode == "160000":
+            if gitlink_resolver is None:
+                raise BaselineError(
+                    f"gitlink without an attested nested content hash: "
+                    f"{path}@{oid}"
+                )
+            entries.append(
+                {
+                    "path": path,
+                    "type": "gitlink",
+                    "mode": "160000",
+                    "size": 0,
+                    "sha256": gitlink_resolver(path, oid),
+                }
+            )
+
+    if blob_rows:
+        batch_input = "".join(f"{oid}\n" for _, oid, _, _ in blob_rows)
+        process = subprocess.Popen(
+            ["git", "-C", os.fspath(repo_root), "cat-file", "--batch"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        stdout, _ = process.communicate(batch_input.encode("ascii"))
+        if process.returncode != 0:
+            raise BaselineError("git cat-file --batch failed")
+        offset = 0
+        for mode, oid, path, line in blob_rows:
+            header_end = stdout.index(b"\n", offset)
+            header = stdout[offset:header_end].decode("ascii").split(" ")
+            if header[0] != oid or header[1] == "missing":
+                raise BaselineError(f"git object missing: {oid} ({path})")
+            size = int(header[2])
+            data = stdout[header_end + 1 : header_end + 1 + size]
+            offset = header_end + 1 + size + 1
+            digest = hashlib.sha256(data).hexdigest()
+            if mode == "120000":
+                entries.append(
+                    {
+                        "path": path,
+                        "type": "symlink",
+                        "mode": "120000",
+                        "size": size,
+                        "sha256": digest,
+                    }
+                )
+            elif mode in {"100644", "100755"}:
+                entries.append(
+                    {
+                        "path": path,
+                        "type": "file",
+                        "mode": mode,
+                        "size": size,
+                        "sha256": digest,
+                    }
+                )
+            else:
+                raise BaselineError(f"unsupported git mode {mode}: {path}")
+
+    aliases = xc.case_alias_conflicts([entry["path"] for entry in entries])
+    if aliases:
+        raise BaselineError(f"case-alias paths in seed: {aliases}")
+    entries.sort(key=lambda entry: entry["path"])
+    return entries
+
+
+def git_content_identity(
+    repo_root: Path,
+    commit: str,
+    scopes: list[str] | None = None,
+    *,
+    gitlink_resolver: Callable[[str, str], str] | None = None,
+) -> str:
+    entries = git_content_entries(
+        repo_root, commit, scopes, gitlink_resolver=gitlink_resolver
+    )
     return xc.domain_digest(SEED_IDENTITY_SCHEMA, {"entries": entries})
 
 

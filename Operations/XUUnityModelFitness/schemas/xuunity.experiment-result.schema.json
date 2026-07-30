@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.experiment-result.schema.json",
+  "title": "XUUnity Experiment Result",
+  "description": "Outcome of one preregistered experiment. Acceptance never authorizes application; apply_authorization is a separate state owned by the manifest's apply authority.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "manifest_hash",
+    "control_suite",
+    "treatment_suite",
+    "statistics",
+    "non_regression",
+    "status",
+    "family_ledger",
+    "candidate_patch",
+    "apply_authorization",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": { "const": "xuunity.experiment-result.v1" },
+    "experiment_id": { "type": "string", "minLength": 1 },
+    "manifest_hash": { "$ref": "#/$defs/sha256" },
+    "control_suite": { "$ref": "#/$defs/suite_ref" },
+    "treatment_suite": { "$ref": "#/$defs/suite_ref" },
+    "statistics": {
+      "type": "object",
+      "required": [
+        "metric_id",
+        "control_value",
+        "treatment_value",
+        "control_bound",
+        "treatment_bound",
+        "decision_rule_id",
+        "implementation_sha256",
+        "confidence"
+      ],
+      "properties": {
+        "metric_id": { "type": "string", "minLength": 1 },
+        "control_value": { "$ref": "#/$defs/number_or_null" },
+        "treatment_value": { "$ref": "#/$defs/number_or_null" },
+        "control_bound": { "$ref": "#/$defs/number_or_null" },
+        "treatment_bound": { "$ref": "#/$defs/number_or_null" },
+        "decision_rule_id": { "type": "string", "minLength": 1 },
+        "implementation_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "confidence": {
+          "type": "number", "minimum": 0.5, "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "non_regression": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric_id", "budget", "observed_delta", "respected"],
+        "properties": {
+          "metric_id": { "type": "string", "minLength": 1 },
+          "budget": { "type": "number", "minimum": 0 },
+          "observed_delta": { "$ref": "#/$defs/number_or_null" },
+          "respected": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["accepted", "rejected", "inconclusive"]
+    },
+    "family_ledger": {
+      "type": "object",
+      "required": [
+        "experiment_family_id",
+        "family_alpha",
+        "alpha_spent_before",
+        "alpha_spent_after",
+        "f6_exposures_before",
+        "f6_exposures_after",
+        "f6_budget"
+      ],
+      "properties": {
+        "experiment_family_id": { "type": "string", "minLength": 1 },
+        "family_alpha": {
+          "type": "number", "minimum": 0, "maximum": 1
+        },
+        "alpha_spent_before": { "type": "number", "minimum": 0 },
+        "alpha_spent_after": { "type": "number", "minimum": 0 },
+        "f6_exposures_before": { "type": "integer", "minimum": 0 },
+        "f6_exposures_after": { "type": "integer", "minimum": 0 },
+        "f6_budget": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "candidate_patch": {
+      "type": "object",
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "type": ["string", "null"] },
+        "sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false
+    },
+    "apply_authorization": {
+      "type": "object",
+      "required": ["state", "authorized_by"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["not_requested", "not_authorized", "authorized", "applied"]
+        },
+        "authorized_by": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "number_or_null": {
+      "anyOf": [{ "type": "number" }, { "type": "null" }]
+    },
+    "suite_ref": {
+      "type": "object",
+      "required": ["suite_result_ref", "suite_result_sha256"],
+      "properties": {
+        "suite_result_ref": { "type": "string", "minLength": 1 },
+        "suite_result_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

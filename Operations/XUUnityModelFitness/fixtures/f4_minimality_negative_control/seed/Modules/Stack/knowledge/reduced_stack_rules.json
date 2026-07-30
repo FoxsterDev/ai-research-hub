@@ -1,0 +1,77 @@
+{
+  "schema_version": "xuunity.reduced-stack-rules.v1",
+  "ruleset_id": "xuunity.fixture.f4-minimality-negative-control",
+  "ruleset_version": "1.0.0",
+  "rules": [
+    {
+      "id": "entrypoint",
+      "description": "Stack entrypoint is always required.",
+      "priority": 10,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "start",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/start_here.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/tasks/start_here.md"
+    },
+    {
+      "id": "network_retry",
+      "description": "Retry/backoff task work loads the network retry family.",
+      "priority": 20,
+      "selectors": {
+        "keywords_any": [
+          "retry",
+          "backoff"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "guidance",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/network_retry.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "{module}/skills/network_retry.md"
+    },
+    {
+      "id": "thread_safety",
+      "description": "Real cross-thread API usage in inspected content loads the thread-safety family.",
+      "priority": 21,
+      "selectors": {
+        "content_regex_any": [
+          "UniTask\\.SwitchToThreadPool\\(",
+          "ConfigureAwait\\(false\\)"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "guidance",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/thread_safety.md"
+          ],
+          "weight": 3,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "critical",
+      "human_owner": "{module}/skills/thread_safety.md"
+    }
+  ],
+  "ruleset_hash": "ede45783df2db9cc54f400600d1cc0ea2371ea7d2ba3fc135101d5761771e5c9"
+}

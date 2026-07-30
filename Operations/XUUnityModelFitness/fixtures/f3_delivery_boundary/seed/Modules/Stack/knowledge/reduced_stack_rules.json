@@ -1,0 +1,29 @@
+{
+  "schema_version": "xuunity.reduced-stack-rules.v1",
+  "ruleset_id": "xuunity.fixture.f3-delivery-boundary",
+  "ruleset_version": "1.0.0",
+  "rules": [
+    {
+      "id": "atomic_policy",
+      "description": "The retry-budget policy document is the required atomic owner for this task.",
+      "priority": 10,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "owner",
+          "mode": "all_of",
+          "paths": [
+            "guidance/atomic_policy.md"
+          ],
+          "weight": 3,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "guidance/atomic_policy.md"
+    }
+  ],
+  "ruleset_hash": "504b303464a6365da6a239931547ecc6f965fef3b20d79d6ea924c18ff4e20fd"
+}

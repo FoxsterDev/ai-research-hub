@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.suite-result.schema.json",
+  "title": "XUUnity Suite Result",
+  "description": "Aggregation over one preregistered cohort. The scheduled denominator is immutable: every setup failure, timeout, invalid, and censored attempt stays counted. One clean smoke cohort can reach at most a provisional fit_with_supervision.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "suite_id",
+    "suite_hash",
+    "strict_profile_key",
+    "scheduled_attempts",
+    "valid_count",
+    "invalid_count",
+    "censored_count",
+    "invalid_rate",
+    "fixtures",
+    "dimensions",
+    "score_median",
+    "median_lower_bound",
+    "worst_valid",
+    "hard_gate_incidents",
+    "incident_clusters",
+    "dependence_status",
+    "grade",
+    "grade_caps",
+    "statistical_confidence",
+    "decision_rule",
+    "comparison_status",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.suite-result.v1"
+    },
+    "suite_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "suite_hash": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "strict_profile_key": {
+      "$ref": "#/$defs/sha256"
+    },
+    "scheduled_attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "valid_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalid_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "censored_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invalid_rate": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "fixture_id",
+          "stratum",
+          "safety_critical",
+          "scheduled",
+          "valid",
+          "invalid",
+          "censored",
+          "median",
+          "range",
+          "worst_valid",
+          "completion_rate",
+          "completion_lower_bound",
+          "hard_gate_incident_count"
+        ],
+        "properties": {
+          "fixture_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stratum": {
+            "type": "string",
+            "minLength": 1
+          },
+          "safety_critical": {
+            "type": "boolean"
+          },
+          "scheduled": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "valid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "invalid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "censored": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "median": {
+            "$ref": "#/$defs/score_or_null"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worst_valid": {
+            "$ref": "#/$defs/score_or_null"
+          },
+          "completion_rate": {
+            "$ref": "#/$defs/rate_or_null"
+          },
+          "completion_lower_bound": {
+            "$ref": "#/$defs/rate_or_null"
+          },
+          "hard_gate_incident_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "required": [
+        "semantic_outcome",
+        "safety_obligations",
+        "gate_reconciliation",
+        "stack_delivery",
+        "truthful_gaps"
+      ],
+      "properties": {
+        "semantic_outcome": {
+          "$ref": "#/$defs/dimension_summary"
+        },
+        "safety_obligations": {
+          "$ref": "#/$defs/dimension_summary"
+        },
+        "gate_reconciliation": {
+          "$ref": "#/$defs/dimension_summary"
+        },
+        "stack_delivery": {
+          "$ref": "#/$defs/dimension_summary"
+        },
+        "truthful_gaps": {
+          "$ref": "#/$defs/dimension_summary"
+        }
+      },
+      "additionalProperties": false
+    },
+    "score_median": {
+      "$ref": "#/$defs/score_or_null"
+    },
+    "median_lower_bound": {
+      "$ref": "#/$defs/score_or_null"
+    },
+    "worst_valid": {
+      "$ref": "#/$defs/score_or_null"
+    },
+    "hard_gate_incidents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "fixture_id",
+          "gate",
+          "effect"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fixture_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gate": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effect": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "incident_clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "incident_cluster_id",
+          "run_ids"
+        ],
+        "properties": {
+          "incident_cluster_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "run_ids": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "dependence_status": {
+      "type": "string",
+      "enum": [
+        "independent",
+        "clustered_valid",
+        "dependence_invalid"
+      ]
+    },
+    "grade": {
+      "type": "string",
+      "enum": [
+        "fit",
+        "fit_with_supervision",
+        "marginal",
+        "unfit",
+        "insufficient_repeats",
+        "insufficient_evidence",
+        "dependence_invalid",
+        "no_evidence"
+      ]
+    },
+    "grade_caps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "cap",
+          "reason"
+        ],
+        "properties": {
+          "cap": {
+            "type": "string",
+            "enum": [
+              "fit_with_supervision",
+              "marginal",
+              "unfit",
+              "no_grade"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "statistical_confidence": {
+      "type": "string",
+      "enum": [
+        "bounded",
+        "insufficient"
+      ]
+    },
+    "decision_rule": {
+      "type": "object",
+      "required": [
+        "method_id",
+        "implementation_sha256",
+        "confidence"
+      ],
+      "properties": {
+        "method_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "implementation_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "comparison_status": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "historical_stale",
+        "non_controlled",
+        "mixed"
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "score_or_null": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rate_or_null": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dimension_summary": {
+      "type": "object",
+      "required": [
+        "median",
+        "range"
+      ],
+      "properties": {
+        "median": {
+          "$ref": "#/$defs/score_or_null"
+        },
+        "range": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "number"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
