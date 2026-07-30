@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.run-result.schema.json",
+  "title": "XUUnity Run Result",
+  "description": "Sanitized result of one fitness attempt. Validity is orthogonal per axis; any invalid or unsupported axis, and any run without runner-owned oracle evidence, has score_total null. Diagnostics stay available on unscored runs. One valid run is diagnostic_only.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "task_measurement_key",
+    "strict_profile_key",
+    "measurement_state",
+    "enforcement_mode",
+    "gate_decision",
+    "delivery_percent",
+    "score_dimensions",
+    "score_total",
+    "hard_gates",
+    "cause",
+    "comparison_status",
+    "adoption_status",
+    "supersedes",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.run-result.v1"
+    },
+    "run_id": { "type": "string", "minLength": 1 },
+    "task_measurement_key": { "$ref": "#/$defs/sha256" },
+    "strict_profile_key": { "$ref": "#/$defs/sha256" },
+    "measurement_state": {
+      "type": "object",
+      "required": ["preflight", "execution", "observer", "artifacts", "outcome"],
+      "properties": {
+        "preflight": {
+          "type": "string",
+          "enum": ["ready", "not_requested", "not_runnable", "setup_invalid"]
+        },
+        "execution": {
+          "type": "string",
+          "enum": ["valid", "execution_invalid"]
+        },
+        "observer": {
+          "type": "string",
+          "enum": ["valid", "observer_unsupported", "observer_invalid"]
+        },
+        "artifacts": {
+          "type": "string",
+          "enum": ["valid", "artifact_invalid"]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": ["valid_complete", "valid_incomplete", "not_evaluable"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "enforcement_mode": {
+      "type": "string",
+      "enum": ["authoritative", "audited", "advisory"]
+    },
+    "gate_decision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": ["pass", "fail", "reopen_required", "invalid", "not_runnable"]
+        },
+        { "type": "null" }
+      ]
+    },
+    "delivery_percent": {
+      "anyOf": [
+        { "type": "number", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ]
+    },
+    "score_dimensions": {
+      "type": "object",
+      "required": [
+        "stack_delivery",
+        "gate_discipline",
+        "execution_reliability",
+        "scope_control",
+        "semantic_outcome"
+      ],
+      "properties": {
+        "stack_delivery": { "$ref": "#/$defs/dimension" },
+        "gate_discipline": { "$ref": "#/$defs/dimension" },
+        "execution_reliability": { "$ref": "#/$defs/dimension" },
+        "scope_control": { "$ref": "#/$defs/dimension" },
+        "semantic_outcome": { "$ref": "#/$defs/dimension" }
+      },
+      "additionalProperties": false
+    },
+    "score_total": {
+      "anyOf": [
+        { "type": "number", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ]
+    },
+    "hard_gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gate", "triggered", "effect"],
+        "properties": {
+          "gate": { "type": "string", "minLength": 1 },
+          "triggered": { "type": "boolean" },
+          "effect": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cause": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["owner", "classifier_id", "classifier_sha256"],
+          "properties": {
+            "owner": {
+              "type": "string",
+              "enum": [
+                "model_profile",
+                "measurement_system",
+                "environment",
+                "unattributed"
+              ]
+            },
+            "classifier_id": { "type": "string", "minLength": 1 },
+            "classifier_sha256": { "$ref": "#/$defs/sha256" },
+            "evidence_ref": {
+              "type": ["string", "null"],
+              "description": "Protected classification evidence; host-local, never a public payload."
+            }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    },
+    "comparison_status": {
+      "type": "string",
+      "enum": [
+        "exact_repeat",
+        "controlled_treatment",
+        "matched_content_noncontrolled",
+        "insufficient_repeats",
+        "inconclusive_variance",
+        "historical_stale"
+      ]
+    },
+    "adoption_status": {
+      "type": "string",
+      "enum": [
+        "no_evidence",
+        "diagnostic_only",
+        "eligible",
+        "fit",
+        "fit_with_supervision",
+        "marginal",
+        "unfit"
+      ]
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": ["run_id", "reason"],
+          "properties": {
+            "run_id": { "type": "string", "minLength": 1 },
+            "reason": { "type": "string", "minLength": 1 },
+            "superseded_result_sha256": {
+              "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+            }
+          },
+          "additionalProperties": false
+        },
+        { "type": "null" }
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "dimension": {
+      "anyOf": [
+        { "type": "number", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ]
+    }
+  }
+}

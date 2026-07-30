@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.task-envelope.schema.json",
+  "title": "XUUnity Task Envelope",
+  "description": "Model-independent task facts used to derive the reduced stack. The raw task text exists only in private run state (task_text or a protected task_text_ref); sanitized projections carry only derived public-safe facts. Facts derived from the repository or explicit user paths outrank model-supplied labels: model facts may add requirements but never remove them.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "session_id",
+    "protocol_id",
+    "task_text_sha256",
+    "task_kind",
+    "referenced_paths",
+    "planned_mutation_paths",
+    "resolved_project",
+    "execution_contract_ref",
+    "execution_contract_sha256",
+    "risk_class",
+    "trigger_facts",
+    "repository_content_hash",
+    "protocol_content_hash",
+    "ruleset_hash",
+    "ruleset_extensions",
+    "session_attestation_ref",
+    "session_attestation_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.task-envelope.v1"
+    },
+    "session_id": { "type": "string", "minLength": 1 },
+    "protocol_id": { "type": "string", "minLength": 1 },
+    "task_text": { "type": ["string", "null"] },
+    "task_text_ref": { "type": ["string", "null"] },
+    "task_text_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "task_kind": { "type": "string", "minLength": 1 },
+    "referenced_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "planned_mutation_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "resolved_project": { "type": ["string", "null"] },
+    "execution_contract_ref": { "type": ["string", "null"] },
+    "execution_contract_sha256": {
+      "anyOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        { "type": "null" }
+      ]
+    },
+    "risk_class": {
+      "type": "string",
+      "enum": ["baseline", "normal", "high", "critical"]
+    },
+    "trigger_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["fact", "source"],
+        "properties": {
+          "fact": { "type": "string", "minLength": 1 },
+          "source": {
+            "type": "string",
+            "enum": ["repository", "user_paths", "static_inspection", "model"]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "repository_content_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "protocol_content_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ruleset_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ruleset_extensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scope", "ref", "sha256", "parent_hash", "extension_id", "extension_version"],
+        "properties": {
+          "scope": { "type": "string", "enum": ["host", "project"] },
+          "ref": { "type": "string", "minLength": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "parent_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "extension_id": { "type": "string", "minLength": 1 },
+          "extension_version": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "session_attestation_ref": { "type": ["string", "null"] },
+    "session_attestation_sha256": {
+      "anyOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

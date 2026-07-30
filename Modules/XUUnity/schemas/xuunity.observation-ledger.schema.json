@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.observation-ledger.schema.json",
+  "title": "XUUnity Observation Ledger",
+  "description": "Ordered, independently collected delivery, tool, mutation, claim, and terminal evidence for one model run. Claims never produce delivery credit; unsupported observations are explicit states, never absence.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "collector_identity",
+    "adapter_contract",
+    "requested_profile",
+    "observed_profile",
+    "context_manifest",
+    "events",
+    "claims",
+    "raw_artifact_hashes",
+    "ledger_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "xuunity.observation-ledger.v1"
+    },
+    "collector_identity": {
+      "type": "object",
+      "required": ["id", "version", "implementation_sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "implementation_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "adapter_contract": {
+      "type": "object",
+      "required": [
+        "adapter",
+        "surface",
+        "mutation_coverage",
+        "observable_model_identity",
+        "runtime_context_paths"
+      ],
+      "properties": {
+        "adapter": { "type": "string", "minLength": 1 },
+        "surface": { "type": "string", "minLength": 1 },
+        "adapter_cli_version": { "type": ["string", "null"] },
+        "event_schema_versions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "sandbox": { "type": ["string", "null"] },
+        "expected_permission_mode": { "type": ["string", "null"] },
+        "tool_profile": { "type": ["string", "null"] },
+        "mutation_coverage": {
+          "type": "string",
+          "enum": ["authoritative", "audited"]
+        },
+        "observable_model_identity": { "type": "boolean" },
+        "runtime_context_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "request_boundary_attestation": { "type": "boolean" },
+        "inert_telemetry_event_types": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "requested_profile": { "$ref": "#/$defs/profile" },
+    "observed_profile": { "$ref": "#/$defs/profile" },
+    "context_manifest": {
+      "type": "array",
+      "description": "Runtime-injected context channels with their trust level. Only trust `attested` can prove delivery.",
+      "items": {
+        "type": "object",
+        "required": ["path", "trust"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "trust": {
+            "type": "string",
+            "enum": ["attested", "unverified", "absent"]
+          },
+          "sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+          "case_alias": { "type": "boolean" }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "claims": {
+      "type": "array",
+      "description": "Model statements about loaded or read files. Diagnostic only; zero gate credit.",
+      "items": {
+        "type": "object",
+        "required": ["seq", "actor", "claimed_paths"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 0 },
+          "actor": { "$ref": "#/$defs/actor" },
+          "claimed_paths": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "statement_sha256": {
+            "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+          }
+        }
+      }
+    },
+    "artifact_observations": {
+      "type": "array",
+      "description": "Derived per-required-artifact final states. Unsatisfied artifacts with unsupported or runtime-unverified evidence make the observer axis observer_unsupported.",
+      "items": {
+        "type": "object",
+        "required": ["path", "state"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "state": { "$ref": "#/$defs/observation_state" },
+          "direct_state": { "$ref": "#/$defs/observation_state" },
+          "evidence_event_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "unsupported_present": { "type": "boolean" },
+          "runtime_unverified_present": { "type": "boolean" },
+          "case_alias": { "type": "boolean" }
+        }
+      }
+    },
+    "raw_artifact_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+      }
+    },
+    "ledger_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "actor": {
+      "type": "string",
+      "enum": ["root", "subagent", "host", "unknown"]
+    },
+    "observation_state": {
+      "type": "string",
+      "enum": [
+        "proven_delivered",
+        "trusted_runtime_delivered",
+        "runtime_delivered_unverified",
+        "partial_read",
+        "failed_read",
+        "unsupported_observation",
+        "not_observed"
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "required": ["model"],
+      "properties": {
+        "model": { "type": ["string", "null"] },
+        "effort": { "type": ["string", "null"] },
+        "surface": { "type": ["string", "null"] },
+        "adapter_cli_version": { "type": ["string", "null"] },
+        "permission_mode": { "type": ["string", "null"] },
+        "sandbox": { "type": ["string", "null"] },
+        "cwd": { "type": ["string", "null"] }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "event_id",
+        "actor",
+        "started_seq",
+        "kind",
+        "parser_result",
+        "evidence_source"
+      ],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "invocation_id": { "type": ["string", "null"] },
+        "actor": { "$ref": "#/$defs/actor" },
+        "started_seq": { "type": ["integer", "null"] },
+        "completed_seq": { "type": ["integer", "null"] },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "read",
+            "mutation",
+            "inert_command",
+            "unsupported_command",
+            "ambiguous_command",
+            "claim",
+            "terminal",
+            "telemetry"
+          ]
+        },
+        "success": { "type": ["boolean", "null"] },
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expected_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "observed_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "byte_coverage": { "type": ["integer", "null"] },
+        "line_intervals": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "parser_result": {
+          "type": "string",
+          "enum": ["recognized", "unsupported", "ambiguous"]
+        },
+        "evidence_source": { "type": "string", "minLength": 1 },
+        "trust": {
+          "type": "string",
+          "enum": ["request_attested", "raw_tool_output", "self_reported"]
+        },
+        "command_sha256": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        }
+      }
+    }
+  }
+}

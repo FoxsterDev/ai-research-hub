@@ -31,7 +31,8 @@ Retired or fully-consumed designs are not deleted — they move to
 > `planned` (approved direction, not built yet) ·
 > `archived` (moved to [`./Archived/`](./Archived): a `historical` recipe or a `legacy` tombstone).
 >
-> **Imp.** = importance to the system (1–5). **Impl.** = degree of implementation as of 2026-06-16
+> **Imp.** = importance to the system (1–5). **Impl.** = degree of implementation from the
+> 2026-06-16 full review plus targeted additions recorded later
 > (✅ done · 🟡 partial · ⬜ not built · 📦 work delivered, doc is a recipe · 🗄 superseded).
 > A `%` is an estimate (`est.`) unless backed by a count (e.g. `100% (25/25 tests)`); `implemented` rows reflect verified completion.
 > Reconciled against the public `AIRoot` sources and public-safe host integration contracts.
@@ -39,6 +40,10 @@ Retired or fully-consumed designs are not deleted — they move to
 > **Review: `xuunity system progress review`, 2026-06-16.** Jump to: [Priority Backlog](#priority-backlog-active-work-by-priority) ·
 > [Scoring and Actual Status](#scoring-and-actual-status-review-2026-06-16) · [Archived](#archived) ·
 > [Analysis Provenance](#analysis-provenance--review-notes).
+>
+> **Targeted addition, 2026-07-29:** model-fitness measurement validity and the reduced-stack gate
+> were independently audited and added as an implementation-ready planned design. This is not a
+> replacement full-registry reconciliation.
 
 Rows are sorted by **priority = importance (desc), then remaining effort (asc)** — most important and
 cheapest-to-finish first. `implemented` rows carry housekeeping only. `Effort` is a rough remaining-work
@@ -55,6 +60,7 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 | `XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md` | implemented | 5 | ✅ 100% (25/25 tests) | — done | Sets the commercial + security invariants for paid modules (entitlement-provider contract, license ≠ local flag, redaction boundary, capability tags). Errors here become product and security debt. |
 | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned | 5 | ⬜ ~5% (est.) | S · ~1d · Low | Parent safety policy (allowlist, deny-by-default, runtime-critical denylist, mandatory artifact + human gate) that makes *safe* autonomy possible — the most strategically important unbuilt direction.<br>**Left to 100%:** trim to a thin "policy north-star" after the 3 plans land; drop duplicated level/allowlist/gate detail. |
 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active | 5 | 🟡 ~85% (est.) | S · ~1–2d · Med | Lifts routing reliability from prompt-discipline to an enforceable, testable contract. The reliability core and the only path from ~82 to 95+. Executable layer built 2026-06-16: canonical `knowledge/execution_contract.md`, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass).<br>**Left to 100%:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
+| `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | planned | 5 | 🟡 ~20% (host prototype, est.) | XL · ~3–4wk · High | Makes protocol delivery and exact model-surface suitability mechanically measurable without a universal full-stack gate. A host prototype and one fixture exist, but observer false negatives invalidated the first published comparison.<br>**Left to 100%:** P0 observer validity and null-score diagnostic correction; public rules/resolver/loader/gate; deterministic public runner; F2–F6 semantic fixtures; repeated aggregation and health integration. |
 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active | 4 | 🟡 ~75% (est.) | S · ~1–2d · Low | Product-facing protocol layer for PMs/producers (explainers, change impact, rollout readiness, dependency maps). Product-critical, but a layer above the engineering core.<br>**Left to 100%:** build `protocols/flow_explainer.md` + `delivery_scope.md` (+ note formats), or trim them from the design. |
 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned | 4 | ⬜ ~5% (est.) | M · ~2–3d · Med | The executable L0–L4 ladder (act alone vs. need approval vs. stays human). Operationalizes the parent policy; the concrete next slice.<br>**Left to 100%:** `knowledge/autonomy_levels.md` (L0–L4) + autonomy hook/fields in `start_session.md`. |
 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned | 4 | ⬜ ~3% (est.) | M · ~2–3d · Med | The allowlist (A–F) + denylist that decides what is *actually* safe. Without it the level model is empty.<br>**Left to 100%:** `knowledge/low_risk_change_categories.md` (allowlist A–F) + `autonomy_exclusions.md` (denylist). |
@@ -66,20 +72,21 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 ## Priority Backlog (active work, by priority)
 
 What is **active and still needs doing**, ordered by leverage (impact × what it unblocks). `implemented`
-docs are intentionally absent (done, reference only), as are `archived` docs (retired). The whole
-low-risk-autonomy family is the strategic centre of gravity and is now unblocked — item 1's executable
-routing-acceptance layer (gate checker + fixtures) was built on 2026-06-16.
+docs are intentionally absent (done, reference only), as are `archived` docs (retired). The
+2026-07-29 observer audit moved measurement validity to the front: model ranking and gate adoption
+cannot be trusted until item 1's P0 is complete.
 
 | # | Design | Status · Imp. · Impl. | What is left / next action |
 | :---: | --- | --- | --- |
-| 1 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active · 5 · 🟡 ~85% (est.) | **Executable layer built (2026-06-16)** — canonical `knowledge/execution_contract.md` + de-duped 3 inline copies, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass). **Residual:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. The autonomy family (#2) is now unblocked. |
-| 2 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | First autonomy slice: create `knowledge/autonomy_levels.md` (L0–L4) + add the autonomy-level hook/fields to `start_session.md`'s execution contract. |
-| 3 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned · 4 · ⬜ ~3% (est.) | Create `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist); precondition for any `L2` auto-route. |
-| 4 | `XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | Create `reviews/autonomy_gate_review.md` + `utilities/autonomy_change_artifact.md` + the artifact template (the 4 gates). Implemented last; inert until items 2–3 exist. |
-| – | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned · 5 · ⬜ ~5% (est.) | Parent policy — **not separate build work**: once items 2–4 land, trim this to a thin "policy north-star" and remove the duplicated level/allowlist/gate detail. |
-| 5 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active · 4 · 🟡 ~75% (est.) | Small gap: build `protocols/flow_explainer.md` + `protocols/delivery_scope.md` (+ `decision_note`/`rollout_note` formats), **or** drop them from the design to match reality. |
-| 6 | `AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md` | draft · 4 · 🟡 ~35% (est.) | Build profiles B/C (root-only / symlinked), the CLI flags, `mirror_solution.sh`, `knowledge/storage_profiles.md` + `router_override_rules.md`, topology checks in `system_health_review.md`, and the extra `project_registry.yaml` fields. |
-| 7 | `AI_TOOLING_AUTOMATION_DESIGN.md` | draft · 4 · 🟡 ~30% (est.) | Largest effort, lower urgency: build Pack B (Jira connector) and Pack D (GitLab/Bitbucket draft-PR); Pack E (orchestration) afterwards. Pack A/C already shipped. |
+| 1 | `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | planned · 5 · 🟡 ~20% (host prototype, est.) | **P0 first:** replace silent observer false negatives with explicit states, add real transcript conformance cases, null invalid scores, and reprocess preserved evidence for corrected diagnostics only. Then build the public resolver/loader/gate and F2–F6. |
+| 2 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active · 5 · 🟡 ~85% (est.) | **Executable layer built (2026-06-16)** — canonical `knowledge/execution_contract.md` + de-duped 3 inline copies, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass). **Residual:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
+| 3 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | First autonomy slice: create `knowledge/autonomy_levels.md` (L0–L4) + add the autonomy-level hook/fields to `start_session.md`'s execution contract. |
+| 4 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned · 4 · ⬜ ~3% (est.) | Create `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist); precondition for any `L2` auto-route. |
+| 5 | `XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | Create `reviews/autonomy_gate_review.md` + `utilities/autonomy_change_artifact.md` + the artifact template (the 4 gates). Implemented last; inert until items 3–4 exist. |
+| – | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned · 5 · ⬜ ~5% (est.) | Parent policy — **not separate build work**: once items 3–5 land, trim this to a thin "policy north-star" and remove the duplicated level/allowlist/gate detail. |
+| 6 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active · 4 · 🟡 ~75% (est.) | Small gap: build `protocols/flow_explainer.md` + `protocols/delivery_scope.md` (+ `decision_note`/`rollout_note` formats), **or** drop them from the design to match reality. |
+| 7 | `AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md` | draft · 4 · 🟡 ~35% (est.) | Build profiles B/C (root-only / symlinked), the CLI flags, `mirror_solution.sh`, `knowledge/storage_profiles.md` + `router_override_rules.md`, topology checks in `system_health_review.md`, and the extra `project_registry.yaml` fields. |
+| 8 | `AI_TOOLING_AUTOMATION_DESIGN.md` | draft · 4 · 🟡 ~30% (est.) | Largest effort, lower urgency: build Pack B (Jira connector) and Pack D (GitLab/Bitbucket draft-PR); Pack E (orchestration) afterwards. Pack A/C already shipped. |
 
 ## Archived
 
@@ -108,13 +115,14 @@ so design history lives inside it.
 
 ### Maturity map
 
-18 designs total — 13 live (in `Design/`) + 5 archived (in `Design/Archived/`):
+19 designs total — 14 live (in `Design/`) + 5 archived (in `Design/Archived/`):
 
 1. **Implemented (done, source of truth — no work pending):** module architecture, skills system, both
    halves of the paid-module overlay, external repos (dormant by design). The load-bearing frame; works end-to-end.
 2. **Active (in force, small gaps to finish):** root-cause routing (🟡 ~85% (est.)) and product protocols (🟡 ~75% (est.)).
 3. **Drafts (in progress, 🟡 30–50%):** topology bootstrap, tooling automation (`root-cause-95` advanced to active ~85% on 2026-06-16; see below).
-4. **Planned (⬜ ~5% (est.)):** the entire low-risk autonomy family (none of the promised autonomy files exist yet).
+4. **Planned:** the low-risk autonomy family plus the implementation-ready model-fitness and
+   reduced-stack gate design (host prototype exists; public enforcement and adoption suite do not).
 5. **Archived (`./Archived/`):** four Workstream-3 generator prompts (`historical`) + the upstream-submodule tombstone (`legacy`).
 
 ### Implemented (done, source of truth)
@@ -154,22 +162,33 @@ These remain the canonical references for current behavior. The four importance-
   `knowledge/execution_contract.md` is the single owner (the 3 inline copies in `start_session.md` are now references — "First Principle 3" closed),
   `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/` (deep/shallow/legit-`local_fix` cases), and the
   `scripts/routing_gate_check.py` pre-patch gate (the 5 section-3 rules), covered by `scripts/tests/test_routing_gate.py` (8/8 pass).
-  **Residual:** host-local matrix rows, broader fixture/bug-family coverage, optional CI wiring. *(Backlog #1.)*
+  **Residual:** host-local matrix rows, broader fixture/bug-family coverage, optional CI wiring. *(Backlog #2.)*
 - **`XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md`** — importance **4**, **🟡 ~75% (est.)**.
   6 protocols shipped + 2 beyond plan (`project_health_audit`, `project_memory_freshness`), shorthand routing
   in `start_session.md:380-389`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
-  (+ `decision_note` / `rollout_note` formats). *Rec: build the missing protocols or drop them from the design. (Backlog #5.)*
+  (+ `decision_note` / `rollout_note` formats). *Rec: build the missing protocols or drop them from the design. (Backlog #6.)*
 
 ### Drafts (in progress)
 
 - **`AIROOT_TOPOLOGY_PROFILE_BOOTSTRAP_DESIGN.md`** — importance **4**, draft, **🟡 ~35% (est.)**.
   There is a topology-first entrypoint `AIRoot/scripts/init_ai_topology.sh` + `host_topology.yaml` write. **Not built**: profiles B/C
   (root-only / symlinked — the doc's main motivation), CLI flags, `mirror_solution.sh`, knowledge files `storage_profiles.md` / `router_override_rules.md`,
-  topology checks in `system_health_review.md`, the extra fields in `project_registry.yaml`. *Registry overstated maturity — corrected `active → draft`. (Backlog #6.)*
+  topology checks in `system_health_review.md`, the extra fields in `project_registry.yaml`. *Registry overstated maturity — corrected `active → draft`. (Backlog #7.)*
 - **`AI_TOOLING_AUTOMATION_DESIGN.md`** — importance **4**, draft, **🟡 ~30% (est.)**.
   Only Pack C (Unity Verification) shipped — a standalone MCP package `Operations/XUUnityLightUnityMcp/` (dozens of `mcp__xuunity_light_unity__*` tools in this session).
   Pack A (portfolio metadata) is partially present (`xuunity system registry refresh` + `AIOutput/Registry/project_registry.yaml` + `Operations/router_storage_audit.py`).
-  **Not built**: Pack B (Jira) and Pack D (GitLab/Bitbucket draft-PR); the `xuunity system jira|pr|unity` commands are wired nowhere; Pack E (orchestration) not started. *Registry corrected `active → draft`. (Backlog #7.)*
+  **Not built**: Pack B (Jira) and Pack D (GitLab/Bitbucket draft-PR); the `xuunity system jira|pr|unity` commands are wired nowhere; Pack E (orchestration) not started. *Registry corrected `active → draft`. (Backlog #8.)*
+
+### Planned — model fitness and reduced-stack gate
+
+- **`XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md`** — importance
+  **5**, **🟡 ~20% (host prototype, est.)**. The host prototype proves that
+  fixture replay and transcript scoring are useful, but a 2026-07-29
+  independent audit found observer false negatives that invalidate its first
+  published model comparison. The implementation-ready design separates
+  obligation derivation, delivery evidence, mechanical gating, semantic
+  outcomes, and repeated model-surface fitness. *P0 observer validity and
+  corrected null-score diagnostics are Backlog #1.*
 
 ### Planned — low-risk autonomy family (not started)
 
@@ -180,9 +199,9 @@ These remain the canonical references for current behavior. The four importance-
 **prerequisites** are built (Workstream-3 risk routing + policy packs + generic validation contract), not the autonomy lane itself.
 
 - **`XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md`** — importance **5**, ⬜ ~5% (est.). Parent policy; its `L0–L3` level model is stale (superseded by LEVEL_MODEL_PLAN's `L0–L4`).
-- **`XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md`** — importance **4**, ⬜ ~5% (est.). The correct **"next to implement"** document. *(Backlog #2.)*
-- **`XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md`** — importance **4**, ⬜ ~3% (est.). Allowlist (A–F) + denylist; a precondition for `L2` routing. *(Backlog #3.)*
-- **`XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md`** — importance **4**, ⬜ ~5% (est.). The 4 gates; the most code-ready, but implemented last. *(Backlog #4.)*
+- **`XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md`** — importance **4**, ⬜ ~5% (est.). The correct autonomy implementation entry point. *(Backlog #3.)*
+- **`XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md`** — importance **4**, ⬜ ~3% (est.). Allowlist (A–F) + denylist; a precondition for `L2` routing. *(Backlog #4.)*
+- **`XUUNITY_LOW_RISK_VALIDATION_ARTIFACT_GATES_PLAN.md`** — importance **4**, ⬜ ~5% (est.). The 4 gates; the most code-ready, but implemented last. *(Backlog #5.)*
 
 *Family relationship:* the parent design (2026-04-02) is decomposed by three plans (2026-05-11);
 denylist / allowlist / validation contract are **duplicated** across them. On implementation,
@@ -219,22 +238,28 @@ maturity. Reconciled in this update:
 | Tooling automation (MCP connectors) | 🟡 ~30% (est.), Unity only (draft) |
 | Topology / bootstrap profiles | 🟡 ~35% (est.) (draft) |
 | Root-cause routing → 95+ | 🟡 ~85% (est.) — prose + executable gate built (active) |
+| Model fitness + reduced-stack enforcement | 🟡 ~20% (host prototype, est.) — observer P0 and public gate not built (planned) |
 | Low-risk autonomy | ⬜ ~5% (est.) (planned) |
 
 ### Current bottleneck and next step
 
-**Bottleneck:** the first executable routing-acceptance gate now exists (`scripts/routing_gate_check.py` +
-`scripts/tests/routing_fixtures/`, 8/8 tests), so the remaining weakness is the **autonomy lane** — there is
-still no L0–L4 autonomy routing wired into the system. This is what now blocks the move from "the AI advises
-well" to "the AI acts safely on its own".
+**Bottleneck:** model-fitness observer false negatives can currently turn
+proven stack delivery into `0%` and can move the apparent first-mutation
+boundary. Until P0 is fixed, model scores and a reduced-stack gate cannot be
+trusted. The autonomy lane remains an important downstream gap, but it should
+not be expanded on top of invalid compliance measurement.
 
-**Recommended next milestone (highest leverage):** start the low-risk autonomy family (Backlog #2),
-now unblocked by the routing-acceptance layer built on 2026-06-16.
+**Recommended next milestone (highest leverage):** complete P0 from
+`XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` (Backlog #1), correct
+preserved-evidence diagnostics with null scores, then build the public
+reduced-stack resolver/loader.
 
 **Next 3 deliverables:**
-1. `knowledge/autonomy_levels.md` (L0–L4) + the autonomy-level hook/fields in `start_session.md` (from `LEVEL_MODEL_PLAN`).
-2. `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist) (from `CHANGE_CATEGORIES_AND_EXCLUSIONS`).
-3. Broaden `scripts/tests/routing_fixtures/` beyond the runtime-content family and add host-local trigger-matrix rows (finishes `ROOT_CAUSE_ROUTING_95`).
+1. Observer state taxonomy, real transcript regression cases, null-score
+   invalidity, and corrected supersession/diagnostic artifacts.
+2. Public reduced-stack rules/schema plus deterministic resolver and loader.
+3. Mechanical gate composition with `routing_gate_check.py`, followed by F2/F3
+   fixtures.
 
 ## Analysis Provenance & Review Notes
 
@@ -244,6 +269,10 @@ now unblocked by the routing-acceptance layer built on 2026-06-16.
   obsolete public-surface backup content was removed, project override guidance was normalized to
   the canonical template, the paid-overlay pack example synced to `usage.md`, and the 25-passing-test
   count recorded in the paid-module fix plan.
+- **2026-07-29 targeted addition:** added
+  `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` after independent
+  observer and architecture audits. The addition updates registry counts and
+  current priority only; it does not claim a full re-review of every design.
 - **Method:** `xuunity system progress review` discipline — each design read in full, then cross-checked
   against the live repository by parallel assessors, and the resulting claims adversarially re-verified.
   Implementation claims are backed by concrete files, scripts, schemas, and CLI output (cited inline above),
