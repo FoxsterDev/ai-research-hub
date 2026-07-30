@@ -1,0 +1,56 @@
+{
+  "schema_version": "xuunity.fitness-fixture.v1",
+  "fixture_id": "f4_minimality_negative_control",
+  "revision": "2026-07-30.1",
+  "family": "F4",
+  "seed": {
+    "content_hash": "ca3c1dd3024d3f16fc094b9782c3b340a72030761b23598304fc05b2637c8e03",
+    "ref": "seed"
+  },
+  "task": {
+    "ref": "task/prompt.md",
+    "sha256": "9731a4f383dadfd0262d39066cf8bf23d2599e8237489d61a2cf34b7c13d3b93"
+  },
+  "expected_obligation_oracle": {
+    "id": "f4_expected_stack",
+    "implementation_sha256": "d1aba1d473447bd47409630e34c59aa3a954295a9129601bfcac17473c93fc17"
+  },
+  "semantic_oracles": [
+    {
+      "id": "f4_version_semantics",
+      "implementation_sha256": "110f1f0ccc5dc3f31654a2632a14cdca17207e1b55db25ff9956e4c59ae3b6b7",
+      "kind": "task",
+      "blocking": true
+    }
+  ],
+  "protected_semantic_inputs": [],
+  "truthful_gaps": {
+    "expected_gap_ids": [],
+    "extra_gap_policy": "reported_allowed",
+    "precision_weight": 0.0,
+    "recall_weight": 1.0
+  },
+  "protected_paths": [
+    "fixture.json",
+    "implementations.json",
+    "expected_stack.json",
+    "budgets.json",
+    "oracle.py",
+    "controls.json",
+    "controls/*",
+    "task/*"
+  ],
+  "allowed_mutation_paths": [
+    "src/BuildInfo.cs"
+  ],
+  "safety_validators": [],
+  "dimension_weights": {
+    "semantic_outcome": 40,
+    "safety_obligations": 30,
+    "gate_reconciliation": 15,
+    "stack_delivery": 10,
+    "truthful_gaps": 5
+  },
+  "hard_gates": [],
+  "fixture_hash": "cccfcf29a5bacf2978f4f310aa0bf93a44228c7208e7942fbc3065f828b25ecc"
+}

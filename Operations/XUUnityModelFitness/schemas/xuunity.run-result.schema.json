@@ -14,6 +14,7 @@
     "gate_decision",
     "delivery_percent",
     "score_dimensions",
+    "band",
     "score_total",
     "hard_gates",
     "cause",
@@ -78,20 +79,29 @@
     "score_dimensions": {
       "type": "object",
       "required": [
+        "semantic_outcome",
+        "safety_obligations",
+        "gate_reconciliation",
         "stack_delivery",
-        "gate_discipline",
-        "execution_reliability",
-        "scope_control",
-        "semantic_outcome"
+        "truthful_gaps"
       ],
       "properties": {
+        "semantic_outcome": { "$ref": "#/$defs/dimension" },
+        "safety_obligations": { "$ref": "#/$defs/dimension" },
+        "gate_reconciliation": { "$ref": "#/$defs/dimension" },
         "stack_delivery": { "$ref": "#/$defs/dimension" },
-        "gate_discipline": { "$ref": "#/$defs/dimension" },
-        "execution_reliability": { "$ref": "#/$defs/dimension" },
-        "scope_control": { "$ref": "#/$defs/dimension" },
-        "semantic_outcome": { "$ref": "#/$defs/dimension" }
+        "truthful_gaps": { "$ref": "#/$defs/dimension" }
       },
       "additionalProperties": false
+    },
+    "band": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": ["fit_candidate", "supervision_candidate", "marginal", "unfit"]
+        },
+        { "type": "null" }
+      ]
     },
     "score_total": {
       "anyOf": [

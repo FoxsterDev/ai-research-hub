@@ -1,0 +1,19 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored expected derivation for the F3 task: one required atomic owner. The unrelated guidance document must never appear here — restoring delivery may not force unrelated full-stack content.",
+  "groups": [
+    {
+      "group_id": "atomic_policy.owner",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["guidance/atomic_policy.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "guidance/atomic_policy.md",
+      "effective_owner": null
+    }
+  ]
+}

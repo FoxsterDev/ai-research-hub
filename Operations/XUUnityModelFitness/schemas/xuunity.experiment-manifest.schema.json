@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.experiment-manifest.schema.json",
+  "title": "XUUnity Experiment Manifest",
+  "description": "Preregistered single-treatment experiment. Control/treatment payloads and the profile/project/fixture matrix stay protected; only refs and content hashes appear here. Application of a winning candidate is a separate authority, never an automatic side effect of acceptance.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "hypothesis",
+    "treatment_variable",
+    "control",
+    "treatment",
+    "matrix",
+    "attempt_schedule",
+    "family",
+    "f6_exposure_budget",
+    "target_metric",
+    "non_regression_budgets",
+    "cost_limit",
+    "apply_authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "xuunity.experiment-manifest.v1" },
+    "experiment_id": { "type": "string", "minLength": 1 },
+    "hypothesis": { "type": "string", "minLength": 1 },
+    "treatment_variable": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exactly one variable changes between control and treatment."
+    },
+    "control": { "$ref": "#/$defs/payload_ref" },
+    "treatment": { "$ref": "#/$defs/payload_ref" },
+    "matrix": {
+      "type": "object",
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": { "type": ["string", "null"] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false,
+      "description": "Protected profile/project/fixture matrix, hash-attested."
+    },
+    "attempt_schedule": {
+      "type": "object",
+      "required": ["attempts_per_cell", "order_policy_id"],
+      "properties": {
+        "attempts_per_cell": { "type": "integer", "minimum": 1 },
+        "order_policy_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "family": {
+      "type": "object",
+      "required": [
+        "experiment_family_id",
+        "family_alpha",
+        "alpha_spending_method",
+        "multiplicity_method"
+      ],
+      "properties": {
+        "experiment_family_id": { "type": "string", "minLength": 1 },
+        "family_alpha": {
+          "type": "number", "minimum": 0, "maximum": 1
+        },
+        "alpha_spending_method": { "type": "string", "minLength": 1 },
+        "multiplicity_method": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "f6_exposure_budget": {
+      "type": "object",
+      "required": ["max_exposures", "consumed_before"],
+      "properties": {
+        "max_exposures": { "type": "integer", "minimum": 0 },
+        "consumed_before": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "target_metric": {
+      "type": "object",
+      "required": ["metric_id", "direction", "acceptance_threshold", "comparison"],
+      "properties": {
+        "metric_id": { "type": "string", "minLength": 1 },
+        "direction": {
+          "type": "string",
+          "enum": ["higher_is_better", "lower_is_better"]
+        },
+        "acceptance_threshold": { "type": "number" },
+        "comparison": {
+          "type": "string",
+          "enum": ["treatment_bound_vs_threshold", "treatment_vs_control_delta"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "non_regression_budgets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric_id", "direction", "max_degradation"],
+        "properties": {
+          "metric_id": { "type": "string", "minLength": 1 },
+          "direction": {
+            "type": "string",
+            "enum": ["higher_is_better", "lower_is_better"]
+          },
+          "max_degradation": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cost_limit": {
+      "type": "object",
+      "required": ["max_model_runs", "max_cost_usd"],
+      "properties": {
+        "max_model_runs": { "type": "integer", "minimum": 1 },
+        "max_cost_usd": {
+          "anyOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "apply_authority": {
+      "type": "object",
+      "required": ["holder", "auto_apply"],
+      "properties": {
+        "holder": { "type": "string", "minLength": 1 },
+        "auto_apply": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "manifest_hash": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "payload_ref": {
+      "type": "object",
+      "required": ["ref", "content_sha256"],
+      "properties": {
+        "ref": { "type": "string", "minLength": 1 },
+        "content_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

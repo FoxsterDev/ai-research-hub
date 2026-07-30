@@ -1,0 +1,41 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored expected derivation for the F2 task. The resolver under test must require both the public family owner and the existing project override; the override is the effective owner. This document is the answer key — it is never produced by the resolver.",
+  "groups": [
+    {
+      "group_id": "entrypoint.start",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/tasks/start_here.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "network_retry.guidance",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/skills/network_retry.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "network_retry.project_override",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["Project/App/Overrides/network_retry.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "Modules/Stack/tasks/start_here.md",
+      "effective_owner": null
+    },
+    {
+      "path": "Modules/Stack/skills/network_retry.md",
+      "effective_owner": "public"
+    },
+    {
+      "path": "Project/App/Overrides/network_retry.md",
+      "effective_owner": "project"
+    }
+  ]
+}

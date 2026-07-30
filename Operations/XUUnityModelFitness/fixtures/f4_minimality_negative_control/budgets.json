@@ -1,0 +1,7 @@
+{
+  "authored_by": "human",
+  "description": "Declared budgets for the F4 negative control. Blocking false positives on the clean control are budgeted at zero: one unrelated family selected for this task is a measured routing defect, not noise.",
+  "max_unrelated_rule_matches": 0,
+  "max_required_bytes": 2048,
+  "max_derivation_seconds": 5.0
+}

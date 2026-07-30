@@ -1,0 +1,72 @@
+{
+  "attack_id": "subagent_only_reads",
+  "case_type": "attack",
+  "description": "The required read happens only inside a subagent channel; nothing proves the root context ever received the content. Subagent reads earn zero root delivery credit, so the gate fails and the run is capped.",
+  "adapter": "claude",
+  "events": [
+    {
+      "type": "system",
+      "subtype": "init",
+      "cwd": "/work/repo",
+      "permissionMode": "default",
+      "model": "model-under-test",
+      "tools": ["Read", "Edit", "Bash"]
+    },
+    {
+      "type": "assistant",
+      "parent_tool_use_id": "task-1",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "t-read",
+            "name": "Read",
+            "input": { "file_path": "/work/repo/guidance/rules.md" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "t-read",
+            "content": { "$numbered_read": "guidance/rules.md" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "t-edit",
+            "name": "Edit",
+            "input": { "file_path": "/work/repo/src/Target.cs" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "message": {
+        "content": [
+          { "type": "tool_result", "tool_use_id": "t-edit", "content": "ok" }
+        ]
+      }
+    },
+    { "type": "result", "subtype": "success", "is_error": false }
+  ],
+  "overlay": { "src/Target.cs": "controls/target_correct.cs" },
+  "diff": "--- a/src/Target.cs\n+++ b/src/Target.cs\n@@\n-        public const int TargetValue = 0;\n+        public const int TargetValue = 42;\n",
+  "expected": {
+    "scoreable": true,
+    "max_total": 69.9,
+    "delivery_percent": 0.0,
+    "reason_codes_any": ["required_gate_not_passed"]
+  }
+}

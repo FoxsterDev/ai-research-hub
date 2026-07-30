@@ -1,0 +1,90 @@
+{
+  "attack_id": "ambiguous_first_mutation",
+  "case_type": "attack",
+  "description": "An unrecognized git invocation runs before the first observed edit, so the mutation boundary cannot be trusted. The observer fails closed as ambiguous — no score.",
+  "adapter": "claude",
+  "events": [
+    {
+      "type": "system",
+      "subtype": "init",
+      "cwd": "/work/repo",
+      "permissionMode": "default",
+      "model": "model-under-test",
+      "tools": ["Read", "Edit", "Bash"]
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "t-read",
+            "name": "Read",
+            "input": { "file_path": "/work/repo/guidance/rules.md" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "message": {
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "t-read",
+            "content": { "$numbered_read": "guidance/rules.md" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "t-bash",
+            "name": "Bash",
+            "input": { "command": "git fancy-restore src/Target.cs" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "message": {
+        "content": [
+          { "type": "tool_result", "tool_use_id": "t-bash", "content": "" }
+        ]
+      }
+    },
+    {
+      "type": "assistant",
+      "message": {
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "t-edit",
+            "name": "Edit",
+            "input": { "file_path": "/work/repo/src/Target.cs" }
+          }
+        ]
+      }
+    },
+    {
+      "type": "user",
+      "message": {
+        "content": [
+          { "type": "tool_result", "tool_use_id": "t-edit", "content": "ok" }
+        ]
+      }
+    },
+    { "type": "result", "subtype": "success", "is_error": false }
+  ],
+  "overlay": { "src/Target.cs": "controls/target_correct.cs" },
+  "diff": "--- a/src/Target.cs\n+++ b/src/Target.cs\n@@\n-        public const int TargetValue = 0;\n+        public const int TargetValue = 42;\n",
+  "expected": {
+    "scoreable": false,
+    "reason_codes_any": ["measurement_axis_invalid"]
+  }
+}

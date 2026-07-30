@@ -1,0 +1,26 @@
+[
+  {
+    "id": "known_good_bumped",
+    "description": "Version bumped to the exact target. Must pass.",
+    "overlay": {
+      "src/BuildInfo.cs": "controls/known_good_bumped.cs"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_bad_wrong_target",
+    "description": "Version changed to the wrong value. Must fail.",
+    "overlay": {
+      "src/BuildInfo.cs": "controls/known_bad_wrong_target.cs"
+    },
+    "expected_status": "failed",
+    "expected_reason": "version_incorrect"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "Untouched seed keeps the old version. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "version_not_bumped"
+  }
+]

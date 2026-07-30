@@ -1,0 +1,19 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored expected derivation for the F4 negative control: the unrelated low-risk change requires only the entrypoint. The misleading vocabulary in the planned file's comments must not select the retry or thread-safety families, and the derivation must fit the declared byte and latency budgets.",
+  "groups": [
+    {
+      "group_id": "entrypoint.start",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/tasks/start_here.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "Modules/Stack/tasks/start_here.md",
+      "effective_owner": null
+    }
+  ]
+}

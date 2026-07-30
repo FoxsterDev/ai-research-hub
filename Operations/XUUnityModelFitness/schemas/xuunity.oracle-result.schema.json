@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xuunity.local/schemas/xuunity.oracle-result.schema.json",
+  "title": "XUUnity Oracle Result",
+  "description": "Result of one runner-owned semantic oracle evaluated over a hermetically materialized final tree. Authored independently of the implementation under test; the model never writes this document. A status other than passed/failed keeps the run unscored.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "oracle_id",
+    "kind",
+    "implementation_sha256",
+    "tree_identity",
+    "status",
+    "reason_codes",
+    "score_fraction"
+  ],
+  "properties": {
+    "schema_version": { "const": "xuunity.oracle-result.v1" },
+    "fixture_id": { "type": "string", "minLength": 1 },
+    "oracle_id": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": ["compile", "static", "test", "runtime", "task"]
+    },
+    "implementation_sha256": { "$ref": "#/$defs/sha256" },
+    "tree_identity": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "failed", "not_evaluable"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "score_fraction": {
+      "anyOf": [
+        { "type": "number", "minimum": 0, "maximum": 1 },
+        { "type": "null" }
+      ]
+    },
+    "declared_scope": {
+      "type": "object",
+      "required": ["producers", "untested_contexts"],
+      "properties": {
+        "producers": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "untested_contexts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Explicit producer/caller denominator and the contexts this oracle does not test; absence of a context here may never be read as coverage."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

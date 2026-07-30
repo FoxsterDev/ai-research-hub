@@ -1,0 +1,26 @@
+[
+  {
+    "id": "known_good_budget_seven",
+    "description": "The mandated value applied. Must pass.",
+    "overlay": {
+      "src/Config.cs": "controls/known_good_budget_seven.cs"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_bad_header_value",
+    "description": "A guessed value from partial delivery. Must fail.",
+    "overlay": {
+      "src/Config.cs": "controls/known_bad_header_value.cs"
+    },
+    "expected_status": "failed",
+    "expected_reason": "retry_budget_incorrect"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "Untouched seed keeps the old budget. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "retry_budget_incorrect"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "known_good_target_applied",
+    "description": "The mandated value applied in the real declaration. Must pass.",
+    "overlay": {
+      "src/Target.cs": "controls/target_correct.cs"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_bad_comment_bait",
+    "description": "A comment claims the value; the declaration still holds 0. Must fail — bait text is not a declaration.",
+    "overlay": {
+      "src/Target.cs": "controls/target_bait.cs"
+    },
+    "expected_status": "failed",
+    "expected_reason": "target_value_incorrect"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "Untouched seed keeps 0. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "target_value_incorrect"
+  }
+]

@@ -1,0 +1,62 @@
+{
+  "authored_by": "human",
+  "atomic_owner": "guidance/atomic_policy.md",
+  "unrelated": ["guidance/unrelated_extra.md"],
+  "description": "Per-lane surface capability contract with hand-authored expected outcomes. The design rule: the required atomic owner is either delivered completely or the run is not_runnable — delivery failure and model non-compliance stay separate statuses, and no arbitrary byte ceiling is ever assumed.",
+  "lanes": [
+    {
+      "lane_id": "full_native",
+      "surface_delivery": "complete",
+      "evidence": "full_read",
+      "expected_state": "proven_delivered",
+      "expected_run_status": "runnable",
+      "expected_cause": null,
+      "expected_model_noncompliance": false
+    },
+    {
+      "lane_id": "full_native_model_skip",
+      "surface_delivery": "complete",
+      "evidence": "no_read",
+      "expected_state": "not_observed",
+      "expected_run_status": "runnable",
+      "expected_cause": null,
+      "expected_model_noncompliance": true
+    },
+    {
+      "lane_id": "measured_head_tail",
+      "surface_delivery": "partial",
+      "evidence": "head_tail",
+      "expected_state": "partial_read",
+      "expected_run_status": "not_runnable",
+      "expected_cause": "delivery_incomplete",
+      "expected_model_noncompliance": false
+    },
+    {
+      "lane_id": "middle_truncation",
+      "surface_delivery": "partial",
+      "evidence": "middle_gap",
+      "expected_state": "partial_read",
+      "expected_run_status": "not_runnable",
+      "expected_cause": "delivery_incomplete",
+      "expected_model_noncompliance": false
+    },
+    {
+      "lane_id": "small_context",
+      "surface_delivery": "none",
+      "evidence": "unsupported_read",
+      "expected_state": "unsupported_observation",
+      "expected_run_status": "not_runnable",
+      "expected_cause": "delivery_incomplete",
+      "expected_model_noncompliance": false
+    },
+    {
+      "lane_id": "loader_bundle",
+      "surface_delivery": "attested_bundle",
+      "evidence": "attested_bundle",
+      "expected_state": "trusted_runtime_delivered",
+      "expected_run_status": "runnable",
+      "expected_cause": null,
+      "expected_model_noncompliance": false
+    }
+  ]
+}
