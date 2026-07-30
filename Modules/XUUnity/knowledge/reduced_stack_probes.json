@@ -1,0 +1,54 @@
+{
+  "schema_version": "xuunity.reduced-stack-probes.v1",
+  "authored_by": "human",
+  "description": "Hand-authored routing expectations for the public reduced-stack ruleset, replayed by scripts/ruleset_check.py through the real resolver. The minimality probe is the F4-style tripwire: adding a rule that routes an unrelated documentation task fails this file until the expectation is deliberately updated. Host installations add their own probes file for project-override (F2) cases.",
+  "probes": [
+    {
+      "id": "docs_only_change_stays_minimal",
+      "description": "An unrelated documentation typo fix must load only the always-on kernel: entrypoint, repo router, base role.",
+      "task_text": "Correct a typo in the contribution guide wording.",
+      "task_kind": "documentation_update",
+      "risk_class": "baseline",
+      "planned_mutation_paths": ["docs/contributing_notes.md"],
+      "expect_matched_rule_ids": [
+        "base_role",
+        "entrypoint_kernel",
+        "repo_router"
+      ],
+      "max_required_bytes": 131072
+    },
+    {
+      "id": "csharp_change_loads_code_discipline",
+      "description": "Any planned C# mutation must pull the C# code-change family; a neutral task text must not pull keyword families.",
+      "task_text": "Adjust the widget component implementation details.",
+      "task_kind": "documentation_update",
+      "risk_class": "normal",
+      "planned_mutation_paths": ["Sample/Scripts/Widget.cs"],
+      "expect_rule_ids_include": ["csharp_code_change"],
+      "expect_rule_ids_exclude": [
+        "async_threading",
+        "sdk_privacy",
+        "monetization_policy",
+        "startup_policy"
+      ]
+    },
+    {
+      "id": "async_keywords_route_threading_family",
+      "description": "Real threading vocabulary in the task itself must route the async/threading family.",
+      "task_text": "Move the upload continuation off the main thread using async scheduling.",
+      "task_kind": "documentation_update",
+      "risk_class": "normal",
+      "planned_mutation_paths": ["Sample/Scripts/Uploader.cs"],
+      "expect_rule_ids_include": ["async_threading", "csharp_code_change"]
+    },
+    {
+      "id": "high_risk_loads_contract_families",
+      "description": "High risk class must route the high-risk contract and routing-gate families regardless of vocabulary.",
+      "task_text": "Adjust the widget component implementation details.",
+      "task_kind": "documentation_update",
+      "risk_class": "high",
+      "planned_mutation_paths": ["Sample/Scripts/Widget.cs"],
+      "expect_rule_ids_include": ["high_risk_contracts", "routing_gate"]
+    }
+  ]
+}

@@ -48,7 +48,8 @@ Use narrower utilities only when the user already knows the exact target:
    - compare the retrospective findings against current public core and internal shared guidance to distinguish:
      - guidance already existed but was under-applied
      - guidance was missing and should be proposed for integration
-   - convert the retrospective findings into normal candidate outputs for review artifacts, shared knowledge, or skill updates instead of leaving them as ad hoc chat commentary
+   - identify whether the session's core failure is replayable as a fitness fixture: a seed state the failure reproduces on, a known-good reference, and an outcome an independent oracle can classify without relying on the resolver or the model's own claims
+   - convert the retrospective findings into normal candidate outputs for review artifacts, shared knowledge, skill updates, or fitness fixture candidates instead of leaving them as ad hoc chat commentary
 3. Detect whether the source contains:
    - reviewer guardrails and decision history
    - reusable implementation rules that are public-safe across repos
@@ -57,6 +58,7 @@ Use narrower utilities only when the user already knows the exact target:
    - non-skill internal shared knowledge
    - project-only override details
    - project-scoped report or draft material
+   - a replayable failure incident with a known-bad state, a known-good reference, and an independently checkable outcome (fitness fixture material)
 4. Build candidate outputs by destination:
    - `Engineering Review Artifact`
    - public-core skill update in an existing family
@@ -67,8 +69,14 @@ Use narrower utilities only when the user already knows the exact target:
    - internal-shared knowledge, review, product, or utility update
    - project override only
    - project report or draft only
+   - fitness fixture candidate
    - external promotion candidate
    - no action
+4b. Fitness fixture candidates follow the model-fitness fixture contract, not free-form notes:
+   - public-safe synthetic incidents become fixtures in `AIRoot/Operations/XUUnityModelFitness/fixtures/` (fixture.json + seed + red/green controls + independent oracle + hand-authored expected stack; the fixture kit's `refresh_fixture` fills the hashes — see that operation's README)
+   - incidents that depend on host code, task payloads, or confidential context become host-local fixtures on the same public schema; only refs and hashes may ever be public
+   - the expected stack and oracle verdicts are authored by hand from the incident, never derived by the resolver or scorer under test
+   - propose the fixture only when the incident is genuinely replayable (known-bad red, known-good green); otherwise keep it as a review artifact
 4a. Apply semantic destination checks before proposing a file target:
    - `codestyle/` only for language- and code-shape guidance such as naming, formatting, member shape, API shape, and reviewable code conventions
    - `knowledge/` for decision heuristics, architectural rules, ownership boundaries, routing doctrine, and other root-level reusable guidance that is not a code-style rule

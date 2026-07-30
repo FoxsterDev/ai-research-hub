@@ -70,6 +70,15 @@ Allowed approval forms:
 7. Avoid duplication and conflicts with existing files.
 7a. Re-check that each approved item still matches the semantic destination chosen during review; do not let `codestyle/` become a catch-all bucket during apply.
 7b. Re-check that each newly added shared knowledge file is reachable by at least one explicit routing path, keyword trigger, or utility/protocol reference; do not leave dead shared knowledge as passive ballast.
+7c. Wire machine routing in the same approved change when the content should load automatically for matching tasks:
+   - a file added inside a directory already covered by a rule glob or explicit path in `knowledge/reduced_stack_rules.json` needs no rule edit
+   - a new project override of an existing family (`SkillOverrides/<family>.md`) needs no rule edit; override path templates resolve it automatically
+   - a new family, topic, or role needs a new or extended rule; for roles, declare the `task_kinds` or selectors that load them — a role file without a routing selector is dead ballast under 7b
+7d. After any ruleset edit, pass the mechanical ruleset gate in the same change:
+   - `python3 scripts/ruleset_check.py --repo-root <repo> --fix-hash` recomputes the self-hash and validates the document
+   - the authored probe corpus (`knowledge/reduced_stack_probes.json`, plus host-local probes when present) must pass; a rule that starts routing the unrelated-task minimality probe is an over-routing defect to fix, not a tolerance to widen
+   - when the new rule introduces a family worth protecting, add or update a probe for it in the same change
+7e. Treat every ruleset or shared-guidance change as a protocol change for measurement: fitness baselines recorded against the previous protocol hash become `historical_stale` automatically, and a substantial routing change is a candidate for a preregistered A/B (model-fitness completion plan, self-improvement loop) before its value is claimed.
 8. If approved content contains both public-core and internal-shared parts, split it before writing files instead of choosing one shared destination for everything.
 9. If approved content contains both shared and project-specific parts, split it before writing files instead of choosing one destination for everything.
 10. Route nothing into `AIRoot/Modules/XUUnity/` unless the approved content is explicitly public-safe.
