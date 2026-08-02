@@ -17,6 +17,7 @@
   - reviewed trigger ownership and delivery-channel boundaries for user-visible flows
 - Do not start helper extraction or structural cleanup until those invariants are fixed.
 - Keep public method shape, callback timing, threading guarantees, and failure semantics unchanged unless contract change is part of the task.
+- When substituting a base class or framework lifecycle for an existing implementation, prove parity with a method-by-method behavior matrix that covers initialization, activation, subscriptions, teardown, resource destruction, and concurrent or re-entrant calls. API compatibility or matching inheritance shape alone is not behavior-preservation evidence.
 - A fallback that changes the semantic class of the contract is a behavior change, not a safe refactor.
 - Logging or diagnostics work must not move creation ownership or lifecycle boundaries of request, transport, or callback objects.
 - On critical paths, default to minimal-diff changes. Use a larger redesign only when safety requires it.
