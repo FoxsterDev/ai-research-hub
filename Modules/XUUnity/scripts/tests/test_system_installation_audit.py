@@ -173,6 +173,49 @@ class SystemInstallationAuditTests(unittest.TestCase):
         )
         self.assertIn("public_path_leak", self._kinds(self._audit()))
 
+    def _git(self, *arguments: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(self.host), *arguments],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    def _init_host_repo(self) -> None:
+        self._git("init", "-q")
+        self._git("config", "user.email", "fixture@example.com")
+        self._git("config", "user.name", "Fixture")
+
+    def test_tracked_file_with_host_path_stays_a_public_leak(self) -> None:
+        target = self.air_root / "Modules" / "XUUnity" / "knowledge" / "decision_rules.md"
+        target.write_text(
+            target.read_text(encoding="utf-8") + "\n/Users/alice/repo\n",
+            encoding="utf-8",
+        )
+        self._init_host_repo()
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "fixture")
+        self.assertIn("public_path_leak", self._kinds(self._audit()))
+
+    def test_ignored_untracked_file_is_local_scratch_not_public_leak(self) -> None:
+        self._init_host_repo()
+        (self.host / ".gitignore").write_text("*-setup-plan.json\n", encoding="utf-8")
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "fixture")
+        scratch = self.air_root / "Modules" / "XUUnity" / "local-setup-plan.json"
+        scratch.write_text(json.dumps({"root": "/Users/alice/project"}), encoding="utf-8")
+        kinds = self._kinds(self._audit())
+        self.assertIn("local_scratch_path_leak", kinds)
+        self.assertNotIn("public_path_leak", kinds)
+
+    def test_untracked_but_unignored_file_stays_a_public_leak(self) -> None:
+        self._init_host_repo()
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "fixture")
+        pending = self.air_root / "Modules" / "XUUnity" / "pending.json"
+        pending.write_text(json.dumps({"root": "/Users/alice/project"}), encoding="utf-8")
+        self.assertIn("public_path_leak", self._kinds(self._audit()))
+
     def test_design_registry_drift_is_reported(self) -> None:
         registry = self.air_root / "Design" / "README.md"
         registry.write_text("# Fixture Design Registry\n", encoding="utf-8")
