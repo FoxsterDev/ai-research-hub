@@ -78,10 +78,11 @@ particular model follows it.
 - Flag any active rule that still treats all reusable knowledge as a single shared layer.
 - Flag any active rule that allows non-public-safe guidance to drift into `AIRoot/Modules/XUUnity/`.
 - Include the health of the knowledge extraction pipeline when `xuunity extract ...` is part of the active system.
-- If the active system keeps extraction regression evidence, use the code-owned baseline pointer
-  `AIOutput/Reports/System/knowledge_extraction_eval_baseline_v1.md` and the authoritative
-  latest summary `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` when it exists.
-  Compare current counts (public/internal/skills/hints) against that evidence. The baseline file IS the
+- If the active system keeps extraction regression evidence, resolve it through the stable summary
+  pointer `<host-report-root>/knowledge_extraction_eval_latest_summary.json`, then read the dated
+  authoritative report it identifies. Do not assume an undated `..._baseline_v1.md` filename; the
+  authoritative artifact is dated per run and the summary JSON is the only stable selector.
+  Compare current counts (public/internal/skills/hints) against that evidence. The dated report IS the
   artifact — there is no separate framework spec to consult.
 - If extraction routing changed recently and no baseline file or recent run exists, flag the gap explicitly.
 - When the active system exposes a Unity MCP operational layer, check whether it also exposes a checked-in smoke route.

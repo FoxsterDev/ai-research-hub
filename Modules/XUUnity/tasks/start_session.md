@@ -345,6 +345,7 @@ Interpret short commands by intent:
     - `reviews/policy_packs/save_load_changes.md`
     - `reviews/policy_packs/ui_heavy_changes.md`
   - prefer one aggregate report with canonical merged findings unless the user explicitly asks for per-protocol reports
+- `xuunity design review ...`, `xuunity review designs ...`, `xuunity design retro ...`, `xuunity audit designs ...`, or `xuunity score designs ...` -> `utilities/design_retro_review.md`
 - `xuunity review ...` -> `tasks/code_review.md`
 - `xuunity sdk breakage review ...` -> `reviews/sdk_breakage_review.md`
 - `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build, update, or review
@@ -378,19 +379,18 @@ Interpret short commands by intent:
 - `xuunity system protocol clean review ...`, `xuunity system protocol cleanup review ...`, `xuunity system clean protocol review ...`, `xuunity system sanitary review ...`, or `xuunity system public core sanitation ...` -> `utilities/system_protocol_clean_review.md`
 - `xuunity system health improve ...` -> `utilities/system_health_review.md` in bounded improve mode
 - `xuunity system health review ...` or `xuunity system health ...` -> `utilities/system_health_review.md` in review mode
-- `xuunity design review ...`, `xuunity review designs ...`, `xuunity design retro ...`, `xuunity audit designs ...`, or `xuunity score designs ...` -> `utilities/design_retro_review.md`
 - `xuunity system output cleanup ...` -> `utilities/system_output_cleanup.md`
-- `xuunity system cleanup ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup all aggressive ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup ai outputs ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup stale reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup projects ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup reports ...` -> `utilities/system_output_cleanup.md`
-- `xuunity system cleanup all ...` -> `utilities/system_output_cleanup.md`
-- `xuunity system cleanup aggressive ...` -> `utilities/system_output_cleanup.md`
-- `xuunity system cleanup all aggressive ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system cleanup apply ...` -> `utilities/system_output_cleanup_apply.md`
+- `xuunity system cleanup aggressive ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup all ...` -> `utilities/system_output_cleanup.md`
+- `xuunity system cleanup ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system apply cleanup ...` -> `utilities/system_output_cleanup_apply.md`
 - `xuunity system apply approved cleanup ...` -> `utilities/system_output_cleanup_apply.md`
-- `xuunity system cleanup stale reports ...` -> `utilities/system_output_cleanup.md`
-- `xuunity system cleanup ai outputs ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system archive old reports ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system prune old archives ...` -> `utilities/system_output_cleanup.md`
 - `xuunity system audit ai clutter ...` -> `utilities/system_output_cleanup.md`
@@ -410,10 +410,10 @@ Interpret short commands by intent:
   - if the queried feature is represented by a project-local class that inherits from or delegates into a shared runtime layer, inspect that shared layer before answering
   - for gameplay projects that use a project-local gameplay bridge, flow-style explain requests should inspect the host-declared bridge entry artifact under `Assets/AIOutput/` first unless the current project router or project memory explicitly opts out of that path
 - `xuunity product brief ...` or `xuunity product implementation brief ...` -> `product/protocols/implementation_brief.md`
+- `xuunity product impact of this bug ...` or `xuunity product bug ...` -> `product/protocols/bug_impact_brief.md`
 - `xuunity product impact ...` -> `product/protocols/change_impact.md`
-- `xuunity product rollout ...` or `xuunity product rollout readiness ...` -> `product/protocols/rollout_readiness.md`
+- `xuunity product rollout readiness ...` or `xuunity product rollout ...` -> `product/protocols/rollout_readiness.md`
 - `xuunity product deps ...` or `xuunity product dependency map ...` -> `product/protocols/dependency_map.md`
-- `xuunity product bug ...` or `xuunity product impact of this bug ...` -> `product/protocols/bug_impact_brief.md`
 - `xuunity product health ...` or `xuunity project health audit ...` -> `product/protocols/project_health_audit.md`
 - `xuunity product memory freshness ...` or `xuunity project memory freshness ...` -> `product/protocols/project_memory_freshness.md`
 - `xuunity feature request ...` should prefer `tasks/feature_request_intake.md` before `tasks/feature_development.md` when the user is asking to define scope rather than immediately build

@@ -11,9 +11,9 @@ This manifest records the completed extraction, validation, integration, and rec
 | Item | Exact identifier | Intended action | Current state |
 | --- | --- | --- | --- |
 | Private remote repository | `github.com/FoxsterDev/Unity-Nexus-Twin` | Permanently delete after confirmation | Identity recorded from local Git remote configuration and refs; authenticated access is not currently available. |
-| Last local source clone | `/Users/siarheikha/Projects/FoxsterDev/Archive/Unity-Nexus-Twin` | Retain as a local archive | Moved on 2026-07-14; source commit and working-tree status were rechecked after the move. |
-| Superseded nearby archive | `/Users/siarheikha/Documents/Разобрать/Unity-Nexus-Twin.zip` | No action requested | Still present; not needed for recovery after the verified backup below. |
-| Verified recovery backup | `/Users/siarheikha/Documents/Nexus-Recovery/Unity-Nexus-Twin_2026-07-14T1408BRT` | Retain | Must not be deleted by this operation. |
+| Last local source clone | `<host-archive-root>/Unity-Nexus-Twin` | Retain as a local archive | Moved on 2026-07-14; source commit and working-tree status were rechecked after the move. |
+| Superseded nearby archive | `<host-documents-root>/Unity-Nexus-Twin.zip` | No action requested | Still present; not needed for recovery after the verified backup below. |
+| Verified recovery backup | `<host-recovery-root>/Unity-Nexus-Twin_2026-07-14T1408BRT` | Retain | Must not be deleted by this operation. |
 
 ## Source and recovery evidence
 

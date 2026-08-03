@@ -119,13 +119,13 @@ Primary MCP entrypoints:
 - public init: [Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh](./Operations/XUUnityLightUnityMcp/init_xuunity_light_unity_mcp.sh)
 
 Key MCP docs:
-- design: [Operations/XUUnityLightUnityMcp/DESIGN.md](./Operations/XUUnityLightUnityMcp/DESIGN.md)
-- integration: [Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md](./Operations/XUUnityLightUnityMcp/AI_INTEGRATION.md)
-- agent workflows: [Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md](./Operations/XUUnityLightUnityMcp/AGENT_WORKFLOWS.md)
-- smoke contract: [Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md](./Operations/XUUnityLightUnityMcp/SMOKE_TESTS.md)
-- roadmap: [Operations/XUUnityLightUnityMcp/ROADMAP.md](./Operations/XUUnityLightUnityMcp/ROADMAP.md)
-- continuation: [Operations/XUUnityLightUnityMcp/CONTINUATION.md](./Operations/XUUnityLightUnityMcp/CONTINUATION.md)
-- public reports index: [Operations/XUUnityLightUnityMcp/Reports/README.md](./Operations/XUUnityLightUnityMcp/Reports/README.md)
+- design: [Operations/XUUnityLightUnityMcp/docs/architecture/DESIGN.md](./Operations/XUUnityLightUnityMcp/docs/architecture/DESIGN.md)
+- integration: [Operations/XUUnityLightUnityMcp/docs/agents/AI_INTEGRATION.md](./Operations/XUUnityLightUnityMcp/docs/agents/AI_INTEGRATION.md)
+- agent workflows: [Operations/XUUnityLightUnityMcp/docs/agents/AGENT_WORKFLOWS.md](./Operations/XUUnityLightUnityMcp/docs/agents/AGENT_WORKFLOWS.md)
+- smoke contract: [Operations/XUUnityLightUnityMcp/docs/operations/SMOKE_TESTS.md](./Operations/XUUnityLightUnityMcp/docs/operations/SMOKE_TESTS.md)
+- roadmap: [Operations/XUUnityLightUnityMcp/docs/architecture/ROADMAP.md](./Operations/XUUnityLightUnityMcp/docs/architecture/ROADMAP.md)
+- continuation: [Operations/XUUnityLightUnityMcp/docs/operations/CONTINUATION.md](./Operations/XUUnityLightUnityMcp/docs/operations/CONTINUATION.md)
+- public reports index: [Operations/XUUnityLightUnityMcp/docs/archive/reports/README.md](./Operations/XUUnityLightUnityMcp/docs/archive/reports/README.md)
 
 Reusable MCP assets:
 - scenario templates: `Operations/XUUnityLightUnityMcp/templates/scenarios/`

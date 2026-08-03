@@ -145,6 +145,37 @@ def inspect_markdown_links(
                 )
 
 
+def publishable_status(path: Path) -> str:
+    """Classify whether a path can reach a public remote.
+
+    Returns `tracked` when git tracks the file, `local_only` when it is both
+    untracked and ignored, and `untracked` otherwise. Any environment failure
+    resolves to `untracked` so an unverifiable path stays a boundary finding.
+    """
+    parent = str(path.parent)
+    name = path.name
+    try:
+        tracked = subprocess.run(
+            ["git", "-C", parent, "ls-files", "--error-unmatch", "--", name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if tracked.returncode == 0:
+            return "tracked"
+        ignored = subprocess.run(
+            ["git", "-C", parent, "check-ignore", "-q", "--", name],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "untracked"
+    return "local_only" if ignored.returncode == 0 else "untracked"
+
+
 def inspect_private_path_leaks(
     public_text: dict[Path, str],
     host_root: Path,
@@ -188,14 +219,27 @@ def inspect_private_path_leaks(
             for match in pattern.finditer(text)
         )
         token_leak = any(token and token in text for token in forbidden_tokens)
-        if path_leak or token_leak:
+        if not (path_leak or token_leak):
+            continue
+        if publishable_status(source) == "local_only":
             add_finding(
                 findings,
-                kind="public_path_leak",
-                severity="high",
+                kind="local_scratch_path_leak",
+                severity="low",
                 path=display_path(source, host_root, air_root),
-                message="Public text contains a concrete host path or forbidden private token.",
+                message=(
+                    "Untracked and git-ignored local file contains a concrete host path; "
+                    "it cannot reach a public remote."
+                ),
             )
+            continue
+        add_finding(
+            findings,
+            kind="public_path_leak",
+            severity="high",
+            path=display_path(source, host_root, air_root),
+            message="Public text contains a concrete host path or forbidden private token.",
+        )
 
 
 def inspect_skill_registry(
