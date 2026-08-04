@@ -104,6 +104,18 @@ def check_rules(label, rules_dir, budget, repo_root=None, require_always_on=Fals
             errors.append(f"[{label}] {fn}: trigger '{trig}' not in {sorted(VALID_TRIGGERS)}")
         elif require_always_on and trig != "always_on":
             warnings.append(f"[{label}] {fn}: global-layer files should be always_on (found '{trig}')")
+        # A frontmatter value containing ": " must be quoted or the YAML is invalid and the
+        # whole rule is silently dropped. This exact defect killed a policy pack in production
+        # and was invisible until the model was asked to list its active rules.
+        for key in ("description", "globs", "trigger"):
+            raw_line = next((l for l in open(p, encoding="utf-8").read().splitlines()
+                             if l.startswith(key + ":")), None)
+            if raw_line:
+                val = raw_line[len(key) + 1:].strip()
+                if val and val[0] not in "\"'>|[" and ": " in val:
+                    errors.append(f"[{label}] {fn}: `{key}:` value contains ': ' but is "
+                                  f"unquoted — invalid YAML, the rule is silently dropped. "
+                                  f"Wrap the value in double quotes.")
         if not (fm.get("description") or "").strip():
             warnings.append(f"[{label}] {fn}: no description — needed for model_decision routing")
         if trig == "glob":
