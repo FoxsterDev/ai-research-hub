@@ -155,27 +155,37 @@ Derived by lowercasing the step type and stripping `CORTEX_STEP_TYPE_`. Observed
 `write_blob`, `file_change`, `edit_notebook`, `move`, `delete_directory`, `git_commit`, `compile`,
 `view_file_outline`, `read_terminal`, `search_web`, `read_url_content`.
 
-### 4.5 An empty deny reason is the platform, not your hook
+### 4.5 `{}` is NOT a valid PreToolUse response — it blocks the tool call
 
-`PreToolUse` denials that surface to the model as
-`tool call denied with reason:` **with nothing after the colon** do not come from a
-customization hook — a hook that denies always supplies its own `reason` text, and logs it.
-Two independent occurrences were traced (**verified**): a background `sleep` in a headless
-`agentapi` run, and every single `run_command` in an IDE session where the agent reported
-"Planning Mode enforcement". In the second case the workspace hook log recorded **zero** deny
-entries while recording the same `run_command` calls passing through, so the block was applied
-downstream of the hook.
+`decision` is **required** on a `PreToolUse` response. A hook that emits a bare `{}` for the
+"no opinion" case does not pass the call through: the platform rejects it as
+`invalid tool call error (invalid_args) tool call denied with reason:` **with an empty reason**,
+and the tool never runs. The hook's own log shows no deny, because the hook did not decide to
+deny — its answer was simply not usable.
+
+**Measured** with the same workspace, prompt and mode, toggling only the hook:
+
+| hook present | permission granted | `pwd` executed |
+|---|---|---|
+| no | no | **yes** |
+| yes (emitting `{}`) | no | **no** |
+| no | yes | **yes** |
+| yes (emitting `{}`) | yes | **no** |
+
+After switching the pass-through to `{"decision":"allow"}`, all four cases execute.
 
 Consequences worth designing around:
 
-- **Diagnose with the hook log, not the model's report.** `grep deny .agents/.state/hooks.log`
-  settles ownership in one command. Without that log the model's own explanation is a guess.
-- **A session in plan mode cannot execute anything.** Any task whose acceptance depends on
-  building, testing, booting a simulator, or running a project script will terminate with every
-  evidence section blocked, no matter how the prompt is written. Check the session mode before
-  concluding anything about model capability from such a run.
-- The `agy` CLI exposes the same axis as `--mode` (`accept-edits`, `plan`), and headless runs
-  additionally auto-deny anything requiring a permission prompt unless an allow-rule exists.
+- **An empty deny reason points at your own hook first**, not at the platform and not at the
+  session mode. Diagnose by removing the hook and re-running the same command, not by asking
+  the model why it was blocked — a model with no shell will confidently attribute the block to
+  a platform restriction or to plan mode.
+- **A pass-through must carry a real decision.** `allow` matches the no-hook baseline. Use `ask`
+  instead when auto-execution is disabled and the permission prompt should come back. There is
+  no "abstain" value.
+- **Hook self-tests that assert the emitted JSON cannot catch this.** The JSON was well-formed
+  and the suite was green while every shell command in two workspaces was dead. Pair the unit
+  suite with one end-to-end run that actually executes a command.
 
 ### 4.6 Glob rules ride along with file reads
 
