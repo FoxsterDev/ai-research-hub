@@ -155,7 +155,29 @@ Derived by lowercasing the step type and stripping `CORTEX_STEP_TYPE_`. Observed
 `write_blob`, `file_change`, `edit_notebook`, `move`, `delete_directory`, `git_commit`, `compile`,
 `view_file_outline`, `read_terminal`, `search_web`, `read_url_content`.
 
-### 4.5 Glob rules ride along with file reads
+### 4.5 An empty deny reason is the platform, not your hook
+
+`PreToolUse` denials that surface to the model as
+`tool call denied with reason:` **with nothing after the colon** do not come from a
+customization hook — a hook that denies always supplies its own `reason` text, and logs it.
+Two independent occurrences were traced (**verified**): a background `sleep` in a headless
+`agentapi` run, and every single `run_command` in an IDE session where the agent reported
+"Planning Mode enforcement". In the second case the workspace hook log recorded **zero** deny
+entries while recording the same `run_command` calls passing through, so the block was applied
+downstream of the hook.
+
+Consequences worth designing around:
+
+- **Diagnose with the hook log, not the model's report.** `grep deny .agents/.state/hooks.log`
+  settles ownership in one command. Without that log the model's own explanation is a guess.
+- **A session in plan mode cannot execute anything.** Any task whose acceptance depends on
+  building, testing, booting a simulator, or running a project script will terminate with every
+  evidence section blocked, no matter how the prompt is written. Check the session mode before
+  concluding anything about model capability from such a run.
+- The `agy` CLI exposes the same axis as `--mode` (`accept-edits`, `plan`), and headless runs
+  additionally auto-deny anything requiring a permission prompt unless an allow-rule exists.
+
+### 4.6 Glob rules ride along with file reads
 
 When a `glob` rule matches, its body is appended to the `view_file` result under
 *"The following text is not part of the file, it is a list of user-defined rules that you MUST
