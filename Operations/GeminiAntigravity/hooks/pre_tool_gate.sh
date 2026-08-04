@@ -3,8 +3,12 @@
 # whether an edit batch is open. Fails open — on any error path it prints {},
 # which leaves the user's own permission policy in charge.
 #
-# It deliberately never prints {"decision":"allow"}: that would auto-approve the
-# call and defeat the auto-execution policy if the owner ever turns EAGER off.
+# The pass-through decision is CONFIGURABLE and defaults to "allow", because an
+# empty {} is NOT a valid PreToolUse response: `decision` is required, and omitting
+# it makes the platform reject the whole tool call as invalid_args with an empty
+# reason. Measured: with this hook emitting {}, `pwd` was blocked; without the hook
+# it ran. Set PASSTHROUGH_DECISION=ask in hooks.env if the owner turns EAGER off and
+# wants the permission prompt back.
 # cwd is the directory containing hooks.json.
 
 STATE="./.state"
@@ -97,4 +101,4 @@ elif [ -n "$VALIDATION_PATTERNS" ] && printf '%s' "$SCAN" | grep -Eq "$VALIDATIO
   printf '%s edit-closed pattern tool=%s\n' "$TS" "$TOOL" >> "$LOG" 2>/dev/null
 fi
 
-printf '%s' '{}'
+printf '{"decision":"%s"}' "${PASSTHROUGH_DECISION:-allow}"

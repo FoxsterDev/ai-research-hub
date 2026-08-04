@@ -79,10 +79,19 @@ OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /opt/example/workspace/thing')
 check "asks on rm -rf outside scratch" '"decision":"force_ask"' "$OUT"
 
 OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/scratch/x')")
-check "allows rm -rf inside scratch" '^{}$' "$OUT"
+check "allows rm -rf inside scratch" '"decision":"allow"' "$OUT"
 
 OUT=$(run pre_tool_gate.sh "$(cmd_payload 'git status')")
-check "ordinary command passes through without granting allow" '^{}$' "$OUT"
+check "ordinary command passes through with a VALID decision" '"decision":"allow"' "$OUT"
+valid_json "gate pass-through" "$OUT"
+# Regression guard: an empty {} is not a valid PreToolUse response. Emitting one made the
+# platform reject every tool call as invalid_args with an empty reason — all shell
+# execution was dead in both workspaces while every self-test still passed.
+if printf '%s' "$OUT" | grep -q '^{}$'; then
+  FAIL=$((FAIL + 1)); echo "FAIL  gate emitted bare {} — platform will reject the tool call"
+else
+  PASS=$((PASS + 1)); echo "ok    gate never emits a bare {} for pass-through"
+fi
 
 # ---- workspace deny vector ----
 if [ -n "$TEST_DENY_CMD" ]; then
@@ -94,7 +103,7 @@ fi
 
 # ---- edit-batch tracking (best effort; see PLATFORM_CONTRACT 4.1) ----
 OUT=$(run pre_tool_gate.sh "{\"toolCall\":{\"name\":\"code_action\",\"args\":{}},$COMMON}")
-check "edit tool opens the batch" '^{}$' "$OUT"
+check "edit tool opens the batch" '"decision":"allow"' "$OUT"
 [ -f "$T/.state/edit_open" ] \
   && { PASS=$((PASS + 1)); echo "ok    edit_open flag created"; } \
   || { FAIL=$((FAIL + 1)); echo "FAIL  edit_open flag missing"; }
