@@ -218,7 +218,14 @@ what makes agent-behaviour validation a scripted step rather than a manual GUI s
 A single `.agents/` payload serves more than one host:
 
 - **Antigravity IDE** — discovers `.agents/rules`, `.agents/skills`, `.agents/hooks.json`, `.agents/plugins`.
-- **Gemini CLI (`gemini`)** — discovers the same `.agents/skills/` (verified: 12 skills listed by
+- **Gemini CLI (`gemini`)** — **cannot currently authenticate an individual Google account.**
+  With `security.auth.selectedType: oauth-personal` the sign-in fails with *"This client is no
+  longer supported for Gemini Code Assist for individuals. To continue using Gemini, please migrate
+  to the Antigravity suite of products"* (verified 2026-08-04, CLI 0.53.1). On an individual plan the
+  remaining options are an API key or an enterprise Vertex/Code-Assist account, so treat this client
+  as unavailable unless you have one; `agy` is the supported path. Everything below about it was
+  verified before that wall and still describes its config surface.
+  It discovers the same `.agents/skills/` (verified: 12 skills listed by
   `gemini skills list`), and has `skills`/`hooks`/`mcp` subcommands of its own. It requires the
   folder to be **trusted**: add the repo path to `~/.gemini/trustedFolders.json` with the value
   `TRUST_FOLDER`, or it reports *"Skipping project agents due to untrusted folder"*.
@@ -233,6 +240,15 @@ A single `.agents/` payload serves more than one host:
   scope). Shares `~/.gemini/config/`, keeps state in `~/.gemini/antigravity-cli/`, and has
   `--print` for non-interactive runs. Headless runs auto-deny anything needing a permission prompt
   unless an allow-rule exists under `permissions.allow` in its settings.
+  **It authenticates without a separate login** — it reuses the Antigravity app's session, so no API
+  key and no browser step (verified: a `--print` run returned its answer on a machine with no
+  Gemini API key configured and no `gemini` CLI credentials).
+  **It loads global `~/.gemini/config/rules/` but does NOT fire workspace `.agents/hooks.json`
+  hooks** (verified: an `agy --print` run in a workspace whose `PreInvocation` hook writes a log on
+  every model call produced its answer and created no log, while the same hook fires on every
+  `agentapi`/IDE run in that workspace). Consequence: the enforcement layer is IDE-only. Rules and
+  skills carry over to `agy`; deny-gates, the discipline heartbeat and the stop-gate do not. Plan
+  for advice-only discipline in CLI sessions.
 
 ---
 
@@ -245,5 +261,8 @@ Stated plainly so nothing here is mistaken for measurement:
 - Whether `~/.gemini/config/rules/` honours `glob` and `model_decision` triggers, or only `always_on`.
 - The exact always-on total at which `CHECKPOINT` truncation begins (bracketed between 8 KB, which
   was clean, and 84 KB, which truncated on turn 1).
-- Gemini CLI hook discovery (`gemini hooks` exposes only a `migrate` subcommand).
+- Gemini CLI hook discovery (`gemini hooks` exposes only a `migrate` subcommand) — and now moot on
+  an individual plan, since the client cannot sign in at all.
 - `agy`'s `permissions.allow` rule grammar for MCP tools.
+- Whether `agy` fires hooks in **interactive** mode. Only `--print` was tested, and it did not.
+- Whether `agy` reads workspace `.agents/rules/` (only global rules were confirmed loaded).

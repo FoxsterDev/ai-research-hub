@@ -1,9 +1,13 @@
 # Gemini / Antigravity configuration engine
 
-Host-agnostic, reusable parts of a Gemini 3.x configuration for the Antigravity IDE, the
-Gemini CLI (`gemini`) and the Antigravity CLI (`agy`). Nothing here is specific to any
-repository, project or machine — a consuming host supplies its own workspace payloads and
-paths.
+Host-agnostic, reusable parts of a Gemini 3.x configuration for the Antigravity IDE and the
+Antigravity CLI (`agy`). Nothing here is specific to any repository, project or machine — a
+consuming host supplies its own workspace payloads and paths.
+
+Two limits to know before you plan around a CLI: the standalone Gemini CLI (`gemini`) **cannot
+sign in an individual Google account** any more — it redirects to the Antigravity suite — and
+`agy` loads the rules but does **not** fire workspace hooks. So the enforcement layer is
+IDE-only; CLI sessions get advice-only discipline. Evidence in the platform contract, §7.
 
 The design target is a model that is fast but shallow, drops instructions mid-session,
 hallucinates APIs and file contents, and is weaker than its peers on multi-file changes.
@@ -37,8 +41,8 @@ as unmeasured.
 docs/PLATFORM_CONTRACT.md   verified platform behaviour + what is still unverified
 rules/                      the always-on kernel (5 files, ≤ 8 KB total)
 hooks/                      the enforcement layer + hooks.env.template
-probe/                      headless agent harness and the platform probes
-tools/                      payload validator and hook self-test
+probe/                      headless agent harness, platform probes, planted-bug fixtures
+tools/                      payload validator, hook self-test, leak-checker
 ```
 
 ### `rules/` — the always-on kernel
@@ -90,6 +94,9 @@ conversation transcript rather than trusting the model's self-report.
 python3 probe/agy.py <workspace-dir> <project-id> <flash|pro> prompt.txt
 ```
 
+[`probe/fixtures/`](probe/fixtures/) holds planted defects for the depth probe — each built so the
+first plausible cause is wrong and the shallow fix compiles, hides the symptom, and leaves the bug.
+
 `setup_probe.py`, `setup_probe2.py`, `setup_probe3.py` build throwaway workspaces that measure
 discovery, trigger semantics, glob syntax, the injection cutoff and hook dispatch. Re-run them
 after an Antigravity update — the platform contract is version-specific, and these are what
@@ -104,6 +111,8 @@ python3 tools/validate_payloads.py \
   --secret-scan /path/to/payload
 
 sh tools/test_hooks.sh /path/to/hooks.env
+
+python3 tools/leakcheck.py --patterns private/leak_patterns.json .
 ```
 
 The validator catches exactly the silent-failure modes above: missing `trigger:`, YAML-list
@@ -111,7 +120,12 @@ The validator catches exactly the silent-failure modes above: missing `trigger:`
 corpus references that do not resolve, and secret patterns. The hook self-test feeds each hook
 realistic payloads and asserts its JSON decision, including fail-open on malformed input.
 
-Run both before installing anything. They found three real defects in these very hooks.
+`leakcheck.py` guards the public/private boundary. Its pattern list is the private part, so it is
+never hardcoded — pass a JSON file that stays on the private side. Confirm it actually fires before
+trusting a CLEAN: point it at something you know is private and check it reports hits.
+
+Run all three before installing or publishing anything. They found three real defects in these very
+hooks, two unresolvable corpus references, and one false-negative in the leak-checker itself.
 
 ---
 
@@ -123,17 +137,19 @@ reusable engine. A host bootstrap typically:
 1. runs `tools/validate_payloads.py` and `tools/test_hooks.sh` as a preflight, and refuses to
    install if either fails;
 2. copies `rules/*.md` into `~/.gemini/config/rules/`;
-3. concatenates the same rules (frontmatter stripped) into `~/.gemini/GEMINI.md` so the CLI
-   gets one source of truth rather than a drifting copy;
+3. concatenates the same rules (frontmatter stripped) into `~/.gemini/GEMINI.md` so a CLI that
+   reads it gets one source of truth rather than a drifting copy (cheap to keep, but see the
+   Gemini CLI auth limit above);
 4. copies `hooks/*.sh` + `hooks.json` plus its own `hooks.env` into each workspace's
    `.agents/`, and gitignores `.agents/.state/`;
 5. merges its MCP servers into `~/.gemini/config/mcp_config.json` without clobbering others.
 
-Cross-host notes worth knowing before you design: the Gemini CLI reads the same
-`.agents/skills/` but requires the repo in `~/.gemini/trustedFolders.json`, and does **not**
-honour `.agents/skills.json` entries. MCP config is read at language-server startup, so a
-running IDE needs a restart to see a newly added server. Details and evidence in the platform
-contract.
+Cross-host notes worth knowing before you design: `agy` authenticates off the Antigravity app
+session (no API key, no browser step) and loads global rules, but fires no workspace hooks. The
+Gemini CLI reads the same `.agents/skills/` and needs the repo in `~/.gemini/trustedFolders.json`,
+does **not** honour `.agents/skills.json` entries, and on an individual plan cannot authenticate at
+all. MCP config is read at language-server startup, so a running IDE needs a restart to see a newly
+added server. Details and evidence in the platform contract.
 
 ---
 
@@ -141,5 +157,6 @@ contract.
 
 This directory is public and reusable. Keep host-private material out of it: no project or
 protocol names, no machine paths, no workspace payloads, no reports about a specific host.
-Those belong in the consuming host's own operations directory. `tools/validate_payloads.py
---secret-scan` should be pointed at this directory too, as a standing check.
+Those belong in the consuming host's own operations directory. Point both
+`tools/validate_payloads.py --secret-scan` and `tools/leakcheck.py` at this directory as a standing
+check.
