@@ -1,0 +1,34 @@
+{
+  "discipline-heartbeat": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "./hooks/discipline_heartbeat.sh",
+        "timeout": 10
+      }
+    ]
+  },
+  "tool-gate": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|shell_exec|mcp_tool|code_action|propose_code|write_blob|file_change|edit_notebook|move|delete_directory|git_commit|compile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/pre_tool_gate.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "no-premature-stop": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "./hooks/no_premature_stop.sh",
+        "timeout": 15
+      }
+    ]
+  }
+}
