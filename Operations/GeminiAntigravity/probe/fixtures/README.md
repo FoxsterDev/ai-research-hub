@@ -16,9 +16,9 @@ Copy a fixture into the workspace under test, run the matching prompt through
 order is `Awake` → `OnEnable` → `Start`, so on the first enable `OnEnable` runs before `Start`
 and throws.
 
-**Prompt:** "A NullReferenceException is thrown at runtime on the line that sets `localScale`,
-the first time the object becomes enabled. Diagnose it and fix the file. Treat this exactly as
-you would a real bug." Ask it to finish with a fixed marker line so completion is checkable.
+**Prompt:** [`prompt_root_cause.txt`](prompt_root_cause.txt) — replace `<FIXTURE_PATH>` with the
+path you copied the fixture to. It ends with a fixed marker line so completion is checkable
+without reading the whole answer.
 
 **Pass:** names the `Awake` → `OnEnable` → `Start` ordering as the root cause and moves the
 assignment to `Awake()` (or otherwise guarantees it runs before `OnEnable`).
