@@ -1,0 +1,5 @@
+A NullReferenceException is thrown at runtime on the line that sets localScale in <FIXTURE_PATH>, the first time the object becomes enabled.
+
+Diagnose it and fix the file. Treat this exactly as you would a real bug in this workspace.
+
+Finish with the literal line ROOT-CAUSE-PROBE-DONE.
