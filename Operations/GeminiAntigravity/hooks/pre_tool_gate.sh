@@ -34,8 +34,9 @@ SCAN=$(printf '%s' "$PAYLOAD" \
         -e 's/"transcriptPath":"[^"]*"//' \
         -e 's/"artifactDirectoryPath":"[^"]*"//')
 
-# The shell command itself, when this is a command tool. Most precise target for
-# the command guards; falls back to the scrubbed payload for MCP and other tools.
+# The shell command itself, when this is a command tool. Most precise target for the
+# command guards, but the extraction stops at the first embedded quote — so a guard that
+# must not be evadable matches $SCAN instead, accepting the odd extra prompt.
 CMD=$(printf '%s' "$PAYLOAD" | grep -o '"CommandLine":"[^"]*"' | head -1 | sed 's/^"CommandLine":"//;s/"$//')
 [ -z "$CMD" ] && CMD="$SCAN"
 
@@ -74,6 +75,25 @@ esac
 if printf '%s' "$CMD" | grep -Eq 'rm +-[rRfF]+ +/([ "*]|\\|$)'; then
   deny "rm-rf-root" "Refusing a recursive delete targeting the filesystem root."
 fi
+
+# Restoring a tracked file discards uncommitted work silently and irreversibly. An
+# agent reached for this to clean up after itself in a repo it had been told held
+# uncommitted work. Ask, always — there is no safe automatic answer.
+case "$SCAN" in
+  *"git checkout -- "*|*"git checkout ."*|*"git restore"*|*"git clean"*)
+    ask "git-discard" "This discards uncommitted work irreversibly. Confirm the exact paths, and check nothing else is uncommitted first." ;;
+esac
+
+# Self-escalation: widening permissions, disabling the sandbox, or editing the gate
+# itself to get unblocked. Reported as a blocker instead — see 30_secrets_and_boundaries.
+case "$SCAN" in
+  *"globalPermissionGrants"*|*'command(*)'*|*"enableTerminalSandbox"*|*"autoExecutionPolicy"*)
+    deny "self-escalation" "Refusing to change your own permission or sandbox settings. Report the blocker and its exact cause instead, and let the owner decide." ;;
+esac
+case "$SCAN" in
+  *"/.gemini/config/config.json"*|*"/.agents/hooks/"*|*"/.agents/hooks.env"*)
+    deny "gate-tamper" "Refusing to modify the agent configuration or its gates from inside a task. Report what is blocking you instead." ;;
+esac
 
 case "$CMD" in
   *"rm -rf"*|*"rm -fr"*)

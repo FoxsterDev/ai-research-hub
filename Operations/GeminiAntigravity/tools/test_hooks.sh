@@ -93,6 +93,17 @@ else
   PASS=$((PASS + 1)); echo "ok    gate never emits a bare {} for pass-through"
 fi
 
+# ---- self-escalation and destructive-git guards (regressions from a real run) ----
+for c in "git checkout -- Pure/Views/Foo.swift" "git restore Foo.swift" "git clean -fd"; do
+  OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
+  check "asks before discarding uncommitted work: $c" '"decision":"force_ask"' "$OUT"
+done
+
+for c in "python3 -c \"json edit globalPermissionGrants\"" "defaults write enableTerminalSandbox false" "echo x >> /Users/x/.gemini/config/config.json" "sed -i s/a/b/ /Users/x/.agents/hooks/pre_tool_gate.sh"; do
+  OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
+  check "denies self-escalation / gate tampering: $c" '"decision":"deny"' "$OUT"
+done
+
 # ---- workspace deny vector ----
 if [ -n "$TEST_DENY_CMD" ]; then
   OUT=$(run pre_tool_gate.sh "$(cmd_payload "$TEST_DENY_CMD")")

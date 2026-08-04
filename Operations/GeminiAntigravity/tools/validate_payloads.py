@@ -228,8 +228,14 @@ def main():
     ap.add_argument("--global-rules")
     ap.add_argument("--workspace", action="append", default=[],
                     metavar="LABEL:PAYLOAD_DIR:REPO_ROOT")
-    ap.add_argument("--global-budget", type=int, default=8 * 1024)
-    ap.add_argument("--workspace-budget", type=int, default=8 * 1024)
+    # Defaults derived from measurement, not inherited from another harness. The
+    # per-file cutoff is where injection actually truncates (probed to 1KB resolution);
+    # these budgets sit at half of it. An always-on set of ~84KB triggered turn-1 context
+    # truncation and ~35KB did not, and nothing between 12KB and 84KB has been measured,
+    # so 12KB per layer stays far from the cliff without squeezing load-bearing lines to
+    # hit a number. Raise them with a measurement, not a hunch.
+    ap.add_argument("--global-budget", type=int, default=12 * 1024)
+    ap.add_argument("--workspace-budget", type=int, default=12 * 1024)
     ap.add_argument("--secret-scan", action="append", default=[])
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
