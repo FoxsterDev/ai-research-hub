@@ -81,6 +81,17 @@ check "asks on rm -rf outside scratch" '"decision":"force_ask"' "$OUT"
 OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/scratch/x')")
 check "allows rm -rf inside scratch" '"decision":"allow"' "$OUT"
 
+# A scratch prefix followed by `..` escapes the directory the prefix names. Two live
+# sessions independently walked out of scratch this way before the guard existed.
+OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/../Users/someone/work')")
+check "asks on rm -rf traversing out of scratch" '"decision":"force_ask"' "$OUT"
+
+OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /tmp/../nonexistent-target')")
+check "asks on rm -rf with a bare .. after a scratch prefix" '"decision":"force_ask"' "$OUT"
+
+OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/scratch/my..build')")
+check "still allows a scratch path with dots inside a filename" '"decision":"allow"' "$OUT"
+
 OUT=$(run pre_tool_gate.sh "$(cmd_payload 'git status')")
 check "ordinary command passes through with a VALID decision" '"decision":"allow"' "$OUT"
 valid_json "gate pass-through" "$OUT"

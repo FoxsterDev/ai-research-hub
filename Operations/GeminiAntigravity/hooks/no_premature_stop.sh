@@ -9,10 +9,22 @@ LOG="$STATE/hooks.log"
 mkdir -p "$STATE" 2>/dev/null
 
 PAYLOAD=$(cat)
-[ -f "./hooks.env" ] && . ./hooks.env
+if [ -f "./hooks.env" ]; then
+  . ./hooks.env
+else
+  HOOKSENV_MISSING=1
+fi
 
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 MAX="${MAX_STOP_CONTINUES:-2}"
+
+# The edit-without-validation check below needs VALIDATION_PATTERNS and silently does
+# nothing without it. That is the most valuable guard in the set, so say when it is off
+# rather than let a green run imply it ran.
+[ -n "${HOOKSENV_MISSING:-}" ] && \
+  printf '%s WARN hooks.env not found in %s — running on built-in defaults\n' "$TS" "$PWD" >> "$LOG" 2>/dev/null
+[ -n "${VALIDATION_PATTERNS:-}" ] || \
+  printf '%s WARN VALIDATION_PATTERNS unset — edit-without-validation check disabled\n' "$TS" >> "$LOG" 2>/dev/null
 
 CONV=$(printf '%s' "$PAYLOAD" | grep -o '"conversationId":"[^"]*"' | head -1 | sed 's/.*:"//;s/"//')
 [ -z "$CONV" ] && CONV="unknown"

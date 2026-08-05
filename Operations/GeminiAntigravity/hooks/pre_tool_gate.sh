@@ -15,10 +15,20 @@ STATE="./.state"
 LOG="$STATE/hooks.log"
 mkdir -p "$STATE" 2>/dev/null
 
-PAYLOAD=$(cat)
-[ -f "./hooks.env" ] && . ./hooks.env
+# The customization root is wherever hooks.json lives, which is not necessarily named
+# ".agents". Derive it so the tamper guards below protect THIS root rather than a name.
+ROOT_NAME=$(basename "$PWD")
+[ -n "$ROOT_NAME" ] || ROOT_NAME=".agents"
 
+PAYLOAD=$(cat)
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+if [ -f "./hooks.env" ]; then
+  . ./hooks.env
+else
+  # Silent absence is the dangerous case: every pattern falls back to a built-in default
+  # and the workspace's own rules simply do not apply, with nothing reporting it.
+  printf '%s WARN hooks.env not found in %s — running on built-in defaults\n' "$TS" "$PWD" >> "$LOG" 2>/dev/null
+fi
 TOOL=$(printf '%s' "$PAYLOAD" | grep -o '"name":"[a-z_]*"' | head -1 | sed 's/.*:"//;s/"//')
 
 # Set GATE_DEBUG=1 in hooks.env to record every tool the gate sees, with its payload
@@ -110,7 +120,7 @@ esac
 # actually happened went through a file-edit tool, and PreToolUse is never dispatched for
 # those (4.1). So this is a backstop on one path, not the control. The control is the rule.
 case "$SCAN" in
-  *"globalPermissionGrants"*|*'command(*)'*|*"enableTerminalSandbox"*|*"autoExecutionPolicy"*|*".agents/hooks"*)
+  *"globalPermissionGrants"*|*'command(*)'*|*"enableTerminalSandbox"*|*"autoExecutionPolicy"*|*".agents/hooks"*|*"$ROOT_NAME/hooks"*)
     if printf '%s' "$SCAN" | grep -Eq "$WRITE_INDICATORS"; then
       deny "self-escalation" "Refusing to widen your own permissions, disable the sandbox, or edit the gate. Report the blocker and its exact cause and let the owner decide."
     else
@@ -118,7 +128,7 @@ case "$SCAN" in
     fi ;;
 esac
 case "$SCAN" in
-  *"/.gemini/config/config.json"*|*"/.agents/hooks/"*|*"/.agents/hooks.env"*)
+  *"/.gemini/config/config.json"*|*"/.agents/hooks/"*|*"/.agents/hooks.env"*|*"/$ROOT_NAME/hooks/"*|*"/$ROOT_NAME/hooks.env"*)
     if printf '%s' "$SCAN" | grep -Eq "$WRITE_INDICATORS"; then
       deny "gate-tamper" "Refusing to modify the agent configuration or its gates from inside a task. Report what is blocking you instead."
     else
@@ -128,8 +138,14 @@ esac
 
 case "$CMD" in
   *"rm -rf"*|*"rm -fr"*)
+    # The scratch check below is a substring match over the whole command, so a `..` defeats
+    # it outright: `rm -rf /tmp/../Users/someone/work` contains `/tmp/` and would be waved
+    # through while targeting something else entirely. A relative segment means the literal
+    # path does not bound the target, so it can never qualify as scratch.
+    if printf '%s' "$CMD" | grep -Eq '(^|[^.])\.\.(/|$|[ "])'; then
+      ask "rm-rf-traversal" "Recursive delete whose path contains '..' — a scratch prefix does not bound where it resolves. Confirm the resolved target."
     # Allow only inside an explicitly safe scratch path.
-    if [ -n "$SCRATCH_PATTERNS" ] && printf '%s' "$CMD" | grep -Eq "$SCRATCH_PATTERNS"; then
+    elif [ -n "$SCRATCH_PATTERNS" ] && printf '%s' "$CMD" | grep -Eq "$SCRATCH_PATTERNS"; then
       :
     else
       ask "rm-rf" "Recursive delete outside a designated scratch directory. Confirm the exact path."
