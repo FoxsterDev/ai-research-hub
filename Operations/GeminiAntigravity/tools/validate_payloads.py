@@ -18,7 +18,7 @@ Usage:
   validate_payloads.py --global-rules DIR
                        [--workspace LABEL:PAYLOAD_DIR:REPO_ROOT ...]
                        [--global-budget BYTES] [--workspace-budget BYTES]
-                       [--secret-scan DIR] [--json]
+                       [--router LABEL:PATH] [--secret-scan DIR] [--json]
 
 PAYLOAD_DIR is the directory holding `rules/`, `skills/`, `skills.json`.
 REPO_ROOT is the repository the payload's relative corpus references resolve against.
@@ -32,6 +32,14 @@ import re
 import sys
 
 PER_FILE_CUTOFF = 24 * 1024
+
+# Hierarchically-discovered routers (Agents.md / AGENTS.md / GEMINI.md) are injected whole
+# and are usually the largest always-on file by far, but nothing in the platform or in the
+# corpora's own scripts caps their size. One reached 25904 bytes and silently lost its last
+# 1904 — the entire completion contract — and the only symptom was an agent breaking a rule
+# it had never received. Measured cutoff is 24000 bytes, not 24576.
+INJECTION_WINDOW = 24000
+INJECTION_MARGIN = 1024
 VALID_TRIGGERS = {"always_on", "glob", "manual", "model_decision"}
 
 SECRET_PATTERNS = [
@@ -168,6 +176,28 @@ def check_skills(label, skills_dir, repo_root=None):
         check_refs(f"{label}/skills/{name}", body, repo_root)
 
 
+def check_routers(label, paths):
+    """Warn before a hierarchical router grows past the window an agent actually receives."""
+    for path in paths:
+        if not os.path.isfile(path):
+            errors.append(f"[{label}] router not found: {path}")
+            continue
+        size = os.path.getsize(path)
+        rel = os.path.basename(path)
+        if size > INJECTION_WINDOW:
+            errors.append(
+                f"[{label}] {rel}: {size} bytes exceeds the {INJECTION_WINDOW}-byte injection "
+                f"window — the last {size - INJECTION_WINDOW} bytes never reach the model. "
+                f"Move reference material to a routed file and leave a pointer.")
+        elif size > INJECTION_WINDOW - INJECTION_MARGIN:
+            warnings.append(
+                f"[{label}] {rel}: {size} bytes, only {INJECTION_WINDOW - size} below the "
+                f"{INJECTION_WINDOW}-byte injection window. It still loads whole; move "
+                f"reference material out before it silently loses its tail.")
+        else:
+            notes.append(f"[{label}] {rel}: {size}/{INJECTION_WINDOW} bytes injected whole")
+
+
 def check_skills_json(label, path):
     if not os.path.isfile(path):
         notes.append(f"[{label}] no skills.json")
@@ -236,6 +266,9 @@ def main():
     # hit a number. Raise them with a measurement, not a hunch.
     ap.add_argument("--global-budget", type=int, default=12 * 1024)
     ap.add_argument("--workspace-budget", type=int, default=12 * 1024)
+    ap.add_argument("--router", action="append", default=[], metavar="LABEL:PATH",
+                    help="hierarchical router file to size-check against the "
+                         "injection window (repeatable)")
     ap.add_argument("--secret-scan", action="append", default=[])
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
@@ -253,6 +286,10 @@ def main():
         check_rules(label, os.path.join(payload, "rules"), a.workspace_budget, repo_root)
         check_skills(label, os.path.join(payload, "skills"), repo_root)
         check_skills_json(label, os.path.join(payload, "skills.json"))
+
+    for spec in a.router:
+        label, _, path = spec.partition(":")
+        check_routers(label, [os.path.expanduser(path)])
 
     for d in a.secret_scan:
         check_secrets(d)
