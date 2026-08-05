@@ -99,7 +99,28 @@ for c in "git checkout -- Pure/Views/Foo.swift" "git restore Foo.swift" "git cle
   check "asks before discarding uncommitted work: $c" '"decision":"force_ask"' "$OUT"
 done
 
-for c in "python3 -c \"json edit globalPermissionGrants\"" "defaults write enableTerminalSandbox false" "echo x >> /opt/example/.gemini/config/config.json" "sed -i s/a/b/ /opt/example/.agents/hooks/pre_tool_gate.sh"; do
+# Reads of the sensitive config must pass: an earlier version denied a read-only grep and
+# told the agent it was changing its own settings. Writes must still be denied.
+for c in "grep -c globalPermissionGrants /opt/example/.gemini/config/config.json" \
+         "cat /opt/example/.gemini/config/config.json" \
+         "python3 Tools/x.py --show autoExecutionPolicy"; do
+  OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
+  check "allows read of sensitive config: $c" '"decision":"allow"' "$OUT"
+done
+
+# git clean dry runs mutate nothing; asking about them trains click-through.
+for c in "git clean -n" "git clean --dry-run" "git clean -nd"; do
+  OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
+  check "allows git clean dry run: $c" '"decision":"allow"' "$OUT"
+done
+OUT=$(run pre_tool_gate.sh "$(cmd_payload 'git clean -fd')")
+check "still asks on a real git clean" '"decision":"force_ask"' "$OUT"
+
+for c in "sed -i s/false/true/ /opt/example/.gemini/config/config.json" \
+         "echo command(*) >> /opt/example/.gemini/config/config.json" \
+         "defaults write enableTerminalSandbox false" \
+         "cp /tmp/x /opt/example/.agents/hooks/pre_tool_gate.sh" \
+         "python3 -c import json; json.dump(d, open(GLOBALPERMS)); globalPermissionGrants"; do
   OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
   check "denies self-escalation / gate tampering: $c" '"decision":"deny"' "$OUT"
 done

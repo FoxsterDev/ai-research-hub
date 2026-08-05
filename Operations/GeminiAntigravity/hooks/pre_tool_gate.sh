@@ -76,23 +76,54 @@ if printf '%s' "$CMD" | grep -Eq 'rm +-[rRfF]+ +/([ "*]|\\|$)'; then
   deny "rm-rf-root" "Refusing a recursive delete targeting the filesystem root."
 fi
 
+# Shell forms that write. Used by the two guards below so that reading a sensitive file is
+# permitted and only mutation is denied. Matched against $SCAN, not $CMD: CMD extraction
+# stops at the first embedded quote, so `python3 -c "... open(cfg,'w') ..."` would hide its
+# write from a CMD-only match. These two guards must not be evadable by quoting.
+WRITE_INDICATORS='>>?[[:space:]]|sed[[:space:]]+-i|tee[[:space:]]|defaults[[:space:]]+write|truncate|sponge|jq[^|]*-i|\bcp\b|\bmv\b|chmod|open[^)]*["'"'"']w|json\.dump|write_text|writelines'
+
 # Restoring a tracked file discards uncommitted work silently and irreversibly. An
 # agent reached for this to clean up after itself in a repo it had been told held
 # uncommitted work. Ask, always — there is no safe automatic answer.
-case "$SCAN" in
-  *"git checkout -- "*|*"git checkout ."*|*"git restore"*|*"git clean"*)
+case "$CMD" in
+  *"git clean"*)
+    # -n / --dry-run only prints what would go. Asking about it is noise, and noise
+    # trains an agent to click through the prompts that matter.
+    if printf '%s' "$CMD" | grep -Eq 'git clean[^|;&]*(--dry-run|[[:space:]]-[a-zA-Z]*n)'; then
+      :
+    else
+      ask "git-discard" "This deletes untracked files irreversibly. Run it with -n first and confirm the list."
+    fi ;;
+esac
+case "$CMD" in
+  *"git checkout -- "*|*"git checkout ."*|*"git restore"*)
     ask "git-discard" "This discards uncommitted work irreversibly. Confirm the exact paths, and check nothing else is uncommitted first." ;;
 esac
 
-# Self-escalation: widening permissions, disabling the sandbox, or editing the gate
-# itself to get unblocked. Reported as a blocker instead — see 30_secrets_and_boundaries.
+# Self-escalation: widening permissions, disabling the sandbox, or editing the gate itself
+# to get unblocked. Reported as a blocker instead — see 30_secrets_and_boundaries.
+#
+# Only writes are denied. An earlier version matched any mention of these names, which
+# denied a read-only `grep -c globalPermissionGrants config.json` while telling the agent
+# it was trying to change its own settings — untrue, and it blocks exactly the diagnostic
+# a human would ask for. Note also what this guard is and is not: the escalation that
+# actually happened went through a file-edit tool, and PreToolUse is never dispatched for
+# those (4.1). So this is a backstop on one path, not the control. The control is the rule.
 case "$SCAN" in
-  *"globalPermissionGrants"*|*'command(*)'*|*"enableTerminalSandbox"*|*"autoExecutionPolicy"*)
-    deny "self-escalation" "Refusing to change your own permission or sandbox settings. Report the blocker and its exact cause instead, and let the owner decide." ;;
+  *"globalPermissionGrants"*|*'command(*)'*|*"enableTerminalSandbox"*|*"autoExecutionPolicy"*|*".agents/hooks"*)
+    if printf '%s' "$SCAN" | grep -Eq "$WRITE_INDICATORS"; then
+      deny "self-escalation" "Refusing to widen your own permissions, disable the sandbox, or edit the gate. Report the blocker and its exact cause and let the owner decide."
+    else
+      printf '%s read-sensitive tool=%s\n' "$TS" "$TOOL" >> "$LOG" 2>/dev/null
+    fi ;;
 esac
 case "$SCAN" in
   *"/.gemini/config/config.json"*|*"/.agents/hooks/"*|*"/.agents/hooks.env"*)
-    deny "gate-tamper" "Refusing to modify the agent configuration or its gates from inside a task. Report what is blocking you instead." ;;
+    if printf '%s' "$SCAN" | grep -Eq "$WRITE_INDICATORS"; then
+      deny "gate-tamper" "Refusing to modify the agent configuration or its gates from inside a task. Report what is blocking you instead."
+    else
+      printf '%s read-sensitive tool=%s\n' "$TS" "$TOOL" >> "$LOG" 2>/dev/null
+    fi ;;
 esac
 
 case "$CMD" in
