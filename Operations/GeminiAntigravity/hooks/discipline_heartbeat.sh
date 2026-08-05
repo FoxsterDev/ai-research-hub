@@ -8,7 +8,12 @@ LOG="$STATE/hooks.log"
 mkdir -p "$STATE" 2>/dev/null
 
 PAYLOAD=$(cat)
-[ -f "./hooks.env" ] && . ./hooks.env
+if [ -f "./hooks.env" ]; then
+  . ./hooks.env
+else
+  printf '%s WARN hooks.env not found in %s — running on built-in defaults\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PWD" >> "$LOG" 2>/dev/null
+fi
 
 EVERY="${HEARTBEAT_EVERY:-4}"
 
