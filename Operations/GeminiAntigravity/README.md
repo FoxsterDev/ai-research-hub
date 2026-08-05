@@ -70,15 +70,18 @@ Rules are advice; hooks are the only mechanism that can actually stop the agent.
 | `pre_tool_gate.sh` | `PreToolUse` | denies workspace-forbidden commands, force-asks on destructive ones, tracks edit batches |
 | `no_premature_stop.sh` | `Stop` | blocks termination while background work runs, when an edit had no validation after it, or when the answer has no Validation section |
 
-All three **fail open** — any error path prints `{}` and changes nothing, so a broken hook can
-never brick the agent. All three are counter-guarded so they cannot loop. Behaviour is driven
+All three **fail open** — every error path emits a valid permissive decision, so a broken hook
+can never brick the agent. Note what "permissive" must mean for `PreToolUse`: see below. All three are counter-guarded so they cannot loop. Behaviour is driven
 entirely by `hooks.env` (copy [`hooks/hooks.env.template`](hooks/hooks.env.template)), so the
 scripts stay identical across workspaces and only the config differs.
 
 Three hard-won rules encoded here, each explained in the platform contract:
 
-- **Never `{"decision":"allow"}` as a default.** It auto-approves the call and defeats the
-  user's own auto-execution policy. For "no opinion", return `{}`.
+- **Never emit a bare `{}` from `PreToolUse`.** `decision` is required; an empty object makes the
+  platform reject the tool call as `invalid_args` with an empty reason, and nothing runs.
+  Measured: with the gate emitting `{}`, `pwd` was blocked; without the gate it ran. Pass through
+  with a real decision — `PASSTHROUGH_DECISION`, default `allow`, which matches the no-hook
+  baseline. Set it to `ask` when auto-execution is off and the prompt should come back.
 - **Never a wildcard matcher.** `"*"` intercepts `ask_permission` and stalls the permission
   handshake; the agent gives up instead of working.
 - **Never gate edits via `PreToolUse`.** It is not dispatched for file-edit steps. Detect
@@ -137,9 +140,9 @@ reusable engine. A host bootstrap typically:
 1. runs `tools/validate_payloads.py` and `tools/test_hooks.sh` as a preflight, and refuses to
    install if either fails;
 2. copies `rules/*.md` into `~/.gemini/config/rules/`;
-3. concatenates the same rules (frontmatter stripped) into `~/.gemini/GEMINI.md` so a CLI that
-   reads it gets one source of truth rather than a drifting copy (cheap to keep, but see the
-   Gemini CLI auth limit above);
+3. does **not** write `~/.gemini/GEMINI.md`. Antigravity loads that file as a user-global rule, so
+   generating it injects the whole always-on kernel a second time — a doubled footprint for no
+   benefit, since the standalone Gemini CLI cannot sign in an individual account anyway;
 4. copies `hooks/*.sh` + `hooks.json` plus its own `hooks.env` into each workspace's
    `.agents/`, and gitignores `.agents/.state/`;
 5. merges its MCP servers into `~/.gemini/config/mcp_config.json` without clobbering others.

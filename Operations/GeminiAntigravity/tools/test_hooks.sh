@@ -99,7 +99,7 @@ for c in "git checkout -- Pure/Views/Foo.swift" "git restore Foo.swift" "git cle
   check "asks before discarding uncommitted work: $c" '"decision":"force_ask"' "$OUT"
 done
 
-for c in "python3 -c \"json edit globalPermissionGrants\"" "defaults write enableTerminalSandbox false" "echo x >> /Users/x/.gemini/config/config.json" "sed -i s/a/b/ /Users/x/.agents/hooks/pre_tool_gate.sh"; do
+for c in "python3 -c \"json edit globalPermissionGrants\"" "defaults write enableTerminalSandbox false" "echo x >> /opt/example/.gemini/config/config.json" "sed -i s/a/b/ /opt/example/.agents/hooks/pre_tool_gate.sh"; do
   OUT=$(run pre_tool_gate.sh "$(cmd_payload "$c")")
   check "denies self-escalation / gate tampering: $c" '"decision":"deny"' "$OUT"
 done
