@@ -8,6 +8,7 @@
 ## Rules
 - Use English for identifiers, logs, and documentation.
 - Do not add inline comments in C# unless the project explicitly requires them.
+- Never delete `Library/ScriptAssemblies` or `Library/Bee` to solve a compile error. Structural errors like duplicate references are solved in `.asmdef` files.
 - Public APIs may use XML docs when the contract is not obvious.
 - Do not introduce reflection into production code without explicit user approval. Prefer explicit contracts, factories, registries, or typed seams.
 - Do not use reflection to jump across asmdef or module boundaries for runtime feature wiring. Prefer an explicit shared contract, a project-layer subscriber, or an intentional assembly dependency change.
