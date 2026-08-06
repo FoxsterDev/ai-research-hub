@@ -95,6 +95,7 @@ Limits:
   - fix the blocker first
   - switch to `batch_compile` only when that lane is allowed and the claim tolerates it
   - or report the remaining validation gap explicitly
+- If an MCP compilation task returns `script_compilation_failed == true` and `recent_compiler_diagnostics` contains a "Phantom compilation failure" marker, you must open the tail of `Editor.log`, break it into chunks, and analyze it backwards (from newest to oldest) to find the unknown structural error before giving up.
 - Do not treat `batch_compile` success as proof of:
   - play mode behavior
   - scene-state correctness
