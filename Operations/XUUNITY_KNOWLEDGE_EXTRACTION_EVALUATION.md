@@ -254,20 +254,20 @@ Recommended filename shape:
 - `knowledge_extraction_eval_YYYY-MM-DD.md`
 
 ## Baseline Policy
-Maintain one named baseline report for the current extraction workflow.
+Use `AIOutput/Reports/System/knowledge_extraction_eval_latest_summary.json` as the
+stable selector for current authoritative extraction-health status. The harness
+updates it only after an authoritative human-scored run. The dated report and
+matching run JSON remain the run-specific review evidence.
 
-Recommended file:
-- `AIOutput/Reports/System/knowledge_extraction_eval_baseline_v1.md`
-
-Use dated authoritative reports as review evidence or history, but keep
-`knowledge_extraction_eval_baseline_v1.md` as the current baseline pointer until
-the reporting tool supports another canonical baseline selector.
+`knowledge_extraction_eval_baseline_v1.md` is a legacy baseline-presence marker:
+the reporting command checks only whether it exists to populate `baseline_exists`.
+It is not a current-evidence selector and the harness does not update it.
 
 When prompts change:
 1. rerun the golden pack
-2. compare against the baseline
-3. update the baseline only after human review confirms the new behavior is better, not merely different
-4. use the authoritative approval checklist before changing the latest summary into approved health evidence
+2. compare the dated authoritative run evidence with the approved baseline evidence
+3. record human approval in the run bundle only when the new behavior is better, not merely different
+4. use the authoritative approval checklist before `report --write-back` updates the latest summary
 
 ## Health Review Integration
 When running `xuunity system health review`, check:

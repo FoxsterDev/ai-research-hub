@@ -78,12 +78,13 @@ particular model follows it.
 - Flag any active rule that still treats all reusable knowledge as a single shared layer.
 - Flag any active rule that allows non-public-safe guidance to drift into `AIRoot/Modules/XUUnity/`.
 - Include the health of the knowledge extraction pipeline when `xuunity extract ...` is part of the active system.
-- If the active system keeps extraction regression evidence, resolve it through the stable summary
-  pointer `<host-report-root>/knowledge_extraction_eval_latest_summary.json`, then read the dated
-  authoritative report it identifies. Do not assume an undated `..._baseline_v1.md` filename; the
-  authoritative artifact is dated per run and the summary JSON is the only stable selector.
-  Compare current counts (public/internal/skills/hints) against that evidence. The dated report IS the
-  artifact — there is no separate framework spec to consult.
+- If the active system keeps extraction regression evidence, resolve current health through the stable
+  summary pointer `<host-report-root>/knowledge_extraction_eval_latest_summary.json`. The harness writes
+  that file only for authoritative human-scored runs; it is a status projection, not a report locator.
+  When full evidence is needed, retrieve the dated report and run bundle through host-local evidence
+  records. Do not use an undated `..._baseline_v1.md` file as a selector: the harness reads it only to
+  populate `baseline_exists`. Compare current counts (public/internal/skills/hints) against the reviewed
+  run evidence. The dated report is the artifact — there is no separate framework spec to consult.
 - If extraction routing changed recently and no baseline file or recent run exists, flag the gap explicitly.
 - When the active system exposes a Unity MCP operational layer, check whether it also exposes a checked-in smoke route.
 - Prefer checked-in smoke routes over ad hoc manual command lists when verifying MCP operational health.
