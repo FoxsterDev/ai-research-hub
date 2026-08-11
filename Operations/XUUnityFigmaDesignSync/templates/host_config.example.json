@@ -1,0 +1,10 @@
+{
+  "reference_viewport": { "width": 0, "height": 0, "orientation": "portrait" },
+  "contracts": {
+    "example_contract_id": {
+      "card_art": { "target_width": 0, "target_height": 0 },
+      "cta_button": { "target_width": 0, "target_height": 0 },
+      "close_icon": { "target_width": 0, "target_height": 0 }
+    }
+  }
+}
