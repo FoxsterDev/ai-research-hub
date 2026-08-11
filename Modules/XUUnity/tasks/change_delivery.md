@@ -19,7 +19,7 @@ Use this task when the work is already implemented and the next problem is chang
 - hiding unresolved validation gaps behind a polished commit message
 
 ## Inputs
-- `git status` for every touched repo surface
+- `git status` for every touched repo surface, read as an ownership question and not only a change list: on a branch shared with other concurrent sessions it also lists paths this session never touched
 - `git diff` and `git diff --staged` for each candidate commit unit
 - host-local overlay guidance when nested repos or submodules are involved
 - already collected validation evidence, if any
@@ -240,4 +240,7 @@ For repo-wide cascade work, pointer-update host commits should also name the adv
 - Prefer a dedicated pointer-only root commit such as `chore(submodule): advance <path> to <sha>` when the root repo itself has no other first-class change.
 - If generated files or lockfiles are included, state why they belong to the same commit unit.
 - If unrelated files are already staged from prior work, do not carry them into the current commit by accident; preserve them unstaged or split them into their own reviewed commit unit.
+- On a branch shared with other concurrent sessions, confirm ownership of every path before staging it. A dirty working tree is not evidence that this session produced the change, and `git add -A` on a shared branch publishes another session's in-flight work under this session's commit message.
+- Re-verify commit identifiers at the moment they are reported, not from earlier session context. A rebase or amend between the commit and the report orphans the original hashes, so a summary can cite hashes that are no longer reachable from the branch.
+- Leave a shared append-only ledger alone when another session may be mid-write. Appending is safe; surgically rewriting or partially staging one is not, and a reconcile step will rebuild derived state from the ledger anyway.
 - If hunk splitting would make the history misleading, create a preparatory refactor or mechanical commit first, then the behavior change commit.

@@ -9,7 +9,9 @@
       "task_text": "Correct a typo in the contribution guide wording.",
       "task_kind": "documentation_update",
       "risk_class": "baseline",
-      "planned_mutation_paths": ["docs/contributing_notes.md"],
+      "planned_mutation_paths": [
+        "docs/contributing_notes.md"
+      ],
       "expect_matched_rule_ids": [
         "base_role",
         "entrypoint_kernel",
@@ -23,8 +25,12 @@
       "task_text": "Adjust the widget component implementation details.",
       "task_kind": "documentation_update",
       "risk_class": "normal",
-      "planned_mutation_paths": ["Sample/Scripts/Widget.cs"],
-      "expect_rule_ids_include": ["csharp_code_change"],
+      "planned_mutation_paths": [
+        "Sample/Scripts/Widget.cs"
+      ],
+      "expect_rule_ids_include": [
+        "csharp_code_change"
+      ],
       "expect_rule_ids_exclude": [
         "async_threading",
         "sdk_privacy",
@@ -38,8 +44,13 @@
       "task_text": "Move the upload continuation off the main thread using async scheduling.",
       "task_kind": "documentation_update",
       "risk_class": "normal",
-      "planned_mutation_paths": ["Sample/Scripts/Uploader.cs"],
-      "expect_rule_ids_include": ["async_threading", "csharp_code_change"]
+      "planned_mutation_paths": [
+        "Sample/Scripts/Uploader.cs"
+      ],
+      "expect_rule_ids_include": [
+        "async_threading",
+        "csharp_code_change"
+      ]
     },
     {
       "id": "high_risk_loads_contract_families",
@@ -47,8 +58,30 @@
       "task_text": "Adjust the widget component implementation details.",
       "task_kind": "documentation_update",
       "risk_class": "high",
-      "planned_mutation_paths": ["Sample/Scripts/Widget.cs"],
-      "expect_rule_ids_include": ["high_risk_contracts", "routing_gate"]
+      "planned_mutation_paths": [
+        "Sample/Scripts/Widget.cs"
+      ],
+      "expect_rule_ids_include": [
+        "high_risk_contracts",
+        "routing_gate"
+      ]
+    },
+    {
+      "id": "framework_only_stack_loads_attribution_doctrine",
+      "description": "Triaging a production exception whose stack has no application frame must load the detached-callback attribution doctrine alongside the async family.",
+      "task_text": "Attribute a production ObjectDisposedException from a UniTask timer callback whose stacktrace shows only PlayerLoopRunner frames and no application frame; every sample is an identical stacktrace and the async teardown owner is unknown.",
+      "task_kind": "bug_fixing",
+      "risk_class": "high",
+      "planned_mutation_paths": [
+        "Assets/Runtime/Cache/IconCache.cs"
+      ],
+      "expect_rule_ids_include": [
+        "detached_callback_attribution",
+        "async_threading"
+      ],
+      "expect_artifact_paths_include": [
+        "AIRoot/Modules/XUUnity/knowledge/detached_callback_attribution.md"
+      ]
     }
   ]
 }

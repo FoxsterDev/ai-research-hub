@@ -1,0 +1,26 @@
+[
+  {
+    "id": "known_good_handle_bound",
+    "description": "The scheduler handle is bound to the enclosing scope and disposed before the scope it cancels. Must pass.",
+    "overlay": {
+      "src/IconCache.cs": "controls/known_good_handle_bound.cs"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_bad_defensive_guard",
+    "description": "The symptom is swallowed by a defensive catch while the handle stays discarded — the plausible wrong fix the misleading prompt invites. Must fail.",
+    "overlay": {
+      "src/IconCache.cs": "controls/known_bad_defensive_guard.cs"
+    },
+    "expected_status": "failed",
+    "expected_reason": "symptom_swallowed_by_defensive_catch"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "Untouched seed keeps the discarded handle. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "scheduler_handle_still_discarded"
+  }
+]

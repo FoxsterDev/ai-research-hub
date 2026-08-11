@@ -223,6 +223,39 @@
       "human_owner": "{module}/skills/sdk/README.md"
     },
     {
+      "id": "detached_callback_attribution",
+      "description": "Triage of a framework-only exception stack loads the detached-callback attribution doctrine.",
+      "priority": 22,
+      "selectors": {
+        "keywords_any": [
+          "no application frame",
+          "framework-only stack",
+          "framework only stack",
+          "playerlooprunner",
+          "playerlooptimer",
+          "first non-framework frame",
+          "identical stacktrace",
+          "stack-only",
+          "detached callback",
+          "timer callback",
+          "scheduler callback"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "detached_callback_attribution",
+          "mode": "all_of",
+          "paths": [
+            "{module}/knowledge/detached_callback_attribution.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "high",
+      "human_owner": "{module}/knowledge/detached_callback_attribution.md"
+    },
+    {
       "id": "monetization_policy",
       "description": "Monetization-path changes load the monetization policy pack.",
       "priority": 23,
@@ -468,5 +501,5 @@
       "human_owner": "{module}/reviews/policy_packs/sdk_changes.md"
     }
   ],
-  "ruleset_hash": "b9184c3c19c4e1e0aec8c86027eaeb628ee8cc2e34a8f01f08145ba2f782af8d"
+  "ruleset_hash": "62682391288ac1def6038b3a661f8ac7e9d3389c99c344cd753aaa16238936ac"
 }
