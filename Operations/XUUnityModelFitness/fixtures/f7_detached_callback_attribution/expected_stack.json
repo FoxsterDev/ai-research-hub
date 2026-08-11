@@ -1,0 +1,19 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored expected derivation for the F7 task: the scheduler-timer ownership rule owns this fix. The attribution doctrine is required because the reported stack carries no application frame, so the prompt's 'bucket by first non-framework frame' instruction is unexecutable and its candidate list is unsupported by evidence.",
+  "groups": [
+    {
+      "group_id": "scheduler_timers.owner",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["skills/scheduler_timers.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "skills/scheduler_timers.md",
+      "effective_owner": null
+    }
+  ]
+}

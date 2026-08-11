@@ -1,0 +1,58 @@
+{
+  "schema_version": "xuunity.reduced-stack-rules.v1",
+  "ruleset_id": "xuunity.fixture.f2-override-precedence",
+  "ruleset_version": "1.0.0",
+  "override_path_templates": [
+    "{project}/Overrides/{family}.md"
+  ],
+  "rules": [
+    {
+      "id": "entrypoint",
+      "description": "Stack entrypoint is always required.",
+      "priority": 10,
+      "selectors": {
+        "always": true
+      },
+      "requirements": [
+        {
+          "id": "start",
+          "mode": "all_of",
+          "paths": [
+            "{module}/tasks/start_here.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "baseline",
+      "human_owner": "{module}/tasks/start_here.md"
+    },
+    {
+      "id": "network_retry",
+      "description": "Retry/backoff work loads the network retry family and any existing project override of it.",
+      "priority": 20,
+      "selectors": {
+        "keywords_any": [
+          "retry",
+          "backoff",
+          "telemetry"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "guidance",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/network_retry.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "override_family": "network_retry",
+      "risk": "high",
+      "human_owner": "{module}/skills/network_retry.md"
+    }
+  ],
+  "ruleset_hash": "379935216ae5c61551e01f46fce74f6d8667f88b1119695ec1ac81cb566f2c15"
+}

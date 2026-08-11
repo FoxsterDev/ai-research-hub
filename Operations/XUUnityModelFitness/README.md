@@ -183,6 +183,14 @@ raw evidence in their own private operation and compose this engine.
   events, ambiguous first mutation) plus an honest positive control. Every
   attack must fail, cap, or invalidate measurement — never a valid passing
   score.
+- **F7 `f7_detached_callback_attribution`** — a misleading task premise over a
+  real one-line defect. The prompt asserts a prior fix wave failed, supplies a
+  candidate list that does not contain the defect, and instructs bucketing by
+  the first non-framework frame on a stack that has none. The only real defect
+  is a discarded scheduler-timer `IDisposable` whose scope is `using`-bound.
+  Both a surviving leak and a defensive `catch (ObjectDisposedException)` that
+  swallows the symptom must fail; only releasing the handle passes. Derived
+  from a production incident, 2026-08-10.
 
 ### `model_fitness/experiment.py` — preregistered experiments (P2.4)
 
