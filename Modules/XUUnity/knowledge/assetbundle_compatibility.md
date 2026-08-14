@@ -69,6 +69,12 @@ Before publishing a shared production bundle, record:
 18. Newest-client smoke result.
 19. Verdict: shared bundle safe, or version-gated content required.
 
+## Retiring Published Objects
+
+- Content-addressed keys can make every release leave the previous release's objects absent from the newest manifest while shipped clients continue resolving manifests they fetched earlier. Deleting objects merely because the newest manifest no longer names them can remove exactly what live clients still request.
+- Define the authoritative retained-reference set as the union of every published manifest that a supported client may still hold under the product's publication and retention policy. Re-read that authority at the destructive call instead of trusting a local snapshot that may predate another publisher.
+- Use object age as an additional fail-safe gate, sized by the maximum supported manifest-hold window rather than CDN TTL; age alone does not prove that an object is unreferenced. If the product policy defines no finite hold window, time-based retirement is not authorized. A missing or unparseable timestamp must read as *new*, so a parse failure protects the object instead of exposing it.
+
 ## Decision Test
 
 If the oldest supported client can load the bundle and the product accepts its degraded behavior, one shared bundle may be safe.

@@ -48,6 +48,10 @@
   - a custom recording target is not the same as `LogAssert`
 - When a test starts failing after review cleanup, verify whether the code path still works but now emits through a different observation channel before rewriting production code or weakening the test.
 - When Unity validation cannot be executed representatively, make the validation gap explicit instead of silently hanging, downgrading the claim, or substituting weaker proof without saying so.
+- After editing a test file, confirm the test assembly actually rebuilt and the edited test was discovered before trusting the run. A stale assembly fails two ways: a filter that matches nothing, and — worse — a green result produced by the previous code. Prefer the named edited test's discovery and result as proof; use the built assembly timestamp or aggregate totals only as corroboration because parameterization and conditional compilation can change the count.
+- `[Explicit]` is not a safety boundary for a test that touches a live external resource. A broad unfiltered NUnit run normally skips explicit tests, while a positive selection of a test, fixture, category, or containing suite can include them. Treat Unity runner filters such as `assemblyNames` as runner- and version-dependent until representative evidence proves whether they count as an explicit selection for the active lane.
+- Gate a live-resource test inside the test body instead: check an environment variable or editor preference and call `Assert.Ignore` when it is absent. Confirm the gate by inspecting that named test's skipped result and expected reason, not an aggregate non-zero `skipped` count that could belong to another test.
+- No test may call `EditorApplication.Exit`. Under batch mode it terminates the editor mid-suite, so the remaining tests never run and the exit code can still report success.
 
 ## Reviewer Focus
 - was the blocked runner cause diagnosed clearly
@@ -55,3 +59,4 @@
 - was the suite widened appropriately after shared harness changes
 - is the evidence level matched to the claim
 - are performance claims backed by the correct measurement layer
+- is every live-resource test gated inside its body, with that named test's expected skip observed rather than inferred from aggregate totals

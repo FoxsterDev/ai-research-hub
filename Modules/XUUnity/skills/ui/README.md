@@ -9,7 +9,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 - `mobile_ux_quality.md` — safe areas, cutouts, font scaling, larger-text mode, light/dark contrast, RTL / localization-safe layout.
 - `popup_and_screen_flows.md` — modal dialogs, reward popups, offer screens, staged popups, timing races, duplicate open/close, multi-gate user-data reuse across flow steps.
 - `ugui.md` — Canvas hierarchy stability, partial UI updates, pooled list items, safe-area, hidden-but-active graphics.
-- `ui_toolkit.md` — UI Toolkit (UIElements), USS/UXML, editor-facing panels, retained-mode runtime UI, UI Toolkit vs UGUI choice.
+- `ui_toolkit.md` — UI Toolkit (UIElements), USS/UXML, editor-facing panels, `ListView` virtualization and pooled-row binding, loading-versus-empty state, editor skin theming, multi-step tool layout, retained-mode runtime UI, UI Toolkit vs UGUI choice.
 - `virtualized_scrollrect.md` — large `ScrollRect` lists or grids, virtualization, pooled cells, viewport-window math.
 - `textmeshpro/rich_text_rendering.md` — HTML-shaped strings into TMP labels; converting `<a>`, `<br>`, `<p>` and entities into the closed TMP rich-text tag set; survey of FancyTextRendering / tmpro-custom-tags.
 - `textmeshpro/glyph_coverage.md` — `TMP_FontAsset.HasCharacter` / `HasCharacters` across TMP versions; sanitizer recipe for missing-glyph `□`.
@@ -22,7 +22,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 - safe area, cutout, touch-target sizing, font scaling, larger-text, contrast, RTL, localization → `mobile_ux_quality.md`.
 - modal dialogs, popup races, duplicate open/close, staged popups, non-authoritative first-screen progression, multi-step flow data reuse, double location/age/identity prompt → `popup_and_screen_flows.md`.
 - Canvas-based UGUI hierarchy work, partial UI updates, pooled list items, hidden-but-active graphics → `ugui.md`.
-- UI Toolkit / UIElements / USS / UXML / retained-mode runtime UI → `ui_toolkit.md`.
+- UI Toolkit / UIElements / USS / UXML / retained-mode runtime UI, `ListView` or `TreeView` in an editor panel, pooled-row rebinding, editor-window theming or Light/Dark skin, numbered multi-step tool layout → `ui_toolkit.md`.
 - `ScrollRect` virtualization, infinite scroll, pooled cells → `virtualized_scrollrect.md`.
 - `<p>`, `<a>`, `<br>`, `&amp;`, `&nbsp;`, HTML markup in TMP labels, disclaimer or terms text, "user sees literal markup" bug → `textmeshpro/rich_text_rendering.md`.
 - `TMP_FontAsset.HasCharacter`, `HasCharacters`, font fallback chain, missing-glyph `□`, supplementary-plane codepoints, cross-TMP-version API question → `textmeshpro/glyph_coverage.md`.
