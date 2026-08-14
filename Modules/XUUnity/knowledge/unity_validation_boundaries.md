@@ -23,6 +23,8 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - When the lightweight `xuunity` MCP wrapper exposes `unity_compile_build_config_matrix` or `request-build-config-compile-matrix`, prefer that route over ad hoc per-profile compile requests.
 - Do not hand-author per-profile define lists in chat when the project already has a build-config source of truth.
 - Do not mutate `PlayerSettings.SetScriptingDefineSymbols*` as the default route for validation when the integrated MCP compile matrix can accept the per-profile define sets directly.
+- A local `file:` UPM package is compiled separately by every consumer project, so the owning project's green compile is not evidence for any consumer once a public or internal API signature changed; the obligation is one compile per consumer project.
+- Include the templates that seed future consumers in that fan-out: protocol snippets, integration prompts, and scaffold code carry the old signature until they are updated in the same change.
 - Treat artifact-build validation as a different proof class from compile validation.
 - For long-running artifact builds, prefer an approved batch build lane over an interactive scenario lane when the claim depends on:
   - process exit
