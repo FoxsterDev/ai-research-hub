@@ -50,6 +50,7 @@ MODULE_FILES = [
     "knowledge/validation_contract.md",
     "knowledge/risk_classification.md",
     "knowledge/agent_source_of_truth.md",
+    "knowledge/detached_callback_attribution.md",
     "utilities/module_session_routing.md",
 ]
 
