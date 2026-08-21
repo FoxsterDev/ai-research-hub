@@ -32,6 +32,10 @@ Every added state owner or coordination/abstraction mechanism must name:
 
 If the same invariant is guarded in more than one layer, consolidate it or document the distinct semantics. “Defense in depth” without a different reachable failure mode is duplication, not a free safety improvement.
 
+The `document the distinct semantics` branch is available only when the two owners' state is independent. If either owner's derived state or disposal reads the other's, documenting the split does not discharge the consolidation — it preserves a divergence the reader will now trust.
+
+When two owners differ only by the breadth of what they gate, prefer merging them into one owner with a per-record discriminator over extracting a shared primitive both forward to. Extraction that leaves forwarders behind pays a file and a hop for zero behavior change; the merge removes the collection, the second teardown path, and the class of bug where the two copies diverge. This is the ordinary “replace a type axis that should be data” move, not a novel pattern — the point is that it is the default, not the fallback.
+
 ## Project-Fit Gate
 Before introducing a new lifecycle, binding, shared-operation, popup-flow, cache, or request-coordination abstraction:
 

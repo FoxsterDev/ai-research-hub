@@ -19,6 +19,7 @@ Archive is a short-term holding area, not a permanent preservation promise.
 - substantive rewriting of `Assets/AIOutput/ProjectMemory/` as part of routine cleanup
 - removing the only remaining artifact for a project/family without explicit user approval
 - deleting files only because they are old
+- consolidating a finished task's own intent artifacts into its as-built record; that is a closeout step owned by `task_registry_append.md`, and it is scoped to one task rather than to a retention window
 
 ## Cleanup Targets
 The utility supports three target scopes:
