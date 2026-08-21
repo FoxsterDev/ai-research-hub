@@ -37,7 +37,7 @@ Apply commands after review:
 Use when the user wants to learn how this repo actually implements a repeated code pattern from two or more real examples.
 
 This is the better fit for requests such as:
-- extract how presenters are built from `HomePresenter` and `LobbyPresenter`
+- extract how presenters are built from two maintained screen or root presenter exemplars
 - extract the house style for startup orchestration from multiple bootstrappers
 - extract the shared popup-flow pattern from several concrete presenters
 

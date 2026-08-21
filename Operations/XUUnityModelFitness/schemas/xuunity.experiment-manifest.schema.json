@@ -11,6 +11,7 @@
     "treatment_variable",
     "control",
     "treatment",
+    "suite_arms",
     "matrix",
     "attempt_schedule",
     "family",
@@ -21,7 +22,7 @@
     "apply_authority"
   ],
   "properties": {
-    "schema_version": { "const": "xuunity.experiment-manifest.v1" },
+    "schema_version": { "const": "xuunity.experiment-manifest.v2" },
     "experiment_id": { "type": "string", "minLength": 1 },
     "hypothesis": { "type": "string", "minLength": 1 },
     "treatment_variable": {
@@ -31,6 +32,15 @@
     },
     "control": { "$ref": "#/$defs/payload_ref" },
     "treatment": { "$ref": "#/$defs/payload_ref" },
+    "suite_arms": {
+      "type": "object",
+      "required": ["control", "treatment"],
+      "properties": {
+        "control": { "$ref": "#/$defs/suite_arm" },
+        "treatment": { "$ref": "#/$defs/suite_arm" }
+      },
+      "additionalProperties": false
+    },
     "matrix": {
       "type": "object",
       "required": ["ref", "sha256"],
@@ -70,10 +80,13 @@
     },
     "f6_exposure_budget": {
       "type": "object",
-      "required": ["max_exposures", "consumed_before"],
+      "required": ["max_exposures", "consumed_artifact_hashes"],
       "properties": {
         "max_exposures": { "type": "integer", "minimum": 0 },
-        "consumed_before": { "type": "integer", "minimum": 0 }
+        "consumed_artifact_hashes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" }
+        }
       },
       "additionalProperties": false
     },
@@ -146,6 +159,20 @@
       "properties": {
         "ref": { "type": "string", "minLength": 1 },
         "content_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "suite_arm": {
+      "type": "object",
+      "required": [
+        "suite_id",
+        "suite_hash",
+        "strict_profile_key"
+      ],
+      "properties": {
+        "suite_id": { "type": "string", "minLength": 1 },
+        "suite_hash": { "$ref": "#/$defs/sha256" },
+        "strict_profile_key": { "$ref": "#/$defs/sha256" }
       },
       "additionalProperties": false
     }

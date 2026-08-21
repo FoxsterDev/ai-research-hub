@@ -1,0 +1,44 @@
+[
+  {
+    "id": "known_good_proportional_review",
+    "description": "Evidence-based review distinguishes player-loop reentrancy from threads, charges structural cost, preserves the real ordering invariant, and proposes an ordered cleanup. Must pass.",
+    "overlay": {
+      "review_result/result.json": "controls/known_good_proportional_review.json"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_good_worker_thread_review",
+    "description": "Explicit worker-thread ingress shares one adapter queue with the Unity player loop, justifying one narrow boundary gate while the unrelated synchronization remains overengineered. Must pass.",
+    "overlay": {
+      "Project/App/src/UnityReferralAdapter.cs": "controls/worker_thread_referral_adapter.cs",
+      "review_result/result.json": "controls/known_good_worker_thread_review.json"
+    },
+    "expected_status": "passed"
+  },
+  {
+    "id": "known_bad_thread_safety_praise",
+    "description": "Plausible high-scoring review treats every callback as multithreaded and rewards visible synchronization while missing ownership spread. Must fail.",
+    "overlay": {
+      "review_result/result.json": "controls/known_bad_thread_safety_praise.json"
+    },
+    "expected_status": "failed",
+    "expected_reason": "architecture_dimension_cap_exceeded"
+  },
+  {
+    "id": "known_bad_remove_real_guard",
+    "description": "Review notices speculative synchronization but deletes the real collect-versus-refresh ordering invariant without a replacement. Must fail.",
+    "overlay": {
+      "review_result/result.json": "controls/known_bad_remove_real_guard.json"
+    },
+    "expected_status": "failed",
+    "expected_reason": "real_temporal_invariant_not_preserved"
+  },
+  {
+    "id": "seed_unmodified",
+    "description": "A read-only review task without its required review artifact is incomplete. Must fail.",
+    "overlay": {},
+    "expected_status": "failed",
+    "expected_reason": "review_artifact_missing"
+  }
+]

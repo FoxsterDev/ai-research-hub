@@ -114,6 +114,7 @@
           },
           "override_family": { "type": ["string", "null"] },
           "effective_owner": {
+            "description": "Guidance-precedence owner after stack assembly. This is not evidence provenance or approval; change reviews apply the review-evidence provenance contract separately.",
             "anyOf": [
               { "type": "string", "enum": ["public", "project"] },
               { "type": "null" }

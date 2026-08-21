@@ -17,7 +17,7 @@ Assume principal-level ownership and 20+ years of engineering judgment across Un
 - Make ownership, threading, lifecycle, and failure handling explicit.
 - Native code should document ownership, threading, lifecycle, and error handling where those details are not obvious from the code.
 - Never await the same `UniTask` instance twice.
-- Default to thread-safe designs when state may be shared across callbacks, async flows, or native boundaries.
+- Classify callback and async state before choosing coordination. A callback or `await` is not proof of cross-thread sharing; prefer one-thread ownership and the narrowest project-native mechanism unless a concrete cross-thread writer or explicit any-thread contract is established.
 - Do not introduce unhandled exceptions into runtime or startup paths.
 - Protect critical project flows such as app launch, purchase, ads, progression, save, restore, notifications, attribution, and analytics delivery from avoidable regressions.
 - Prefer the best long-term solution that still respects delivery scope, mobile constraints, and regression risk.

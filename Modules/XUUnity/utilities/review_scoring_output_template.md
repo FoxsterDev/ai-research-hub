@@ -26,7 +26,7 @@ This file only standardizes the output shape.
 | Security, privacy, and abuse resistance | 15 |  |  |
 | Validation and release confidence | 15 |  |  |
 | Observability and operability | 10 |  |  |
-| Maintainability and change safety | 10 |  |  |
+| Simplicity, project fit, maintainability, and change safety | 10 |  |  |
 
 ## Product Interpretation
 Short plain-language explanation for non-technical stakeholders.

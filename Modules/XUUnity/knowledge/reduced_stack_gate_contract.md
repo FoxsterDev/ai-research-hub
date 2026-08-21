@@ -56,7 +56,10 @@ existing or a human owner becomes unreachable.
 - When a matched rule declares an `override_family` and the resolved project
   has `ProjectMemory/SkillOverrides/<family>.md`, the plan requires **both**
   the public owner and the project override, and marks the project override
-  `effective_owner: project`. Project truth wins conflicts.
+  `effective_owner: project`. This field records normal guidance precedence,
+  not evidence provenance or independent approval. During a change review,
+  an override added or modified by the target remains candidate evidence under
+  `knowledge/review_evidence_provenance.md`; it cannot validate the same change.
 - Requirement phases: `before_first_mutation` obligations can never be cured
   after a mutation; `before_closeout` / `on_reconcile` obligations may be
   added by the actual diff and reopen the gate instead of failing it.

@@ -18,10 +18,10 @@ import reduced_stack_testkit as kit  # noqa: E402
 import xuunity_canonical as xc  # noqa: E402
 
 ASYNC_TASK = (
-    "PD-1 Add async retry to the level loader: SwitchToThreadPool, await a "
+    "TASK-1 Add async retry to the level loader: SwitchToThreadPool, await a "
     "UniTask, then continue on the main thread."
 )
-CS_TASK = "PD-2 Rename the score field on the leaderboard view."
+CS_TASK = "TASK-2 Rename the score field on the leaderboard view."
 DOCS_TASK = "Fix a typo in the module readme documentation."
 
 

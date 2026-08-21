@@ -9,6 +9,7 @@ Always start with:
 - `base_async_rules.md`
 
 Then add only the needed topic files:
+- `concurrency_classification.md` for callbacks, shared mutable state, duplicate-entry guards, synchronization primitives, or thread-safety claims
 - `unitask.md`
 - `awaitable.md`
 - `dotnet_task.md`
@@ -23,3 +24,4 @@ Async work must respect:
 - zero ANR
 - no microfreezes on critical flows
 - minimal allocation and synchronization overhead
+- evidence-based distinction between temporal reentrancy and cross-thread shared state

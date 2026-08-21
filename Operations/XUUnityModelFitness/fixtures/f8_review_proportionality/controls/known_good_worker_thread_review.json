@@ -1,0 +1,95 @@
+{
+  "schema_version": "xuunity.f8-review.v1",
+  "source_changes_made": false,
+  "scope": "invite-and-share worker-ingress control delta if landed",
+  "review_scores": {
+    "weights": {
+      "correctness": 20,
+      "architecture_and_ownership": 15,
+      "safety": 15,
+      "security": 15,
+      "validation": 15,
+      "observability": 10,
+      "simplicity_project_fit_maintainability": 10
+    },
+    "dimensions": {
+      "correctness": 85,
+      "architecture_and_ownership": 55,
+      "safety": 80,
+      "security": 90,
+      "validation": 70,
+      "observability": 80,
+      "simplicity_project_fit_maintainability": 45
+    },
+    "overall": 73.75,
+    "overall_cap_applied": false,
+    "overall_cap_reason": null,
+    "confidence": "low"
+  },
+  "concurrency": {
+    "classification": "cross_thread_shared",
+    "ingress": "documented_worker_thread",
+    "readers": [
+      "UnityReferralAdapter.TryDrainOnUnityPlayerLoop"
+    ],
+    "writers": [
+      "UnityReferralAdapter.OnReferralReceivedFromWorkerThread"
+    ],
+    "boundary_normalization": "The adapter dequeues at most one referral on the Unity player loop and invokes ReferralReceived outside the lock.",
+    "justified_synchronization": [
+      "_pendingReferralGate"
+    ],
+    "evidence": "A callback alone is not evidence of cross-thread access. Here the source explicitly documents a worker-thread writer and a Unity player-loop reader of the pending referral queue protected by _pendingReferralGate."
+  },
+  "findings": [
+    {
+      "id": "justified_worker_boundary",
+      "summary": "The adapter's _pendingReferralGate is justified synchronization for the documented worker writer and player-loop reader; event delivery occurs after the lock is released."
+    },
+    {
+      "id": "unsupported_synchronization",
+      "summary": "The remaining lock, Interlocked, and SemaphoreSlim inventory contains unsupported synchronization and duplicated same-action guards without another named off-main writer."
+    },
+    {
+      "id": "ownership_spread",
+      "summary": "Ownership is spread across the root presenter, rewards presenter, service, and popup; the root presenter owns feature orchestration."
+    },
+    {
+      "id": "project_capability_duplication",
+      "summary": "Inspect and reuse existing project capabilities for result flows, event binding, and shared execution when their actual semantics match."
+    },
+    {
+      "id": "concrete_nonlocal_risk",
+      "summary": "The rewards-to-root callback and root-owned popup queue create a concrete non-local lifecycle and ordering risk for reward presentation."
+    }
+  ],
+  "evidence_provenance": {
+    "comparison_base": "release baseline source and established project capabilities",
+    "branch_candidate": "branch ProjectMemory threading note is candidate evidence only",
+    "independent_authority": "none"
+  },
+  "preserved_invariants": [
+    {
+      "name": "collect-versus-refresh stale-response precedence",
+      "strategy": "Preserve the ordering invariant while replacing the semaphore with one flow-owned operation generation or explicit state owner."
+    }
+  ],
+  "cleanup_commits": [
+    {
+      "order": 1,
+      "title": "extract one invite feature flow owner from the root presenter"
+    },
+    {
+      "order": 2,
+      "title": "adopt matching project result-flow and event-binding capabilities"
+    },
+    {
+      "order": 3,
+      "title": "retain the worker-ingress adapter gate and remove unsupported downstream synchronization"
+    },
+    {
+      "order": 4,
+      "title": "preserve stale-result precedence and test behavioral invariants"
+    }
+  ]
+}

@@ -57,6 +57,7 @@ Allowed approval forms:
 ## Process
 1. Read the approved review report.
 2. Integrate only the approved parts.
+   When the report has per-candidate decisions, `apply all approved items` includes only `approve`; `revise`, `hold`, and `reject` require a later explicit approval after their wording or evidence changes.
 3. Route each approved part to its explicit destination:
    - public-safe reusable cross-repo guidance -> `AIRoot/Modules/XUUnity/`
    - reusable monorepo-internal guidance -> `AIModules/XUUnityInternal/`

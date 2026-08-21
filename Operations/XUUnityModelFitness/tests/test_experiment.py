@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -15,13 +16,23 @@ from test_suite import attempt, suite_doc  # noqa: E402
 
 
 def manifest_doc(**overrides: Any) -> dict[str, Any]:
+    default_suite = suite_doc(attempts_per_fixture=30)
+    default_arm = {
+        "suite_id": default_suite["suite_id"],
+        "suite_hash": suite.suite_hash(default_suite),
+        "strict_profile_key": "b" * 64,
+    }
     doc: dict[str, Any] = {
-        "schema_version": "xuunity.experiment-manifest.v1",
+        "schema_version": "xuunity.experiment-manifest.v2",
         "experiment_id": "exp-1",
         "hypothesis": "tighter stack rules raise the score median",
         "treatment_variable": "reduced_stack_rules revision",
         "control": {"ref": "rules-r1", "content_sha256": "8" * 64},
         "treatment": {"ref": "rules-r2", "content_sha256": "9" * 64},
+        "suite_arms": {
+            "control": dict(default_arm),
+            "treatment": dict(default_arm),
+        },
         "matrix": {"ref": None, "sha256": "a" * 64},
         "attempt_schedule": {
             "attempts_per_cell": 30,
@@ -33,7 +44,10 @@ def manifest_doc(**overrides: Any) -> dict[str, Any]:
             "alpha_spending_method": "bonferroni",
             "multiplicity_method": "holm_bonferroni",
         },
-        "f6_exposure_budget": {"max_exposures": 2, "consumed_before": 0},
+        "f6_exposure_budget": {
+            "max_exposures": 2,
+            "consumed_artifact_hashes": [],
+        },
         "target_metric": {
             "metric_id": "median_lower_bound",
             "direction": "higher_is_better",
@@ -63,12 +77,43 @@ def cohort(count: int, *, gate_decision: str = "pass") -> dict[str, Any]:
                 fixture_doc(),
                 run_id=f"run-{gate_decision}-{index}",
                 gate_decision=gate_decision,
+                enforcement_mode="authoritative",
+                comparison_status="exact_repeat",
             ),
         )
         for index in range(count)
     ]
     return suite.aggregate_suite(
-        suite_doc(), attempts, strict_profile_key="b" * 64, f6_included=True
+        suite_doc(attempts_per_fixture=count),
+        attempts,
+        strict_profile_key="b" * 64,
+    )
+
+
+def suite_arm(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "suite_id": result["suite_id"],
+        "suite_hash": result["suite_hash"],
+        "strict_profile_key": result["strict_profile_key"],
+    }
+
+
+def manifest_for(
+    control: dict[str, Any],
+    treatment: dict[str, Any],
+    attempts_per_cell: int,
+    **overrides: Any,
+) -> dict[str, Any]:
+    return manifest_doc(
+        suite_arms={
+            "control": suite_arm(control),
+            "treatment": suite_arm(treatment),
+        },
+        attempt_schedule={
+            "attempts_per_cell": attempts_per_cell,
+            "order_policy_id": "interleaved-1",
+        },
+        **overrides,
     )
 
 
@@ -78,6 +123,7 @@ class ExperimentDecisionTests(unittest.TestCase):
         cls.full_cohort = cohort(30)
         cls.weak_cohort = cohort(30, gate_decision="fail")
         cls.smoke_cohort = cohort(3)
+        cls.smoke_control = cohort(3, gate_decision="fail")
 
     def evaluate(self, manifest: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         control = overrides.pop("control", self.weak_cohort)
@@ -151,7 +197,14 @@ class ExperimentDecisionTests(unittest.TestCase):
         self.assertEqual(69.9, result["statistics"]["control_value"])
 
     def test_insufficient_confidence_is_inconclusive(self) -> None:
-        result = self.evaluate(manifest_doc(), treatment=self.smoke_cohort)
+        manifest = manifest_for(
+            self.smoke_control, self.smoke_cohort, attempts_per_cell=3
+        )
+        result = self.evaluate(
+            manifest,
+            control=self.smoke_control,
+            treatment=self.smoke_cohort,
+        )
         self.assertEqual("inconclusive", result["status"])
         self.assertIn(
             "statistical_confidence_insufficient", result["reason_codes"]
@@ -168,9 +221,47 @@ class ExperimentDecisionTests(unittest.TestCase):
         )
 
     def test_f6_budget_overrun_is_inconclusive(self) -> None:
-        result = self.evaluate(manifest_doc(), f6_exposures_used=3)
+        from test_suite import F6_KEY, F6_KEY_ID, f6_cohort
+
+        doc, rows, artifact = f6_cohort(30)
+        with_f6 = suite.aggregate_suite(
+            doc,
+            rows,
+            strict_profile_key="b" * 64,
+            f6_artifact=artifact,
+            f6_verification_keys={F6_KEY_ID: F6_KEY},
+        )
+        manifest = manifest_for(
+            self.weak_cohort,
+            with_f6,
+            attempts_per_cell=30,
+            f6_exposure_budget={
+                "max_exposures": 0,
+                "consumed_artifact_hashes": [],
+            },
+        )
+        result = self.evaluate(
+            manifest,
+            treatment=with_f6,
+            f6_artifacts={artifact["artifact_hash"]: artifact},
+            f6_verification_keys={F6_KEY_ID: F6_KEY},
+        )
         self.assertEqual("inconclusive", result["status"])
         self.assertIn("f6_exposure_budget_exceeded", result["reason_codes"])
+
+    def test_ungraded_suite_cannot_be_accepted(self) -> None:
+        diagnostic_attempts = [
+            attempt(index, score(fixture_doc(), run_id=f"diag-{index}"))
+            for index in range(30)
+        ]
+        diagnostic = suite.aggregate_suite(
+            suite_doc(attempts_per_fixture=30),
+            diagnostic_attempts,
+            strict_profile_key="b" * 64,
+        )
+        result = self.evaluate(manifest_doc(), treatment=diagnostic)
+        self.assertEqual("inconclusive", result["status"])
+        self.assertIn("suite_not_adoption_graded", result["reason_codes"])
 
     def test_unknown_metric_fails_closed(self) -> None:
         manifest = manifest_doc(
@@ -195,6 +286,106 @@ class ExperimentDecisionTests(unittest.TestCase):
             result["manifest_hash"],
             self.evaluate(pinned)["manifest_hash"],
         )
+
+    def test_mutated_pinned_manifest_is_rejected(self) -> None:
+        manifest = manifest_doc()
+        manifest["manifest_hash"] = experiment.manifest_hash(manifest)
+        manifest["f6_exposure_budget"]["max_exposures"] = 99
+        with self.assertRaises(experiment.ExperimentError):
+            self.evaluate(manifest)
+
+    def test_manifest_schedule_must_match_both_arms(self) -> None:
+        manifest = manifest_doc(
+            attempt_schedule={
+                "attempts_per_cell": 999,
+                "order_policy_id": "interleaved-1",
+            }
+        )
+        with self.assertRaises(experiment.ExperimentError):
+            self.evaluate(manifest)
+
+    def test_same_cohort_cannot_be_both_arms(self) -> None:
+        manifest = manifest_for(
+            self.full_cohort, self.full_cohort, attempts_per_cell=30
+        )
+        with self.assertRaises(experiment.ExperimentError):
+            self.evaluate(
+                manifest,
+                control=self.full_cohort,
+                treatment=self.full_cohort,
+            )
+
+    def test_unfit_treatment_cannot_be_accepted(self) -> None:
+        attempts = [
+            attempt(
+                index,
+                score(
+                    fixture_doc(),
+                    run_id=f"unfit-{index}",
+                    enforcement_mode="authoritative",
+                    comparison_status="exact_repeat",
+                    bypass_misses=["f5-probe"],
+                ),
+            )
+            for index in range(30)
+        ]
+        unfit = suite.aggregate_suite(
+            suite_doc(attempts_per_fixture=30),
+            attempts,
+            strict_profile_key="b" * 64,
+        )
+        manifest = manifest_for(
+            self.weak_cohort, unfit, attempts_per_cell=30
+        )
+        result = self.evaluate(manifest, treatment=unfit)
+        self.assertEqual("rejected", result["status"])
+        self.assertIn("treatment_suite_unfit", result["reason_codes"])
+
+    def test_forged_verified_f6_summary_is_rejected(self) -> None:
+        forged = deepcopy(self.full_cohort)
+        forged["f6_evidence"] = {
+            "status": "verified_pass",
+            "evidence_ref": "protected://forged.json",
+            "holdout_ref": "forged-holdout",
+            "fixture_id": "f6-forged",
+            "issuer_key_id": "forged-key",
+            "artifact_hash": "f" * 64,
+        }
+        forged["cohort_hash"] = "e" * 64
+        manifest = manifest_for(
+            self.weak_cohort, forged, attempts_per_cell=30
+        )
+        with self.assertRaises(experiment.ExperimentError):
+            self.evaluate(manifest, treatment=forged)
+
+    def test_consumed_f6_artifact_replay_is_inconclusive(self) -> None:
+        from test_suite import F6_KEY, F6_KEY_ID, f6_cohort
+
+        doc, rows, artifact = f6_cohort(30)
+        with_f6 = suite.aggregate_suite(
+            doc,
+            rows,
+            strict_profile_key="b" * 64,
+            f6_artifact=artifact,
+            f6_verification_keys={F6_KEY_ID: F6_KEY},
+        )
+        manifest = manifest_for(
+            self.weak_cohort,
+            with_f6,
+            attempts_per_cell=30,
+            f6_exposure_budget={
+                "max_exposures": 2,
+                "consumed_artifact_hashes": [artifact["artifact_hash"]],
+            },
+        )
+        result = self.evaluate(
+            manifest,
+            treatment=with_f6,
+            f6_artifacts={artifact["artifact_hash"]: artifact},
+            f6_verification_keys={F6_KEY_ID: F6_KEY},
+        )
+        self.assertEqual("inconclusive", result["status"])
+        self.assertIn("f6_artifact_replay", result["reason_codes"])
 
     def test_suite_refs_are_content_hashed(self) -> None:
         result = self.evaluate(manifest_doc())

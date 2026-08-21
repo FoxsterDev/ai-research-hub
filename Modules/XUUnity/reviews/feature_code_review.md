@@ -2,11 +2,17 @@
 
 ## Load First
 - `knowledge/review_quality_scoring.md`
+- `knowledge/change_complexity_budget.md`
+- `knowledge/review_evidence_provenance.md` for change reviews
 
 ## Check
 - Behavior regressions
 - Incorrect assumptions
 - Async and state management risks
+- Whether callbacks or `await` were incorrectly treated as proof of cross-thread shared state; load `skills/async/concurrency_classification.md` when synchronization or thread-safety claims appear
+- Whether same-action single-flight, one-shot lifecycle, child-flow ownership, or shared execution was reimplemented without inspecting the resolved project's matching core/framework capabilities
+- Whether one feature journey is readable through one flow owner or spread across root presenters, services, generic flows, and callback round trips
+- Complexity-budget inventory and final deletion/collapse pass from `knowledge/change_complexity_budget.md`
 - Optimistic UI versus authoritative server or backend state reconciliation risks
 - Whether repeated actions are blocked until authoritative state arrives when the UI moves ahead optimistically
 - Whether temporary interaction blocking scope matches reconciliation scope instead of unnecessarily disabling unrelated items

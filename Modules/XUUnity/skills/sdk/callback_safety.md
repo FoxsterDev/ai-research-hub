@@ -9,6 +9,7 @@
 - Treat SDK callbacks as untrusted input.
 - Guard against duplicate, delayed, out-of-order, and cross-scene callbacks.
 - Do not assume callback thread affinity without explicit evidence.
+- Do not infer cross-thread shared state merely because an API is callback-based. Classify the concrete ingress and downstream state with `skills/async/concurrency_classification.md` before selecting synchronization.
 - Keep callback thread-affinity policy in one owner only. Prefer a single decorator or equivalent boundary over dispatch logic split across facade, orchestration, and platform layers.
 - If the public wrapper also promises any-thread entry, keep ingress normalization owned separately and explicitly. A stable default is:
   - facade owns ingress normalization
@@ -17,6 +18,7 @@
 - If an SDK asynchronously generates or returns a destination URL for an external launch, let the adapter request or report that destination, but keep navigation policy, validation, and fallback ownership at a higher orchestration layer.
 - Do not bury external-open policy inside the raw SDK callback when the caller needs product control over fallback order, attribution preservation, or installed-versus-store routing.
 - If ingress normalization already exists above the platform adapter, prefer deleting redundant platform-thread posting rather than keeping a second hidden normalization layer.
+- Once one adapter or facade has established a documented Unity-main-thread handoff, downstream presenters and models should rely on that boundary contract instead of repeating thread hops or atomics for the same state.
 - Keep monetization and attribution callbacks crash-safe and idempotent.
 - If callback thread origin is not guaranteed, explicitly return to the Unity main thread before touching Unity APIs, Unity objects, or Unity-bound SDK flows.
 - If platform work is posted and can fail later on a platform thread, verify that those failure callbacks still honor the documented success-and-failure thread contract.

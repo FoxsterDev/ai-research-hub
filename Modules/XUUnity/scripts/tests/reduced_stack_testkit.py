@@ -36,6 +36,7 @@ MODULE_FILES = [
     "skills/core/zero_crash_zero_anr.md",
     "skills/core/README.md",
     "skills/async/base_async_rules.md",
+    "skills/async/concurrency_classification.md",
     "skills/async/main_thread.md",
     "skills/async/dotnet_task.md",
     "skills/async/routing.md",
@@ -51,7 +52,9 @@ MODULE_FILES = [
     "knowledge/risk_classification.md",
     "knowledge/agent_source_of_truth.md",
     "knowledge/detached_callback_attribution.md",
+    "knowledge/review_evidence_provenance.md",
     "utilities/module_session_routing.md",
+    "scripts/tests/fixtures/concurrency_sample.cs",
 ]
 
 PROJECT_FILES = [
@@ -76,6 +79,15 @@ def build_fixture_repo(root: Path) -> Path:
             f"# {Path(relative).stem}\nguidance body for {relative}\n",
             encoding="utf-8",
         )
+    (repo / MODULE_PREFIX / "scripts/tests/fixtures/concurrency_sample.cs").write_text(
+        "using System.Threading;\n"
+        "internal sealed class Sample {\n"
+        "    private int _running;\n"
+        "    public bool TryStart() => "
+        "Interlocked.Exchange(ref _running, 1) == 0;\n"
+        "}\n",
+        encoding="utf-8",
+    )
     for relative in PROJECT_FILES:
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)

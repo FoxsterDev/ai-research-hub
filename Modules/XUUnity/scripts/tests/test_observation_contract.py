@@ -413,7 +413,7 @@ class TaxonomyTests(unittest.TestCase):
         self.assertEqual((True, True), oc.runtime_context_match("codex_cli", "Agents.md"))
         self.assertEqual(
             (True, True),
-            oc.runtime_context_match("codex_cli", "ApperfunHub/Agents.md"),
+            oc.runtime_context_match("codex_cli", "ExampleProject/Agents.md"),
         )
         self.assertEqual((True, False), oc.runtime_context_match("codex_cli", "AGENTS.md"))
         self.assertEqual(

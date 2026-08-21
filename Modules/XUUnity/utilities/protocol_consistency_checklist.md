@@ -32,6 +32,8 @@ Run a compact consistency pass after editing shared `xuunity` prompts so the sys
    - no lane without trustworthy final accounting presented as full validation
 7. Check that README and utility indexes reference any new canonical files or utilities.
 8. Check that shared changes stay public-safe and do not leak host-local or project-private names into `AIRoot/`.
+   - Public core should require capability discovery by semantics.
+   - Exact project primitive names and limitations belong in project memory or a host/project override.
 9. For any added or copied project router (`<Project>/Agents.md`), check that the `# Project Agent Router:` title and the `- Project:` field both equal the containing folder name, so a copy-pasted router cannot silently keep a sibling project's identity.
 
 ## Change Rule

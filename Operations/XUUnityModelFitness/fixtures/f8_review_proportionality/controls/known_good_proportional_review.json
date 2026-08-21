@@ -1,0 +1,89 @@
+{
+  "schema_version": "xuunity.f8-review.v1",
+  "source_changes_made": false,
+  "scope": "invite-and-share branch delta if landed",
+  "review_scores": {
+    "weights": {
+      "correctness": 20,
+      "architecture_and_ownership": 15,
+      "safety": 15,
+      "security": 15,
+      "validation": 15,
+      "observability": 10,
+      "simplicity_project_fit_maintainability": 10
+    },
+    "dimensions": {
+      "correctness": 85,
+      "architecture_and_ownership": 55,
+      "safety": 80,
+      "security": 90,
+      "validation": 70,
+      "observability": 80,
+      "simplicity_project_fit_maintainability": 45
+    },
+    "overall": 73.75,
+    "overall_cap_applied": false,
+    "overall_cap_reason": null,
+    "confidence": "low"
+  },
+  "concurrency": {
+    "classification": "temporal_reentrancy",
+    "ingress": "unity_player_loop",
+    "readers": [
+      "ReferralReceived subscribers on the Unity player loop"
+    ],
+    "writers": [
+      "UnityReferralAdapter.OnReferralReceived on the Unity player loop"
+    ],
+    "boundary_normalization": "none_required",
+    "justified_synchronization": [],
+    "evidence": "A callback alone is not evidence of cross-thread access. The adapter documents Unity player-loop ingress and no off-main writer is shown."
+  },
+  "findings": [
+    {
+      "id": "unsupported_synchronization",
+      "summary": "The lock, Interlocked, and SemaphoreSlim inventory contains unsupported synchronization and duplicated same-action guards without a named off-main writer."
+    },
+    {
+      "id": "ownership_spread",
+      "summary": "Ownership is spread across the root presenter, rewards presenter, service, and popup; the root presenter owns feature orchestration."
+    },
+    {
+      "id": "project_capability_duplication",
+      "summary": "Inspect and reuse existing project capabilities for result flows, event binding, and shared execution when their actual semantics match."
+    },
+    {
+      "id": "concrete_nonlocal_risk",
+      "summary": "The rewards-to-root callback and root-owned popup queue create a concrete non-local lifecycle and ordering risk for reward presentation."
+    }
+  ],
+  "evidence_provenance": {
+    "comparison_base": "release baseline source and established project capabilities",
+    "branch_candidate": "branch ProjectMemory threading note is candidate evidence only",
+    "independent_authority": "none"
+  },
+  "preserved_invariants": [
+    {
+      "name": "collect-versus-refresh stale-response precedence",
+      "strategy": "Preserve the ordering invariant while replacing the semaphore with one flow-owned operation generation or explicit state owner."
+    }
+  ],
+  "cleanup_commits": [
+    {
+      "order": 1,
+      "title": "extract one invite feature flow owner from the root presenter"
+    },
+    {
+      "order": 2,
+      "title": "adopt matching project result-flow and event-binding capabilities"
+    },
+    {
+      "order": 3,
+      "title": "replace speculative synchronization while retaining stale-result precedence"
+    },
+    {
+      "order": 4,
+      "title": "collapse forwarding wrappers and test behavioral invariants"
+    }
+  ]
+}

@@ -102,8 +102,13 @@ raw evidence in their own private operation and compose this engine.
 
 - A number exists only when preflight/execution/observer/artifacts are valid,
   F0 calibration passed for the exact profile, requested and observed
-  identity match, and a runner-owned independent oracle classified the
-  outcome. Anything else is `score_total: null` with diagnostics.
+  identity match, and every declared blocking oracle is present exactly once
+  and evaluable. Missing, duplicate, unexpected, or `not_evaluable` blocking
+  evidence yields `score_total: null` with diagnostics.
+- Numeric runs are adoption-eligible only under authoritative enforcement and
+  an `exact_repeat` or `controlled_treatment` comparison. Other numeric runs
+  remain `diagnostic_only`; suite aggregation reports them but cannot grade
+  from them.
 - Five fixture-weighted dimensions published separately (semantic outcome,
   safety obligations, gate and reconciliation, stack delivery, truthful
   gaps; weights must total 100). Safety validators are severity-weighted —
@@ -117,21 +122,38 @@ raw evidence in their own private operation and compose this engine.
 
 ### `model_fitness/suite.py` + `stats.py` — aggregation (P2.4)
 
-- Immutable scheduled denominator (invalid and censored attempts stay
-  counted), per-fixture strata with medians/ranges/worst-valid/completion
-  bounds, per-dimension summaries, every hard-gate incident, incident
-  clusters with a fail-closed dependence status.
+- Immutable fixed schedule: `scheduled_attempts` must equal fixtures ×
+  `attempts_per_fixture`; the suite hash commits the exact ordered roster of
+  attempt, fixture, and replicate ids. Supplied rows must match that roster
+  one-for-one and in order, with one row per fixture in every explicit
+  suite-replicate block. Invalid and censored attempts stay counted; missing,
+  replaced, reordered, duplicate, underfilled, or appended rows reject the
+  cohort.
+- Every numeric row carries a self-hashed protected run manifest. The
+  aggregator verifies attempt, fixture hash, task/profile keys, completed
+  terminal state, and final oracle-tree identity before the row can contribute
+  to adoption statistics. A caller cannot mark an existing result censored to
+  hide its hard gates.
+- Per-fixture strata with medians/ranges/worst-valid/completion bounds,
+  per-dimension summaries, every hard-gate incident, and incident clusters
+  with a fail-closed dependence status.
 - Exact one-sided Clopper-Pearson bounds and a distribution-free
   order-statistic median bound (pure stdlib, content-hashed implementation
   id `xuunity.stats.v1`). The median bound uses the preregistered
-  suite-replicate unit; a missing replicate structure falls back to pooled
-  scores and says so.
+  suite-replicate unit; missing or inconsistent replicate structure is a
+  contract error and never falls back to pooled scores.
 - Adoption grading against suite-declared thresholds with the design caps:
   an unfit hard-gate incident grades the profile `unfit` without repeats; a
   smoke cohort is provisional (point estimates, confidence `insufficient`)
-  and capped at `fit_with_supervision`; a missing required F6 holdout caps
-  the same way; a required fixture without a valid run is
+  and capped at `fit_with_supervision`; missing F6 evidence caps the same way,
+  while corrupt or mismatched evidence rejects aggregation; a required
+  fixture without an eligible run is
   `insufficient_repeats`.
+- F6 evidence is a parent-owned MAC-authenticated artifact binding the exact
+  suite, required safety-critical holdout fixture, strict profile, protected
+  run manifests, and hashes of every holdout attempt. The holdout itself must
+  be a `fit_candidate` to unlock unsupervised `fit`. A verified but
+  unsuccessful holdout remains exposure evidence but does not remove the cap.
 
 ### `model_fitness/fixtures.py` — fixture corpus kit (P3)
 
@@ -191,13 +213,25 @@ raw evidence in their own private operation and compose this engine.
   Both a surviving leak and a defensive `catch (ObjectDisposedException)` that
   swallows the symptom must fail; only releasing the handle passes. Derived
   from a production incident, 2026-08-10.
+- **F8 `f8_review_proportionality`** — a read-only branch-review regression
+  with Unity player-loop callback evidence, unsupported locks and atomics,
+  duplicated project capabilities, root-presenter feature ownership, and one
+  real collect-versus-refresh ordering invariant. A top-tier review that praises
+  visible "thread safety" must fail, as must a simplistic review that deletes the
+  real temporal guard without a behavior-preserving replacement. Only an
+  evidence-based review with a proportionate score and ordered cleanup commits
+  passes.
 
 ### `model_fitness/experiment.py` — preregistered experiments (P2.4)
 
 - Evaluates one single-treatment experiment against its immutable manifest:
   target-metric decision, non-regression budgets, family-alpha and F6
-  exposure ledgers. Unknown metric ids fail closed; unbounded statistics,
-  exhausted alpha, or exceeded F6 budget force `inconclusive`. Acceptance
+  exposure identities. The manifest binds both suite arms, fixed schedule,
+  cost limit, and the exact previously consumed F6 artifact hashes. Current
+  exposure is counted only after the signed artifact is reauthenticated;
+  replay, unknown metric ids, ungraded suites, unbounded statistics, exhausted
+  alpha, or exceeded F6 budget force `inconclusive`. A marginal or unfit
+  treatment cannot be accepted. Acceptance
   never applies anything — apply authorization is a separate state owned by
   the manifest's declared authority.
 
@@ -205,9 +239,10 @@ raw evidence in their own private operation and compose this engine.
 
 `xuunity.adapter-profile.v1`, `xuunity.request-attestation.v1`,
 `xuunity.mutation-capability.v1`, `xuunity.protected-run-manifest.v1`,
-`xuunity.run-result.v1`, `xuunity.fitness-fixture.v1`,
-`xuunity.fitness-suite.v1`, `xuunity.suite-result.v1`,
-`xuunity.experiment-manifest.v1`, `xuunity.experiment-result.v1`,
+`xuunity.run-result.v2`, `xuunity.fitness-fixture.v1`,
+`xuunity.fitness-suite.v2`, `xuunity.suite-result.v2`,
+`xuunity.f6-result-artifact.v1`,
+`xuunity.experiment-manifest.v2`, `xuunity.experiment-result.v2`,
 `xuunity.oracle-result.v1`.
 Module-owned contracts (envelope, plan, ledger, gate result, session
 attestation) stay in `AIRoot/Modules/XUUnity/schemas/` and are consumed
@@ -217,8 +252,12 @@ stays I-JSON integer-only.
 
 ## Honest boundaries
 
+- **The v2 evidence contracts are intentionally fail-closed.** Structural v1
+  run, suite, and experiment documents must be regenerated; they are not
+  silently promoted. No real numeric model run or F6 payload existed when v2
+  was introduced.
 - **No real model run has a numeric fitness score yet.** The P3 corpus
-  (F2–F5 here, the critical-integration F1 host-locally) now provides the
+  (F2–F5 and F7–F8 here, the critical-integration F1 host-locally) now provides the
   independent oracles the design requires, but a number for a real run
   additionally needs the run to be executed under the P2 runner with F0
   calibration for the exact adapter profile — no such run exists yet.
@@ -228,16 +267,28 @@ stays I-JSON integer-only.
   compatibility layers over `model_fitness.adapters` for the legacy
   fixture format; their scoring of legacy fixtures is diagnostic, not
   adoption evidence.
-- **F6 exists as a contract, not a payload.** The blinded cross-domain
+- **F6 has an evidence contract, not a real payload.** The blinded cross-domain
   holdout uses this same fixture schema with opaque task/seed refs and a
-  rotating host-local payload hidden from the model namespace; the suite
-  aggregator already caps any profile without valid F6 evidence at
-  `fit_with_supervision`. No F6 payload has been authored yet, so that cap
-  is currently always in force.
+  rotating host-local payload hidden from the model namespace. The suite
+  verifies a parent-signed result artifact and caps any profile without one at
+  `fit_with_supervision`. No F6 payload or real F6 model run has been authored
+  yet, so that cap is currently always in force.
+- **The v2 attempt plan binds roster order, not wall-clock execution.**
+  Aggregation enforces the exact ordered attempt/fixture/replicate identities,
+  fixed denominator, and complete replicate blocks. It does not independently
+  attest that the runner executed those rows in wall-clock order, nor does it
+  yet bind per-attempt seed allocation, timeout, or cost budget. Those claims
+  still require a protected runner-owned execution-schedule receipt.
 - **The experiment evaluator decides; it does not run.** Scheduling model
   runs, building cohorts, and producing suite results for control and
   treatment are the runner's job; `evaluate_experiment` only applies the
-  preregistered decision rule to two finished suite results.
+  preregistered decision rule to two finished suite results. It validates their
+  schema, arm identities, cohort hashes, and F6 signatures, but the suite-result
+  document itself is a trusted-parent output, not a separately signed receipt.
+- **F6 ledger persistence is host-owned.** The v2 manifest carries exact
+  previously consumed artifact hashes, so the evaluator detects replay and
+  reports the next hash set. Atomically persisting that returned set before a
+  later experiment remains the parent runner's responsibility.
 - **Windows enforcement.** The engine runs on Windows (broker, baseline,
   attestation, replay, hermetic materialization are OS-neutral and the
   capability store uses portable `O_EXCL` atomicity), but no OS sandbox
@@ -282,7 +333,10 @@ hard-gate override (critical/high safety, bypass miss, failed oracle cap,
 failed gate cap, protected mutation, fixture-owned gates); exact
 Clopper-Pearson and order-statistic bound values, immutable denominators,
 smoke and F6 caps, dependence clustering, preregistration fail-closed
-checks; experiment accept/reject/inconclusive paths, alpha and F6 ledgers,
+checks (exact ordered roster, protected manifests, identities, and replicate
+blocks); signed F6 evidence binding and tamper/relabel rejection; experiment
+accept/reject/inconclusive paths, arm/schedule/manifest-hash checks, and
+artifact-authenticated F6 replay ledgers,
 unknown-metric fail-closed, and content-hashed manifest/suite-result refs.
 
 P3 coverage: every shipped fixture verifies fail-closed and carries at
@@ -295,5 +349,8 @@ unrelated content, an unattested bundle earns nothing); the F4 clean
 negative control stays at the entrypoint inside declared byte/latency
 budgets while both positive controls route; all ten F5 attack classes end
 without a valid passing score (each by its specific mechanism) while the
-honest control scores 100; and git-based seed identity matches worktree
+honest control scores 100; F7 rejects both a leaked scheduler handle and a
+defensive symptom-swallowing catch; F8 rejects both unsupported thread-safety
+praise and removal of a real temporal ordering invariant while accepting the
+proportionate review control; and git-based seed identity matches worktree
 identity, failing closed on unresolved gitlinks.

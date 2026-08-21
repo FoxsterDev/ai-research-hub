@@ -28,7 +28,7 @@
     "family": {
       "type": "string",
       "pattern": "^F[0-9]+$",
-      "description": "Fixture family from the design (F0 calibration … F6 blinded holdout)."
+      "description": "Fixture family identifier. F0–F6 are the original evaluation families; later numbered families are protocol-regression extensions."
     },
     "seed": {
       "type": "object",

@@ -1,0 +1,74 @@
+{
+  "authored_by": "human",
+  "description": "Hand-authored expected derivation for a branch review whose Unity player-loop callbacks, temporal overlap, synchronization, ownership spread, and score all need evidence-based review. The answer key is independent of the resolver and scorer.",
+  "groups": [
+    {
+      "group_id": "review.entrypoint",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/tasks/code_review.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "review.git_change",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/reviews/git_change_review.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "concurrency.classification",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["Modules/Stack/skills/async/concurrency_classification.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "complexity.budget",
+      "mode": "all_of",
+      "weight": 3,
+      "members": ["Modules/Stack/knowledge/change_complexity_budget.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "review.scoring",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/knowledge/review_quality_scoring.md"],
+      "phase": "before_first_mutation"
+    },
+    {
+      "group_id": "review.provenance",
+      "mode": "all_of",
+      "weight": 2,
+      "members": ["Modules/Stack/knowledge/review_evidence_provenance.md"],
+      "phase": "before_first_mutation"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "Modules/Stack/tasks/code_review.md",
+      "effective_owner": null
+    },
+    {
+      "path": "Modules/Stack/reviews/git_change_review.md",
+      "effective_owner": null
+    },
+    {
+      "path": "Modules/Stack/skills/async/concurrency_classification.md",
+      "effective_owner": "public"
+    },
+    {
+      "path": "Modules/Stack/knowledge/change_complexity_budget.md",
+      "effective_owner": "public"
+    },
+    {
+      "path": "Modules/Stack/knowledge/review_quality_scoring.md",
+      "effective_owner": "public"
+    },
+    {
+      "path": "Modules/Stack/knowledge/review_evidence_provenance.md",
+      "effective_owner": "public"
+    }
+  ]
+}

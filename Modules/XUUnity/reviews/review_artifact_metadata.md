@@ -21,5 +21,9 @@ Individual review protocols may add extra fields when needed, for example:
 - `Target scope`
 - `Dominant test surface`
 - `Dominant risk`
+- `Comparison-base project memory`
+- `Branch-derived candidate evidence`
+- `Independent approval`
+- `Unresolved evidence conflicts`
 
 Only add review-specific fields that materially improve triage, routing, or later artifact reuse.

@@ -13,7 +13,7 @@ import reduced_stack_loader as loader  # noqa: E402
 import reduced_stack_resolver as resolver  # noqa: E402
 import reduced_stack_testkit as kit  # noqa: E402
 
-TASK = "PD-3 Adjust the score label on the results view."
+TASK = "TASK-3 Adjust the score label on the results view."
 
 
 class LoaderTests(unittest.TestCase):
@@ -85,7 +85,7 @@ class LoaderTests(unittest.TestCase):
             encoding="utf-8",
         )
         plan = self._plan(
-            "PD-4 Update the consent SDK privacy handling notes."
+            "TASK-4 Update the consent SDK privacy handling notes."
         )
         with self.assertRaises(loader.LoaderError) as context:
             loader.build_bundle(self.repo, plan)

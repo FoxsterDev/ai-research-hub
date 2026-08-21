@@ -1,0 +1,122 @@
+{
+  "brand": { "org": "Your Org", "product": "Store Pulse" },
+
+  "storefronts": ["us", "gb", "de"],
+  "review_window_days": 1,
+  "review_excerpt_chars": 240,
+  "review_sample": 3,
+  "max_workers": 6,
+  "http_timeout": 60,
+  "http_retries": 3,
+  "vitals_trail_days": 7,
+  "vitals_rate_is_fraction": "auto",
+  "issues_trail_days": 1,
+  "issues_limit": 8,
+  "anomalies_limit": 10,
+  "play_reviews_max": 100,
+  "play_reviews_translation": "en",
+
+  "credentials": {
+    "google_service_account_env": "STORE_PULSE_GOOGLE_SA_JSON",
+    "play_reports_bucket_env": "STORE_PULSE_PLAY_BUCKET",
+    "apple_key_path_env": "STORE_PULSE_ASC_KEY_P8",
+    "apple_key_id_env": "STORE_PULSE_ASC_KEY_ID",
+    "apple_issuer_id_env": "STORE_PULSE_ASC_ISSUER_ID"
+  },
+
+  "slices": {
+    "ios_rating": true,
+    "ios_reviews": true,
+    "ios_release": true,
+    "ios_analytics": true,
+    "ios_perf": false,
+    "play_vitals": true,
+    "play_issues": true,
+    "play_anomalies": true,
+    "play_reviews": true,
+    "play_rating": true,
+    "play_store_perf": true,
+    "play_installs": true
+  },
+
+  "thresholds": {
+    "play_crash_alert_pct": 1.09,
+    "play_anr_alert_pct": 0.47,
+    "play_device_alert_pct": 8.0,
+    "watch_fraction": 0.6,
+    "rating_drop_watch": 0.02,
+    "rating_drop_alert": 0.05,
+    "rating_drop_7d_watch": 0.07,
+    "rating_drop_7d_alert": 0.15,
+    "rating_floor_watch": 3.5,
+    "rating_floor_alert": 3.0,
+    "rating_floor_min_count": 5,
+    "neg_share_watch_pct": 40.0,
+    "neg_share_alert_pct": 60.0,
+    "neg_min_count": 5,
+    "conversion_drop_watch_pct": 10.0,
+    "conversion_drop_alert_pct": 25.0,
+    "min_vitals_users": 100,
+    "issue_reach_watch_pct": 1.0
+  },
+
+  "play_vitals_sets": [
+    {
+      "key": "crash",
+      "metric_set": "crashRateMetricSet",
+      "metrics": ["crashRate", "userPerceivedCrashRate", "distinctUsers"],
+      "dimensions": ["versionCode"]
+    },
+    {
+      "key": "anr",
+      "metric_set": "anrRateMetricSet",
+      "metrics": ["anrRate", "userPerceivedAnrRate", "distinctUsers"],
+      "dimensions": ["versionCode"]
+    }
+  ],
+
+  "play_reports": {
+    "ratings": {
+      "dir": "stats/ratings/",
+      "prefix_template": "stats/ratings/ratings_{package}_{month}_overview.csv",
+      "date_cols": ["Date"],
+      "values": {
+        "daily_avg": { "cols": ["Daily Average Rating"], "agg": "last" },
+        "total_avg": { "cols": ["Total Average Rating"], "agg": "last" }
+      }
+    },
+    "installs": {
+      "dir": "stats/installs/",
+      "prefix_template": "stats/installs/installs_{package}_{month}_overview.csv",
+      "date_cols": ["Date"],
+      "values": {
+        "installs": { "cols": ["Daily Device Installs", "Daily User Installs"], "agg": "last" },
+        "uninstalls": { "cols": ["Daily Device Uninstalls", "Daily User Uninstalls"], "agg": "last" },
+        "active": { "cols": ["Active Device Installs"], "agg": "last" }
+      }
+    },
+    "store_performance": {
+      "dir": "stats/store_performance/",
+      "prefix_template": "stats/store_performance/store_performance_{package}_{month}_country.csv",
+      "date_cols": ["Date"],
+      "values": {
+        "visitors": { "cols": ["Store Listing Visitors"], "agg": "sum" },
+        "acquisitions": { "cols": ["Store Listing Acquisitions"], "agg": "sum" }
+      }
+    }
+  },
+
+  "ios_analytics_categories": ["APP_USAGE", "APP_STORE_ENGAGEMENT"],
+  "ios_analytics_reports": ["Crash", "Session", "Installation", "Discovery"],
+
+  "review_topics": [
+    { "key": "ads", "label": "Ads", "phrases": ["ads", "advert", "too many ads"] },
+    { "key": "crash", "label": "Crash / freeze", "phrases": ["crash", "freeze", "stuck", "black screen"] },
+    { "key": "progress", "label": "Lost progress", "phrases": ["lost progress", "reset", "disappeared"] }
+  ],
+
+  "apps": [
+    { "key": "APP1", "name": "First App", "android": "com.example.first", "ios": "com.example.first" },
+    { "key": "APP2", "name": "Second App", "android": "com.example.second", "ios": null }
+  ]
+}

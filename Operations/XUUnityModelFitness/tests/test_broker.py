@@ -39,7 +39,7 @@ IDENTITY = {
     "version": "1",
     "implementation_sha256": DUMMY,
 }
-CS_TASK = "PD-2 Rename the score field on the leaderboard view."
+CS_TASK = "TASK-2 Rename the score field on the leaderboard view."
 CLEAN_DIFF = (
     "diff --git a/DemoProject/Scripts/Foo.cs b/DemoProject/Scripts/Foo.cs\n"
     "--- a/DemoProject/Scripts/Foo.cs\n"

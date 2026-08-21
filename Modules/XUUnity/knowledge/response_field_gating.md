@@ -13,6 +13,11 @@
 ## Rules
 - Prove the field is populated by a captured production payload before making it a gate. A property declared on the
   DTO is not evidence that the endpoint sends it.
+- Bind the DTO to a captured **endpoint response**. An admin-panel or config-entity export of the same data is a
+  different artifact: it pins the nested shapes but not the envelope, and it can differ in section name, in root
+  members the endpoint never sends, in default values the endpoint omits instead of transmitting, and in ids the
+  server resolves before serving. A model built from the export compiles, passes its own fixtures, and still misses
+  on the wire.
 - Gate on what the contract demonstrably carries — type, timestamps, scope or owner ids — not on the field the client
   wishes it carried.
 - For a genuinely optional discriminator, reject only on present-and-mismatched so an absent field degrades to
@@ -28,7 +33,9 @@
 ## What This Is Not
 Tolerant Reader and the robustness principle cover *ignoring unknown* fields. This file covers the inverse failure —
 an *expected but absent* field used as an equality gate, which silently turns every record into a non-match. Schema
-validation does not catch it either: the payload is valid, the client's assumption is not.
+validation does not catch it either: the payload is valid, the client's assumption is not. Nor is this contract-first
+versus code-first design: both are fine, and both still fail here when the artifact the contract was read from is not
+the one the endpoint serves.
 
 ## Related
 `knowledge/assetbundle_compatibility.md` and `skills/sdk/callback_safety.md` state the same doctrine for bundle

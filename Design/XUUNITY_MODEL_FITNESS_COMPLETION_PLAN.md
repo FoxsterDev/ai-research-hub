@@ -20,7 +20,7 @@ role ("the host", "the host F1 fixture") and never by content.
 | Layer | Location | Content | Tests |
 | --- | --- | --- | --- |
 | Public module | `AIRoot/Modules/XUUnity` | `xuunity_canonical` (JCS/I-JSON, domain digests), `contract_validator`, `observation_contract` (state taxonomy, groups, delivery), `shell_observer` (bounded fail-closed grammar), `reduced_stack_resolver` / `reduced_stack_loader` / `reduced_stack_gate` (derive/check/reconcile), routing-gate composition, data-driven ruleset + 11 module schemas, `ruleset_check` (ruleset self-hash gate + hand-authored routing probes replayed through the real resolver: minimality tripwire, override-owner and family-routing assertions) | 145 |
-| Public operation | `AIRoot/Operations/XUUnityModelFitness` | `model_fitness` package: `baseline` (content-addressed seeds, git-sourced identity, strict comparison keys), `attestation` (session MAC, request-boundary attestation, protected run manifest), `broker` (exclusive authoritative writes, one-use capabilities), `isolation` (seatbelt/bwrap/Null backends, enforcement probes, replay corpus, hermetic materialization), `adapters` (claude/codex normalization, mutation boundary, artifact resolution), `scoring` (5 dimensions, hard-gate precedence, bands), `stats` (exact Clopper-Pearson, order-statistic median bound), `suite` (immutable denominator, replicate bounds, grade caps), `experiment` (preregistered decision, alpha/F6 ledgers), `fixtures` (fixture kit, hermetic oracle harness, `evaluate_run` pipeline); 11 operation schemas; fixture corpus F2/F3/F4/F5 with red+green controls and the 10-attack F5 corpus | 145 |
+| Public operation | `AIRoot/Operations/XUUnityModelFitness` | `model_fitness` package: `baseline` (content-addressed seeds, git-sourced identity, strict comparison keys), `attestation` (session MAC, request-boundary attestation, protected run manifest), `broker` (exclusive authoritative writes, one-use capabilities), `isolation` (seatbelt/bwrap/Null backends, enforcement probes, replay corpus, hermetic materialization), `adapters` (claude/codex normalization, mutation boundary, artifact resolution), `scoring` (5 dimensions, hard-gate precedence, bands), `stats` (exact Clopper-Pearson, order-statistic median bound), `suite` (immutable denominator, replicate bounds, grade caps), `f6` (parent-signed holdout evidence binding), `experiment` (preregistered decision, alpha/F6 ledgers), `fixtures` (fixture kit, hermetic oracle harness, `evaluate_run` pipeline); 12 operation schemas; fixture corpus F2–F5 and F7–F8 with red+green controls and the 10-attack F5 corpus | 178 (2 skipped) |
 | Host operation | host-private operation dir | scorer v4 as thin compat layer over public adapters; legacy fixture v2 (diagnostic only); F1 v3 fixture on the public fixture schema: independent static/task oracle (known-bad red, known-good green, explicit producer denominator and untested contexts), receipt-bound compile oracle (`xuunity.f1-compile-receipt.v1`, tree-identity-bound, fail closed), severity-weighted safety validators; F0 regression slices | 67 |
 
 ### 1.2 Deliberate open state (all by design, not debt)
@@ -200,14 +200,19 @@ real blinded holdout.
      (protected paths + isolation read-namespace deny already enforce
      this); public fixture document carries only refs + hashes.
 2. Rotation and exposure procedure (public doc + host state):
-   - every F6 evaluation consumes one exposure in the experiment/F6
-     ledger (already implemented in `experiment.py`);
+   - every verified F6 result artifact consumes one exposure in the
+     experiment/F6 ledger; the evaluator reauthenticates the artifact and
+     derives exposure identity from its hash rather than trusting a
+     caller-supplied number;
+   - the next manifest persists the exact consumed artifact-hash set; replay
+     becomes `inconclusive`, and the host owns the atomic state update;
    - exhaustion → quarantine the payload, rotate to a freshly authored
      one, reset the ledger with a new `holdout_ref`;
    - authoring checklist forbids reusing F1–F5 subject matter.
-3. Tests: host oracle red/green controls; public-side: suite with
-   `f6_included=True` un-caps; exposure overrun still forces
-   `inconclusive`.
+3. Tests: host oracle red/green controls; public-side: a parent-signed artifact
+   bound to the exact suite, fixture, profile, and attempt roster removes only
+   the F6 cap; missing, forged, tampered, or unsuccessful evidence cannot;
+   exposure overrun still forces `inconclusive`.
 
 **Exit criteria.** A full suite including F6 can grade `fit` when the
 numbers support it; without F6 the cap provably remains.

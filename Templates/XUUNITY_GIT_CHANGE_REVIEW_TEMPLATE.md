@@ -9,6 +9,10 @@
 - Review scope:
 - Comparison base:
 - Included local delta:
+- Comparison-base project memory:
+- Branch-derived candidate evidence:
+- Independent approval:
+- Unresolved evidence conflicts:
 
 ## Findings
 - `Severity | File | Issue | Why It Matters | Recommended Fix`

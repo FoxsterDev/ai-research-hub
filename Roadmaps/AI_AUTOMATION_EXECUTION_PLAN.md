@@ -278,10 +278,10 @@ Goal:
 - close the remaining governance gap for extraction-health evidence without blocking product work
 
 Backlog item:
-- run the authoritative approval flow for the current extraction baseline using:
+- locate the candidate extraction run bundle through host-local evidence records, then run the authoritative approval flow using:
   - `AIRoot/Operations/XUUNITY_EXTRACTION_AUTHORITATIVE_APPROVAL_CHECKLIST.md`
-  - `AIOutput/Reports/System/knowledge_extraction_eval_baseline_v1_run.json`
-  - `AIRoot/Operations/knowledge_extraction_eval.py report --write-back`
+  - `<host-report-root>/knowledge_extraction_eval_latest_summary.json` as the canonical health-status pointer (not as a run selector)
+  - `AIRoot/Operations/knowledge_extraction_eval.py report --run-json <run-bundle-path> --write-back`
 
 Done when:
 - the current extraction run is either explicitly approved as authoritative human-scored evidence or explicitly replaced by a newer approved run

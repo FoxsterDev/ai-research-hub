@@ -150,21 +150,83 @@
     },
     {
       "id": "async_threading",
-      "description": "Async/threading work loads the async family and its project override.",
+      "description": "Async, callback, or threading signals load the base async contract and concurrency classification; the signal is not itself proof of cross-thread access.",
       "priority": 21,
       "selectors": {
         "keywords_any": [
           "async",
           "await",
-          "thread",
-          "threading",
           "unitask",
           "coroutine",
+          "callback",
+          "callbacks",
+          "event handler",
+          "thread",
+          "threading",
+          "synchronization",
+          "race condition"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "skills_async_base",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/async/base_async_rules.md",
+            "{module}/skills/async/concurrency_classification.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "override_family": "async",
+      "risk": "normal",
+      "human_owner": "{module}/skills/async/routing.md"
+    },
+    {
+      "id": "async_main_thread_context",
+      "description": "Explicit Unity/main-thread boundary signals load the main-thread owner in addition to the async base contract.",
+      "priority": 22,
+      "selectors": {
+        "keywords_any": [
           "main thread",
+          "unity thread",
+          "switchtomainthread",
+          "unitysendmessage",
+          "player loop thread",
+          "player-loop thread",
+          "unity api thread"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "skills_async_main_thread",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/async/main_thread.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "dependencies": [
+        "async_threading"
+      ],
+      "risk": "high",
+      "human_owner": "{module}/skills/async/main_thread.md"
+    },
+    {
+      "id": "async_dotnet_task",
+      "description": "Explicit .NET task or thread-pool signals load the .NET Task interop owner in addition to the async base contract.",
+      "priority": 22,
+      "selectors": {
+        "keywords_any": [
           "configureawait",
           "task.run",
-          "synchronization",
-          "race condition",
+          ".net task",
+          "system.threading.tasks",
+          "switchtothreadpool",
+          "threadpool",
           "pool thread",
           "thread-pool",
           "thread pool"
@@ -172,20 +234,82 @@
       },
       "requirements": [
         {
-          "id": "skills_async",
+          "id": "skills_async_dotnet_task",
           "mode": "all_of",
           "paths": [
-            "{module}/skills/async/base_async_rules.md",
-            "{module}/skills/async/main_thread.md",
             "{module}/skills/async/dotnet_task.md"
           ],
-          "weight": 3,
+          "weight": 1,
           "phase": "before_first_mutation"
         }
       ],
-      "override_family": "async",
+      "dependencies": [
+        "async_threading"
+      ],
       "risk": "high",
-      "human_owner": "{module}/skills/async/routing.md"
+      "human_owner": "{module}/skills/async/dotnet_task.md"
+    },
+    {
+      "id": "async_sync_primitives",
+      "description": "Synchronization vocabulary loads the concurrency evidence gate before a primitive is accepted.",
+      "priority": 22,
+      "selectors": {
+        "keywords_any": [
+          "lock",
+          "monitor",
+          "interlocked",
+          "volatile",
+          "semaphoreslim",
+          "semaphore",
+          "concurrent collection",
+          "thread-safe",
+          "threadsafe",
+          "atomic"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "concurrency_classification_for_primitive",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/async/concurrency_classification.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "dependencies": [
+        "async_threading"
+      ],
+      "risk": "high",
+      "human_owner": "{module}/skills/async/concurrency_classification.md"
+    },
+    {
+      "id": "async_sync_primitives_source",
+      "description": "Synchronization primitives found in inspected source or diff load the concurrency evidence gate even when the task wording is neutral.",
+      "priority": 22,
+      "selectors": {
+        "content_regex_any": [
+          "\\block\\s*\\(",
+          "\\b(?:Interlocked|Volatile|Monitor|Semaphore(?:Slim)?|Mutex|ReaderWriterLockSlim|SpinLock|EventWaitHandle|ManualResetEvent(?:Slim)?|AutoResetEvent|CountdownEvent|Concurrent[A-Z][A-Za-z0-9_]*)\\b"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "concurrency_classification_for_source",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/async/concurrency_classification.md"
+          ],
+          "weight": 1,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "dependencies": [
+        "async_threading"
+      ],
+      "risk": "high",
+      "human_owner": "{module}/skills/async/concurrency_classification.md"
     },
     {
       "id": "sdk_privacy",
@@ -318,6 +442,39 @@
       ],
       "risk": "high",
       "human_owner": "{module}/reviews/policy_packs/startup_changes.md"
+    },
+    {
+      "id": "change_review_provenance",
+      "description": "Branch, diff, commit, and PR reviews load the evidence-provenance owner so target-authored memory cannot validate its own change.",
+      "priority": 29,
+      "selectors": {
+        "task_kinds": [
+          "code_review"
+        ],
+        "keywords_any": [
+          "branch",
+          "diff",
+          "commit",
+          "pull request",
+          "staged",
+          "unstaged",
+          "against release",
+          "comparison base"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "review_evidence_provenance",
+          "mode": "all_of",
+          "paths": [
+            "{module}/knowledge/review_evidence_provenance.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "risk": "normal",
+      "human_owner": "{module}/knowledge/review_evidence_provenance.md"
     },
     {
       "id": "task_feature",
@@ -501,5 +658,5 @@
       "human_owner": "{module}/reviews/policy_packs/sdk_changes.md"
     }
   ],
-  "ruleset_hash": "62682391288ac1def6038b3a661f8ac7e9d3389c99c344cd753aaa16238936ac"
+  "ruleset_hash": "ce6bbb8719f9020b04d4a248ccba83d6f7fe9c37d7c0b30a4a28477c2e99742c"
 }
