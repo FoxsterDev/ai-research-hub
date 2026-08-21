@@ -51,4 +51,3 @@ Do not guard the same invariant independently in UI binding, presenter, flow, se
 
 ## Review Contract
 A review must not award safety credit for visible synchronization alone. Missing writer/thread evidence, duplicated guards, speculative future-proofing, or synchronization that obscures one-thread ownership are maintainability and architecture findings and may also be safety findings.
-
