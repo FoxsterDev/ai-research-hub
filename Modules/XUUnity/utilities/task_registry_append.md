@@ -85,6 +85,12 @@ Record a human-triggered task outcome as append-only task events plus a low-risk
    - summary
    - linked audit path
 8. Create or refresh the task audit note under `AIOutput/Reports/Tasks/` when the work needs a durable human-readable writeup.
+8a. Consolidate the artifacts this task produced, before reporting it finished.
+   - Intent artifacts — design briefs, working and continuation prompts, slice plans, change reviews — describe a state that stops existing once the work lands. Collapse what stays useful into one as-built record and remove the originals.
+   - The as-built record carries what the code cannot tell a later reader: the decision register, with its identifiers unchanged wherever code comments cite them, the contract as observed, the validation ledger, and what is still unproven.
+   - Route durable truth to project memory instead of leaving it in the record, and keep the audit trail: applied or declined review packages, retros, and registry events are the record of why shared guidance says what it says, not clutter.
+   - Scope is this task's own artifacts. Repo-wide and age-driven sweeps belong to `system_output_cleanup.md`, which owns the retention windows, protected paths, and approval gate; do not re-derive them here.
+   - A file still referenced by code, a router, or an index is not clutter. Resolve the reference or keep the file.
 
 ## Tool Path
 - Prefer `AIRoot/Modules/XUUnity/scripts/task_registry_tool.py finish ...` when a shell-capable workflow is available.
@@ -98,6 +104,7 @@ Record a human-triggered task outcome as append-only task events plus a low-risk
 
 ## Rules
 - This workflow is human-triggered. Do not append task-history events automatically during ordinary implementation chatter.
+- Closeout includes the consolidation pass. A task that leaves its own superseded intent documents behind is not finished. Report what was collapsed and what was deliberately kept, so the user can challenge either.
 - Keep the event store append-only.
 - Keep Slack optional and downstream.
 - If the host repo defines specific closeout commands as Slack-delivery triggers, honor that routing when deciding whether `slack_reported` should be appended.
