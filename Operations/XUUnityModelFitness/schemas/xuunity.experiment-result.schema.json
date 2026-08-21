@@ -19,7 +19,7 @@
     "reason_codes"
   ],
   "properties": {
-    "schema_version": { "const": "xuunity.experiment-result.v1" },
+    "schema_version": { "const": "xuunity.experiment-result.v2" },
     "experiment_id": { "type": "string", "minLength": 1 },
     "manifest_hash": { "$ref": "#/$defs/sha256" },
     "control_suite": { "$ref": "#/$defs/suite_ref" },
@@ -79,6 +79,8 @@
         "alpha_spent_after",
         "f6_exposures_before",
         "f6_exposures_after",
+        "f6_artifact_hashes_before",
+        "f6_artifact_hashes_after",
         "f6_budget"
       ],
       "properties": {
@@ -90,6 +92,14 @@
         "alpha_spent_after": { "type": "number", "minimum": 0 },
         "f6_exposures_before": { "type": "integer", "minimum": 0 },
         "f6_exposures_after": { "type": "integer", "minimum": 0 },
+        "f6_artifact_hashes_before": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "f6_artifact_hashes_after": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sha256" }
+        },
         "f6_budget": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false

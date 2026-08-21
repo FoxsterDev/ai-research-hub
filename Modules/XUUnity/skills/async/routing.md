@@ -5,6 +5,7 @@ If async-related signals are present, load:
 - `base_async_rules.md`
 
 Then refine:
+- `concurrency_classification.md` for callbacks, shared mutable state, `lock`, `Interlocked`, `Volatile`, `SemaphoreSlim`, duplicate-entry suppression, or thread-safety claims
 - `unitask.md` for `UniTask`, `Forget`, PlayerLoop integration, or gameplay async
 - `awaitable.md` for Unity `Awaitable`
 - `dotnet_task.md` for `.NET Task`, `TaskCompletionSource`, or background compute

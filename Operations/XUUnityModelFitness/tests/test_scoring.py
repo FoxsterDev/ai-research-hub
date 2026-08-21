@@ -64,6 +64,36 @@ def fixture_doc(**overrides: Any) -> dict[str, Any]:
     return doc
 
 
+def oracle_result(
+    fixture: dict[str, Any],
+    oracle_id: str = "semantic-oracle",
+    *,
+    status: str = "passed",
+    score_fraction: float | None = None,
+    **overrides: Any,
+) -> dict[str, Any]:
+    declaration = next(
+        row for row in fixture["semantic_oracles"] if row["id"] == oracle_id
+    )
+    result: dict[str, Any] = {
+        "schema_version": "xuunity.oracle-result.v1",
+        "fixture_id": fixture["fixture_id"],
+        "oracle_id": oracle_id,
+        "kind": declaration["kind"],
+        "implementation_sha256": declaration["implementation_sha256"],
+        "tree_identity": None if status == "not_evaluable" else "d" * 64,
+        "status": status,
+        "reason_codes": [],
+        "score_fraction": (
+            score_fraction
+            if score_fraction is not None
+            else (None if status == "not_evaluable" else 1.0)
+        ),
+    }
+    result.update(overrides)
+    return result
+
+
 def score(fixture: dict[str, Any], **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "run_id": "run-1",
@@ -76,8 +106,9 @@ def score(fixture: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         "comparison_status": "exact_repeat",
         "gate_decision": "pass",
         "delivery_percent": 100.0,
-        "oracle_result": {"oracle_id": "semantic-oracle", "status": "passed"},
     }
+    if "oracle_result" not in overrides:
+        arguments["oracle_result"] = oracle_result(fixture)
     arguments.update(overrides)
     return scoring.score_run(fixture, **arguments)
 
@@ -133,6 +164,17 @@ class PerfectRunTests(unittest.TestCase):
         )
         self.assertFalse(
             any(row["triggered"] for row in result["hard_gates"])
+        )
+
+    def test_authoritative_controlled_run_is_adoption_eligible(self) -> None:
+        result = score(
+            fixture_doc(),
+            enforcement_mode="authoritative",
+            comparison_status="exact_repeat",
+        )
+        self.assertEqual("eligible", result["adoption_status"])
+        self.assertNotIn(
+            "adoption_enforcement_not_authoritative", result["reason_codes"]
         )
 
 
@@ -230,13 +272,12 @@ class HardGateOverrideTests(unittest.TestCase):
         self.assertIn("f5_bypass_miss", self.triggered(result))
 
     def test_failed_oracle_caps_at_49_9_even_with_full_delivery(self) -> None:
+        fixture = fixture_doc()
         result = score(
-            fixture_doc(),
-            oracle_result={
-                "oracle_id": "semantic-oracle",
-                "status": "failed",
-                "score_fraction": 1.0,
-            },
+            fixture,
+            oracle_result=oracle_result(
+                fixture, status="failed", score_fraction=1.0
+            ),
         )
         self.assertEqual(49.9, result["score_total"])
         self.assertEqual("unfit", result["band"])
@@ -317,15 +358,180 @@ class ScoreabilityTests(unittest.TestCase):
         self.assertEqual(
             "not_evaluable", result["measurement_state"]["outcome"]
         )
-        mismatch = score(
-            fixture_doc(),
-            oracle_result={"oracle_id": "other-oracle", "status": "passed"},
-        )
+        fixture = fixture_doc()
+        unexpected = oracle_result(fixture)
+        unexpected["oracle_id"] = "other-oracle"
+        mismatch = score(fixture, oracle_result=unexpected)
         self.assertIn("oracle_id_mismatch", mismatch["reason_codes"])
         no_oracle = fixture_doc(semantic_oracles=[])
         result = score(no_oracle, oracle_result=None)
         self.assertIn(
             "semantic_oracle_missing_from_fixture", result["reason_codes"]
+        )
+
+    def test_every_blocking_oracle_is_required_before_scoring(self) -> None:
+        fixture = fixture_doc(
+            semantic_oracles=[
+                {
+                    "id": "semantic-oracle",
+                    "implementation_sha256": "3" * 64,
+                    "kind": "test",
+                    "blocking": True,
+                },
+                {
+                    "id": "compile-oracle",
+                    "implementation_sha256": "4" * 64,
+                    "kind": "compile",
+                    "blocking": True,
+                },
+            ]
+        )
+        partial = score(fixture)
+        self.assertIsNone(partial["score_total"])
+        self.assertIn(
+            "blocking_oracle_result_missing:compile-oracle",
+            partial["reason_codes"],
+        )
+
+        complete = score(
+            fixture,
+            oracle_result=[
+                oracle_result(fixture, "semantic-oracle"),
+                oracle_result(fixture, "compile-oracle"),
+            ],
+        )
+        self.assertEqual(100.0, complete["score_total"])
+
+    def test_not_evaluable_blocker_dominates_a_failed_blocker(self) -> None:
+        fixture = fixture_doc(
+            semantic_oracles=[
+                {
+                    "id": "semantic-oracle",
+                    "implementation_sha256": "3" * 64,
+                    "kind": "test",
+                    "blocking": True,
+                },
+                {
+                    "id": "compile-oracle",
+                    "implementation_sha256": "4" * 64,
+                    "kind": "compile",
+                    "blocking": True,
+                },
+            ]
+        )
+        incomplete_evidence = score(
+            fixture,
+            oracle_result=[
+                oracle_result(
+                    fixture,
+                    "semantic-oracle",
+                    status="failed",
+                    score_fraction=1.0,
+                ),
+                oracle_result(
+                    fixture,
+                    "compile-oracle",
+                    status="not_evaluable",
+                    reason_codes=["compile_receipt_missing"],
+                ),
+            ],
+        )
+        self.assertIsNone(incomplete_evidence["score_total"])
+        self.assertIn("compile_receipt_missing", incomplete_evidence["reason_codes"])
+
+        measured_failure = score(
+            fixture,
+            oracle_result=[
+                oracle_result(
+                    fixture,
+                    "semantic-oracle",
+                    status="failed",
+                    score_fraction=1.0,
+                ),
+                oracle_result(fixture, "compile-oracle"),
+            ],
+        )
+        self.assertEqual(49.9, measured_failure["score_total"])
+
+    def test_duplicate_blocking_oracle_result_is_unscored(self) -> None:
+        fixture = fixture_doc()
+        result = score(
+            fixture,
+            oracle_result=[
+                oracle_result(fixture),
+                oracle_result(fixture),
+            ],
+        )
+        self.assertIsNone(result["score_total"])
+        self.assertIn(
+            "blocking_oracle_result_duplicate:semantic-oracle",
+            result["reason_codes"],
+        )
+
+    def test_stub_and_mismatched_oracle_provenance_are_unscored(self) -> None:
+        fixture = fixture_doc()
+        stub = score(
+            fixture,
+            oracle_result={"oracle_id": "semantic-oracle", "status": "passed"},
+        )
+        self.assertIsNone(stub["score_total"])
+        self.assertIn(
+            "blocking_oracle_schema_invalid:semantic-oracle",
+            stub["reason_codes"],
+        )
+
+        wrong_fixture = oracle_result(fixture, fixture_id="f6-other")
+        mismatch = score(fixture, oracle_result=wrong_fixture)
+        self.assertIsNone(mismatch["score_total"])
+        self.assertIn(
+            "blocking_oracle_fixture_mismatch:semantic-oracle",
+            mismatch["reason_codes"],
+        )
+
+        wrong_implementation = oracle_result(
+            fixture, implementation_sha256="e" * 64
+        )
+        mismatch = score(fixture, oracle_result=wrong_implementation)
+        self.assertIsNone(mismatch["score_total"])
+        self.assertIn(
+            "blocking_oracle_implementation_mismatch:semantic-oracle",
+            mismatch["reason_codes"],
+        )
+
+    def test_multiple_failures_use_worst_fraction_independent_of_order(self) -> None:
+        fixture = fixture_doc(
+            semantic_oracles=[
+                {
+                    "id": "semantic-oracle",
+                    "implementation_sha256": "3" * 64,
+                    "kind": "test",
+                    "blocking": True,
+                },
+                {
+                    "id": "compile-oracle",
+                    "implementation_sha256": "4" * 64,
+                    "kind": "compile",
+                    "blocking": True,
+                },
+            ]
+        )
+        first = oracle_result(
+            fixture, "semantic-oracle", status="failed", score_fraction=1.0
+        )
+        worst = oracle_result(
+            fixture, "compile-oracle", status="failed", score_fraction=0.0
+        )
+        forward = score(fixture, oracle_result=[first, worst])
+        reverse = score(fixture, oracle_result=[worst, first])
+        generated = score(
+            fixture, oracle_result=(row for row in [first, worst])
+        )
+        self.assertEqual(0.0, forward["score_dimensions"]["semantic_outcome"])
+        self.assertEqual(
+            forward["score_dimensions"], reverse["score_dimensions"]
+        )
+        self.assertEqual(
+            forward["score_dimensions"], generated["score_dimensions"]
         )
 
 

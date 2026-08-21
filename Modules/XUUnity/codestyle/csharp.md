@@ -39,6 +39,7 @@
 - Prefer `sealed` on concrete classes that are not designed for inheritance.
 - Prefer expression-bodied members for simple getters or one-line forwarding members when readability stays high.
 - Prefer early-return guard clauses over deep nesting.
+- A result or decision record must not report a value it never computed. Use a nullable field for `not evaluated` instead of a valid-looking enum default or a numeric sentinel, so a consumer cannot read a state the producer never reached.
 - Remove one-line forwarding wrappers and duplicate guards when they do not preserve a real boundary or contract.
 - Prefer one coherent method over several tiny pass-through helpers when the split adds call-hopping but not isolation, reuse, or test value.
 - Simplify method signatures when extra parameters only mirror ambient state or are immediately forwarded unchanged through one more layer.

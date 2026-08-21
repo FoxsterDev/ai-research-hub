@@ -35,6 +35,8 @@ Prefer critical review over approval-seeking summary.
 ## Load First
 - `tasks/code_review.md`
 - `knowledge/review_quality_scoring.md`
+- `knowledge/review_evidence_provenance.md`
+- `knowledge/change_complexity_budget.md`
 - `reviews/feature_code_review.md`
 - `reviews/architecture_review.md` when boundaries or ownership changed materially
 - `reviews/release_readiness_review.md` when rollout or production safety is in question
@@ -49,6 +51,12 @@ Prefer critical review over approval-seeking summary.
 - exclude unrelated local edits from the main verdict when they are outside the intended review scope
 - call out when review confidence is reduced because the diff scope may be incomplete
 - if the branch diff is too large for a trustworthy single-pass review, split it into review areas, state reduced confidence, and avoid giving a false-green release verdict
+
+### Branch-Derived Truth
+- compare project memory, design notes, tests, and review artifacts added or modified by the change with the comparison-base truth
+- treat branch-authored memory as candidate intent, not an independent acceptance contract
+- do not award project-fit or architecture credit merely because implementation and memory created in the same change agree
+- name any explicit independent approval that makes a new branch contract authoritative; otherwise record `none`
 
 ### Large Diff Triage
 Use explicit triage when the branch diff is broad enough that a single verdict would be shallow.
@@ -73,6 +81,9 @@ When this happens:
 - missing tests or weak validation
 - code style and maintainability issues
 - project-pattern compliance
+- project-native capability discovery by semantics before custom lifecycle, binding, shared-operation, caching, or synchronization machinery
+- complexity delta: state owners, coordination primitives, wrappers, root-owner growth, call-hopping, duplicated lifecycle, and production test seams
+- writer/thread evidence for every synchronization primitive or thread-safety claim
 - feature and core-flow breakage probability
 - whether any issue is a deterministic bug versus a probabilistic regression risk
 - what manual QA must verify before release confidence is credible
@@ -133,6 +144,10 @@ Preferred saved review artifact shape:
 - Review scope:
 - Comparison base:
 - Included local delta:
+- Comparison-base project memory:
+- Branch-derived candidate evidence:
+- Independent approval:
+- Unresolved evidence conflicts:
 
 ## Findings
 - `Severity | File | Issue | Why It Matters | Recommended Fix`

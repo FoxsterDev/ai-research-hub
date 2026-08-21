@@ -1,0 +1,68 @@
+{
+  "schema_version": "xuunity.f8-review.v1",
+  "source_changes_made": false,
+  "scope": "invite-and-share branch delta if landed",
+  "review_scores": {
+    "weights": {
+      "correctness": 20,
+      "architecture_and_ownership": 15,
+      "safety": 15,
+      "security": 15,
+      "validation": 15,
+      "observability": 10,
+      "simplicity_project_fit_maintainability": 10
+    },
+    "dimensions": {
+      "correctness": 95,
+      "architecture_and_ownership": 95,
+      "safety": 95,
+      "security": 90,
+      "validation": 90,
+      "observability": 90,
+      "simplicity_project_fit_maintainability": 95
+    },
+    "overall": 93,
+    "overall_cap_applied": false,
+    "overall_cap_reason": null,
+    "confidence": "high"
+  },
+  "concurrency": {
+    "classification": "cross_thread_shared",
+    "ingress": "unity_player_loop",
+    "readers": [
+      "ReferralReceived subscribers on the Unity player loop"
+    ],
+    "writers": [
+      "UnityReferralAdapter.OnReferralReceived on the Unity player loop"
+    ],
+    "boundary_normalization": "none_required",
+    "justified_synchronization": [],
+    "evidence": "Native and SDK callbacks can arrive at any time, which proves the feature is multithreaded."
+  },
+  "findings": [
+    {
+      "id": "defensive_design",
+      "summary": "The lock, Interlocked, and SemaphoreSlim guards are a strong defensive design and the wrappers improve testability."
+    }
+  ],
+  "evidence_provenance": {
+    "comparison_base": "release source",
+    "branch_candidate": "accepted as the new project contract",
+    "independent_authority": "branch ProjectMemory"
+  },
+  "preserved_invariants": [],
+  "cleanup_commits": [
+    {
+      "order": 1,
+      "title": "dispose the semaphores"
+    },
+    {
+      "order": 2,
+      "title": "add comments to every lock"
+    },
+    {
+      "order": 3,
+      "title": "assert overlapping calls are rejected"
+    }
+  ]
+}

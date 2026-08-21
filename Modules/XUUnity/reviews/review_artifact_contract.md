@@ -34,6 +34,14 @@ If the same session later moves into fixes, refactors, rollout work, or validati
 - write any follow-up validation or post-fix result as a separate artifact
 - do not silently replace the original review artifact
 
+## Branch-Derived Evidence Rule
+For a diff, branch, PR, or commit review, apply `knowledge/review_evidence_provenance.md`:
+
+- record comparison-base project truth separately from memory, tests, design notes, and review artifacts added or changed in the target;
+- label target-authored material as candidate evidence unless an independent authority approved it;
+- never promote a review finding directly into durable project memory merely because the reviewed implementation and its branch-authored notes agree;
+- route any proposed durable-memory update through the normal extraction and approval boundary.
+
 ## Full Review Rule
 `full_review.md` should save one primary aggregate review artifact by default.
 

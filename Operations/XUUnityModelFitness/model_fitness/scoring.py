@@ -16,9 +16,17 @@ Delivery evidence alone can never compensate for a failed semantic oracle.
 
 from __future__ import annotations
 
+from collections.abc import Iterable as IterableABC
 from typing import Any, Iterable
 
-from .contracts import require_valid
+from .contracts import (
+    fractional_document_hash,
+    hash_payload,
+    require_valid,
+    validate_against,
+)
+
+import xuunity_canonical as xc
 
 DIMENSIONS = (
     "semantic_outcome",
@@ -68,37 +76,160 @@ def validate_fixture(fixture: dict[str, Any]) -> None:
                 f"hard gate {gate['id']} references unknown validator "
                 f"{gate['validator_id']}"
             )
+    oracle_ids = [row["id"] for row in fixture["semantic_oracles"]]
+    if len(oracle_ids) != len(set(oracle_ids)):
+        raise ScoringError("semantic oracle ids must be unique")
+
+
+def _oracle_results(
+    oracle_result: dict[str, Any] | Iterable[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if oracle_result is None:
+        return []
+    if isinstance(oracle_result, dict):
+        return [oracle_result]
+    if not isinstance(oracle_result, IterableABC):
+        raise ScoringError("oracle_result must be a mapping or iterable")
+    results = list(oracle_result)
+    if not all(isinstance(result, dict) for result in results):
+        raise ScoringError("every oracle result must be a mapping")
+    return results
 
 
 def semantic_outcome_state(
-    fixture: dict[str, Any], oracle_result: dict[str, Any] | None
+    fixture: dict[str, Any],
+    oracle_result: dict[str, Any] | Iterable[dict[str, Any]] | None,
 ) -> tuple[str, list[str]]:
-    declared = {oracle["id"] for oracle in fixture["semantic_oracles"]}
-    if not declared:
+    blocking = {
+        oracle["id"]: oracle
+        for oracle in fixture["semantic_oracles"]
+        if oracle["blocking"]
+    }
+    blocking_ids = set(blocking)
+    if not blocking_ids:
         return "not_evaluable", ["semantic_oracle_missing_from_fixture"]
-    if oracle_result is None:
-        return "not_evaluable", ["oracle_result_missing"]
-    if oracle_result.get("oracle_id") not in declared:
-        return "not_evaluable", ["oracle_id_mismatch"]
-    status = oracle_result.get("status")
-    if status == "passed":
-        return "valid_complete", []
-    if status == "failed":
-        return "valid_incomplete", sorted(
-            oracle_result.get("reason_codes") or []
+
+    results = _oracle_results(oracle_result)
+    if not results:
+        return "not_evaluable", [
+            "oracle_result_missing",
+            *sorted(
+                f"blocking_oracle_result_missing:{oracle_id}"
+                for oracle_id in blocking_ids
+            ),
+        ]
+
+    by_id: dict[str, dict[str, Any]] = {}
+    reasons: set[str] = set()
+    for result in results:
+        oracle_id = str(result.get("oracle_id") or "")
+        schema_errors = validate_against(
+            "xuunity.oracle-result.schema.json", result
         )
-    return "not_evaluable", ["oracle_status_unknown"]
+        if schema_errors:
+            reasons.add(
+                f"blocking_oracle_schema_invalid:{oracle_id or 'missing'}"
+            )
+            continue
+        if oracle_id not in blocking_ids:
+            reasons.add("oracle_id_mismatch")
+            reasons.add(f"blocking_oracle_result_unexpected:{oracle_id or 'missing'}")
+            continue
+        if oracle_id in by_id:
+            reasons.add(f"blocking_oracle_result_duplicate:{oracle_id}")
+            continue
+        declaration = blocking[oracle_id]
+        if result["fixture_id"] != fixture["fixture_id"]:
+            reasons.add(f"blocking_oracle_fixture_mismatch:{oracle_id}")
+        if result["kind"] != declaration["kind"]:
+            reasons.add(f"blocking_oracle_kind_mismatch:{oracle_id}")
+        if (
+            result["implementation_sha256"]
+            != declaration["implementation_sha256"]
+        ):
+            reasons.add(
+                f"blocking_oracle_implementation_mismatch:{oracle_id}"
+            )
+        if (
+            result["status"] in {"passed", "failed"}
+            and result["tree_identity"] is None
+        ):
+            reasons.add(f"blocking_oracle_tree_missing:{oracle_id}")
+        by_id[oracle_id] = result
+
+    missing = blocking_ids - set(by_id)
+    reasons.update(
+        f"blocking_oracle_result_missing:{oracle_id}"
+        for oracle_id in missing
+    )
+    if reasons:
+        return "not_evaluable", sorted(reasons)
+
+    statuses = {oracle_id: by_id[oracle_id].get("status") for oracle_id in blocking_ids}
+    unknown = sorted(
+        oracle_id
+        for oracle_id, status in statuses.items()
+        if status not in {"passed", "failed", "not_evaluable"}
+    )
+    if unknown:
+        return "not_evaluable", [
+            f"blocking_oracle_status_unknown:{oracle_id}"
+            for oracle_id in unknown
+        ]
+
+    not_evaluable = sorted(
+        oracle_id
+        for oracle_id, status in statuses.items()
+        if status == "not_evaluable"
+    )
+    if not_evaluable:
+        for oracle_id in not_evaluable:
+            reasons.add(f"blocking_oracle_not_evaluable:{oracle_id}")
+            reasons.update(by_id[oracle_id].get("reason_codes") or [])
+        return "not_evaluable", sorted(reasons)
+
+    tree_identities = {
+        by_id[oracle_id]["tree_identity"] for oracle_id in blocking_ids
+    }
+    if len(tree_identities) != 1:
+        return "not_evaluable", ["blocking_oracle_tree_identity_mismatch"]
+
+    failed = sorted(
+        oracle_id
+        for oracle_id, status in statuses.items()
+        if status == "failed"
+    )
+    if not failed:
+        return "valid_complete", []
+    for oracle_id in failed:
+        reasons.update(by_id[oracle_id].get("reason_codes") or [])
+    return "valid_incomplete", sorted(reasons)
 
 
 def _semantic_dimension(
-    outcome_state: str, oracle_result: dict[str, Any] | None
+    outcome_state: str,
+    oracle_result: dict[str, Any] | Iterable[dict[str, Any]] | None,
 ) -> float:
     if outcome_state == "valid_complete":
         return 100.0
-    fraction = float((oracle_result or {}).get("score_fraction") or 0.0)
-    if not 0.0 <= fraction <= 1.0:
-        raise ScoringError("oracle score_fraction must be within [0, 1]")
-    return 100.0 * fraction
+    fractions = [
+        float(result.get("score_fraction") or 0.0)
+        for result in _oracle_results(oracle_result)
+        if result.get("status") == "failed"
+    ]
+    if not fractions or any(not 0.0 <= value <= 1.0 for value in fractions):
+        raise ScoringError("failed oracle score_fraction must be within [0, 1]")
+    return 100.0 * min(fractions)
+
+
+def fixture_sha256(fixture: dict[str, Any]) -> str:
+    return fixture.get("fixture_hash") or fractional_document_hash(
+        fixture, "fixture_hash"
+    )
+
+
+def oracle_result_sha256(result: dict[str, Any]) -> str:
+    return xc.domain_digest(result["schema_version"], hash_payload(result))
 
 
 def evaluate_safety(
@@ -199,7 +330,7 @@ def score_run(
     comparison_status: str,
     gate_decision: str | None,
     delivery_percent: float | None,
-    oracle_result: dict[str, Any] | None,
+    oracle_result: dict[str, Any] | Iterable[dict[str, Any]] | None,
     safety_results: Iterable[dict[str, Any]] = (),
     reported_gap_ids: Iterable[str] = (),
     bypass_misses: Iterable[str] = (),
@@ -209,14 +340,15 @@ def score_run(
     supersedes: dict[str, Any] | None = None,
     extra_reason_codes: Iterable[str] = (),
 ) -> dict[str, Any]:
-    """Build one schema-valid ``xuunity.run-result.v1`` document."""
+    """Build one schema-valid ``xuunity.run-result.v2`` document."""
     validate_fixture(fixture)
+    oracle_results = _oracle_results(oracle_result)
     for axis in ("preflight", "execution", "observer", "artifacts"):
         if axis not in axes:
             raise ScoringError(f"missing measurement axis: {axis}")
 
     outcome_state, outcome_reasons = semantic_outcome_state(
-        fixture, oracle_result
+        fixture, oracle_results
     )
     measurement_state = {
         "preflight": axes["preflight"],
@@ -306,7 +438,7 @@ def score_run(
         )
         dimensions = {
             "semantic_outcome": round(
-                _semantic_dimension(outcome_state, oracle_result), 1
+                _semantic_dimension(outcome_state, oracle_results), 1
             ),
             "safety_obligations": round(safety["score"], 1),
             "gate_reconciliation": round(gate_score, 1),
@@ -321,18 +453,54 @@ def score_run(
         )
         total = round(min([raw_total] + caps), 1)
         band = "unfit" if forced_unfit else _band(total)
-        adoption_status = "diagnostic_only"
+        adoption_eligible = (
+            enforcement_mode == "authoritative"
+            and comparison_status in {"exact_repeat", "controlled_treatment"}
+        )
+        adoption_status = "eligible" if adoption_eligible else "diagnostic_only"
+        if enforcement_mode != "authoritative":
+            reason_codes.add("adoption_enforcement_not_authoritative")
+        if comparison_status not in {"exact_repeat", "controlled_treatment"}:
+            reason_codes.add("adoption_comparison_not_controlled")
     else:
         dimensions = {name: None for name in DIMENSIONS}
         total = None
         band = None
         adoption_status = "no_evidence"
 
+    evaluable_trees = {
+        result["tree_identity"]
+        for result in oracle_results
+        if result.get("status") in {"passed", "failed"}
+        and result.get("tree_identity") is not None
+    }
+    final_tree_identity = (
+        next(iter(evaluable_trees))
+        if outcome_state in {"valid_complete", "valid_incomplete"}
+        and len(evaluable_trees) == 1
+        else None
+    )
+    oracle_hashes = sorted(
+        (
+            {
+                "oracle_id": str(result.get("oracle_id") or "missing"),
+                "result_sha256": oracle_result_sha256(result),
+            }
+            for result in oracle_results
+            if isinstance(result.get("schema_version"), str)
+        ),
+        key=lambda row: row["oracle_id"],
+    )
+
     result = {
-        "schema_version": "xuunity.run-result.v1",
+        "schema_version": "xuunity.run-result.v2",
         "run_id": run_id,
+        "fixture_id": fixture["fixture_id"],
+        "fixture_sha256": fixture_sha256(fixture),
         "task_measurement_key": task_measurement_key,
         "strict_profile_key": strict_profile_key,
+        "final_tree_identity": final_tree_identity,
+        "blocking_oracle_results": oracle_hashes,
         "measurement_state": measurement_state,
         "enforcement_mode": enforcement_mode,
         "gate_decision": gate_decision,

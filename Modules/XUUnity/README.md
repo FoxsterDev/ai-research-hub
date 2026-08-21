@@ -139,6 +139,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/glossary.md`
 - `knowledge/agent_source_of_truth.md`
 - `knowledge/decision_rules.md`
+- `knowledge/change_complexity_budget.md`
 - `knowledge/external_store_open_boundaries.md`
 - `knowledge/risk_classification.md`
 - `knowledge/ios_passive_network_monitoring.md`
@@ -146,6 +147,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/vendors/appsflyer.md`
 - `knowledge/vendors/applovin_max.md`
 - `knowledge/review_quality_scoring.md`
+- `knowledge/review_evidence_provenance.md`
 - `knowledge/request_recovery.md`
 - `knowledge/severity_matrix.md`
 - `knowledge/unity_build_size_measurement.md`
@@ -232,7 +234,7 @@ For implementation tasks such as `xuunity fix ...`, `xuunity refactor ...`, and 
 ## Shared Layer Contract
 - `AIRoot/Modules/XUUnity/` is the public-safe reusable core.
 - `AIModules/XUUnityInternal/` is the monorepo-internal shared overlay when the host repo provides it.
-- Project memory remains the highest-priority durable layer after the target project is known.
+- Established project memory remains the highest-priority durable layer after the target project is known. During a change review, memory added or modified by the target is candidate evidence under `knowledge/review_evidence_provenance.md` until independently approved.
 - Internal overlay guidance may narrow public core behavior for monorepo-specific cases, but should not duplicate the public tree without need.
 - Agent-private memory, entrypoints, and tool configs should point into these shared layers instead of copying reusable rule bodies.
 

@@ -25,7 +25,13 @@ F2_DIR = FIXTURES_DIR / "f2_override_precedence"
 F3_DIR = FIXTURES_DIR / "f3_delivery_boundary"
 F4_DIR = FIXTURES_DIR / "f4_minimality_negative_control"
 F5_DIR = FIXTURES_DIR / "f5_adversarial_bypass"
-ALL_FIXTURE_DIRS = (F2_DIR, F3_DIR, F4_DIR, F5_DIR)
+F8_DIR = FIXTURES_DIR / "f8_review_proportionality"
+ALL_FIXTURE_DIRS = tuple(
+    sorted(
+        fixture_path.parent
+        for fixture_path in FIXTURES_DIR.glob("*/fixture.json")
+    )
+)
 
 KEY = b"parent-mac-key-0123456789abcdef!"
 CANARY = b"\n<xuunity-truncation-canary-7f3a>\n"
@@ -153,6 +159,13 @@ RESULT_EVENT = {"type": "result", "subtype": "success", "is_error": False}
 
 
 class CorpusConformanceTests(unittest.TestCase):
+    def test_every_discovered_fixture_is_documented_in_readme(self) -> None:
+        readme = (OPERATION_DIR / "README.md").read_text(encoding="utf-8")
+
+        for fixture_dir in ALL_FIXTURE_DIRS:
+            with self.subTest(fixture_dir.name):
+                self.assertIn(f"`{fixture_dir.name}`", readme)
+
     def test_every_fixture_verifies_fail_closed(self) -> None:
         for fixture_dir in ALL_FIXTURE_DIRS:
             fixture = fixtures.verify_fixture(fixture_dir)
@@ -537,6 +550,234 @@ class F4MinimalityTests(unittest.TestCase):
             ruleset = seed / "Modules/Stack/knowledge/reduced_stack_rules.json"
             plan = rsr.derive_plan(seed, ruleset, envelope)
         self.assertIn("thread_safety", plan["matched_rule_ids"])
+
+
+class F8ReviewProportionalityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.fixture = fixtures.verify_fixture(F8_DIR)
+        cls.seed = F8_DIR / "seed"
+
+    def test_branch_review_exact_stack_requires_git_change_owner(self) -> None:
+        expected = fixtures.load_expected_stack(F8_DIR)
+        git_owner = "Modules/Stack/reviews/git_change_review.md"
+        expected_paths = [
+            artifact["path"] for artifact in expected["artifacts"]
+        ]
+        self.assertEqual(
+            [
+                "Modules/Stack/tasks/code_review.md",
+                git_owner,
+                "Modules/Stack/skills/async/concurrency_classification.md",
+                "Modules/Stack/knowledge/change_complexity_budget.md",
+                "Modules/Stack/knowledge/review_quality_scoring.md",
+                "Modules/Stack/knowledge/review_evidence_provenance.md",
+            ],
+            expected_paths,
+        )
+        groups = {
+            group["group_id"]: group["members"]
+            for group in expected["groups"]
+        }
+        self.assertEqual([git_owner], groups["review.git_change"])
+
+        task_text = (F8_DIR / "task/prompt.md").read_text(
+            encoding="utf-8"
+        ).lower()
+        generic_owner = (
+            self.seed / "Modules/Stack/tasks/code_review.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("branch", task_text)
+        self.assertIn("release", task_text)
+        self.assertIn(git_owner, generic_owner)
+
+        manifest = fixtures.default_manifest(self.seed, expected_paths)
+
+        def evaluate(read_paths: list[str], run_id: str) -> dict:
+            events: list[dict] = [INIT_EVENT]
+            for index, path in enumerate(read_paths):
+                events += read_event(path, self.seed, f"{run_id}-{index}")
+            events += edit_event(
+                "review_result/result.json", f"{run_id}-result"
+            )
+            events.append(RESULT_EVENT)
+            with tempfile.TemporaryDirectory() as scratch:
+                tree = fixtures.materialize_control(
+                    F8_DIR,
+                    {
+                        "overlay": {
+                            "review_result/result.json": (
+                                "controls/known_good_proportional_review.json"
+                            )
+                        }
+                    },
+                    Path(scratch) / "tree",
+                )
+                return fixtures.evaluate_run(
+                    F8_DIR,
+                    self.fixture,
+                    events=events,
+                    run_id=run_id,
+                    manifest=manifest,
+                    tree=tree,
+                )
+
+        complete = evaluate(expected_paths, "f8-branch-complete")
+        self.assertEqual("pass", complete["gate_decision"])
+        self.assertEqual(100.0, complete["stack"]["delivery_percent"])
+
+        missing_git = evaluate(
+            [path for path in expected_paths if path != git_owner],
+            "f8-branch-missing-git-owner",
+        )
+        self.assertEqual("fail", missing_git["gate_decision"])
+        group_verdicts = {
+            group["group_id"]: group["gate_satisfied"]
+            for group in missing_git["stack"]["groups"]
+        }
+        self.assertFalse(group_verdicts.pop("review.git_change"))
+        self.assertTrue(all(group_verdicts.values()))
+        self.assertIn(
+            "required_gate_not_passed",
+            missing_git["run_result"]["reason_codes"],
+        )
+
+    def test_main_loop_and_worker_controls_require_opposite_classifications(
+        self,
+    ) -> None:
+        controls = {
+            control["id"]: control
+            for control in fixtures.load_controls(F8_DIR)
+        }
+        main_control = controls["known_good_proportional_review"]
+        worker_control = controls["known_good_worker_thread_review"]
+
+        def evaluate(control: dict, destination: Path) -> dict:
+            tree = fixtures.materialize_control(
+                F8_DIR,
+                control,
+                destination,
+            )
+            return fixtures.run_semantic_oracle(
+                F8_DIR,
+                self.fixture,
+                "f8_review_proportionality",
+                tree,
+            )
+
+        with tempfile.TemporaryDirectory() as scratch:
+            scratch_path = Path(scratch)
+            main_result = evaluate(main_control, scratch_path / "main")
+            worker_result = evaluate(worker_control, scratch_path / "worker")
+            worker_review_on_main = evaluate(
+                {
+                    "overlay": {
+                        "review_result/result.json": (
+                            "controls/known_good_worker_thread_review.json"
+                        )
+                    }
+                },
+                scratch_path / "worker-review-on-main",
+            )
+            main_review_on_worker = evaluate(
+                {
+                    "overlay": {
+                        "Project/App/src/UnityReferralAdapter.cs": (
+                            "controls/worker_thread_referral_adapter.cs"
+                        ),
+                        "review_result/result.json": (
+                            "controls/known_good_proportional_review.json"
+                        ),
+                    }
+                },
+                scratch_path / "main-review-on-worker",
+            )
+
+        self.assertEqual("passed", main_result["status"])
+        self.assertEqual("passed", worker_result["status"])
+        self.assertEqual("failed", worker_review_on_main["status"])
+        self.assertIn(
+            "callback_thread_evidence_rule_missing",
+            worker_review_on_main["reason_codes"],
+        )
+        self.assertEqual("failed", main_review_on_worker["status"])
+        self.assertIn(
+            "documented_worker_thread_classification_missing",
+            main_review_on_worker["reason_codes"],
+        )
+
+    def test_structured_review_output_creates_mutation_cutoff(self) -> None:
+        path = "review_result/result.json"
+        self.assertTrue(adapters.is_code_path(path))
+        mutation = adapters.MutationEvidence(
+            17,
+            18,
+            path,
+            True,
+            "root",
+            "Edit",
+            "f8-result",
+        )
+        boundary = adapters.mutation_boundary([mutation], [])
+        self.assertEqual(17, boundary.cutoff)
+        self.assertEqual(path, boundary.first_edit.path)
+
+    def test_review_sources_are_readable_but_not_mutable(self) -> None:
+        protected = self.fixture["protected_paths"]
+        self.assertFalse(
+            any(
+                pattern.startswith(("Modules/Stack", "Project/App"))
+                for pattern in protected
+            )
+        )
+        mutation = adapters.MutationEvidence(
+            11,
+            12,
+            "Project/App/src/ShellPresenter.cs",
+            True,
+            "root",
+            "Edit",
+            "f8-source-edit",
+        )
+        scope = fixtures.mutation_scope(
+            [mutation],
+            [],
+            allowed=self.fixture["allowed_mutation_paths"],
+            protected=protected,
+        )
+        self.assertTrue(scope["protected_mutation"])
+        self.assertIn(
+            "Project/App/src/ShellPresenter.cs", scope["out_of_scope"]
+        )
+
+    def test_source_integrity_validator_detects_final_tree_change(self) -> None:
+        clean = fixtures.run_safety_validators(
+            F8_DIR,
+            self.fixture,
+            tree=self.seed,
+        )
+        self.assertEqual(
+            [{"validator_id": "f8_review_source_unchanged", "passed": True}],
+            clean,
+        )
+
+        with tempfile.TemporaryDirectory() as scratch:
+            changed = Path(scratch) / "tree"
+            shutil.copytree(self.seed, changed)
+            target = changed / "Project/App/src/ShellPresenter.cs"
+            target.write_text(
+                target.read_text(encoding="utf-8") + "\n// mutation\n",
+                encoding="utf-8",
+            )
+            result = fixtures.run_safety_validators(
+                F8_DIR,
+                self.fixture,
+                tree=changed,
+            )
+        self.assertEqual(
+            [{"validator_id": "f8_review_source_unchanged", "passed": False}],
+            result,
+        )
 
 
 class F5AdversarialBypassTests(unittest.TestCase):

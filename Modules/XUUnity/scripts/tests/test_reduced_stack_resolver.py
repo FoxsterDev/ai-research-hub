@@ -17,11 +17,11 @@ import reduced_stack_testkit as kit  # noqa: E402
 import xuunity_canonical as xc  # noqa: E402
 
 ASYNC_TASK = (
-    "PD-1 Add async retry to the level loader: SwitchToThreadPool, await a "
+    "TASK-1 Add async retry to the level loader: SwitchToThreadPool, await a "
     "UniTask, then continue on the main thread."
 )
 DOCS_TASK = "Fix a typo in the module readme documentation."
-CS_TASK = "PD-2 Rename the score field on the leaderboard view."
+CS_TASK = "TASK-2 Rename the score field on the leaderboard view."
 
 
 def derive(repo: Path, envelope: dict, **kwargs) -> dict:
@@ -136,6 +136,7 @@ class ResolverTests(unittest.TestCase):
         module = kit.MODULE_PREFIX
         for expected in (
             f"{module}/skills/async/base_async_rules.md",
+            f"{module}/skills/async/concurrency_classification.md",
             f"{module}/skills/async/main_thread.md",
             f"{module}/skills/async/dotnet_task.md",
             "DemoProject/Assets/AIOutput/ProjectMemory/SkillOverrides/async.md",
@@ -199,6 +200,57 @@ class ResolverTests(unittest.TestCase):
             any("codestyle/csharp.md" in path for path in paths)
         )
         self.assertFalse(any("skills/async/" in path for path in paths))
+
+    def test_source_synchronization_types_route_concurrency_owner(self) -> None:
+        source_path = self.repo / "DemoProject/Scripts/Coordination.cs"
+        repo_path = "DemoProject/Scripts/Coordination.cs"
+        snippets = {
+            "lock": "lock (_gate) { }",
+            "semaphore": "private Semaphore _gate;",
+            "mutex": "private Mutex _gate;",
+            "reader_writer": "private ReaderWriterLockSlim _gate;",
+            "concurrent_stack": "private ConcurrentStack<int> _items;",
+        }
+
+        for label, snippet in snippets.items():
+            with self.subTest(primitive=label):
+                source_path.write_text(
+                    f"internal sealed class Coordination {{ {snippet} }}\n",
+                    encoding="utf-8",
+                )
+                envelope = kit.make_envelope(
+                    self.repo,
+                    task_text="Review the implementation for proportionality.",
+                    task_kind="code_review",
+                    referenced_paths=[repo_path],
+                    planned_mutation_paths=[repo_path],
+                )
+                plan = derive(self.repo, envelope)
+                self.assertIn(
+                    "async_sync_primitives_source",
+                    plan["matched_rule_ids"],
+                )
+                self.assertIn(
+                    f"{kit.MODULE_PREFIX}/skills/async/"
+                    "concurrency_classification.md",
+                    kit.artifact_paths(plan),
+                )
+
+    def test_branch_review_loads_evidence_provenance_owner(self) -> None:
+        envelope = kit.make_envelope(
+            self.repo,
+            task_text="Review this branch diff against release.",
+            task_kind="code_review",
+            planned_mutation_paths=["review_result/result.json"],
+        )
+        plan = derive(self.repo, envelope)
+        self.assertIn(
+            "change_review_provenance", plan["matched_rule_ids"]
+        )
+        self.assertIn(
+            f"{kit.MODULE_PREFIX}/knowledge/review_evidence_provenance.md",
+            kit.artifact_paths(plan),
+        )
 
     def test_missing_required_artifact_fails_the_plan(self) -> None:
         (self.repo / kit.MODULE_PREFIX / "skills/async/dotnet_task.md").unlink()

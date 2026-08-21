@@ -9,10 +9,12 @@ to the manifest's declared authority, outside this engine.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
+from . import f6
 from .contracts import fractional_document_hash, require_valid
-from .suite import suite_result_sha256
+from .suite import UNGRADED, suite_result_sha256
 
 METRICS = frozenset(
     {"score_median", "median_lower_bound", "worst_valid", "invalid_rate"}
@@ -34,6 +36,12 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     unknown = sorted(metric_ids - METRICS)
     if unknown:
         raise ExperimentError(f"unknown metric ids: {unknown}")
+    declared_hash = manifest.get("manifest_hash")
+    if declared_hash is not None and declared_hash != manifest_hash(manifest):
+        raise ExperimentError("manifest_hash does not match preregistration")
+    consumed = manifest["f6_exposure_budget"]["consumed_artifact_hashes"]
+    if len(consumed) != len(set(consumed)):
+        raise ExperimentError("F6 consumed artifact hashes must be unique")
 
 
 def manifest_hash(manifest: dict[str, Any]) -> str:
@@ -55,6 +63,82 @@ def _degradation(
     return treatment - control
 
 
+def _validate_suite_arm(
+    arm: str,
+    expected: dict[str, Any],
+    result: dict[str, Any],
+    *,
+    attempts_per_cell: int,
+) -> None:
+    actual = {
+        "suite_id": result["suite_id"],
+        "suite_hash": result["suite_hash"],
+        "strict_profile_key": result["strict_profile_key"],
+    }
+    if actual != expected:
+        raise ExperimentError(f"{arm} suite identity does not match manifest")
+    if result["scheduled_attempts"] != attempts_per_cell * len(result["fixtures"]):
+        raise ExperimentError(f"{arm} suite schedule does not match manifest")
+    if any(
+        row["scheduled"] != attempts_per_cell for row in result["fixtures"]
+    ):
+        raise ExperimentError(f"{arm} fixture schedule does not match manifest")
+
+
+def _verified_f6_hashes(
+    suite_results: tuple[dict[str, Any], dict[str, Any]],
+    *,
+    artifacts: Mapping[str, dict[str, Any]],
+    verification_keys: Mapping[str, bytes],
+) -> set[str]:
+    verified_hashes: set[str] = set()
+    for result in suite_results:
+        evidence = result["f6_evidence"]
+        status = evidence["status"]
+        if status not in {"verified_pass", "verified_fail"}:
+            if (
+                evidence["artifact_hash"] is not None
+                or evidence["evidence_ref"] is not None
+            ):
+                raise ExperimentError(
+                    "unverified F6 summary carries artifact identity"
+                )
+            continue
+        required = (
+            "artifact_hash",
+            "evidence_ref",
+            "holdout_ref",
+            "fixture_id",
+            "issuer_key_id",
+        )
+        if not all(
+            isinstance(evidence[field], str) and evidence[field]
+            for field in required
+        ):
+            raise ExperimentError("verified F6 summary has incomplete identity")
+        artifact_hash = str(evidence["artifact_hash"])
+        artifact = artifacts.get(artifact_hash)
+        if artifact is None:
+            raise ExperimentError("verified F6 artifact was not supplied")
+        try:
+            f6.verify_artifact_summary(
+                artifact,
+                verification_keys=verification_keys,
+                expected_artifact_hash=artifact_hash,
+                expected_evidence_ref=str(evidence["evidence_ref"]),
+                expected_holdout_ref=str(evidence["holdout_ref"]),
+                expected_issuer_key_id=str(evidence["issuer_key_id"]),
+                expected_suite_id=result["suite_id"],
+                expected_suite_sha256=result["suite_hash"],
+                expected_fixture_id=str(evidence["fixture_id"]),
+                expected_strict_profile_key=result["strict_profile_key"],
+            )
+        except f6.F6EvidenceError as error:
+            raise ExperimentError(str(error)) from error
+        verified_hashes.add(artifact_hash)
+    return verified_hashes
+
+
 def evaluate_experiment(
     manifest: dict[str, Any],
     control_suite_result: dict[str, Any],
@@ -64,10 +148,11 @@ def evaluate_experiment(
     treatment_suite_ref: str,
     alpha_charge: float,
     alpha_spent_before: float,
-    f6_exposures_used: int = 0,
+    f6_artifacts: Mapping[str, dict[str, Any]] | None = None,
+    f6_verification_keys: Mapping[str, bytes] | None = None,
     candidate_patch: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build one schema-valid ``xuunity.experiment-result.v1`` document."""
+    """Build one schema-valid ``xuunity.experiment-result.v2`` document."""
     validate_manifest(manifest)
     require_valid(
         "xuunity.suite-result.schema.json", control_suite_result,
@@ -79,9 +164,38 @@ def evaluate_experiment(
     )
     if alpha_charge <= 0:
         raise ExperimentError("alpha_charge must be positive")
-    if f6_exposures_used < 0:
-        raise ExperimentError("f6_exposures_used must be non-negative")
-
+    attempts_per_cell = int(manifest["attempt_schedule"]["attempts_per_cell"])
+    _validate_suite_arm(
+        "control",
+        manifest["suite_arms"]["control"],
+        control_suite_result,
+        attempts_per_cell=attempts_per_cell,
+    )
+    _validate_suite_arm(
+        "treatment",
+        manifest["suite_arms"]["treatment"],
+        treatment_suite_result,
+        attempts_per_cell=attempts_per_cell,
+    )
+    control_result_hash = suite_result_sha256(control_suite_result)
+    treatment_result_hash = suite_result_sha256(treatment_suite_result)
+    if control_suite_ref == treatment_suite_ref:
+        raise ExperimentError("control and treatment suite refs must differ")
+    if (
+        control_suite_result["cohort_hash"]
+        == treatment_suite_result["cohort_hash"]
+    ):
+        raise ExperimentError("control and treatment cohorts must differ")
+    if control_result_hash == treatment_result_hash:
+        raise ExperimentError("control and treatment suite results must differ")
+    scheduled_runs = (
+        control_suite_result["scheduled_attempts"]
+        + treatment_suite_result["scheduled_attempts"]
+    )
+    if scheduled_runs > int(manifest["cost_limit"]["max_model_runs"]):
+        raise ExperimentError(
+            "preregistered suite schedule exceeds model-run budget"
+        )
     reason_codes: set[str] = set()
     target = manifest["target_metric"]
     metric_id = target["metric_id"]
@@ -153,8 +267,20 @@ def evaluate_experiment(
     if alpha_exhausted:
         reason_codes.add("family_alpha_exhausted")
 
-    f6_before = int(manifest["f6_exposure_budget"]["consumed_before"])
-    f6_after = f6_before + f6_exposures_used
+    consumed_hashes = set(
+        manifest["f6_exposure_budget"]["consumed_artifact_hashes"]
+    )
+    f6_artifact_hashes = _verified_f6_hashes(
+        (control_suite_result, treatment_suite_result),
+        artifacts=f6_artifacts or {},
+        verification_keys=f6_verification_keys or {},
+    )
+    replayed = consumed_hashes & f6_artifact_hashes
+    if replayed:
+        reason_codes.add("f6_artifact_replay")
+    after_hashes = consumed_hashes | f6_artifact_hashes
+    f6_before = len(consumed_hashes)
+    f6_after = len(after_hashes)
     f6_budget = int(manifest["f6_exposure_budget"]["max_exposures"])
     f6_exceeded = f6_after > f6_budget
     if f6_exceeded:
@@ -167,33 +293,50 @@ def evaluate_experiment(
     if unbounded:
         reason_codes.add("statistical_confidence_insufficient")
 
+    ungraded = any(
+        result["grade"] in UNGRADED
+        for result in (control_suite_result, treatment_suite_result)
+    )
+    if ungraded:
+        reason_codes.add("suite_not_adoption_graded")
+    treatment_not_adoptable = treatment_suite_result["grade"] in {
+        "marginal",
+        "unfit",
+    }
+    if treatment_not_adoptable:
+        reason_codes.add(
+            f"treatment_suite_{treatment_suite_result['grade']}"
+        )
+
     if (
         target_decision is None
         or regressions_ok is None
         or alpha_exhausted
         or f6_exceeded
+        or bool(replayed)
         or unbounded
+        or ungraded
     ):
         status = "inconclusive"
+    elif treatment_not_adoptable:
+        status = "rejected"
     elif target_decision and regressions_ok:
         status = "accepted"
     else:
         status = "rejected"
 
     result = {
-        "schema_version": "xuunity.experiment-result.v1",
+        "schema_version": "xuunity.experiment-result.v2",
         "experiment_id": manifest["experiment_id"],
         "manifest_hash": manifest.get("manifest_hash")
         or manifest_hash(manifest),
         "control_suite": {
             "suite_result_ref": control_suite_ref,
-            "suite_result_sha256": suite_result_sha256(control_suite_result),
+            "suite_result_sha256": control_result_hash,
         },
         "treatment_suite": {
             "suite_result_ref": treatment_suite_ref,
-            "suite_result_sha256": suite_result_sha256(
-                treatment_suite_result
-            ),
+            "suite_result_sha256": treatment_result_hash,
         },
         "statistics": {
             "metric_id": metric_id,
@@ -218,6 +361,8 @@ def evaluate_experiment(
             "alpha_spent_after": alpha_spent_after,
             "f6_exposures_before": f6_before,
             "f6_exposures_after": f6_after,
+            "f6_artifact_hashes_before": sorted(consumed_hashes),
+            "f6_artifact_hashes_after": sorted(after_hashes),
             "f6_budget": f6_budget,
         },
         "candidate_patch": candidate_patch

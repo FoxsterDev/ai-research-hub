@@ -654,30 +654,33 @@ The public schemas are normative and versioned independently:
   implementation hashes, protected semantic inputs, expected truthful gaps,
   protected and allowed mutation paths, dimension weights, and fixture hard
   gates.
-- `xuunity.fitness-suite.v1` records the exact fixture ids/hashes, required and
+- `xuunity.fitness-suite.v2` records the exact fixture ids/hashes, required and
   optional coverage, F6 policy, dimension aggregation, adoption thresholds,
   immutable suite-replicate sampling unit, fixture strata, randomization and
   dependence policy, preregistered statistical decision rule,
-  multiplicity/confidence/power targets, and fixed attempt plan.
+  multiplicity/confidence/power targets, and the exact ordered fixed-attempt
+  roster.
 - `xuunity.protected-run-manifest.v1` records the scheduled attempt id, parent
   session attestation, immutable inputs, strict profile/environment key,
   protected artifact locations and hashes, start/end state, raw evidence
   hashes, and hermetic oracle materialization identity.
-- `xuunity.run-result.v1` records run, observer, artifact, and outcome validity
+- `xuunity.run-result.v2` records fixture/final-tree/oracle-result provenance
+  plus run, observer, artifact, and outcome validity
   separately; delivery/gate/outcome results; score dimensions or nulls;
   hard-gate outcomes; enforcement mode; runner-owned cause-classifier id/hash,
   protected classification evidence, invalidity cause owner;
   supersession/provenance links; and stable reason codes.
-- `xuunity.suite-result.v1` records the original scheduled denominator,
+- `xuunity.suite-result.v2` records the exact cohort hash, original scheduled denominator,
   valid/invalid/censored counts, per-fixture coverage, medians, ranges, worst
   valid results, invalid rate, every hard-gate incident, grade or grade cap,
   and exact/stale/non-controlled comparison status.
-- `xuunity.experiment-manifest.v1` records one treatment variable, immutable
+- `xuunity.experiment-manifest.v2` records one treatment variable, immutable
   control/treatment hashes, protected profile/project/fixture matrix, fixed
   attempt schedule, protected experiment-family id, family alpha/multiple-test
-  policy, F6 exposure budget, target metric, non-regression budgets, cost
-  limit, and explicit apply authority.
-- `xuunity.experiment-result.v1` records the protected manifest hash, control
+  policy, exact consumed F6 artifact hashes and exposure budget, target metric,
+  non-regression budgets, bound suite arms, cost limit, and explicit apply
+  authority.
+- `xuunity.experiment-result.v2` records the protected manifest hash, control
   and treatment suite refs, statistical/decision rule outputs, accepted,
   rejected, or inconclusive status, experiment-family alpha/F6 exposure ledger
   state, candidate patch ref/hash, and the separate apply-authorization state.
@@ -926,7 +929,9 @@ Rules:
   receives a cause owner;
 - measurement-system defects suspend grading but do not count as failures of
   the model-surface profile;
-- one valid run is `diagnostic_only`;
+- one valid run outside an authoritative controlled cohort is
+  `diagnostic_only`; `eligible` means a row may enter a preregistered suite,
+  not that the row alone has an adoption grade;
 - a stale or non-controlled comparison cannot rank models;
 - a measurement-valid score may still be model-ineligible because suite
   coverage or repeats are missing.
@@ -1547,7 +1552,7 @@ and policy owner. The public fitness operation implements:
 
 ```bash
 python3 AIRoot/Operations/XUUnityModelFitness/xuunity_model_fitness.py \
-  experiment --manifest <xuunity.experiment-manifest.v1.json>
+  experiment --manifest <xuunity.experiment-manifest.v2.json>
 ```
 
 The manifest records candidate id, hypothesis, treatment path/hash, protected
@@ -1555,7 +1560,7 @@ model-surface profiles and project/fixture matrix, experiment-family id,
 family alpha and spending method, F6 revision/exposure budget, target metric,
 acceptance threshold, non-regression budgets, fixed attempt schedule, cost
 limit, and apply authority. The result conforms to
-`xuunity.experiment-result.v1`.
+`xuunity.experiment-result.v2`.
 
 A host stores raw experiment evidence under its protected run root and the
 sanitized decision under

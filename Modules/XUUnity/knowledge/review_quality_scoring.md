@@ -88,7 +88,7 @@ Default dimensions:
 - `15` Security, privacy, and abuse resistance
 - `15` Validation and release confidence
 - `10` Observability and operability
-- `10` Maintainability and change safety
+- `10` Simplicity, project fit, maintainability, and change safety
 
 ### Dimension Guidance
 
@@ -167,17 +167,24 @@ Lower this score when:
 - ambiguous states are accepted without alarms
 - root-cause analysis would be slow or guessy
 
-#### Maintainability and change safety
+#### Simplicity, project fit, maintainability, and change safety
 Ask:
 
 - can engineers change this without causing accidental regressions
 - is the code shape teaching correct behavior or hiding danger
+- does the change use the resolved project's established owners and core or framework capabilities when their semantics match
+- is each new state owner, synchronization primitive, wrapper, or lifecycle abstraction justified by a distinct product invariant
+- can the feature journey be understood locally without reconstructing call-hopping across root presenters, services, generic flows, and callbacks
 
 Lower this score when:
 
 - the design is brittle
 - duplication or indirection hides real ownership
 - future fixes are likely to be hazardous
+- project-native capabilities were not inspected or were duplicated without a concrete semantic gap
+- speculative future callers drive synchronization or thread hops
+- root composition owners absorb feature business logic
+- visible defensive machinery multiplies owners instead of simplifying the invariant
 
 ## Narrow-Scope Reweighting Rule
 
@@ -267,6 +274,23 @@ Usually cap `Validation and release confidence` at `59` or below.
 
 ### Misleading observability
 Usually cap `Observability and operability` at `59` or below.
+
+### Unproven or duplicated safety machinery
+When synchronization, atomics, thread hops, or duplicate guards lack the writer/thread evidence required by `skills/async/concurrency_classification.md`:
+
+- award no positive safety credit for their presence;
+- usually cap `Simplicity, project fit, maintainability, and change safety` at `49` or below;
+- cap `Architecture and ownership clarity` at `59` or below when the same invariant is guarded across multiple layers.
+
+### Systemic project-pattern or complexity-budget failure
+When feature business logic moves into a root composition owner, lifecycle is reimplemented despite a matching project capability, or the change adds several unexplained owners/wrappers/callback round trips:
+
+- usually cap `Architecture and ownership clarity` at `59` or below;
+- usually cap `Simplicity, project fit, maintainability, and change safety` at `49` or below;
+- cap the overall score only when the systemic structure creates a concrete non-local ownership, lifecycle, correctness, or critical-flow risk; raw size or line count alone never triggers an overall cap;
+- use a lower overall cap when the ownership ambiguity creates a more severe concrete risk.
+
+Branch-authored memory cannot raise these scores unless an independent authority approved the new contract. Apply `knowledge/review_evidence_provenance.md`.
 
 ## Scoring Confidence
 

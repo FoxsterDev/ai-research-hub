@@ -1,6 +1,6 @@
 """Public fixture corpus kit (design P3).
 
-Loads, verifies, and evaluates the public synthetic fixtures (F2–F5) and
+Loads, verifies, and evaluates the public synthetic fixture corpus and
 any host-local fixture that follows the same layout. Everything here is
 fail-closed: implementation hashes must match the fixture declaration
 (an edited oracle is an attack, not a refresh), seed identity must match
@@ -294,16 +294,20 @@ def run_semantic_oracle(
 def combined_oracle_result(
     results: Iterable[dict[str, Any]],
 ) -> dict[str, Any] | None:
-    """Combine blocking oracle results: the first failure decides, a
-    not_evaluable result keeps the run unscored, else the first pass."""
+    """Compatibility summary for controls and diagnostics.
+
+    Any ``not_evaluable`` result dominates failure so incomplete evidence
+    cannot be collapsed into a scoreable failure. Otherwise the first failure
+    wins, then the first pass. Scoring receives the complete result list.
+    """
     ordered = list(results)
     if not ordered:
         return None
     for result in ordered:
-        if result["status"] == "failed":
+        if result["status"] == "not_evaluable":
             return result
     for result in ordered:
-        if result["status"] == "not_evaluable":
+        if result["status"] == "failed":
             return result
     return ordered[0]
 
@@ -671,7 +675,6 @@ def evaluate_run(
     )
 
     oracle_results: list[dict[str, Any]] = []
-    oracle_result: dict[str, Any] | None = None
     safety_results: list[dict[str, Any]] = []
     if tree is not None:
         for row in fixture["semantic_oracles"]:
@@ -681,7 +684,6 @@ def evaluate_run(
                         fixture_dir, fixture, row["id"], tree
                     )
                 )
-        oracle_result = combined_oracle_result(oracle_results)
         if fixture["safety_validators"]:
             safety_results = run_safety_validators(
                 fixture_dir, fixture, tree=tree, diff_text=diff_text
@@ -700,7 +702,7 @@ def evaluate_run(
         comparison_status=comparison_status,
         gate_decision=gate_decision,
         delivery_percent=stack["delivery_percent"],
-        oracle_result=oracle_result,
+        oracle_result=oracle_results,
         safety_results=safety_results,
         reported_gap_ids=reported_gap_ids,
         protected_mutation=scope["protected_mutation"],

@@ -8,6 +8,8 @@
 ## Rules
 - Assume Unity objects require main-thread access unless project memory documents a safe exception.
 - Be explicit about where thread hops happen.
+- Treat callback presence and `await` boundaries as reasons to trace thread origin and resumption, not as proof that a hop or synchronization primitive is required. Use `concurrency_classification.md` for the evidence contract.
+- When downstream Unity state is main-thread-confined, normalize external ingress once at the adapter or facade boundary and remove redundant downstream posting.
 - When an async API promises main-thread completion, enforce that promise at the final returned task completion boundary, not only at an intermediate callback or inner await point.
 - For `await using (UniTask.ReturnToMainThread())`, the hop to main happens when the async-using
   scope is disposed. If an awaited inner operation resumes on a background thread, code still inside

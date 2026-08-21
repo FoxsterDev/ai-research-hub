@@ -6,6 +6,7 @@ Run the widest relevant review bundle over a target and then synthesize one stab
 This is an orchestration review.
 It does not replace narrower reviews.
 It assembles them, reuses shared evidence, deduplicates overlapping findings, and produces one production-priority summary.
+Do not load it as a prelude to every review; generic and narrow review routing selects the primary owner first.
 
 ## Use For
 - whole-project or whole-package audits
@@ -19,8 +20,12 @@ It assembles them, reuses shared evidence, deduplicates overlapping findings, an
 - `knowledge/review_quality_scoring.md`
 - `knowledge/severity_matrix.md`
 - `knowledge/risk_classification.md`
+- `knowledge/review_evidence_provenance.md`
+- `knowledge/change_complexity_budget.md`
 - relevant project memory
 - relevant prior reports only when they materially reduce uncertainty or help compare repeated findings
+
+For a change target, branch-authored memory and review artifacts are candidate evidence under `knowledge/review_evidence_provenance.md`; they must not become the acceptance contract for the implementation that created them.
 
 ## Scope Classification Contract
 Before assembling the bundle, classify the target on two axes.
@@ -231,6 +236,8 @@ Rules:
    - native and build surfaces
    - public APIs
    - tests and validation surface
+   - complexity-budget delta and project-native capability search
+   - branch-derived versus comparison-base evidence
 7. Run the selected sub-review passes
 8. Normalize all findings into one canonical issue list
 9. Produce one stability-first synthesis, release verdict, and overall quality score using `knowledge/review_quality_scoring.md`

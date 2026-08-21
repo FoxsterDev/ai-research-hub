@@ -8,9 +8,12 @@
     "schema_version",
     "suite_id",
     "suite_hash",
+    "cohort_hash",
     "strict_profile_key",
     "scheduled_attempts",
     "valid_count",
+    "eligible_count",
+    "diagnostic_count",
     "invalid_count",
     "censored_count",
     "invalid_rate",
@@ -24,6 +27,7 @@
     "dependence_status",
     "grade",
     "grade_caps",
+    "f6_evidence",
     "statistical_confidence",
     "decision_rule",
     "comparison_status",
@@ -31,7 +35,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "xuunity.suite-result.v1"
+      "const": "xuunity.suite-result.v2"
     },
     "suite_id": {
       "type": "string",
@@ -47,6 +51,7 @@
         }
       ]
     },
+    "cohort_hash": { "$ref": "#/$defs/sha256" },
     "strict_profile_key": {
       "$ref": "#/$defs/sha256"
     },
@@ -55,6 +60,14 @@
       "minimum": 0
     },
     "valid_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "eligible_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "diagnostic_count": {
       "type": "integer",
       "minimum": 0
     },
@@ -88,6 +101,8 @@
           "safety_critical",
           "scheduled",
           "valid",
+          "eligible",
+          "diagnostic",
           "invalid",
           "censored",
           "median",
@@ -114,6 +129,14 @@
             "minimum": 0
           },
           "valid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "eligible": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "diagnostic": {
             "type": "integer",
             "minimum": 0
           },
@@ -299,6 +322,36 @@
         },
         "additionalProperties": false
       }
+    },
+    "f6_evidence": {
+      "type": "object",
+      "required": [
+        "status",
+        "evidence_ref",
+        "holdout_ref",
+        "fixture_id",
+        "issuer_key_id",
+        "artifact_hash"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_required",
+            "missing",
+            "verified_pass",
+            "verified_fail"
+          ]
+        },
+        "evidence_ref": { "type": ["string", "null"] },
+        "holdout_ref": { "type": ["string", "null"] },
+        "fixture_id": { "type": ["string", "null"] },
+        "issuer_key_id": { "type": ["string", "null"] },
+        "artifact_hash": {
+          "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        }
+      },
+      "additionalProperties": false
     },
     "statistical_confidence": {
       "type": "string",

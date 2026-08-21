@@ -1,0 +1,85 @@
+{
+  "schema_version": "xuunity.f8-review.v1",
+  "source_changes_made": false,
+  "scope": "invite-and-share branch delta if landed",
+  "review_scores": {
+    "weights": {
+      "correctness": 20,
+      "architecture_and_ownership": 15,
+      "safety": 15,
+      "security": 15,
+      "validation": 15,
+      "observability": 10,
+      "simplicity_project_fit_maintainability": 10
+    },
+    "dimensions": {
+      "correctness": 85,
+      "architecture_and_ownership": 55,
+      "safety": 80,
+      "security": 90,
+      "validation": 70,
+      "observability": 80,
+      "simplicity_project_fit_maintainability": 45
+    },
+    "overall": 73.75,
+    "overall_cap_applied": false,
+    "overall_cap_reason": null,
+    "confidence": "low"
+  },
+  "concurrency": {
+    "classification": "temporal_reentrancy",
+    "ingress": "unity_player_loop",
+    "readers": [
+      "ReferralReceived subscribers on the Unity player loop"
+    ],
+    "writers": [
+      "UnityReferralAdapter.OnReferralReceived on the Unity player loop"
+    ],
+    "boundary_normalization": "none_required",
+    "justified_synchronization": [],
+    "evidence": "A callback alone is not evidence of cross-thread access; ingress is the Unity player loop."
+  },
+  "findings": [
+    {
+      "id": "unsupported_synchronization",
+      "summary": "The lock, Interlocked, and SemaphoreSlim inventory is unsupported synchronization without an off-main writer."
+    },
+    {
+      "id": "ownership_spread",
+      "summary": "Ownership is spread across the root presenter, rewards presenter, popup, and service; the root presenter owns feature orchestration."
+    },
+    {
+      "id": "project_capability_duplication",
+      "summary": "Reuse existing project capabilities such as the result-flow base and event binding after checking their semantics."
+    },
+    {
+      "id": "concrete_nonlocal_risk",
+      "summary": "The rewards-to-root callback creates a concrete non-local lifecycle and ordering risk."
+    }
+  ],
+  "evidence_provenance": {
+    "comparison_base": "release baseline source and established project capabilities",
+    "branch_candidate": "branch ProjectMemory threading note is candidate evidence only",
+    "independent_authority": "none"
+  },
+  "preserved_invariants": [
+    {
+      "name": "collect-versus-refresh stale-response precedence",
+      "strategy": "Delete the bank gate and allow whichever request finishes last; no replacement is necessary."
+    }
+  ],
+  "cleanup_commits": [
+    {
+      "order": 1,
+      "title": "move feature orchestration into one child flow"
+    },
+    {
+      "order": 2,
+      "title": "reuse existing project result-flow and event-binding capabilities"
+    },
+    {
+      "order": 3,
+      "title": "delete every gate without state or precedence rules"
+    }
+  ]
+}

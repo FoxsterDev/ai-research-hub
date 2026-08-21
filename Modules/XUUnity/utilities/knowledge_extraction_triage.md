@@ -27,12 +27,14 @@ Use narrower utilities only when the user already knows the exact target:
 
 ## Pipeline
 1. Identify the source type and topic.
+1a. Pin immutable source evidence before extracting: source path plus commit or content hash; for change-derived claims also record the comparison base or merge base and whether a local working-tree delta is included. Label branch-authored, generated, or uncommitted material `candidate evidence`; never present it as established guidance.
 2. Separate durable rules from examples, narrative, incidents, and project-local detail.
 2a. If the source is a development chat, implementation session, or review session, run a retrospective pass after the initial extraction.
    - reconstruct the original user-visible request, the non-negotiable outcome, and the constraints that must survive later simplification
    - reconstruct the important implementation turns, reversals, and user corrections
    - preserve simplification prompts, first-principles prompts, or other explicit user reasoning interventions when they materially changed the solution shape
    - identify what the first over-complex solution assumed, what the later simpler solution removed, and which user inputs caused the change
+   - label causal claims `controlled/reproduced`, `directly observed`, or `inferred hypothesis`; use `caused by` only for controlled/reproduced evidence or an explicit action-to-outcome record, and name a falsifier for an inferred claim
    - after a resume or context compaction, compare the final answer against the earlier request contract instead of extracting only from the compacted/latest patch
    - preserve decision inputs as review evidence, but do not promote session-specific narrative, host-private detail, or project-local context into public-core knowledge
    - identify the top 3 process or code-shape problems that most increased complexity, semantic drift, or avoidable user rework
@@ -50,6 +52,7 @@ Use narrower utilities only when the user already knows the exact target:
      - guidance was missing and should be proposed for integration
    - identify whether the session's core failure is replayable as a fitness fixture: a seed state the failure reproduces on, a known-good reference, and an outcome an independent oracle can classify without relying on the resolver or the model's own claims
    - convert the retrospective findings into normal candidate outputs for review artifacts, shared knowledge, skill updates, or fitness fixture candidates instead of leaving them as ad hoc chat commentary
+2b. Label a candidate `incidental` when it is not tied to the request contract, a top-three problem, or a material user correction. Keep incidental candidates out of the default apply scope unless their independent evidence and reuse value justify a separate approval.
 3. Detect whether the source contains:
    - reviewer guardrails and decision history
    - reusable implementation rules that are public-safe across repos
@@ -91,6 +94,8 @@ Use narrower utilities only when the user already knows the exact target:
    - does it depend on internal process, private architecture, or confidential rollout context
    - why it does not belong one layer higher or lower
    - why the selected destination is semantically correct and why nearby alternatives such as `codestyle/`, `knowledge/`, or `skills/` were rejected
+   - for a public-core candidate derived from one project or session, name the cross-repo invariant and one credible counterexample or exception; if it is only a local preference, keep it project-only or express bounded decision criteria instead of a universal rule
+   - distinguish evidence that `suggests`, `supports`, or `proves` a claim; a proof claim must name the plausible alternative mechanisms the evidence rules out
 5a. Hard placement checklist — apply to every candidate before step 6. Each rule blocks placement until satisfied.
    - **A. Specificity → internal.** If the candidate body references monorepo identifiers (class names, packages, namespaces — see project baseline for the list), it goes to `AIModules/XUUnityInternal/`. Public-core variant, if needed, is a separate stripped file.
    - **B. Anti-rule grep.** Grep existing files for BOTH the candidate keyword and the umbrella term the existing doctrine might use (e.g. candidate "editor test bypass" → also grep `seam`). Any hit with same-or-opposite framing → cite + refine in the existing file or reject. No new standalone file in the face of existing position.
@@ -103,7 +108,10 @@ Use narrower utilities only when the user already knows the exact target:
 5b. Sub-router check. If placing this candidate would add the **3rd or later** narrow routing hint to `tasks/start_session.md` within the same zone (UI / async / SDK / tests / native / etc.), propose a sub-router README in the target subfolder instead. Pattern: collapse all narrow hints in that zone into ONE coarse hint at `start_session.md` that points at the sub-router README, and move the narrow keyword triggers into the README. Apply consistently — if you collapsed one zone in this session, check whether the same logic applies to another zone you touched.
 
 6. Compare each candidate against existing public-core + internal-overlay + project outputs for duplication. Step 5a Rule B is the strict version — perform it before this step.
-7. Score each candidate for quality, reuse value, merge fitness, and routing confidence.
+   A `no conflict` verdict must cite the closest limiting or contrary rule and explain why the proposed wording preserves its valid exceptions.
+7. Record one mandatory decision row per candidate:
+   `id | destination | immutable evidence refs | transferability / exception | proof strength | decision | quality | reuse | merge fitness | routing confidence`.
+   Use `1` (weak) through `5` (strong) for the four scores and `approve`, `revise`, `hold`, or `reject` for the decision. Missing evidence, an unresolved conflict, or unproven causal language blocks `approve`.
 8. Produce one review package with:
    - extracted durable content
    - retrospective summary when the source was a development or review session
@@ -115,6 +123,7 @@ Use narrower utilities only when the user already knows the exact target:
    - internal-sensitivity assessment
    - project-dependency assessment
    - conflicts and duplication analysis
+   - Pareto apply slice: the smallest approved subset that would have prevented most observed rework, listed separately from the full eligible set
    - explicit apply options
 8a. Store the review package in the correct report destination, not in a raw-material inbox:
    - host-level shared review package -> `AIOutput/Reports/ReviewArtifacts/`
@@ -140,8 +149,11 @@ Allowed approval styles include:
 - `apply only items 1 and 3`
 - `reject`
 
+`apply all approved items` includes only candidates whose decision is `approve`; it never sweeps in `revise` or `hold` candidates.
+
 ## Output
 - Source summary
+- Immutable source evidence and working-tree inclusion state
 - Extracted durable rules
 - Retrospective summary when the source is a development or review session
 - Top 3 development/process problems from the retrospective
@@ -157,6 +169,8 @@ Allowed approval styles include:
 - Internal-sensitivity assessment
 - Project-dependency assessment
 - Duplicate and conflict analysis
+- Per-candidate decision matrix
+- Pareto apply slice
 - Recommended apply scope
 - Approval options for the user
 - Recommended storage location for the review package

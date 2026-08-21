@@ -2,13 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xuunity.local/schemas/xuunity.run-result.schema.json",
   "title": "XUUnity Run Result",
-  "description": "Sanitized result of one fitness attempt. Validity is orthogonal per axis; any invalid or unsupported axis, and any run without runner-owned oracle evidence, has score_total null. Diagnostics stay available on unscored runs. One valid run is diagnostic_only.",
+  "description": "Sanitized result of one fitness attempt. Validity is orthogonal per axis; any invalid or unsupported axis, and any run without complete runner-owned blocking-oracle evidence, has score_total null. Diagnostics stay available on unscored runs. Numeric evidence is eligible only under authoritative enforcement and a controlled comparison; all other numeric runs remain diagnostic_only.",
   "type": "object",
   "required": [
     "schema_version",
     "run_id",
+    "fixture_id",
+    "fixture_sha256",
     "task_measurement_key",
     "strict_profile_key",
+    "final_tree_identity",
+    "blocking_oracle_results",
     "measurement_state",
     "enforcement_mode",
     "gate_decision",
@@ -25,11 +29,28 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "xuunity.run-result.v1"
+      "const": "xuunity.run-result.v2"
     },
     "run_id": { "type": "string", "minLength": 1 },
+    "fixture_id": { "type": "string", "minLength": 1 },
+    "fixture_sha256": { "$ref": "#/$defs/sha256" },
     "task_measurement_key": { "$ref": "#/$defs/sha256" },
     "strict_profile_key": { "$ref": "#/$defs/sha256" },
+    "final_tree_identity": {
+      "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "blocking_oracle_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["oracle_id", "result_sha256"],
+        "properties": {
+          "oracle_id": { "type": "string", "minLength": 1 },
+          "result_sha256": { "$ref": "#/$defs/sha256" }
+        },
+        "additionalProperties": false
+      }
+    },
     "measurement_state": {
       "type": "object",
       "required": ["preflight", "execution", "observer", "artifacts", "outcome"],

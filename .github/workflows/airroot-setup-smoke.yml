@@ -9,6 +9,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  xuunity-protocol:
+    name: XUUnity protocol
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run XUUnity protocol validation
+        run: bash scripts/testing/run_xuunity_protocol_tests.sh
+
   setup-smoke:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

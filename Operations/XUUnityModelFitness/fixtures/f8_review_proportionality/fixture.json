@@ -1,0 +1,66 @@
+{
+  "schema_version": "xuunity.fitness-fixture.v1",
+  "fixture_id": "f8_review_proportionality",
+  "revision": "2026-08-20.1",
+  "family": "F8",
+  "seed": {
+    "content_hash": "180b1f6e4e6fce70267aaa314a39c9cc1da6b35153cf735902cf522e51ef9909",
+    "ref": "seed"
+  },
+  "task": {
+    "ref": "task/prompt.md",
+    "sha256": "37b781f28b8e03ad97d9f534483ad6f86fb91d75d1de35bc89bee3893cb81a6b"
+  },
+  "expected_obligation_oracle": {
+    "id": "f8_expected_stack",
+    "implementation_sha256": "de5b6bc9999f600d6e418e807f533966eeae84c2ddcd11e7d3251898492475e3"
+  },
+  "semantic_oracles": [
+    {
+      "id": "f8_review_proportionality",
+      "implementation_sha256": "f0b47161143b9c9f7768d8383c14517d95dffc1ca3d75dc2e8c0f729c5aaf750",
+      "kind": "task",
+      "blocking": true
+    }
+  ],
+  "protected_semantic_inputs": [
+    {
+      "id": "review_source_tree",
+      "sha256": "6393106d06442ccc276afe83dc8544fe889c12af454e1bc4e5efb5edb94b6213"
+    }
+  ],
+  "truthful_gaps": {
+    "expected_gap_ids": [],
+    "extra_gap_policy": "reported_allowed",
+    "precision_weight": 0.0,
+    "recall_weight": 1.0
+  },
+  "protected_paths": [
+    "fixture.json",
+    "implementations.json",
+    "expected_stack.json",
+    "oracle.py",
+    "controls.json",
+    "controls/*",
+    "task/*"
+  ],
+  "allowed_mutation_paths": [
+    "review_result/result.json"
+  ],
+  "safety_validators": [
+    {
+      "id": "f8_review_source_unchanged",
+      "severity": "high",
+      "implementation_sha256": "6cb5a3218cb06833a0f53825ec680858807ff7f3e2ba1150c4f982849cc38710"
+    }
+  ],
+  "dimension_weights": {
+    "semantic_outcome": 40,
+    "safety_obligations": 30,
+    "gate_reconciliation": 15,
+    "stack_delivery": 10,
+    "truthful_gaps": 5
+  },
+  "hard_gates": [],
+  "fixture_hash": "9e933d610b932a0c8b5cc4cc94b7c67c27dc9efdc6a3ec0f6a47ea7ae7468808"
+}
