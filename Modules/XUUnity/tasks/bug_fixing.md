@@ -6,6 +6,9 @@ Resolve a concrete defect with the minimum safe change while preserving producti
 ## Focus
 - Narrow the defect to ownership, threading, lifecycle, marshaling, state, or initialization order.
 - Treat the reporter's stated root cause as a hypothesis, not a finding. Before organizing the investigation around it, check the report's own evidence against it; the evidence can refute the stated cause (and can be self-refuting). Verify the mechanism in source before accepting the label.
+- Mine the reported symptom for refutations before gathering any new data. Enumerate the candidate causes, then for each one ask what the user would have observed if it were true. Every candidate whose branch would have produced a *different* observable is already refuted by the report itself, at zero cost. Report the refuted set explicitly — it is evidence, and it stops the investigation from re-opening them later.
+- Build version numbers are not chronology. Map each build identifier to its commit before concluding which state is newer, or a regression reads backwards and the working build gets blamed for the defect.
+- When tracing when a serialized or configured value changed, `git log -S '<field name>'` misses value-only edits, because the field's occurrence count does not change. Use `git log -G '<field name>'`, or `-S '<the new value>'`.
 - Prefer low-risk fixes before structural redesign.
 - Treat `skills/tests/testing_doctrine.md` as a default constraint for this task, not an optional add-on.
 - Do not default to writing tests immediately while the fix shape is still moving.

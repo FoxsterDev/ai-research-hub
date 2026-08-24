@@ -106,6 +106,8 @@ Another mission of tests is to avoid increasing the cognitive complexity of the 
 - Prefer assertions on observable contract outcomes, externally visible behavior, and owned-state effects rather than indirect surrogate signals alone.
 - If a test mostly proves that the scaffolding still behaves the same while the real runtime contract could have changed underneath it, the test is stale by design.
 - A seam that fabricates a state normal flow cannot reach is acceptable only to cover genuine defense-in-depth; name the cross-session, persisted-state, or config-driven trigger that makes the guarded branch reachable. An unreachable branch with no documented trigger reads as stale confidence, not coverage.
+- Prove a regression guard by executing its red, not by reasoning that it would fail: reintroduce the original defect, run the suite, and confirm that **exactly** the intended test fails. Zero failures means the guard is decorative. Several failures means the tests overlap or share harness state, and none of them isolates the regression. Revert the reintroduced defect under content verification, not from memory.
+- A negative assertion needs a positive control in the same file. "The popup never appeared" or "the callback never fired" is indistinguishable from a harness that can never produce that effect, so pair it with a test that drives the same path to the opposite outcome. Without that control, the negative test is unfalsifiable rather than passing.
 
 ### 6b. Observability Rule
 - Rare, recovery-critical, or UX-critical runtime branches should have an observable outcome that can be validated outside the test harness.
