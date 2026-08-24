@@ -29,6 +29,17 @@
   branch its own message text and severity before shipping it.
 - When two call paths consume the same payload and only one applies the gate, treat that divergence as the primary
   lead: the ungated path shows what the payload actually contains.
+- Never gate behavior on a field whose job is to be read by humans, and do not accept a discriminator whose *value*
+  looks like copy. A localizable header, ribbon, title, or description is edited for tone, translated, and A/B tested;
+  each of those silently flips the gate. A value that reads as a sentence — punctuation, capitalisation, an exclamation
+  mark — is copy, not an identifier, and it invites exactly the same edits even when it sits in a field named like a
+  type. Require a stable machine code such as `FRIEND_JOINED`, and when the contract is not yet fixed, say so as a
+  temporary client tolerance rather than a design.
+- Compute any remote counter that reports on a gate with the *same predicate* the gate uses, ideally the one shared
+  helper. A counter that agrees with the gate turns a silent client-side rejection into a decisive remote diagnostic:
+  a nonzero payload with a zero match count localizes the fault to the predicate without a device or a repro. The
+  inverse is the hazard — once counter and gate drift apart, telemetry confidently describes behavior the build does
+  not have.
 
 ## What This Is Not
 Tolerant Reader and the robustness principle cover *ignoring unknown* fields. This file covers the inverse failure —

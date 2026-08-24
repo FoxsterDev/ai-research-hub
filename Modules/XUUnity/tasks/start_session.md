@@ -39,6 +39,8 @@ This block is head-complete and authoritative: it carries the must-load rule, th
 1c. If the repo contains multiple Unity projects and no concrete target project can be resolved, do not assume the current workspace root is the target project; ask for clarification or perform minimal project discovery first.
 1d. If the target project is resolved, load that project's router before final stack narrowing.
 1e. If this is the first `xuunity` request for a new agent or project and the agent supports durable private memory, load `knowledge/agent_source_of_truth.md` and use `utilities/agent_private_bootstrap.md` to install or refresh a thin agent-private router before continuing. If unsupported, continue normally and record the gap only when relevant.
+1f. Perform one cheap delegation check: identify a routine lane only when its algorithm, inputs, allowed mutations, expected outputs, and stop conditions are already exact and it can run independently while the root agent does useful work. If no such lane exists, do not load delegation guidance and continue normally.
+1g. When a routine lane exists, load `../../AgentOperations/subagent_delegation.md`, apply the host router's model choice, and create its complete task packet before spawning. Any unexpected result is `needs_smart_escalation`; the routine subagent stops and returns evidence instead of diagnosing or fixing it.
 2. Detect whether the user requested a specific role.
 3. If no role was requested, infer the best primary role from the task type and risk profile.
 3a. Infer whether the task needs explicit risk classification and policy-pack routing.
