@@ -63,6 +63,35 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - a started-but-untrustworthy test run that cannot provide correct final totals or pass/fail accounting
 - a scenario submission that stayed transport-alive but never reached trustworthy artifact or terminal-result proof
 
+## Editor-Resident Evidence Versus Player-Runtime Behavior
+Bounded criteria, not a universal law: apply this only when the claim under validation is about
+asset residency or load timing. For layout, wiring, reference integrity, and content correctness,
+editor-side inspection remains representative and this section does not apply.
+
+- In the editor the asset database is fully resident, referenced assets are live objects, nothing
+  is stripped, and no device decodes a texture. A defect whose mechanism is *whether an asset is
+  resident at the moment it is first used* therefore cannot appear in editor-side evidence. This
+  is a property of the lane, not an oversight in how it was run.
+- Consequently, a green editor tree/reference snapshot is evidence that references resolve, and is
+  **not** evidence that the referenced assets will be resident in a player build at first render.
+  The same snapshot returns green for a build that exhibits the defect.
+- Recognize the signal shape that puts a claim in this category: the symptom is transient,
+  self-heals on a later attempt, clears on an application restart, appears on some devices only,
+  or presents as several sibling views losing their content simultaneously while unrelated
+  subsystems render correctly. Any of these means editor evidence cannot close the question.
+- This extends the existing rule that a single representative compile does not satisfy a contract
+  that varies by define set or target (`## Rule`). Same doctrine, different axis: there, evidence
+  must cover the target matrix; here, evidence must come from the runtime tier where the mechanism
+  exists. Its exception is preserved — when the claim does not vary along that axis, one
+  representative signal is still enough.
+- When no player-runtime lane is available, do not silently downgrade the proof target. State the
+  gap explicitly as an asset-residency validation gap and say which claims it leaves open.
+- For a symptom in this category that produces no log line, the first deliverable is a detector,
+  not a fix: nothing about it is falsifiable until an occurrence leaves a trace. Verify that the
+  detector's own delivery channel is actually collected in the environments you need it in —
+  a diagnostic emitted on a channel a given build does not report is indistinguishable from the
+  defect not occurring.
+
 ## Output Rule
 - When Unity validation is blocked by MCP-only or project-local rules, say so explicitly.
 - Describe any shell-side checks as partial compile or syntax signals, not as proof that Unity validation passed.
@@ -71,3 +100,4 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - If build-profile validation was required but the full target/profile matrix was not executed, do not call the work fully validated.
 - If artifact correctness was the real question and only source inspection was performed, describe that as weaker evidence than generated-build inspection.
 - If a lane lacked trustworthy final accounting for tests, artifact completion, or terminal result state, say so explicitly instead of calling the work validated.
+- If the claim was about asset residency or load timing and only editor-side evidence exists, say that the lane cannot close it.
