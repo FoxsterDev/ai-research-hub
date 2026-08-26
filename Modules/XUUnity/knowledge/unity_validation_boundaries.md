@@ -38,6 +38,13 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - When using ordered Unity MCP scenario validation, follow `knowledge/mcp_scenario_authoring.md` for scenario step order and settle boundaries after mutating hooks.
 - If a validation lane can start work but cannot provide trustworthy final accounting for the claim, downgrade that lane's evidence strength and keep the validation gap explicit.
 
+## Evidence Provenance
+- Evidence belongs to the exact artifact that produced it. Before treating a run as proof, establish content identity that shows the artifact under test contains the change.
+- For a player build, record the originating commit and whether the source tree was clean or dirty. When it was dirty, also record a stable diff or content digest, or a build manifest or artifact id that incorporates the local changes. A build timestamp is supporting metadata, never proof of content identity by itself.
+- For an editor-integrated lane, match the freshness proof to the changed content: compiler completion after a script edit; import, save, or reload completion plus an asset identity, revision, or captured editor state for scenes, prefabs, UXML, textures, import settings, and other non-code assets. A script recompile alone does not prove that changed non-code content is loaded.
+- A green run on an artifact that predates the fix is not weak evidence for the fix, it is evidence about a different build. Treat an artifact whose identity cannot be established the same way and rebuild instead of reasoning from it.
+- State the identity that was established next to the result, so a later reader can tell which build the claim belongs to.
+
 ## Preflight
 1. Confirm whether the task actually requires validation now, not merely a validation note.
 2. Check the project router and project memory for validation-path constraints.
