@@ -71,7 +71,7 @@ After code changes are done and the normal compile/test gates have passed, a UI-
 - use deterministic project hooks, test seams, or fixture data to inject backend, ad, purchase, or remote-content outcomes when the external system would make the smoke flaky
 - assert on the real view state that regressed, such as text, button interactability, fill amount, selected tab, visible holder, active pooled item, or animation final value, not only on the backing model
 - include a screenshot, scene snapshot, console marker, or hook payload when it materially improves the evidence
-- do not run a newly designed UI-smoke automatically unless the user has already asked for validation execution; present the smoke plan and ask for operator approval to run it
+- treat an explicit user request to execute validation as authorization for the proposed narrow UI smoke; otherwise present the smoke plan and ask for operator approval, and ask again only when the plan materially expands the authorized scope or risk
 - include explicit stop conditions before running: max scenario timeout, max per-step timeout, what counts as stuck, cleanup or PlayMode-exit behavior, and when to fall back to manual validation
 - if the needed validation capability is missing or the smoke would be too flaky for automation, report the missing capability or instability reason and leave a concrete manual-check recipe instead of weakening the claim
 
@@ -83,6 +83,7 @@ Use this proposal step to make runtime UI validation available at closeout witho
 - If a loaded private Game QA pack supplies a path coverage taxonomy, name the selected coverage class in the evidence.
 - If only a weaker alternate path passed, report it as supporting evidence and keep the required path open.
 - If automation is blocked, report the exact missing capability, why it blocks proof, and the smallest hook/scenario/MCP addition needed.
+- When automated runtime evidence is selected, use `skills/tests/playmode_tests.md`, `## Runtime Evidence Loop` for its red-then-green shape, artifact reference, and iteration budget. Authorization follows the proposal rule above; it is scoped to newly designed UI smokes and does not extend to non-UI PlayMode work.
 
 ## Optional Game QA Paid Bridge
 - Use this bridge only when the resolved private module registry exposes a loaded pack with capability `xuunity.game_qa.runtime_ui_validation` or `xuunity.game_qa.playmode_smoke_planning`.

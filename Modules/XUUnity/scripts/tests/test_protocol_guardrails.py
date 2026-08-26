@@ -100,6 +100,44 @@ class ProtocolGuardrailTests(unittest.TestCase):
             text,
         )
 
+    def test_validation_evidence_identity_covers_dirty_and_non_code_changes(self) -> None:
+        text = read_module("knowledge/unity_validation_boundaries.md")
+        for requirement in (
+            "whether the source tree was clean or dirty",
+            "stable diff or content digest",
+            "supporting metadata, never proof of content identity",
+            "other non-code assets",
+            "A script recompile alone does not prove",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, text)
+
+    def test_runtime_evidence_loop_keeps_playmode_and_injection_conditional(self) -> None:
+        playmode = read_module("skills/tests/playmode_tests.md")
+        doctrine = read_module("skills/tests/testing_doctrine.md")
+        for requirement in (
+            "depends on live scene wiring",
+            "not mandatory for copy-only or static visual claims",
+            "When controlled external input or a payload is required",
+            "otherwise drive the real user or input path",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, playmode)
+        self.assertIn(
+            "do not owe a PlayMode red solely because the result is user-visible",
+            doctrine,
+        )
+
+    def test_ui_smoke_authorization_has_one_scoped_owner(self) -> None:
+        playmode = read_module("skills/tests/playmode_tests.md")
+        ui_policy = read_module("reviews/policy_packs/ui_heavy_changes.md")
+        for text in (playmode, ui_policy):
+            with self.subTest(path="playmode" if text is playmode else "ui_policy"):
+                self.assertIn("explicit user request to execute validation", text)
+                self.assertIn("materially expands", text)
+        self.assertIn("Non-UI PlayMode work does not inherit", playmode)
+        self.assertIn("does not extend to non-UI PlayMode work", ui_policy)
+
 
 if __name__ == "__main__":
     unittest.main()
