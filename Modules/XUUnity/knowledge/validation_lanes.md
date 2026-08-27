@@ -96,6 +96,7 @@ Limits:
   - switch to `batch_compile` only when that lane is allowed and the claim tolerates it
   - or report the remaining validation gap explicitly
 - If an MCP compilation task returns `script_compilation_failed == true` and `recent_compiler_diagnostics` contains a "Phantom compilation failure" marker, you must open the tail of `Editor.log`, break it into chunks, and analyze it backwards (from newest to oldest) to find the unknown structural error before giving up.
+- Whenever an intended mutation disagrees with the measured result, read the editor log for diagnostics the changed code emits on its own failure paths before spending a second measure-fix cycle. A method that logs and returns is indistinguishable from a method that ran when the only instrument is a measurement of the outcome, so the log is both the cheaper and the more discriminating evidence. `skills/tests/playmode_tests.md` owns the stop condition for that loop; this is the first move inside it.
 - Do not treat `batch_compile` success as proof of:
   - play mode behavior
   - scene-state correctness
