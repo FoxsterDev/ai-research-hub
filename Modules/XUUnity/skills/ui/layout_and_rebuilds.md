@@ -12,6 +12,8 @@
 - Avoid nested layout groups on hot or frequently refreshed screens.
 - Batch content changes before forcing layout-sensitive updates.
 - Do not trigger avoidable `ContentSizeFitter` and layout recalculations in loops.
+- A `LayoutElement` size is in canvas units, not screen pixels; do not derive one from a screen-space measurement, because the two differ by the canvas scale factor. For a proportional split between siblings, set `flexibleHeight` or `flexibleWidth` and let the layout group divide free space: no conversion is involved and the ratio survives a resolution change. Absolute `preferredHeight` remains the correct tool when the pane must be a fixed physical size.
+- A layout property is resolved as the maximum across every `LayoutElement` on the same object. Write all of `GetComponents<LayoutElement>()`; an authored or vendored prefab can carry more than one, and setting the first leaves the second in charge.
 - Profile slow device behavior, not only desktop editor behavior.
 - Avoid `Best Fit` on legacy UGUI `Text` for production or performance-sensitive UI; prefer fixed sizing or measured TMP auto-sizing there.
 - For sample, debug, SDK-validation, or other low-scale utility UI, `Best Fit` is acceptable when it clearly saves authoring time and the screen is not a runtime performance hotspot.

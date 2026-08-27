@@ -5,7 +5,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 ## Files
 - `adaptive_grids.md` — `GridLayoutGroup`, inventory / store / gallery / card-collection layouts, mobile cell sizing.
 - `input_and_navigation.md` — touch input, double-tap guards, raycast surface, custom controls, Android back button, focus rules, modal-input gating.
-- `layout_and_rebuilds.md` — `Canvas` rebuild costs, nested `LayoutGroup`, `ContentSizeFitter` loops, scroll-view layout spikes, UI frame-spike investigation.
+- `layout_and_rebuilds.md` — `Canvas` rebuild costs, nested `LayoutGroup`, `ContentSizeFitter` loops, `LayoutElement` sizing units and duplicate-element resolution, proportional pane splits, scroll-view layout spikes, UI frame-spike investigation.
 - `mobile_ux_quality.md` — safe areas, cutouts, font scaling, larger-text mode, light/dark contrast, RTL / localization-safe layout.
 - `popup_and_screen_flows.md` — modal dialogs, reward popups, offer screens, staged popups, timing races, duplicate open/close, multi-gate user-data reuse across flow steps.
 - `ugui.md` — Canvas hierarchy stability, partial UI updates, pooled list items, safe-area, hidden-but-active graphics.
@@ -18,7 +18,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 ## Narrow Routing
 - `GridLayoutGroup`, adaptive cell sizing, store/gallery/inventory collections → `adaptive_grids.md`.
 - touch input, double-tap / multi-tap guards, custom controls, raycast surface, Android back, focus, modal-input gating → `input_and_navigation.md`.
-- Canvas rebuild, nested `LayoutGroup`, `ContentSizeFitter`, scroll-view spikes, dynamic content reflow, UI frame-spike investigation → `layout_and_rebuilds.md`.
+- Canvas rebuild, nested `LayoutGroup`, `ContentSizeFitter`, `LayoutElement` size not taking effect, splitting a panel by ratio, scroll-view spikes, dynamic content reflow, UI frame-spike investigation → `layout_and_rebuilds.md`.
 - safe area, cutout, touch-target sizing, font scaling, larger-text, contrast, RTL, localization → `mobile_ux_quality.md`.
 - modal dialogs, popup races, duplicate open/close, staged popups, non-authoritative first-screen progression, multi-step flow data reuse, double location/age/identity prompt → `popup_and_screen_flows.md`.
 - Canvas-based UGUI hierarchy work, partial UI updates, pooled list items, hidden-but-active graphics → `ugui.md`.
