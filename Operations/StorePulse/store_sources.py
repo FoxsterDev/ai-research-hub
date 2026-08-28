@@ -5,16 +5,21 @@ returns a plain dict. No collector reads config globals, so each one is callable
 from a test with a fake transport and a recorded payload.
 
 Read-only, with one exception that is opt-in and creates nothing but a report
-request: `asc_create_ongoing_request` (used by `store_pulse.py bootstrap`).
+request: `asc_create_request` (used by `store_pulse.py bootstrap`).
 """
 
 import csv
 import datetime as dt
 import io
+import os
 import re
+import sys
 import urllib.parse
 
 from store_auth import HttpError
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from report_safety import redact
 
 PLAY_REPORTING = "https://playdeveloperreporting.googleapis.com/v1beta1"
 PLAY_PUBLISHER = "https://androidpublisher.googleapis.com/androidpublisher/v3"
@@ -22,32 +27,6 @@ GCS_API = "https://storage.googleapis.com/storage/v1/b"
 ASC_API = "https://api.appstoreconnect.apple.com/v1"
 ITUNES_LOOKUP = "https://itunes.apple.com/lookup"
 PLAY_TZ = "America/Los_Angeles"
-
-# Reused from the OpenSearchPulse engine, where this list was hardened after a live
-# `password=` leak reached a report. Each pattern keeps the label and replaces only the
-# value, and `bearer` is matched without a separator so a bare `Bearer <jwt>` is caught.
-SECRET_PATTERNS = [
-    # PEM first: a keyword pattern would otherwise eat "-----BEGIN" and leave the key bytes.
-    # Without a closing line (error strings are truncated) it takes everything to the end.
-    (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?"
-                r"(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)"), "[REDACTED PRIVATE KEY]"),
-    (re.compile(r"(://[^:/\s]+:)([^@/\s]+)(@)"), r"\1[REDACTED]\3"),
-    (re.compile(r"((?:password|passwd|pwd)\s*[:=]\s*)([^\s,;&]+)", re.I), r"\1[REDACTED]"),
-    (re.compile(r"(bearer\s+)([A-Za-z0-9._\-]{8,})", re.I), r"\1[REDACTED]"),
-    (re.compile(r"((?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|authorization"
-                r"|secret|token)\s*[:=]\s*)([^\s,;&]+)", re.I), r"\1[REDACTED]"),
-    (re.compile(r"((?:private[_-]?key|client[_-]?secret)\s*[:=]\s*)([^\s,;&]+)", re.I),
-     r"\1[REDACTED]"),
-]
-
-
-def redact(text):
-    if not text:
-        return ""
-    for pat, repl in SECRET_PATTERNS:
-        text = pat.sub(repl, text)
-    return text
-
 
 def clean_user_text(text, limit=240):
     """Review text is user content: redact, collapse whitespace, truncate."""
@@ -81,7 +60,16 @@ def _num(value):
     try:
         return float(value)
     except (TypeError, ValueError):
-        return None
+        pass
+    if isinstance(value, str):
+        try:
+            return float(value.replace(",", "").replace("\u00a0", "").strip())
+        except ValueError:
+            return None
+    return None
+
+
+parse_num = _num
 
 
 # --------------------------------------------------------------- iTunes lookup
@@ -137,7 +125,7 @@ def play_metric_query(transport, headers, package, metric_set, metrics, start, e
         "pageSize": page_size,
     }
     data = transport.json(f"{PLAY_REPORTING}/apps/{package}/{metric_set}:query",
-                          method="POST", payload=body, headers=headers)
+                          method="POST", payload=body, headers=headers, retry_safe=True)
     rows = []
     for row in data.get("rows") or []:
         day = _parse_date_obj(row.get("startTime"))
@@ -379,6 +367,18 @@ def asc_get(transport, headers, path, params=None, accept=None):
     return transport.json(url, headers=hdrs)
 
 
+def asc_get_pages(transport, headers, path, params=None, max_pages=100):
+    """Follow ASC JSON:API `links.next`; fail instead of returning a truncated catalogue."""
+    first = asc_get(transport, headers, path, params)
+    pages, data = [first], first
+    while (data.get("links") or {}).get("next"):
+        if len(pages) >= max_pages:
+            raise HttpError(0, path, f"pagination exceeded safety bound ({max_pages} pages)")
+        data = transport.json(data["links"]["next"], headers=headers)
+        pages.append(data)
+    return pages
+
+
 def asc_app_by_bundle(transport, headers, bundle_id):
     data = asc_get(transport, headers, "apps",
                    {"filter[bundleId]": bundle_id, "limit": 5,
@@ -497,58 +497,146 @@ def asc_phased_release(transport, headers, version_id):
 
 
 def asc_analytics_requests(transport, headers, app_id):
-    data = asc_get(transport, headers, f"apps/{app_id}/analyticsReportRequests",
-                   {"limit": 50, "fields[analyticsReportRequests]": "accessType,stoppedDueToInactivity"})
+    pages = asc_get_pages(transport, headers, f"apps/{app_id}/analyticsReportRequests",
+                          {"limit": 50, "fields[analyticsReportRequests]":
+                           "accessType,stoppedDueToInactivity"})
     return [{"id": r.get("id"),
              "access_type": (r.get("attributes") or {}).get("accessType"),
              "stopped": (r.get("attributes") or {}).get("stoppedDueToInactivity")}
-            for r in data.get("data") or []]
+            for data in pages for r in data.get("data") or []]
 
 
-def asc_create_ongoing_request(transport, headers, app_id):
-    """The one write in this module: register a standing analytics report request."""
+def asc_create_request(transport, headers, app_id, access_type="ONGOING"):
+    """The one write in this module: register an analytics report request.
+
+    ONGOING accrues a new instance per day from now on; ONE_TIME_SNAPSHOT backfills the
+    trailing year once. Neither publishes anything — Apple simply exposes no way to read
+    App Analytics without a registered request, so this is the price of the data.
+    """
     payload = {"data": {"type": "analyticsReportRequests",
-                        "attributes": {"accessType": "ONGOING"},
+                        "attributes": {"accessType": access_type},
                         "relationships": {"app": {"data": {"type": "apps", "id": app_id}}}}}
     data = transport.json(f"{ASC_API}/analyticsReportRequests", method="POST",
                           payload=payload, headers=headers)
     return (data.get("data") or {}).get("id")
 
 
+def asc_create_ongoing_request(transport, headers, app_id):
+    return asc_create_request(transport, headers, app_id, "ONGOING")
+
+
 def asc_analytics_reports(transport, headers, request_id, categories=(), name_filter=()):
     params = {"limit": 200}
     if categories:
-        params["filter[category]"] = list(categories)
-    data = asc_get(transport, headers, f"analyticsReportRequests/{request_id}/reports", params)
+        # comma-joined, not repeated keys: Apple answers a repeated filter with a 400
+        params["filter[category]"] = ",".join(categories)
+    pages = asc_get_pages(transport, headers,
+                          f"analyticsReportRequests/{request_id}/reports", params)
     out = []
-    for r in data.get("data") or []:
-        a = r.get("attributes") or {}
-        name = a.get("name") or ""
-        if name_filter and not any(nf.lower() in name.lower() for nf in name_filter):
-            continue
-        out.append({"id": r.get("id"), "name": name, "category": a.get("category")})
+    for data in pages:
+        for r in data.get("data") or []:
+            a = r.get("attributes") or {}
+            name = a.get("name") or ""
+            if name_filter and not any(nf.lower() in name.lower() for nf in name_filter):
+                continue
+            out.append({"id": r.get("id"), "name": name, "category": a.get("category")})
     return out
 
 
-def asc_report_instance(transport, headers, report_id, granularity="DAILY", processing_date=None):
-    params = {"limit": 20, "filter[granularity]": granularity}
+def asc_report_instance(transport, headers, report_id, granularity="DAILY",
+                        processing_date=None, limit=20):
+    params = {"limit": limit, "filter[granularity]": granularity}
     if processing_date:
         params["filter[processingDate]"] = processing_date
-    data = asc_get(transport, headers, f"analyticsReports/{report_id}/instances", params)
+    pages = asc_get_pages(transport, headers, f"analyticsReports/{report_id}/instances", params)
     items = [{"id": i.get("id"),
               "processing_date": (i.get("attributes") or {}).get("processingDate"),
               "granularity": (i.get("attributes") or {}).get("granularity")}
-             for i in data.get("data") or []]
+             for data in pages for i in data.get("data") or []]
     items.sort(key=lambda i: i.get("processing_date") or "")
     return items
 
 
 def asc_instance_segments(transport, headers, instance_id):
-    data = asc_get(transport, headers, f"analyticsReportInstances/{instance_id}/segments",
-                   {"limit": 50})
+    pages = asc_get_pages(transport, headers,
+                          f"analyticsReportInstances/{instance_id}/segments", {"limit": 50})
     return [{"url": (s.get("attributes") or {}).get("url"),
              "size": (s.get("attributes") or {}).get("sizeInBytes")}
-            for s in data.get("data") or []]
+            for data in pages for s in data.get("data") or []]
+
+
+def asc_segment_rows(transport, url, max_rows=None):
+    """One analytics-report segment: a pre-signed gzip download, tab- or comma-delimited.
+
+    The URL carries its own signature, so it is fetched WITHOUT the ASC auth header —
+    Apple's storage front end rejects a request that also presents a bearer token.
+    Apple documents these as CSV and ships them tab-delimited, so the delimiter is
+    decided from the payload rather than trusted.
+    """
+    raw = transport.raw(url)
+    text = decode_report_bytes(raw)
+    first = text.split("\n", 1)[0]
+    delimiter = "\t" if first.count("\t") >= first.count(",") else ","
+    header, rows = parse_delimited(text, delimiter)
+    out = []
+    selected = rows if max_rows is None else rows[:max_rows]
+    for row in selected:
+        out.append({header[i]: row[i] for i in range(min(len(header), len(row)))})
+    return header, out
+
+
+PERF_PERCENTILE = {"percentile.fifty": "p50", "percentile.ninety": "p90"}
+
+
+def asc_perf_series(raw, device="all_iphones"):
+    """Flatten perfPowerMetrics into {(category, metric): entry} for one device slice.
+
+    Apple keys these metrics by app version, not by date: the last point is the current
+    release and the points before it are the versions to compare it against. Points are
+    returned in Apple's own order, which is oldest-first.
+    """
+    out = {}
+    for product in raw.get("productData") or []:
+        for cat in product.get("metricCategories") or []:
+            for metric in cat.get("metrics") or []:
+                unit = metric.get("unit") or {}
+                entry = out.setdefault((cat.get("identifier"), metric.get("identifier")),
+                                       {"category": cat.get("identifier"),
+                                        "metric": metric.get("identifier"),
+                                        "unit": unit.get("identifier"),
+                                        "unit_label": unit.get("displayName"),
+                                        "percentiles": {}, "devices": {}})
+                for ds in metric.get("datasets") or []:
+                    crit = ds.get("filterCriteria") or {}
+                    pct = PERF_PERCENTILE.get(crit.get("percentile"))
+                    if not pct:
+                        continue
+                    points = [{"version": p.get("version"), "value": _num(p.get("value"))}
+                              for p in ds.get("points") or []
+                              if p.get("version") and _num(p.get("value")) is not None]
+                    if not points:
+                        continue
+                    if crit.get("device") == device:
+                        entry["percentiles"][pct] = points
+                    else:
+                        entry["devices"].setdefault(pct, []).append(
+                            {"device": crit.get("deviceMarketingName") or crit.get("device"),
+                             "version": points[-1]["version"], "value": points[-1]["value"]})
+    return out
+
+
+def asc_perf_insights(raw):
+    """Apple's own regression / trending-up calls on the latest version."""
+    out = []
+    for direction in ("regressions", "trendingUp"):
+        for group in (raw.get("insights") or {}).get(direction) or []:
+            out.append({"direction": direction,
+                        "category": group.get("metricCategory"),
+                        "metric": group.get("metric"),
+                        "version": group.get("latestVersion"),
+                        "summary": group.get("summaryString"),
+                        "reference_versions": group.get("referenceVersions") or []})
+    return out
 
 
 def asc_perf_power(transport, headers, app_id, platform="IOS"):

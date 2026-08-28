@@ -110,6 +110,47 @@ class WarningDynamicsTests(unittest.TestCase):
         self.assertIn("0.249%", html)
         self.assertIn("Transport timeout", html)
 
+    def test_operation_flow_collects_start_and_multiple_terminal_failures(self):
+        class Client:
+            def __init__(self):
+                self.body = None
+
+            def search(self, _index, body):
+                self.body = body
+                return {"aggregations": {"dau": {"value": 1000}, "outcomes": {"buckets": {
+                    "start": {"doc_count": 810, "users": {"value": 700}},
+                    "success": {"doc_count": 800, "users": {"value": 690}},
+                    "failure": {"doc_count": 10, "users": {"value": 8}},
+                }}}}
+
+        client = Client()
+        cfg = {
+            "fields": {"time": "TimeUTC", "user": "UUID.keyword", "app_id": "AppId.keyword",
+                       "message_text": "Message", "attributes": "Attributes",
+                       "version": "GameVersion.keyword", "platform": "Platform.keyword",
+                       "category": "Category.keyword"},
+            "server_type": {"field": "ServerType.keyword", "value": "Prod"},
+        }
+        flow = {"key": "withdrawal", "start": "Requested", "success": "Succeeded",
+                "failure": ["Failed", "Blocked"], "thresholds": {}}
+        result = pulse.collect_operation_flow(
+            client, cfg, "logs-", "BZ", "2026-07-12", {}, flow, 1000,
+            include_detail=False)
+        self.assertEqual(810, result["start"]["events"])
+        self.assertEqual(1.235, result["terminal_failure_rate_pct"])
+        failure_filter = client.body["aggs"]["outcomes"]["filters"]["filters"]["failure"]
+        self.assertEqual(2, len(failure_filter["bool"]["must"][-1]["bool"]["should"]))
+
+    def test_funnel_rate_can_use_event_counts_for_per_ad_conversion(self):
+        fn = {"rates": [{"label": "completion", "num": "finish", "den": "show",
+                          "count": "events"}]}
+        rate = pulse._funnel_rates(
+            fn, {"show": 10, "finish": 8}, 100,
+            {"show": 1000, "finish": 750})[0]
+        self.assertEqual("events", rate["count_unit"])
+        self.assertEqual(75.0, rate["pct"])
+        self.assertEqual(1000, rate["den"])
+
     def test_operation_baseline_prefers_saved_daily_blocks(self):
         current = [{"key": "tango", "label": "Tango", "flows": [{
             "key": "catalog", "terminal_failure_rate_pct": 0.3, "retry_reach_pct_dau": 1.2,

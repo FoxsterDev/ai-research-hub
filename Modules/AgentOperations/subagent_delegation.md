@@ -133,6 +133,12 @@ warnings, failures, generated changes, and remaining processes. The root agent
 must inspect the returned evidence and repository state before claiming success
 or performing the next irreversible/external step.
 
+A returned summary is not evidence that the lane wrote its artifact. Verify that
+the expected file exists and is non-trivial before accepting the result; a lane
+that returns prose with no artifact is a failed lane to retry, not a completed
+one. For multi-item jobs, keep that verification in a durable ledger rather than
+in the run's memory - see `job_journal.md`.
+
 ## Escalation Contract
 
 At the first unexpected exit, output shape, diff, missing dependency, conflict,

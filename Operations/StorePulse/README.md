@@ -28,8 +28,8 @@ environment variable. Nothing here is safe-to-share-sensitive.
 | `ios_rating` | public iTunes Lookup (`bundleId`, per storefront) | **none** |
 | `ios_reviews` | App Store Connect `customerReviews` | Apple key |
 | `ios_release` | ASC `appStoreVersions` + phased release | Apple key |
-| `ios_analytics` | ASC analytics report requests / reports | Apple key (+ a standing `ONGOING` request) |
-| `ios_perf` | ASC `perfPowerMetrics` | Apple key |
+| `ios_analytics` | ASC analytics reports → instances → gzip segments (crashes, sessions, installs/deletions) | Apple **Admin** key (+ a registered request) |
+| `ios_perf` | ASC `perfPowerMetrics` (hangs, launch, memory, disk, battery, terminations) | Apple key |
 | `play_vitals` | Play Developer Reporting API metric sets | Google service account |
 | `play_issues` | Reporting API `errorIssues:search` | Google service account |
 | `play_anomalies` | Reporting API `anomalies.list` | Google service account |
@@ -70,14 +70,21 @@ export STORE_PULSE_PLAY_BUCKET=pubsite_prod_rev_01234567890123456789
 
 python3 store_pulse.py report --config /path/to/config.json --out /path/to/reports
 python3 store_pulse.py doctor --config /path/to/config.json     # what is reachable, per app per slice
-python3 store_pulse.py bootstrap --config /path/to/config.json  # create the ONGOING Apple analytics requests
+python3 store_pulse.py bootstrap --config /path/to/config.json  # register the Apple analytics requests
+python3 store_pulse.py bootstrap --config /path/to/config.json \
+    --access ONGOING,ONE_TIME_SNAPSHOT                          # + backfill the trailing year
 ```
 
-Options: `--day YYYY-MM-DD`, `--slug NAME`, `--only slice,slice`, `--apps KEY,KEY`, `--dive`.
+Options: `--day YYYY-MM-DD`, `--slug NAME`, `--only slice,slice`, `--apps KEY,KEY`, `--dive`,
+`--access` (bootstrap only).
 
 `doctor` is the credential-landing gate: it prints a per-app, per-slice `ok` / `FAIL` / `skip`
-matrix with reasons and no secret values. `bootstrap` is the tool's only write, and it only
-registers Apple analytics report requests (they need 24–48h of lead time before data appears).
+matrix with reasons and no secret values, then the analytics-request state per app — the thing
+that gates the crash numbers. `bootstrap` is the tool's only write, and it only registers Apple
+analytics report requests: `ONGOING` accrues one instance per day from registration on,
+`ONE_TIME_SNAPSHOT` backfills the trailing year once, and either needs an **Admin-role** key
+(a lesser role authenticates fine and then answers 403 on this one endpoint). Apple needs 24–48h
+of lead time before the first instance exists, so run it as soon as the key lands.
 
 ## Model: snapshots, not a single day
 
@@ -107,23 +114,36 @@ Per app, from explicit config thresholds — never an invented severity:
 - **Conversion**: relative drop vs the trailing baseline.
 - **Release**: rejected/removed states alert; an in-flight phased release is a `watch`,
   because it explains other deltas.
+- **iOS device metrics** (`ios_perf`): per-metric `watch`/`alert` bars from the config's
+  `ios_perf_metrics` table, plus a bar-free **regression** verdict — `perf_regression_watch_pct`
+  / `_alert_pct` against the mean of the previous `ios_perf_baseline_versions` app versions, with
+  a per-metric `min_for_regression` floor so a near-zero value cannot produce a large percentage.
+  These metrics are keyed by app version, not by day, and each finding names the version its own
+  metric reports on. At most `perf_findings_per_app` reach the attention list, severity first and
+  then distance past the bar; the device table carries the rest. Apple's own `insights.regressions`
+  strings are reported but score nothing, so one fact is not counted twice.
+- **iOS crash rate** (`ios_analytics`): crashes per 1,000 sessions from the day's report instance,
+  `ios_crash_per_1k_watch` / `_alert`, gated by `ios_crash_min_sessions`. A registered request with
+  no instance yet is reported as pending — never as a failure, and never as data. Qualified
+  per-version rows remain in `crash_delta.versions`, newest App Store release first, so consumers
+  can retain the latest measured release while a new release accumulates data.
+- **Play stability breakdowns** retain the API's raw `metrics` and add normalized percentage values
+  plus `distinctUsers` in `metrics_pct`. This lets consumers compare sampled `versionCode` cohorts
+  without guessing whether Google's value was a fraction or an already formatted percentage.
 - An app with no store signal at all is `nodata` and is excluded from the overall verdict,
   which is the worst app verdict.
 
 ## Outputs (never posted anywhere by this tool)
 
 - `<slug>_<day>.json` — computed metrics, per-slice `as_of`, errors; **the baseline** for later runs
-- `<slug>_<day>.html` / `.render.html` — self-contained theme-aware dashboard (`.render.html` is the print/PNG variant)
+- `<slug>_<day>.html` / `.render.html` — optional theme-aware dashboard (`--dashboard`)
 - `<slug>_<day>.inner.html` — body-only fragment for embedding
-- `<slug>_<day>.{apple,play}.slack.txt` — **one self-contained report per store**: portfolio
-  summary, attention list, per-app lines, verbatim ≤2★ review excerpts, not-on-the-store list
-- `<slug>_<day>.{apple,play}.md` / `.html` / `.render.html` — that store's triage file and dashboard
-- `<slug>_<day>.slack.txt` / `.md` — the combined all-stores view, for a quick local read
+- `<slug>_<day>.technical.{slack.txt,md}` — Store technical section for a caller to join
+- `<slug>_<day>.experience.{slack.txt,md}` — ratings/reviews/releases/conversion report
+- `<slug>_<day>.md` — combined local triage view
 
-Stores are reported independently: every finding records the store it belongs to, each app carries
-`status_by_store`, and a store with no data writes no files at all. The CLI prints
-`stores_ready: apple,play` so a caller can deliver exactly what exists — one message per store,
-never an empty one.
+Every finding still records its store and nature. The CLI prints the concern outputs that are
+ready; delivery remains owned by the caller.
 
 ## Review topics
 
@@ -155,7 +175,13 @@ is wanted, it belongs in a real model call behind an explicit hook and an API ke
   value exists — never the value. Temporary key material staged for signing is written 0600
   and removed in a `finally`.
 - A failing slice is recorded against its app and never takes the report down; a missing
-  credential disables its slices with a stated reason.
+  credential disables its slices with a stated reason. Required incomplete slices suppress a
+  green conclusion and are rendered as coverage, not as zero.
+- App Analytics follows all JSON:API pages. Safety caps produce an explicit incomplete metric;
+  rates use only matched app + instance-date components and expose their population.
+- Outputs use same-directory temp files, fsync and atomic replace. Corrupt history candidates are
+  surfaced in the `trust` envelope.
+- POST retries are opt-in only for read/query operations. The bootstrap write is not replayed.
 - All rendered text is HTML-escaped: an app name or review body cannot inject markup.
 
 ## Tests
@@ -165,5 +191,5 @@ python3 -m unittest discover -s tests
 ```
 
 The provider paths are covered offline with recorded payload shapes (freshness clamping,
-metric/dimension row parsing, UTF-16 CSVs, `include=response` fallback, redaction), alongside
-the scoring, delta and rendering layers.
+pagination, matched populations, typed/idempotent retry, UTF-16 CSVs, `include=response`
+fallback and redaction), alongside scoring, completeness and rendering.
