@@ -9,7 +9,9 @@ value is ever returned, logged or included in an exception message.
 """
 
 import base64
+import email.utils
 import gzip
+import http.client
 import json
 import os
 import stat
@@ -107,26 +109,44 @@ def _jwt(header, claims, signer):
 class Transport:
     """Retrying JSON/bytes HTTP client with transparent gzip handling."""
 
-    def __init__(self, timeout=90, retries=3, backoff=2.0, user_agent="store-pulse/1"):
+    def __init__(self, timeout=90, retries=3, backoff=2.0, user_agent="store-pulse/1",
+                 deadline=None):
         self.timeout = timeout
         self.retries = retries
         self.backoff = backoff
         self.user_agent = user_agent
+        self.deadline = deadline
         self.calls = 0
         self._lock = threading.Lock()
 
-    def raw(self, url, method="GET", body=None, headers=None, timeout=None):
+    def _timeout(self, requested=None):
+        value = requested or self.timeout
+        if self.deadline is None:
+            return value
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise HttpError(0, url="run", detail="Store Pulse run deadline exceeded")
+        return min(value, max(0.1, remaining))
+
+    def _wait(self, delay):
+        delay = min(30.0, max(0.0, delay))
+        if self.deadline is not None and time.monotonic() + delay >= self.deadline:
+            raise HttpError(0, "run", "Store Pulse run deadline exceeded during retry")
+        time.sleep(delay)
+
+    def raw(self, url, method="GET", body=None, headers=None, timeout=None, retry_safe=False):
         if self.retries < 1:
             raise AuthError("transport misconfigured: http_retries must be at least 1")
         hdrs = {"User-Agent": self.user_agent}
         hdrs.update(headers or {})
         last = None
-        for attempt in range(self.retries):
+        attempts = self.retries if method.upper() in ("GET", "HEAD") or retry_safe else 1
+        for attempt in range(attempts):
             with self._lock:
                 self.calls += 1
             req = urllib.request.Request(url, data=body, headers=hdrs, method=method)
             try:
-                with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
+                with urllib.request.urlopen(req, timeout=self._timeout(timeout)) as resp:
                     payload = resp.read()
                     if payload[:2] == b"\x1f\x8b":
                         payload = gzip.decompress(payload)
@@ -138,19 +158,41 @@ class Transport:
                 except Exception:
                     pass
                 last = HttpError(exc.code, url, detail)
-                if exc.code in (429, 500, 502, 503, 504) and attempt < self.retries - 1:
-                    time.sleep(self.backoff * (attempt + 1))
+                if exc.code in (408, 425, 429, 500, 502, 503, 504) and attempt < attempts - 1:
+                    retry_after = None
+                    raw_retry_after = ""
+                    try:
+                        raw_retry_after = exc.headers.get("Retry-After", "")
+                        retry_after = float(raw_retry_after)
+                    except (AttributeError, TypeError, ValueError):
+                        try:
+                            retry_after = max(0.0, email.utils.parsedate_to_datetime(
+                                raw_retry_after).timestamp() - time.time())
+                        except (TypeError, ValueError, OverflowError):
+                            pass
+                    self._wait(retry_after if retry_after is not None
+                               else self.backoff * (attempt + 1))
                     continue
                 raise last
             except urllib.error.URLError as exc:
                 last = HttpError(0, url, str(exc.reason)[:200])
-                if attempt < self.retries - 1:
-                    time.sleep(self.backoff * (attempt + 1))
+                if attempt < attempts - 1:
+                    self._wait(self.backoff * (attempt + 1))
+                    continue
+                raise last
+            except (TimeoutError, OSError, EOFError, http.client.HTTPException,
+                    gzip.BadGzipFile) as exc:
+                # a read timeout surfaces here, not as URLError; without this branch a slow
+                # endpoint silently drops the slice instead of being retried
+                last = HttpError(0, url, f"{type(exc).__name__}: {str(exc)[:160]}")
+                if attempt < attempts - 1:
+                    self._wait(self.backoff * (attempt + 1))
                     continue
                 raise last
         raise last
 
-    def json(self, url, method="GET", payload=None, headers=None, form=None, timeout=None):
+    def json(self, url, method="GET", payload=None, headers=None, form=None, timeout=None,
+             retry_safe=False):
         hdrs = {"Accept": "application/json"}
         hdrs.update(headers or {})
         body = None
@@ -160,7 +202,8 @@ class Transport:
         elif form is not None:
             body = urllib.parse.urlencode(form).encode()
             hdrs["Content-Type"] = "application/x-www-form-urlencoded"
-        raw = self.raw(url, method=method, body=body, headers=hdrs, timeout=timeout)
+        raw = self.raw(url, method=method, body=body, headers=hdrs, timeout=timeout,
+                       retry_safe=retry_safe)
         if not raw:
             return {}
         return json.loads(raw.decode("utf-8"))
@@ -217,7 +260,7 @@ class GoogleAuth:
             resp = self.transport.json(
                 blob.get("token_uri", GOOGLE_TOKEN_URL), method="POST",
                 form={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                      "assertion": assertion})
+                      "assertion": assertion}, retry_safe=True)
         except HttpError as exc:
             raise AuthError(f"google token exchange refused the service account ({exc.status})")
         if not resp.get("access_token"):

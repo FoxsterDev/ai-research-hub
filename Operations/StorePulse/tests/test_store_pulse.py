@@ -52,7 +52,8 @@ class FakeTransport:
                 return value
         raise AssertionError(f"no fake route for {url}")
 
-    def json(self, url, method="GET", payload=None, headers=None, form=None, timeout=None):
+    def json(self, url, method="GET", payload=None, headers=None, form=None, timeout=None,
+             retry_safe=False):
         self.calls += 1
         self.seen.append((method, url, payload))
         value = self._match(self.routes, url)
@@ -62,7 +63,7 @@ class FakeTransport:
             return value(url, payload)
         return value
 
-    def raw(self, url, method="GET", body=None, headers=None, timeout=None):
+    def raw(self, url, method="GET", body=None, headers=None, timeout=None, retry_safe=False):
         self.calls += 1
         self.seen.append((method, url, None))
         return self._match(self.raw_routes, url)
@@ -152,7 +153,8 @@ def _metric_rows():
              {"metric": "userPerceivedCrashRate", "decimalValue": {"value": "0.0031"}}]},
         {"startTime": {"year": 2026, "month": 8, "day": 17},
          "dimensions": [{"dimension": "versionCode", "int64Value": "1603"}],
-         "metrics": [{"metric": "userPerceivedCrashRate", "decimalValue": {"value": "0.0910"}}]},
+         "metrics": [{"metric": "userPerceivedCrashRate", "decimalValue": {"value": "0.0910"}},
+                     {"metric": "distinctUsers", "decimalValue": {"value": "500"}}]},
     ]}
 
 
@@ -197,6 +199,18 @@ class PlayVitalsTests(unittest.TestCase):
         self.assertAlmostEqual(pulse.rate_to_pct(3.5), 3.5)  # already percent-shaped
         self.assertIsNone(pulse.rate_to_pct(None))
 
+    def test_collector_persists_normalized_per_version_rates_and_sample(self):
+        ctx = {"cfg": {"play_vitals_sets": self.sets, "vitals_trail_days": 7,
+                       "vitals_rate_is_fraction": "auto"},
+               "transport": FakeTransport(self.routes),
+               "creds": type("Creds", (), {"google_headers": lambda self: {}})(),
+               "day": dt.date(2026, 8, 17)}
+        out = pulse.collect_play_vitals(ctx, {"android": "com.example"})
+        row = out["sets"]["crash"]["breakdown"][0]
+        self.assertEqual("1603", row["dims"]["versionCode"])
+        self.assertAlmostEqual(9.10, row["metrics_pct"]["userPerceivedCrashRate"])
+        self.assertEqual(500, row["metrics_pct"]["distinctUsers"])
+
 
 class PlayIssueTests(unittest.TestCase):
     def test_issue_fields_and_percent_shapes(self):
@@ -227,7 +241,7 @@ class PlayReviewTests(unittest.TestCase):
         {"reviewId": "a", "comments": [
             {"userComment": {"text": "Too many ads and it crashes", "starRating": 1,
                              "reviewerLanguage": "en", "device": "Pixel 6",
-                             "androidOsVersion": 33, "appVersionName": "1.60.3",
+                             "androidOsVersion": 33, "appVersionName": "2.4.1",
                              "thumbsUpCount": 3, "lastModified": {"seconds": "1787000000"}}}]},
         {"reviewId": "b", "comments": [
             {"userComment": {"text": "Great game", "starRating": 5,
@@ -530,6 +544,14 @@ class CollectionResilienceTests(unittest.TestCase):
         out = pulse.collect_app(ctx, app)
         self.assertIn("no ios identifier configured", out["skipped"]["ios_rating"])
 
+    def test_declared_credential_skip_is_delivery_safe_but_not_complete(self):
+        state = {"ok": 0, "failed": 0, "skipped_count": 1, "expected": 1,
+                 "complete": False}
+        self.assertFalse(state["complete"])
+        self.assertTrue(pulse.slice_state_delivery_safe({"play_vitals": state}))
+        self.assertFalse(pulse.slice_state_delivery_safe(
+            {"play_vitals": {**state, "failed": 1, "skipped_count": 0}}))
+
 
 # -------------------------------------------------------------------- renderers
 
@@ -563,7 +585,7 @@ class RenderTests(unittest.TestCase):
         bad["rating"] = {"ios": {"avg": 1.17, "count": 6, "d_avg": -0.2, "d_avg_7d": None, "d_count": 1},
                          "play": {"avg": 3.9, "count": 400, "d_avg": 0.01, "d_avg_7d": None, "d_count": 4}}
         pulse.score_app(bad, cfg)
-        good = _app_block(key="B", name="Blingz", ios_avg=4.87, ios_count=2225)
+        good = _app_block(key="B", name="Example Two", ios_avg=4.20, ios_count=2200)
         good["rating"] = {"ios": {"avg": 4.87, "count": 2225, "d_avg": None, "d_avg_7d": None,
                                   "d_count": None},
                           "play": {"avg": None, "count": None, "d_avg": None, "d_avg_7d": None,
@@ -631,6 +653,35 @@ class PerStoreDeliveryTests(unittest.TestCase):
         out = self.score(block)
         self.assertEqual(out["status_by_store"]["ios"], "degraded")
         self.assertEqual(out["status_by_store"]["play"], "healthy")
+
+    def test_every_finding_declares_its_nature(self):
+        block = self.score(_app_block(ios_avg=1.2, ios_count=40, crash_pct=1.5))
+        self.assertTrue(all(a["nature"] in ("technical", "experience")
+                            for a in block["attention"]))
+        by_kind = {a["kind"]: a["nature"] for a in block["attention"]}
+        self.assertEqual(by_kind.get("vitals"), "technical")
+        self.assertEqual(by_kind.get("rating_floor"), "experience")
+
+    def test_a_pre_submission_app_is_no_data_not_healthy(self):
+        block = _app_block(key="CC", name="CubeClear")
+        block["slices"]["ios_release"] = {
+            "current": {"version": "1.0", "state": "PREPARE_FOR_SUBMISSION"},
+            "versions": [], "phased": None}
+        out = self.score(block)
+        # a release state is context, not a measurement: "not submitted yet" is not "healthy"
+        self.assertEqual(out["status_by_nature"]["experience"], "nodata")
+        self.assertEqual(out["status_by_nature"]["technical"], "nodata")
+
+    def test_a_rated_app_with_no_finding_is_healthy_on_experience(self):
+        out = self.score(_app_block(ios_avg=4.5, ios_count=900))
+        self.assertEqual(out["status_by_nature"]["experience"], "healthy")
+        self.assertEqual(out["status_by_nature"]["technical"], "nodata")
+
+    def test_the_nature_map_covers_every_kind_the_scorer_can_emit(self):
+        emitted = {"rating", "rating_floor", "vitals", "reviews", "reviews_backlog",
+                   "conversion", "release", "anomaly", "issue", "perf", "perf_regression",
+                   "crash"}
+        self.assertEqual(emitted - set(pulse.FINDING_NATURE), set())
 
     def test_every_finding_declares_its_store(self):
         block = self.score(_app_block(ios_avg=1.2, ios_count=40, crash_pct=1.5))
@@ -890,6 +941,57 @@ class SlackBudgetTests(unittest.TestCase):
         self.assertNotIn("attached report", pulse.render_store_slack(_report([a]), "ios"))
 
 
+class ReadTimeoutRetryTests(unittest.TestCase):
+    """A read timeout must be retried like any other transient transport failure."""
+
+    def test_a_read_timeout_is_retried_and_then_succeeds(self):
+        state = {"n": 0}
+        t = auth.Transport(timeout=1, retries=3, backoff=0)
+        original = auth.urllib.request.urlopen
+
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                state["n"] += 1
+                if state["n"] == 1:
+                    raise TimeoutError("The read operation timed out")
+                return b"ok"
+
+        auth.urllib.request.urlopen = lambda req, timeout=None: Resp()
+        try:
+            self.assertEqual(t.raw("https://example.invalid/x"), b"ok")
+            self.assertEqual(state["n"], 2)      # first read timed out, second succeeded
+        finally:
+            auth.urllib.request.urlopen = original
+
+    def test_a_read_timeout_that_never_clears_raises_an_http_error(self):
+        original = auth.urllib.request.urlopen
+
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                raise TimeoutError("The read operation timed out")
+
+        auth.urllib.request.urlopen = lambda req, timeout=None: Resp()
+        try:
+            t = auth.Transport(timeout=1, retries=2, backoff=0)
+            with self.assertRaises(auth.HttpError) as caught:
+                t.raw("https://example.invalid/x")
+            self.assertIn("TimeoutError", str(caught.exception))
+        finally:
+            auth.urllib.request.urlopen = original
+
+
 class TransportHardeningTests(unittest.TestCase):
     def test_zero_retries_fails_with_a_clear_message(self):
         t = auth.Transport(retries=0)
@@ -946,6 +1048,550 @@ class TransportHardeningTests(unittest.TestCase):
             self.assertEqual(transport.exchanges, 1)
         finally:
             shutil.rmtree(tmp)
+
+
+# ------------------------------------------------------ iOS technical monitoring
+
+def _perf_payload(points=(("1.0", 1.0), ("1.1", 1.2), ("2.0", 3.0)), category="HANG",
+                  metric="hangRate", unit=("hangTime", "seconds/hour"), device_points=None):
+    datasets = []
+    for percentile in ("percentile.fifty", "percentile.ninety"):
+        datasets.append({"filterCriteria": {"percentile": percentile, "device": "all_iphones",
+                                            "deviceMarketingName": "All iPhones"},
+                         "points": [{"version": v, "value": value} for v, value in points]})
+    for device, marketing, value in device_points or []:
+        datasets.append({"filterCriteria": {"percentile": "percentile.ninety", "device": device,
+                                            "deviceMarketingName": marketing},
+                         "points": [{"version": points[-1][0], "value": value}]})
+    return {"version": "1.0.0",
+            "productData": [{"platform": "iOS", "metricCategories": [
+                {"identifier": category,
+                 "metrics": [{"identifier": metric,
+                              "unit": {"identifier": unit[0], "displayName": unit[1]},
+                              "datasets": datasets}]}]}],
+            "insights": {"trendingUp": [], "regressions": [
+                {"metricCategory": category, "metric": metric, "latestVersion": points[-1][0],
+                 "summaryString": "Hang rate trended up", "referenceVersions": ["1.0", "1.1"]}]}}
+
+
+class PerfPowerParseTests(unittest.TestCase):
+    def test_all_iphones_percentiles_and_device_outliers_are_separated(self):
+        raw = _perf_payload(device_points=[("iPhone14,5", "iPhone 13", 9.0)])
+        series = src.asc_perf_series(raw)
+        entry = series[("HANG", "hangRate")]
+        self.assertEqual(entry["unit_label"], "seconds/hour")
+        self.assertEqual([p["version"] for p in entry["percentiles"]["p90"]], ["1.0", "1.1", "2.0"])
+        self.assertEqual(entry["devices"]["p90"][0]["device"], "iPhone 13")
+
+    def test_points_without_a_value_are_dropped_not_zeroed(self):
+        raw = _perf_payload()
+        raw["productData"][0]["metricCategories"][0]["metrics"][0]["datasets"][1]["points"] = [
+            {"version": "1.0", "value": None}, {"version": "2.0", "value": 4.0}]
+        entry = src.asc_perf_series(raw)[("HANG", "hangRate")]
+        self.assertEqual([p["value"] for p in entry["percentiles"]["p90"]], [4.0])
+
+    def test_insights_carry_direction_and_summary(self):
+        got = src.asc_perf_insights(_perf_payload())
+        self.assertEqual(got[0]["direction"], "regressions")
+        self.assertEqual(got[0]["metric"], "hangRate")
+
+
+class PerfCollectorTests(unittest.TestCase):
+    def _collect(self, raw, overrides=None):
+        cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A"}], **(overrides or {})})
+        creds = type("C", (), {"apple_headers": lambda self: {}})()
+        ctx = {"cfg": cfg, "creds": creds, "day": dt.date(2026, 8, 27),
+               "transport": FakeTransport({"perfPowerMetrics": raw})}
+        return pulse.collect_ios_perf(ctx, {"key": "A", "ios": "com.example.app",
+                                            "ios_app_id": "42"})
+
+    def test_baseline_is_the_mean_of_the_previous_versions(self):
+        out = self._collect(_perf_payload(points=(("1.0", 1.0), ("1.1", 3.0), ("2.0", 4.0))))
+        hang = out["metrics"]["hang"]
+        self.assertEqual(hang["value"], 4.0)
+        self.assertEqual(hang["version"], "2.0")
+        self.assertEqual(hang["baseline"], 2.0)
+        self.assertAlmostEqual(hang["delta_pct"], 100.0)
+
+    def test_a_single_version_has_no_baseline_and_no_delta(self):
+        out = self._collect(_perf_payload(points=(("2.0", 4.0),)))
+        self.assertIsNone(out["metrics"]["hang"]["baseline"])
+        self.assertIsNone(out["metrics"]["hang"]["delta_pct"])
+
+    def test_headline_version_is_the_one_most_metrics_report_on(self):
+        raw = _perf_payload(points=(("1.0", 1.0), ("2.0", 2.0)))
+        launch = {"identifier": "LAUNCH", "metrics": [
+            {"identifier": "launchTime", "unit": {"identifier": "milliseconds", "displayName": "ms"},
+             "datasets": [{"filterCriteria": {"percentile": "percentile.ninety",
+                                              "device": "all_iphones"},
+                           "points": [{"version": "1.0", "value": 900.0}]}]}]}
+        memory = {"identifier": "MEMORY", "metrics": [
+            {"identifier": "peakMemory", "unit": {"identifier": "megaBytes", "displayName": "MB"},
+             "datasets": [{"filterCriteria": {"percentile": "percentile.ninety",
+                                              "device": "all_iphones"},
+                           "points": [{"version": "1.0", "value": 400.0}]}]}]}
+        raw["productData"][0]["metricCategories"] += [launch, memory]
+        out = self._collect(raw)
+        self.assertEqual(out["version"], "1.0")
+        self.assertEqual(out["metrics"]["hang"]["version"], "2.0")
+
+
+class PerfScoringTests(unittest.TestCase):
+    def setUp(self):
+        self.cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A"}]})
+
+    def _score(self, metrics, analytics=None):
+        block = _app_block(ios_avg=4.5, ios_count=900)
+        block["slices"]["ios_perf"] = {"version": "2.0", "device": "all_iphones",
+                                       "metrics": metrics, "insights": [],
+                                       "regression_count": 0}
+        if analytics is not None:
+            block["slices"]["ios_analytics"] = analytics
+        block.setdefault("rating", {})
+        for platform in ("ios", "play"):
+            avg, count = pulse._rating_of(block, platform)
+            block["rating"].setdefault(platform, {"avg": avg, "count": count, "d_avg": None,
+                                                  "d_avg_7d": None, "d_count": None})
+        return pulse.score_app(block, self.cfg)
+
+    def _metric(self, **over):
+        base = {"label": "Hang rate", "unit": "seconds/hour", "percentile": "p90",
+                "value": 1.0, "version": "2.0", "baseline": 1.0, "baseline_versions": ["1.0"],
+                "delta_pct": 0.0, "watch": 10.0, "alert": 20.0, "min_for_regression": 2.0}
+        base.update(over)
+        return base
+
+    def test_value_over_the_alert_bar_degrades_the_app_store_only(self):
+        out = self._score({"hang": self._metric(value=25.0)})
+        self.assertEqual(out["status_by_store"]["ios"], "degraded")
+        self.assertEqual(out["status_by_store"]["play"], "nodata")
+        self.assertEqual([a["kind"] for a in out["attention"]], ["perf"])
+
+    def test_regression_is_a_finding_even_without_an_absolute_bar(self):
+        out = self._score({"memory": self._metric(label="Peak memory", unit="MB", value=500.0,
+                                                  baseline=300.0, delta_pct=66.7,
+                                                  watch=None, alert=None,
+                                                  min_for_regression=100.0)})
+        found = [a for a in out["attention"] if a["kind"] == "perf_regression"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["sev"], "degraded")
+        self.assertIn("Peak memory", found[0]["text"])
+
+    def test_a_tiny_absolute_value_does_not_become_a_regression(self):
+        out = self._score({"hang": self._metric(value=0.4, baseline=0.1, delta_pct=300.0)})
+        self.assertEqual(out["attention"], [])
+
+    def test_a_regression_names_the_version_its_own_metric_reports_on(self):
+        out = self._score({"launch": self._metric(label="Launch time", unit="ms", value=1800.0,
+                                                  baseline=1200.0, delta_pct=50.0, version="1.9",
+                                                  watch=2000.0, alert=3000.0,
+                                                  min_for_regression=500.0)})
+        found = [a for a in out["attention"] if a["kind"] == "perf_regression"]
+        self.assertIn("v1.9", found[0]["text"])
+
+    def test_only_the_two_worst_bar_breaches_reach_the_attention_list(self):
+        out = self._score({
+            "hang": self._metric(value=25.0),
+            "launch": self._metric(label="Launch time", unit="ms", value=4000.0,
+                                   watch=2000.0, alert=3000.0, min_for_regression=500.0),
+            "memory": self._metric(label="Peak memory", unit="MB", value=750.0,
+                                   watch=700.0, alert=1000.0, min_for_regression=100.0)})
+        perf = [a for a in out["attention"] if a["kind"] == "perf"]
+        self.assertEqual(len(perf), 2)
+        self.assertIn("(+1 more over bar)", perf[-1]["text"])
+        # severity first, then distance past the bar: the two alerts win over the watch,
+        # and launch (4000/3000) leads hang (25/20)
+        self.assertEqual([a["sev"] for a in perf], ["degraded", "degraded"])
+        self.assertIn("Launch time", perf[0]["text"])
+        self.assertIn("Hang rate", perf[1]["text"])
+
+    def test_a_watch_level_metric_never_displaces_an_alert_level_one(self):
+        out = self._score({
+            "memory": self._metric(label="Peak memory", unit="MB", value=1010.0,
+                                   watch=700.0, alert=1000.0, min_for_regression=100.0),
+            "hang": self._metric(value=20.1),
+            "glitch": self._metric(label="Animation hitches", unit="ms/s", value=9.0,
+                                   watch=5.0, alert=10.0, min_for_regression=1.0)})
+        perf = [a for a in out["attention"] if a["kind"] == "perf"]
+        self.assertEqual([a["sev"] for a in perf], ["degraded", "degraded"])
+        self.assertNotIn("Animation hitches", " ".join(a["text"] for a in perf))
+
+    def test_crashes_per_1k_sessions_scores_against_the_bar(self):
+        out = self._score({}, analytics={
+            "metrics": {"crashes": {"value": 60.0}, "sessions": {"value": 10000.0}},
+            "derived": {"crashes_per_1k_sessions": 6.0}, "as_of": "2026-08-26"})
+        found = [a for a in out["attention"] if a["kind"] == "crash"]
+        self.assertEqual(found[0]["sev"], "degraded")
+
+    def test_too_few_sessions_makes_the_crash_rate_low_data_not_a_finding(self):
+        out = self._score({}, analytics={
+            "metrics": {"crashes": {"value": 3.0}, "sessions": {"value": 100.0}},
+            "derived": {"crashes_per_1k_sessions": 30.0}, "as_of": "2026-08-26"})
+        self.assertEqual([a for a in out["attention"] if a["kind"] == "crash"], [])
+        self.assertIn("ios_analytics", out["low_data"])
+
+    def test_a_registered_request_with_no_instance_is_not_data(self):
+        block = {"rating": {}, "slices": {"ios_analytics": {
+            "metrics": {"crashes": {"value": None, "no_instance": True}},
+            "derived": {}, "pending": "registered, waiting"}}}
+        self.assertFalse(pulse._store_has_data(block, "ios"))
+        block["slices"]["ios_analytics"]["metrics"]["crashes"]["value"] = 4.0
+        self.assertTrue(pulse._store_has_data(block, "ios"))
+
+
+class AnalyticsCollectorTests(unittest.TestCase):
+    """The App Analytics path: request -> report -> instance -> segment -> aggregate."""
+
+    def _ctx(self, routes, raw_routes=None, overrides=None):
+        cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A"}], **(overrides or {})})
+        creds = type("C", (), {"apple_headers": lambda self: {}})()
+        return {"cfg": cfg, "creds": creds, "day": dt.date(2026, 8, 27),
+                "transport": FakeTransport(routes, raw_routes)}
+
+    def _segment(self, text):
+        # FakeTransport.raw stands in for Transport.raw, which gunzips before returning.
+        return text.encode()
+
+    def _routes(self, header, rows, processing_date="2026-08-26"):
+        body = "\n".join(["\t".join(header)] + ["\t".join(r) for r in rows])
+        return ({"analyticsReportRequests?": {"data": [
+                    {"id": "req1", "attributes": {"accessType": "ONGOING",
+                                                  "stoppedDueToInactivity": False}}]},
+                 "/reports": {"data": [
+                     {"id": "rep-crash", "attributes": {"name": "App Crashes",
+                                                        "category": "APP_USAGE"}},
+                     {"id": "rep-sess", "attributes": {"name": "App Sessions Standard",
+                                                       "category": "APP_USAGE"}}]},
+                 "/instances": {"data": [
+                     {"id": "inst1", "attributes": {"processingDate": processing_date,
+                                                    "granularity": "DAILY"}}]},
+                 "/segments": {"data": [
+                     {"id": "seg1", "attributes": {"url": "https://example.invalid/seg1.gz",
+                                                   "sizeInBytes": 10}}]}},
+                {"seg1.gz": self._segment(body)})
+
+    def test_crashes_and_sessions_aggregate_into_a_rate(self):
+        routes, raws = self._routes(["Date", "App Version", "Crashes", "Sessions"],
+                                    [["2026-08-26", "1.0", "20", "5000"],
+                                     ["2026-08-26", "1.1", "10", "5000"]])
+        ctx = self._ctx({"apps/42/analyticsReportRequests": routes["analyticsReportRequests?"],
+                         "/reports": routes["/reports"], "/instances": routes["/instances"],
+                         "/segments": routes["/segments"]}, raws)
+        out = pulse.collect_ios_analytics(ctx, {"key": "A", "ios": "com.example.app",
+                                                "ios_app_id": "42"})
+        self.assertEqual(out["metrics"]["crashes"]["value"], 30.0)
+        self.assertEqual(out["metrics"]["sessions"]["value"], 10000.0)
+        self.assertAlmostEqual(out["derived"]["crashes_per_1k_sessions"], 3.0)
+        self.assertEqual(out["as_of"], "2026-08-26")
+        top = out["metrics"]["crashes"]["breakdown"]["App Version"]
+        self.assertEqual(top[0], {"key": "1.0", "value": 20.0})
+
+    def test_snapshot_fallback_is_date_filtered_when_ongoing_has_no_instance(self):
+        requests = {"data": [
+            {"id": "req-on", "attributes": {"accessType": "ONGOING",
+                                               "stoppedDueToInactivity": False}},
+            {"id": "req-snap", "attributes": {"accessType": "ONE_TIME_SNAPSHOT",
+                                                 "stoppedDueToInactivity": False}},
+        ]}
+        reports_on = {"data": [
+            {"id": "on-crash", "attributes": {"name": "App Crashes", "category": "APP_USAGE"}},
+            {"id": "on-sess", "attributes": {"name": "App Sessions Standard", "category": "APP_USAGE"}},
+        ]}
+        reports_snap = {"data": [
+            {"id": "snap-crash", "attributes": {"name": "App Crashes", "category": "APP_USAGE"}},
+            {"id": "snap-sess", "attributes": {"name": "App Sessions Standard", "category": "APP_USAGE"}},
+        ]}
+        instance = {"data": [{"id": "snapshot-instance", "attributes": {
+            "processingDate": "2026-08-30", "granularity": "DAILY"}}]}
+        segments = {"data": [{"attributes": {"url": "https://example.invalid/history.gz",
+                                               "sizeInBytes": 10}}]}
+        body = ("Date\tApp Version\tCrashes\tSessions\n"
+                "2026-08-26\t1.0\t90\t1000\n"
+                "2026-08-27\t1.0\t3\t1000\n").encode()
+        routes = {
+            "apps/42/analyticsReportRequests": requests,
+            "req-on/reports": reports_on, "req-snap/reports": reports_snap,
+            "on-crash/instances": {"data": []}, "on-sess/instances": {"data": []},
+            "snap-crash/instances": instance, "snap-sess/instances": instance,
+            "snapshot-instance/segments": segments,
+        }
+        ctx = self._ctx(routes, {"history.gz": body})
+        out = pulse.collect_ios_analytics(ctx, {"key": "A", "ios": "com.example.app",
+                                                "ios_app_id": "42"})
+        self.assertEqual(3.0, out["metrics"]["crashes"]["value"])
+        self.assertEqual(1000.0, out["metrics"]["sessions"]["value"])
+        self.assertEqual("ONE_TIME_SNAPSHOT", out["metrics"]["crashes"]["access_type"])
+        self.assertEqual("2026-08-27", out["metrics"]["crashes"]["as_of"])
+
+    def test_a_future_instance_is_not_read_for_todays_report(self):
+        routes, raws = self._routes(["Date", "Crashes"], [["2026-08-30", "5"]],
+                                    processing_date="2026-08-30")
+        ctx = self._ctx({"apps/42/analyticsReportRequests": routes["analyticsReportRequests?"],
+                         "/reports": routes["/reports"], "/instances": routes["/instances"],
+                         "/segments": routes["/segments"]}, raws)
+        out = pulse.collect_ios_analytics(ctx, {"key": "A", "ios": "com.example.app",
+                                                "ios_app_id": "42"})
+        self.assertTrue(out["metrics"]["crashes"]["no_instance"])
+        self.assertEqual(out["pending"], "registered, waiting for Apple's first report instance")
+
+    def test_a_missing_value_column_is_reported_with_the_header_it_saw(self):
+        routes, raws = self._routes(["Date", "Impressions"], [["2026-08-26", "7"]])
+        ctx = self._ctx({"apps/42/analyticsReportRequests": routes["analyticsReportRequests?"],
+                         "/reports": routes["/reports"], "/instances": routes["/instances"],
+                         "/segments": routes["/segments"]}, raws)
+        out = pulse.collect_ios_analytics(ctx, {"key": "A", "ios": "com.example.app",
+                                                "ios_app_id": "42"})
+        crashes = out["metrics"]["crashes"]
+        self.assertIsNone(crashes["value"])
+        self.assertIn("Crashes", crashes["unmapped"])
+        self.assertIn("Impressions", crashes["header"])
+
+    def test_no_request_registered_says_to_bootstrap(self):
+        ctx = self._ctx({"analyticsReportRequests": {"data": []}})
+        out = pulse.collect_ios_analytics(ctx, {"key": "A", "ios": "com.example.app",
+                                                "ios_app_id": "42"})
+        self.assertIn("bootstrap", out["pending"])
+
+    def test_a_comma_delimited_segment_parses_too(self):
+        body = "Date,Crashes,Sessions\n2026-08-26,4,1000\n"
+        rows = src.asc_segment_rows(FakeTransport({}, {"seg": body.encode()}),
+                                    "https://example.invalid/seg")
+        self.assertEqual(rows[0], ["Date", "Crashes", "Sessions"])
+        self.assertEqual(rows[1][0]["Crashes"], "4")
+
+    def test_the_segment_download_carries_no_auth_header(self):
+        seen = {}
+
+        class Recorder(FakeTransport):
+            def raw(self, url, method="GET", body=None, headers=None, timeout=None):
+                seen["headers"] = headers
+                return b"Date\tCrashes\n2026-08-26\t1\n"
+
+        src.asc_segment_rows(Recorder({}, {}), "https://example.invalid/seg")
+        self.assertIn(seen["headers"], (None, {}))
+
+    def test_report_category_filter_is_comma_joined_not_repeated(self):
+        t = FakeTransport({"/reports": {"data": []}})
+        src.asc_analytics_reports(t, {}, "req1", categories=["APP_USAGE", "PERFORMANCE"])
+        url = t.seen[0][1]
+        self.assertIn("APP_USAGE%2CPERFORMANCE", url)
+        self.assertEqual(url.count("filter%5Bcategory%5D"), 1)
+
+
+class TechRenderTests(unittest.TestCase):
+    def _report(self):
+        block = _app_block(ios_avg=4.5, ios_count=900, key="A", name="App")
+        block["slices"]["ios_perf"] = {
+            "version": "2.0", "device": "all_iphones", "insights": [
+                {"direction": "regressions", "category": "HANG", "metric": "hangRate",
+                 "version": "2.0", "summary": "Hang rate trended up", "reference_versions": []}],
+            "regression_count": 1,
+            "metrics": {"hang": {"label": "Hang rate", "unit": "seconds/hour", "percentile": "p90",
+                                 "value": 25.0, "version": "2.0", "baseline": 10.0,
+                                 "baseline_versions": ["1.0"], "delta_pct": 150.0,
+                                 "watch": 10.0, "alert": 20.0, "min_for_regression": 2.0,
+                                 "worst_device": {"device": "iPhone 13", "version": "2.0",
+                                                  "value": 60.0}},
+                        "memory": {"label": "Peak memory", "unit": "MB", "percentile": "p90",
+                                   "value": 1100.0, "version": "1.9", "baseline": 1000.0,
+                                   "baseline_versions": ["1.8"], "delta_pct": 10.0,
+                                   "watch": 700.0, "alert": 1000.0, "min_for_regression": 100.0,
+                                   "worst_device": None}}}
+        block["slices"]["ios_release"] = {
+            "versions": [{"version": "2.3", "state": "READY_FOR_DISTRIBUTION"},
+                         {"version": "2.2", "state": "READY_FOR_DISTRIBUTION"},
+                         {"version": "2.0", "state": "READY_FOR_DISTRIBUTION"},
+                         {"version": "1.9", "state": "READY_FOR_DISTRIBUTION"}],
+            "current": {"version": "2.3", "state": "READY_FOR_DISTRIBUTION"}, "phased": None}
+        block["slices"]["ios_analytics"] = {
+            "ongoing": 1, "snapshot": 1, "reports": ["App Crashes"], "as_of": "2026-08-26",
+            "metrics": {"crashes": {"label": "Crashes", "value": 30.0, "access_type": "ONGOING",
+                                    "breakdown": {"App Version": [{"key": "2.0", "value": 25.0},
+                                                                  {"key": "1.9", "value": 5.0}],
+                                                  "Device": [{"key": "iPhone13,2",
+                                                              "value": 18.0}]}},
+                        "sessions": {"label": "Sessions", "value": 10000.0,
+                                     "access_type": "ONGOING",
+                                     "breakdown": {"App Version": [{"key": "2.0", "value": 9000.0},
+                                                                   {"key": "1.9",
+                                                                    "value": 1000.0}]}}},
+            "derived": {"crashes_per_1k_sessions": 3.0}, "pending": None}
+        cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A"}]})
+        block.setdefault("rating", {})
+        for platform in ("ios", "play"):
+            avg, count = pulse._rating_of(block, platform)
+            block["rating"].setdefault(platform, {"avg": avg, "count": count, "d_avg": None,
+                                                  "d_avg_7d": None, "d_count": None})
+        pulse.score_app(block, cfg)
+        report = _report([block])
+        report["tech_summary"] = pulse.build_tech_summary([block])
+        return report
+
+    def test_tech_summary_finds_the_worst_and_the_regressions(self):
+        tech = self._report()["tech_summary"]
+        self.assertEqual(tech["perf_apps"], 1)
+        self.assertEqual(tech["analytics_apps"], 1)
+        self.assertEqual(tech["worst"]["hang"]["value"], 25.0)
+        self.assertEqual(tech["crash_1k"][0]["value"], 3.0)
+        self.assertEqual([r["label"] for r in tech["regressions"]], ["Hang rate"])
+
+    def test_slack_block_reports_metrics_analytics_and_stays_one_message(self):
+        report = self._report()
+        text = pulse.render_store_slack(report, "ios")
+        self.assertIn("Device metrics", text)
+        self.assertIn("Core metrics", text)
+        self.assertIn("Worst hang rate", text)
+        self.assertIn("Crashes per 1k sessions", text)
+        self.assertLessEqual(pulse.slack_len(text), pulse.SLACK_ONE_MESSAGE_BUDGET)
+
+    def test_a_zero_worst_is_not_printed(self):
+        report = self._report()
+        report["tech_summary"]["worst"]["termination"] = {
+            "value": 0.0, "unit": "count/day", "label": "Foreground terminations",
+            "app": "App", "version": "2.0", "percentile": "p90", "watch": 0.5, "alert": 1.0}
+        self.assertNotIn("Worst foreground terminations",
+                         "\n".join(pulse.render_tech_slack(report)))
+
+    def test_markdown_names_the_version_a_metric_actually_reports_on(self):
+        md = pulse.render_store_md(self._report(), "ios")
+        self.assertIn("## Technical health", md)
+        self.assertIn("@v1.9", md)          # peak memory is a version behind the headline
+        self.assertIn("Hang rate trended up", md)
+        self.assertIn("Crashes/1k", md)
+
+    def test_dashboard_carries_the_device_metric_table(self):
+        html_out = pulse.render_inner(self._report(), store="ios")
+        self.assertIn("Device metric", html_out)
+        self.assertIn("Crashes/1k sess", html_out)
+
+    def test_one_shared_analytics_wait_reason_is_printed_once_not_per_card(self):
+        report = self._report()
+        report["apps"][0]["slices"]["ios_analytics"] = {
+            "metrics": {"crashes": {"label": "Crashes", "value": None, "no_instance": True}},
+            "derived": {}, "pending": "registered, waiting for Apple's first report instance"}
+        report["tech_summary"] = pulse.build_tech_summary(report["apps"])
+        self.assertEqual(pulse.uniform_pending(report),
+                         "registered, waiting for Apple's first report instance")
+        html_out = pulse.render_inner(report, store="ios")
+        # the apostrophe is html-escaped in the page, so match on the stable tail
+        self.assertEqual(html_out.count("first report instance"), 1)
+
+    def test_version_lag_counts_the_releases_newer_than_the_metrics(self):
+        lag = pulse.perf_version_lag(self._report()["apps"][0])
+        self.assertEqual(lag["metrics_version"], "2.0")
+        self.assertEqual(lag["live_version"], "2.3")
+        self.assertEqual(lag["behind"], 2)
+        self.assertIn("2 releases newer", pulse.fmt_version_lag(lag))
+
+    def test_a_metrics_version_older_than_the_fetched_list_says_so(self):
+        app = self._report()["apps"][0]
+        app["slices"]["ios_perf"]["version"] = "1.5"
+        lag = pulse.perf_version_lag(app)
+        self.assertIsNone(lag["behind"])
+        self.assertFalse(lag["in_recent_versions"])
+        self.assertIn("not in the last 4 App Store versions", pulse.fmt_version_lag(lag))
+
+    def test_the_slack_block_says_the_metrics_describe_an_older_build(self):
+        text = pulse.render_store_slack(self._report(), "ios")
+        self.assertIn("These describe older builds", text)
+        self.assertIn("live v2.3", text)
+
+    def test_markdown_carries_the_live_version_column_and_per_version_tables(self):
+        md = pulse.render_store_md(self._report(), "ios")
+        self.assertIn("| App | Metrics version | Live version |", md)
+        self.assertIn("2.3 (+2)", md)
+        self.assertIn("by app version", md)
+        self.assertIn("| 2.0 | 25 | 9,000 | 2.78 |", md)   # crashes/1k derived per version
+        self.assertIn("Crashes by device: iPhone13,2 18", md)
+
+    def _with_history(self, prev_rate=2.0, week_rate=1.5, prev_sessions=10000.0):
+        report = self._report()
+        app = report["apps"][0]
+        def snapshot(rate, day):
+            return (day, {"apps": [{"key": "A", "slices": {"ios_analytics": {
+                        "metrics": {"sessions": {"value": prev_sessions}},
+                        "derived": {"crashes_per_1k_sessions": rate}}}}],
+                    "tech_summary": {"core": {"crashes_per_1k": rate}}})
+        history = [snapshot(prev_rate, "2026-08-18"), snapshot(week_rate, "2026-08-11")]
+        app["_min_sessions"] = 500
+        pulse.attach_deltas(app, history, dt.date(2026, 8, 19))
+        report["tech_summary"] = pulse.attach_core_deltas(
+            pulse.build_tech_summary(report["apps"]), history, dt.date(2026, 8, 19))
+        return report
+
+    def test_crash_rate_delta_over_time_uses_the_disk_baseline(self):
+        d = self._with_history()["apps"][0]["crash_delta"]
+        self.assertEqual(d["rate"], 3.0)
+        self.assertAlmostEqual(d["d"], 1.0)        # 3.00 today vs 2.00 previous report
+        self.assertAlmostEqual(d["d_7d"], 1.5)     # vs the ~week-old snapshot
+
+    def test_a_thin_sample_yields_no_rate_and_no_delta(self):
+        report = self._report()
+        app = report["apps"][0]
+        an = app["slices"]["ios_analytics"]["metrics"]
+        # keep the fixture self-consistent: the total is the sum of its versions
+        an["sessions"]["value"] = 100.0
+        an["sessions"]["breakdown"]["App Version"] = [{"key": "2.0", "value": 90.0},
+                                                      {"key": "1.9", "value": 10.0}]
+        app["_min_sessions"] = 500
+        pulse.attach_deltas(app, [], dt.date(2026, 8, 19))
+        d = app["crash_delta"]
+        self.assertIsNone(d["rate"])
+        self.assertIsNone(d["d"])
+        self.assertEqual(d["versions"], [])
+
+    def test_between_releases_uses_apples_version_order_not_string_sort(self):
+        report = self._report()
+        app = report["apps"][0]
+        # "01.14.53" vs "15.54.30" is why the order comes from the API, not from parsing
+        app["slices"]["ios_release"]["versions"] = [{"version": "01.14.53",
+                                                    "state": "READY_FOR_DISTRIBUTION"},
+                                                   {"version": "15.54.30",
+                                                    "state": "READY_FOR_DISTRIBUTION"}]
+        an = app["slices"]["ios_analytics"]["metrics"]
+        an["crashes"]["breakdown"]["App Version"] = [{"key": "01.14.53", "value": 30.0},
+                                                     {"key": "15.54.30", "value": 10.0}]
+        an["sessions"]["breakdown"]["App Version"] = [{"key": "01.14.53", "value": 10000.0},
+                                                      {"key": "15.54.30", "value": 10000.0}]
+        app["_min_sessions"] = 500
+        pulse.attach_deltas(app, [], dt.date(2026, 8, 19))
+        b = app["crash_delta"]["between_versions"]
+        self.assertEqual(b["version"], "01.14.53")       # first in Apple's list = newest
+        self.assertEqual(b["prev_version"], "15.54.30")
+        self.assertAlmostEqual(b["delta"], 2.0)          # 3.00/1k against 1.00/1k
+
+    def test_current_report_keeps_latest_historical_version_rates_while_new_data_is_pending(self):
+        report = self._report()
+        app = report["apps"][0]
+        app["slices"]["ios_analytics"] = {"metrics": {"sessions": {"value": None}},
+                                              "derived": {}, "pending": "waiting"}
+        history = [("2026-08-18", {"apps": [{"key": "A", "crash_delta": {
+            "versions": [{"version": "1.9", "rate": 2.0, "sessions": 9000}],
+            "between_versions": None,
+        }}]})]
+        app["_min_sessions"] = 500
+        pulse.attach_deltas(app, history, dt.date(2026, 8, 19))
+        self.assertEqual("1.9", app["crash_delta"]["versions"][0]["version"])
+        self.assertEqual("2026-08-18", app["crash_delta"]["versions_as_of"])
+
+    def test_the_core_panel_shows_portfolio_movement_and_the_version_delta(self):
+        text = pulse.render_store_slack(self._with_history(), "ios")
+        self.assertIn("Core metrics", text)
+        self.assertIn("3.00/1k", text)
+        self.assertIn("▲1.00", text)                     # portfolio d/d
+        self.assertIn("vs v1.9", text)                   # newest version against the previous one
+
+    def test_markdown_carries_both_crash_comparisons(self):
+        md = pulse.render_store_md(self._with_history(), "ios")
+        self.assertIn("### How the crash rate is moving", md)
+        self.assertIn("| Δ vs previous report | Δ vs ~7d |", md)
+        self.assertIn("Between releases", md)
+        self.assertIn("+1.00", md)
+
+    def test_the_play_message_never_carries_the_ios_technical_block(self):
+        report = self._report()
+        report["apps"][0]["status_by_store"]["play"] = "healthy"
+        self.assertNotIn("Technical health", pulse.render_store_slack(report, "play"))
 
 
 if __name__ == "__main__":

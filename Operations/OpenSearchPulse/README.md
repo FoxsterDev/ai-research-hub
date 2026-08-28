@@ -42,6 +42,7 @@ Key fields:
 | `auto_discover` + `discover_contains` | Also pick up any index prefix containing this substring. |
 | `signals` | Named `match_phrase` counters over the message text (`{phrase, label}`); each reports events **and** affected users. |
 | `funnels` | Business-metric funnels: ordered stages counted by message phrase with `cardinality(user)`, plus conversion `rates`. See below. |
+| `overview` | Optional fixed portfolio surface: family mapping and ordered supporting metrics. Per-platform store state, stability, versions and configured flows use fixed positions; missing values render explicitly rather than being inferred. |
 | `hygiene` | Ordered issue rule table shared by the log-sanitation view and the per-issue impact bar. See below. |
 | `thresholds` | `degraded_pct` / `watch_pct` on the error-rate delta; `new_release_min_share`. |
 | `brand` | `org` + `product` shown in the header. |
@@ -76,6 +77,12 @@ Optional: `--day YYYY-MM-DD` (the completed day to report on; default = yesterda
   baseline dynamics for errors and warnings, the impact bar, funnels, hygiene buckets, versions by platform,
   new/resolved signatures,
   representative stacktraces) for AI/engineer triage
+- `<slug>_<day>.overview.slack.txt` — first Slack-safe overview part; every project card is atomic
+- `<slug>_<day>.overview.part-NN.slack.txt` — continuation parts when the portfolio exceeds one
+  Slack message; project counts are balanced across the minimum number of parts
+- `<slug>_<day>.overview.parts` — ordered basename manifest consumed by resumable delivery
+- `<slug>_<day>.overview.md` — expanded work-ready version of the same portfolio surface,
+  including trigger ownership and explicit coverage gaps
 
 Delivery (Slack, email, etc.) is a separate, explicit step owned by the caller.
 Pair the outputs with a delivery integration such as `AIRoot/Operations/CodexSlackMcp/`.
@@ -144,8 +151,15 @@ before classification, so no secret value reaches any output.
 ## Health model
 
 - **error rate** = errors ÷ report-day DAU; compared to the baseline daily average.
-- **Degraded** when the error-rate diff ≥ `degraded_pct`, **Watch** at ≥ `watch_pct`,
-  else **Healthy**; below `min_dau` DAU → **Low data** (excluded from severity).
-  Overall status is the worst project.
+- Status is the worst of relative error movement, absolute errors/user and DAU loss against the
+  baseline. Below `min_dau` or without a usable baseline is **Low data** unless an absolute/traffic
+  guard already proves Watch/Degraded. Zero DAU after a measured baseline is Degraded.
+- HTTP success is not data success: `timed_out`, failed shards, missing aggregations, missing
+  required indices and failed project queries enter the `trust` envelope and forbid Healthy.
+- The expected split-source population includes configured app ids even when no bucket/index is
+  returned. Query failures remain visible as health rows.
 - Headline reach = per-signature affected users ÷ that day's DAU. Message groups are
   exact `.keyword` signatures; variable tails fragment counts — read them as signatures.
+
+Every output is redacted again at persistence and written with same-directory temp + fsync +
+atomic replace. Corrupt baseline candidates are surfaced instead of silently changing history.
