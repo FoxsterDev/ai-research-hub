@@ -11,9 +11,9 @@ Refresh `AIOutput/Registry/project_registry.yaml` from the current monorepo stru
 
 ## Inputs
 - current monorepo folder structure
-- repo-level `Agents.md`
+- repo-level exact `AGENTS.md`
 - presence of `AIModules/XUUnityInternal/`
-- project-level `Agents.md`
+- project-level exact `AGENTS.md`
 - presence of `Assets/AIOutput/ProjectMemory/`
 - presence of any host-declared gameplay bridge entry artifact under `Assets/AIOutput/` when the host registry tracks that concept
 - current `AIOutput/Registry/project_registry.yaml` if present

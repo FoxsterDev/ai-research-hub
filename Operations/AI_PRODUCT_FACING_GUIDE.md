@@ -34,7 +34,7 @@ Use this shape in a fresh chat:
 
 ```text
 We are working in this Unity repo.
-Read Agents.md first.
+Read the nearest exact `AGENTS.md` first.
 Use XUUnity product protocols.
 Answer for a product-facing teammate.
 Verify current behavior against source code before answering.

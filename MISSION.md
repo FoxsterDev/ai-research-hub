@@ -11,8 +11,8 @@ Keep `AIRoot` public-safe, reusable, and host-agnostic so it can be attached to 
 - Do not store host-specific mutable state in `AIRoot`.
 - Do not store default generated reports, live registry data, or project-specific operational outputs in `AIRoot`.
 - Do not hardcode one host repo, one machine path, or one project portfolio as the universal model.
-- Let the host repo `Agents.md` decide how `AIRoot` is integrated.
-- Let project `Agents.md` and `Assets/AIOutput/ProjectMemory/` remain the source of local truth.
+- Let the host repo `AGENTS.md` decide how `AIRoot` is integrated.
+- Let project `AGENTS.md` and `Assets/AIOutput/ProjectMemory/` remain the source of local truth.
 
 ## Practical Test
 Before changing `AIRoot`, ask:

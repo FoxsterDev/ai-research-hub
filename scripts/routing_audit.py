@@ -99,13 +99,43 @@ def check_file_exists(path: Path, errors: list[str], label: str) -> None:
         fail(f"{label} missing: {path}")
 
 
+def exact_file_exists(path: Path) -> bool:
+    """Return true only when the directory entry uses the requested spelling."""
+    if not path.parent.is_dir():
+        return False
+    return any(entry.name == path.name and entry.is_file() for entry in path.parent.iterdir())
+
+
+def check_exact_router(path: Path, errors: list[str], label: str) -> None:
+    if exact_file_exists(path):
+        ok(f"{label} uses canonical exact name: {path}")
+        return
+    legacy = path.with_name("Agents.md")
+    if exact_file_exists(legacy):
+        errors.append(f"{label} uses legacy mixed-case filename: {legacy}")
+        fail(f"{label} must be named exactly {path.name}, found {legacy.name}: {legacy}")
+        return
+    errors.append(f"{label} missing: {path}")
+    fail(f"{label} missing: {path}")
+
+
 def check_yaml_validity(path: Path, errors: list[str]) -> None:
     ruby = shutil.which("ruby")
     if not ruby:
         warn(f"Skipping strict YAML parse because ruby is unavailable: {path}")
         return
     result = subprocess.run(
-        [ruby, "-e", "require 'yaml'; YAML.load_file(ARGV[0])", str(path)],
+        [
+            ruby,
+            "-e",
+            (
+                "require 'yaml'; require 'date'; data = File.read(ARGV[0]); "
+                "begin; "
+                "YAML.safe_load(data, permitted_classes: [Date, Time], aliases: false, filename: ARGV[0]); "
+                "rescue ArgumentError; YAML.safe_load(data, [Date, Time], [], false, ARGV[0]); end"
+            ),
+            str(path),
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -118,21 +148,21 @@ def check_yaml_validity(path: Path, errors: list[str]) -> None:
         fail(f"YAML parse failed for {path}: {result.stderr.strip()}")
 
 
-def check_agents_repo_links(root: Path, errors: list[str]) -> None:
-    for link in sorted(root.rglob("Agents.repo.md")):
+def check_repo_router_links(root: Path, errors: list[str]) -> None:
+    for link in sorted(root.rglob("AGENTS.repo.md")):
         if ".git" in link.parts:
             continue
         if not link.is_symlink():
-            errors.append(f"Agents.repo.md is not a symlink: {link}")
-            fail(f"Agents.repo.md is not a symlink: {link}")
+            errors.append(f"AGENTS.repo.md is not a symlink: {link}")
+            fail(f"AGENTS.repo.md is not a symlink: {link}")
             continue
 
         project_dir = link.parent
-        workspace_router = project_dir.parent / "Agents.md"
-        if project_dir.parent != root and workspace_router.exists():
-            expected = "../Agents.md"
+        workspace_router = project_dir.parent / "AGENTS.md"
+        if project_dir.parent != root and exact_file_exists(workspace_router):
+            expected = "../AGENTS.md"
         else:
-            expected = os.path.relpath(root / "Agents.md", project_dir)
+            expected = os.path.relpath(root / "AGENTS.md", project_dir)
 
         actual = os.readlink(link)
         if actual == expected:
@@ -145,10 +175,9 @@ def check_agents_repo_links(root: Path, errors: list[str]) -> None:
 def check_project_kinds(projects: list[str], root: Path, errors: list[str]) -> None:
     pattern = re.compile(r"^- Project kind: `([^`]+)`$", re.MULTILINE)
     for rel in projects:
-        router = root / rel / "Agents.md"
-        if not router.exists():
-            errors.append(f"Project router missing: {router}")
-            fail(f"Project router missing: {router}")
+        router = root / rel / "AGENTS.md"
+        if not exact_file_exists(router):
+            check_exact_router(router, errors, "Project router")
             continue
         text = router.read_text(encoding="utf-8")
         match = pattern.search(text)
@@ -220,11 +249,22 @@ def check_operation_routes(root: Path, topology: Path, errors: list[str]) -> Non
         check_file_exists(operation_path, errors, "Routed operation project")
         router = operation.get("router")
         if router:
-            check_file_exists(root / router, errors, "Routed operation router")
+            router_path = root / router
+            if router_path.name == "AGENTS.md":
+                check_exact_router(router_path, errors, "Routed operation router")
+            else:
+                check_file_exists(router_path, errors, "Routed operation router")
         if operation["path"] == "AIRoot/Operations/XUUnityLightUnityMcp":
-            mcp_router = root / operation["path"] / "Agents.md"
-            text = mcp_router.read_text(encoding="utf-8") if mcp_router.exists() else ""
-            for required in ("Standalone mode", "Never require `AIFoxsterDevHub`", "llms.txt", "mcp-server.json"):
+            # The independently versioned MCP repo owns this exact router and its
+            # generator. The host verifies the boundary but does not render it.
+            mcp_router = root / operation["path"] / "AGENTS.md"
+            if exact_file_exists(mcp_router):
+                ok(f"XUUnityLightUnityMcp uses canonical child-owned router: {mcp_router}")
+            else:
+                errors.append(f"XUUnityLightUnityMcp child-owned router missing: {mcp_router}")
+                fail(f"XUUnityLightUnityMcp child-owned router missing: {mcp_router}")
+            text = mcp_router.read_text(encoding="utf-8") if exact_file_exists(mcp_router) else ""
+            for required in ("## Mode Detection", "Standalone:", "llms.txt", "mcp-server.json"):
                 if required in text:
                     ok(f"XUUnityLightUnityMcp standalone contract contains: {required}")
                 else:
@@ -236,7 +276,7 @@ def check_markdown_mirrors(root: Path, topology: Path, errors: list[str]) -> Non
     routed_operations = parse_yaml_path_blocks(topology, "routed_operation_projects")
     optional_projects = parse_yaml_path_blocks(topology, "optional_local_projects")
     mirrors = [
-        root / "Agents.md",
+        root / "AGENTS.md",
         root / "AIModules/XUUnityInternal/knowledge/host_topology.md",
         root / "WORKSPACE.md",
     ]
@@ -285,7 +325,7 @@ def main() -> int:
     root = args.host_root.resolve()
     errors: list[str] = []
 
-    check_file_exists(root / "Agents.md", errors, "Host router")
+    check_exact_router(root / "AGENTS.md", errors, "Host router")
     check_file_exists(root / "AIRoot/Modules/XUUnity/README.md", errors, "XUUnity public core")
 
     topology = root / "AIOutput/Registry/host_topology.yaml"
@@ -301,7 +341,7 @@ def main() -> int:
         projects = parse_yaml_list(topology, "routed_projects")
         for rel in projects:
             check_file_exists(root / rel, errors, "Routed project")
-        check_agents_repo_links(root, errors)
+        check_repo_router_links(root, errors)
         check_project_kinds(projects, root, errors)
         check_unity_baselines(projects, root, errors)
         check_optional_projects(root, topology, errors)

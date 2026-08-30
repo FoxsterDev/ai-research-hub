@@ -3,7 +3,7 @@
 Use this template when wiring AI routing in a new host repo.
 
 This is a starting point, not an instruction to overwrite an existing repo router without review.
-If the host already has an `Agents.md`, compare first, then ask the user whether to:
+If the host already has an `AGENTS.md`, compare first, then ask the user whether to:
 - keep the existing router as-is
 - merge only the missing routing contract
 - replace it with a managed version
@@ -13,7 +13,7 @@ If the host already has an `Agents.md`, compare first, then ask the user whether
 - Keep the repo router minimal.
 - The repo router should decide shared prompt families, load order, and storage rules.
 - Project-specific truth must stay in project routers and `Assets/AIOutput/ProjectMemory/`.
-- Public operation/tooling repos mounted under `AIRoot/Operations/` may have their own standalone `Agents.md`; root routers should point to that child router instead of treating them as host Unity consumer projects.
+- Public operation/tooling repos mounted under `AIRoot/Operations/` may have their own standalone router; root routers should point to the exact child-owned filename instead of treating them as host Unity consumer projects.
 - Do not silently rewrite an existing router owned by a project or another team.
 
 ## Topology choice
@@ -37,16 +37,17 @@ Keep it minimal.
 Use it to select shared prompt families, define load order, and route project-local overrides.
 
 ## Load Order
-1. This repo-level `Agents.md`
-2. Shared protocol modules from `AIRoot/Modules/`
-3. Project-level `Agents.md`
-4. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
-5. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
+1. This repo-level `AGENTS.md`
+2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+3. Shared protocol modules from `AIRoot/Modules/`
+4. Project-level `AGENTS.md`
+5. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
+6. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
 
 ## Routing Table
 - Use `xuunity` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
 - Optional host-local protocols may exist outside `AIRoot`, but they should be declared by the host repo, not by this public template.
-- If `AIRoot/Operations/XUUnityLightUnityMcp/` is mounted, route MCP repo tasks to `AIRoot/Operations/XUUnityLightUnityMcp/Agents.md`.
+- If `AIRoot/Operations/XUUnityLightUnityMcp/` is mounted, route MCP repo tasks to its exact child-owned `AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md`. The tooling satellite remains standalone-capable and owns its router generator; the host must not create a dangling path or overwrite that independent checkout.
 
 ## Fast Shortcuts
 - `xuunity fix this bug`
@@ -81,13 +82,14 @@ Keep it minimal.
 Use it to select shared prompt families, define load order, and route project-local overrides.
 
 ## Load Order
-1. This repo-level `Agents.md`
-2. Shared protocol modules from `AIRoot/Modules/`, with `xuunity` loading public core from `AIRoot/Modules/XUUnity/`
-3. Optional monorepo-internal overlay from `AIModules/XUUnityInternal/` when the host uses it
-4. Other host-local prompt families from `AIModules/` when the selected protocol is host-local
-5. Project-level `Agents.md`
-6. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
-7. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
+1. This repo-level `AGENTS.md`
+2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+3. Shared protocol modules from `AIRoot/Modules/`, with `xuunity` loading public core from `AIRoot/Modules/XUUnity/`
+4. Optional monorepo-internal overlay from `AIModules/XUUnityInternal/` when the host uses it
+5. Other host-local prompt families from `AIModules/` when the selected protocol is host-local
+6. Project-level `AGENTS.md`
+7. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
+8. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
 
 ## Routing Table
 - Use `xuunity` as the default protocol for Unity implementation, review, refactoring, product-facing implementation explanation, SDK work, native work, runtime safety, startup, performance, and compliance.
@@ -119,7 +121,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 
 ## Existing router policy
 
-If the repo already has an `Agents.md`:
+If the repo already has an `AGENTS.md`:
 
 1. Read it first.
 2. Compare it against the target topology.

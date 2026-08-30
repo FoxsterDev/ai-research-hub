@@ -41,7 +41,7 @@ Known inputs:
 
 Read first:
 - AIRoot/AIROOT_SETUP.md
-- Agents.md when it exists
+- exact `AGENTS.md` when it exists
 
 Task:
 1. Detect whether this repo is already initialized for AIRoot-based routing.
@@ -67,7 +67,7 @@ Task:
 8. Confirm these post-validation signals explicitly:
    - `AIOutput/Registry/setup_status.yaml` exists
    - `AIOutput/Registry/host_topology.yaml` exists when repo-level topology setup was used
-   - expected `Agents.md` routers exist
+   - expected exact `AGENTS.md` routers exist
    - expected `Assets/AIOutput/ProjectMemory/` roots exist for initialized projects
 9. If a new Unity project is being added into an already prepared repo, use init_ai_project.sh instead of repo bootstrap.
 10. If the repo structure is ambiguous, ask instead of guessing.
@@ -82,9 +82,12 @@ Fallback references only when needed:
 Rules:
 - If project memory and code disagree, code wins for current behavior.
 - For startup, SDK, manifest, plist, entitlement, privacy, or compliance-sensitive questions, use code-first verification.
-- If an unmanaged `Agents.md` already exists and should stay in place, use
-  `--preserve-existing-router` so setup can scaffold and check generated state
-  without rewriting that router.
+- If an unmanaged canonical `AGENTS.md` already exists and should stay in place,
+  use `--preserve-existing-router` so setup can scaffold and check generated
+  state without rewriting that router.
+- If only legacy mixed-case `Agents.md` exists, explicitly adopt it so the
+  original content is preserved as `AGENTS.legacy.md` and Codex receives the
+  exact canonical router.
 - Use `--adopt-existing-router` only after reviewing the existing router and
   explicitly approving replacement with a managed router.
 ```
@@ -93,7 +96,7 @@ Rules:
 
 If the repo is already initialized, normal use is:
 - open repo root
-- load `Agents.md`
+- load the nearest exact `AGENTS.md`
 - continue with the host's runtime protocol
 
 It is not:

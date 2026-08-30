@@ -282,7 +282,7 @@ Examples:
 - For risky SDK updates, verify dependency track, native versions, and merged build outputs.
 - For risky gameplay, monetization, save/load, or UI-heavy changes, let the matched policy pack narrow the review and validation surface instead of improvising the whole checklist.
 - For mobile stability questions, verify with code and build artifacts before trusting old memory.
-- Treat `AIRoot` as intentionally routerless. Do not create `AIRoot/Agents.md` or `AIRoot/Assets/AIOutput/ProjectMemory/` to emulate a project-local runtime layer.
+- Treat `AIRoot` as an active public-safe satellite with its exact `AGENTS.md`. From the AIRoot root, use its local public modules and operation routers; an attached host may augment this routing, but AIRoot must remain truthful and usable when that augmentation is unavailable. Do not create `AIRoot/Assets/AIOutput/ProjectMemory/` to emulate a product project.
 - Treat `AIModules/XUUnityInternal/` as optional. Use it only when there is real host-level reusable internal knowledge across projects.
 
 ## Effective Workflows

@@ -42,7 +42,7 @@ mkdir -p "$protocol_host/AIRoot/Modules"
 cp -R "$AIRROOT_DIR/Modules/XUUnity" \
   "$protocol_host/AIRoot/Modules/XUUnity"
 printf '# Synthetic host router for public protocol validation\n' \
-  > "$protocol_host/Agents.md"
+  > "$protocol_host/AGENTS.md"
 
 printf '\n== Reduced-stack rules and authored probes ==\n'
 "$PYTHON_BIN" \

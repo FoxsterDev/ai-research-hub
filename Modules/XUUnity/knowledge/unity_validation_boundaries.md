@@ -38,6 +38,36 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - When using ordered Unity MCP scenario validation, follow `knowledge/mcp_scenario_authoring.md` for scenario step order and settle boundaries after mutating hooks.
 - If a validation lane can start work but cannot provide trustworthy final accounting for the claim, downgrade that lane's evidence strength and keep the validation gap explicit.
 
+## Claim-To-Proof Routing
+
+- Documentation-only and router-only changes need focused static contract proof;
+  they do not acquire Unity runtime authority from an unrelated editor smoke.
+- A contained C# change needs the affected assembly compile and the narrowest
+  relevant test. When a public package API changes, also compile every affected
+  consumer and update the templates or snippets that seed future consumers.
+- A scene, prefab, UXML, importer, or other serialized-asset change needs save,
+  import, and reload freshness plus identity for the changed asset. Use an
+  interactive scene/prefab assertion when wiring or serialized state is the
+  claim; script compilation alone is not evidence for that content.
+- A domain-reload, editor-startup, or editor-lifecycle claim needs an integrated
+  lifecycle sequence that crosses the relevant reload/start/close boundary and
+  reaches trustworthy terminal accounting. A batch compile cannot prove it.
+- A save-format or data migration claim needs fixtures for each supported prior
+  state, idempotence or bounded repeat behavior, failure/recovery evidence, and a
+  representative runtime lane. Fresh-state success alone is insufficient.
+- An Addressables or content-catalog claim needs the generated catalog/build
+  artifact and its identity. If the claim concerns load timing, residency,
+  stripping, or first-use behavior, editor evidence cannot close it; use the
+  representative player/device tier or report the gap.
+- A native SDK, permission, entitlement, manifest, plist, Gradle, or Xcode claim
+  needs generated-build inspection. Callback delivery, OS permission UX,
+  performance, and bridge behavior remain physical-device-only claims until
+  proven on device.
+- A release claim needs the declared Unity-version and build-target matrix,
+  package-source and consumer-project validation where both exist, and every
+  mandatory release gate. Record intentional failures and waivers as release
+  blockers or explicit gaps, never as green evidence.
+
 ## Evidence Provenance
 - Evidence belongs to the exact artifact that produced it. Before treating a run as proof, establish content identity that shows the artifact under test contains the change.
 - For a player build, record the originating commit and whether the source tree was clean or dirty. When it was dirty, also record a stable diff or content digest, or a build manifest or artifact id that incorporates the local changes. A build timestamp is supporting metadata, never proof of content identity by itself.

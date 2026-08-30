@@ -27,7 +27,7 @@ flowchart TD
     C --> E{Repo already initialized?}
     D --> F[Clone repo<br/>Open repo root]
     F --> E
-    E -->|Yes| G[Read Agents.md<br/>Start normal runtime work]
+    E -->|Yes| G[Read exact AGENTS.md<br/>Start normal runtime work]
     E -->|No| H[Run setup dry-run first<br/>Choose topology]
 ```
 
@@ -35,7 +35,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[Repo Router<br/>Agents.md] --> B[XUUnity]
+    A[Repo Router<br/>AGENTS.md] --> B[XUUnity]
     A --> C[Optional Host-Local Protocols]
 
     B --> B1[Engineering Work]
@@ -52,9 +52,9 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[Repo Agents.md] --> B[Public XUUnity Core<br/>AIRoot/Modules/XUUnity/]
+    A[Repo AGENTS.md] --> B[Public XUUnity Core<br/>AIRoot/Modules/XUUnity/]
     B --> C[Optional Host-Local Overlays<br/>AIModules/ when attached]
-    C --> D[Project Agents.md]
+    C --> D[Project AGENTS.md]
     D --> E[ProjectMemory<br/>Assets/AIOutput/ProjectMemory/]
     E --> F[Previous Outputs<br/>Assets/AIOutput/]
 ```

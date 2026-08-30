@@ -33,7 +33,7 @@ DEFAULT_REGISTRY_REL = "AIOutput/Registry/project_registry.yaml"
 DEFAULT_RUBRIC: dict[str, Any] = {
     "bands": [["strong", 85], ["usable", 65], ["fragile", 40], ["blocked", 0]],
     "signals": [
-        {"label": "router", "weight": 50, "kind": "file", "target_field": "router_file", "fallback": "Agents.md"},
+        {"label": "router", "weight": 50, "kind": "file", "target_field": "router_file", "fallback": "AGENTS.md"},
         {"label": "project_memory", "weight": 50, "kind": "dir", "target_field": "project_memory_path"},
     ],
     "columns": [],

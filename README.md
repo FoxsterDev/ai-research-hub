@@ -19,11 +19,11 @@ The public execution core in this repo is [`xuunity`](./Modules/XUUnity/), a Uni
 
 ## What This Repo Is Not
 
-`AIRoot` is not the runtime source of truth for a real production host repo.
+`AIRoot` is not the host-private runtime source of truth for a production repo. It is also an active, standalone public satellite: when opened at its own root, its exact `AGENTS.md` routes to the local public modules and operations without requiring a parent host.
 
 In an attached host, the source of truth typically lives in:
 
-- a repo router such as `Agents.md`
+- an exact repo router named `AGENTS.md`
 - host-local private modules or overlays when needed
 - project routers
 - project memory under `Assets/AIOutput/ProjectMemory/`
@@ -206,11 +206,11 @@ Recommended host shape:
 
 ```text
 HostRepo/
-  Agents.md
+  AGENTS.md
   AIRoot/
   AIOutput/
   ProjectA/
-    Agents.md
+    AGENTS.md
     Assets/
       AIOutput/
         ProjectMemory/
@@ -225,9 +225,9 @@ Use:
 - [SETUP_INDEX.md](./Operations/Setup/SETUP_INDEX.md) for setup entrypoints
 
 Do not:
-- add `AIRoot/Agents.md`
 - create fake project memory under `AIRoot`
-- treat `AIRoot` as a replacement for a host repo router
+- treat the AIRoot router as a replacement for the attached host repo router
+- require host overlays or parent-host state for standalone public AIRoot work
 
 ## Placement Rules
 

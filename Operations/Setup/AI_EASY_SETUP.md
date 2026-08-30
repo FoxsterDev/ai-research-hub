@@ -109,7 +109,7 @@ Useful links:
 ## The Only Working Rule That Matters
 
 If the repo already has:
-- `Agents.md`
+- exact `AGENTS.md`
 - `AIRoot/`
 - working project routing
 
@@ -143,8 +143,8 @@ bash -n AIRoot/scripts/init_ai_topology.sh
 If Bash reports `^M`, `bash\r`, or `pipefail^M`, stop and treat it as a
 line-ending checkout problem. Do not diagnose it as normal setup logic.
 
-If the repo already has its own unmanaged `Agents.md`, bootstrap can preserve it
-instead of adopting or replacing it:
+If the repo already has its own unmanaged canonical `AGENTS.md`, bootstrap can
+preserve it instead of adopting or replacing it:
 
 ```bash
 bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --preserve-existing-router --dry-run
@@ -152,6 +152,10 @@ bash AIRoot/scripts/init_ai_topology.sh --profile single_project_default --prese
 
 Use `--adopt-existing-router` only when the current router has been reviewed and
 replacement is explicitly approved.
+
+If the only router is legacy mixed-case `Agents.md`, it cannot be preserved as
+the active Codex router. Explicit adoption preserves its content as
+`AGENTS.legacy.md` and generates exact `AGENTS.md`.
 
 ## Handoff
 

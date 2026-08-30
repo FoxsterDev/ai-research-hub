@@ -6,7 +6,13 @@ import sys
 from pathlib import Path
 
 
-PROJECT_ROUTER_NAMES = ("Agents.md",)
+PROJECT_ROUTER_NAMES = ("AGENTS.md",)
+
+
+def exact_file_exists(path: Path) -> bool:
+    if not path.parent.is_dir():
+        return False
+    return any(entry.name == path.name and entry.is_file() for entry in path.parent.iterdir())
 
 
 def find_project_routers(root: Path) -> list[Path]:
@@ -16,7 +22,7 @@ def find_project_routers(root: Path) -> list[Path]:
             continue
         for name in PROJECT_ROUTER_NAMES:
             candidate = child / name
-            if candidate.exists():
+            if exact_file_exists(candidate):
                 routers.append(candidate)
                 break
     return sorted(routers)
@@ -43,7 +49,7 @@ def audit_router(path: Path) -> list[str]:
         findings.append("duplicates local generated-report storage semantics")
 
     mentions_storage_paths = "`Assets/AIOutput/`" in text and "`Assets/AIOutput/ProjectMemory/`" in text
-    references_repo_contract = "Follow the repo-level AI output storage rule from `../Agents.md`." in text
+    references_repo_contract = "Follow the repo-level AI output storage rule from `../AGENTS.md`." in text
     has_local_storage_section = "## Storage Rule" in text or "## Expected AI Output" in text or "## Expected Project Memory" in text
     if mentions_storage_paths and not references_repo_contract and has_local_storage_section:
         findings.append("mentions storage paths without referencing repo-level storage contract")
@@ -53,21 +59,21 @@ def audit_router(path: Path) -> list[str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Audit project routers against repo-level storage semantics")
-    parser.add_argument("--repo-root", default=".", help="Host repo root containing Agents.md and project folders")
+    parser.add_argument("--repo-root", default=".", help="Host repo root containing AGENTS.md and project folders")
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     root = Path(args.repo_root).resolve()
-    repo_router = root / "Agents.md"
-    if not repo_router.exists():
+    repo_router = root / "AGENTS.md"
+    if not exact_file_exists(repo_router):
         print(f"FAIL: repo router not found at {repo_router}")
         return 2
 
     has_pm_rule, has_reports_rule = load_repo_contract(repo_router)
     if not (has_pm_rule and has_reports_rule):
-        print("FAIL: repo-level storage contract in Agents.md is incomplete")
+        print("FAIL: repo-level storage contract in AGENTS.md is incomplete")
         return 2
 
     routers = find_project_routers(root)

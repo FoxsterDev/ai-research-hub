@@ -23,9 +23,9 @@ Before making any repo or project changes, the agent must classify the host topo
 Use this when the repo contains one primary Unity project and you do not need a shared internal AI layer across multiple projects.
 
 Recommended stack:
-- repo router: `Agents.md`
+- repo router: `AGENTS.md`
 - public `xuunity` core: `AIRoot/Modules/XUUnity/`
-- project router: `<Project>/Agents.md`
+- project router: `<Project>/AGENTS.md`
 - project memory: `<Project>/Assets/AIOutput/ProjectMemory/`
 
 In this mode:
@@ -37,15 +37,15 @@ In this mode:
 Use this when the host contains multiple AI-routed Unity projects and you want reusable internal shared knowledge across them.
 
 Recommended stack:
-- repo router: `Agents.md`
+- repo router: `AGENTS.md`
 - public `xuunity` core: `AIRoot/Modules/XUUnity/`
 - internal shared overlay: `AIModules/XUUnityInternal/` when present
-- project router: `<Project>/Agents.md`
+- project router: `<Project>/AGENTS.md`
 - project memory: `<Project>/Assets/AIOutput/ProjectMemory/`
 
 In this mode:
 - `AIModules/XUUnityInternal/` is the right place for reusable internal knowledge that should not live in public `AIRoot`
-- project aliases such as `Agents.repo.md` and `AIModules/` are useful for project-only IDE sessions
+- project aliases such as `AGENTS.repo.md` and `AIModules/` are useful for project-only IDE sessions
 
 ## Main Rule
 
@@ -53,15 +53,15 @@ When the agent works inside a Unity project, it should read the project router f
 
 For monorepo hosts, project-level alias wiring is recommended:
 - `AIModules` -> host `AIModules`
-- `Agents.repo.md` -> host `Agents.md`
+- `AGENTS.repo.md` -> host `AGENTS.md`
 
 For single-project hosts, these aliases are optional. The important requirement is that the project router can still resolve the repo router and the shared public `xuunity` core.
 
 ## Load Order
-1. Repo router: `Agents.repo.md` or repo root `Agents.md`
+1. Repo router: `AGENTS.repo.md` or repo root `AGENTS.md`
 2. Public `xuunity` core from `AIRoot/Modules/XUUnity/`
 3. Monorepo-internal `xuunity` overlay from `AIModules/XUUnityInternal/` only when the host uses that layer, or other host-local prompt families from `AIModules/` when the selected protocol is host-local
-4. Project router: `Agents.md`
+4. Project router: `AGENTS.md`
 5. Project memory: `Assets/AIOutput/ProjectMemory/`
 6. Previous AI outputs: `Assets/AIOutput/`
 
@@ -178,8 +178,8 @@ bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo
 
 Expected script effect:
 - creates the host-level `AIOutput/` scaffold
-- creates a managed repo-level `Agents.md` when none exists
-- seeds the managed repo-level `Agents.md` with popular `xuunity` shorthand shortcuts for daily routing
+- creates a managed repo-level `AGENTS.md` when none exists
+- seeds the managed repo-level `AGENTS.md` with popular `xuunity` shorthand shortcuts for daily routing
 - creates extraction-evidence slots instead of fake latest-summary health evidence
 - refuses to rewrite an existing repo router unless you pass an explicit approval flag
 - can optionally scaffold `AIModules/XUUnityInternal/` when the host intentionally asks for the monorepo internal overlay
@@ -227,8 +227,8 @@ After evaluating the preview output, the agent may execute the non-preview comma
 Expected script effect:
 - creates `Assets/AIOutput/ProjectMemory/` if missing
 - seeds a project-memory baseline when those files are missing
-- creates `Agents.repo.md` and, when available in the host, the `AIModules` alias
-- creates a canonical `Agents.md` router when none exists
+- creates `AGENTS.repo.md` and, when available in the host, the `AIModules` alias
+- creates the exact canonical `AGENTS.md` router when none exists
 - refuses to rewrite an existing project router unless you pass an explicit approval flag
 
 If the project already has a managed router and the automation flow explicitly approves a rewrite:
@@ -252,8 +252,9 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode <sing
 
 ## Existing Router Safety Rules
 
-- Existing repo `Agents.md` is not rewritten silently.
-- Existing project `Agents.md` is not rewritten silently.
+- Existing repo `AGENTS.md` is not rewritten silently.
+- Existing project `AGENTS.md` is not rewritten silently.
+- Legacy mixed-case `Agents.md` is never accepted as Codex-ready: managed refresh migrates it, while explicit unmanaged adoption preserves it as `AGENTS.legacy.md` before generating the canonical router.
 - Use `--refresh-managed-router` only for a managed router you intentionally want to refresh.
 - Use `--preserve-existing-router` when an unmanaged router should stay in
   place while setup scaffolds or checks the rest of the AI topology.

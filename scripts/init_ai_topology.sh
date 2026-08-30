@@ -162,6 +162,20 @@ AIRoot location: $AIRROOT_DIR"
   esac
 }
 
+exact_file_exists() {
+  local path="$1"
+
+  "$PYTHON_BIN" - "$path" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+if not path.parent.is_dir():
+    raise SystemExit(1)
+raise SystemExit(0 if any(entry.name == path.name and entry.is_file() for entry in path.parent.iterdir()) else 1)
+PY
+}
+
 repo_router_is_managed() {
   local path="$1"
   [ -f "$path" ] && grep -Eq '^<!-- Managed by (scripts|AIRoot/scripts)/init_ai_repo\.sh -->$' "$path"
@@ -178,7 +192,7 @@ router_warning_block() {
   local project_path
   local project
 
-  if [ "$ALLOW_PRESERVE_EXISTING" = "1" ] && [ -f "$ROOT_DIR/Agents.md" ] && ! repo_router_is_managed "$ROOT_DIR/Agents.md"; then
+  if [ "$ALLOW_PRESERVE_EXISTING" = "1" ] && exact_file_exists "$ROOT_DIR/AGENTS.md" && ! repo_router_is_managed "$ROOT_DIR/AGENTS.md"; then
     warnings="${warnings}  - preserved_unmanaged_repo_router"$'\n'
   fi
 
@@ -189,7 +203,7 @@ router_warning_block() {
   if [ "$ALLOW_PRESERVE_EXISTING" = "1" ] && [ "$project_count" -gt 0 ]; then
     for project in "${PROJECTS[@]}"; do
       project_path="$(resolve_project_path "$project")"
-      if [ -f "$project_path/Agents.md" ] && ! project_router_is_managed "$project_path/Agents.md"; then
+      if exact_file_exists "$project_path/AGENTS.md" && ! project_router_is_managed "$project_path/AGENTS.md"; then
         warnings="${warnings}  - preserved_unmanaged_project_router: ${project}"$'\n'
       fi
     done
@@ -211,10 +225,17 @@ preflight_router_conflicts() {
     return 0
   fi
 
-  if [ -f "$ROOT_DIR/Agents.md" ] && ! repo_router_is_managed "$ROOT_DIR/Agents.md"; then
-    fail "Repo router exists and is not managed by AIRoot/scripts/init_ai_repo.sh: $ROOT_DIR/Agents.md
+  if exact_file_exists "$ROOT_DIR/AGENTS.md" && ! repo_router_is_managed "$ROOT_DIR/AGENTS.md"; then
+    fail "Repo router exists and is not managed by AIRoot/scripts/init_ai_repo.sh: $ROOT_DIR/AGENTS.md
 Refusing topology setup before writing scaffold or registry files.
 Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router only if replacement is approved."
+  fi
+
+  if ! exact_file_exists "$ROOT_DIR/AGENTS.md" && exact_file_exists "$ROOT_DIR/Agents.md"; then
+    if [ "$ALLOW_MANAGED_REFRESH" != "1" ] || ! repo_router_is_managed "$ROOT_DIR/Agents.md"; then
+      fail "Legacy mixed-case repo router found: $ROOT_DIR/Agents.md
+Codex requires the exact canonical filename $ROOT_DIR/AGENTS.md. Use --adopt-existing-router to preserve and migrate an unmanaged router, or --refresh-managed-router for a managed router."
+    fi
   fi
 
   set +u
@@ -224,10 +245,16 @@ Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router
   if [ "$project_count" -gt 0 ]; then
     for project in "${PROJECTS[@]}"; do
       project_path="$(resolve_project_path "$project")"
-      if [ -f "$project_path/Agents.md" ] && ! project_router_is_managed "$project_path/Agents.md"; then
-        fail "Project router exists and is not managed by AIRoot/scripts/init_ai_project.sh: $project_path/Agents.md
+      if exact_file_exists "$project_path/AGENTS.md" && ! project_router_is_managed "$project_path/AGENTS.md"; then
+        fail "Project router exists and is not managed by AIRoot/scripts/init_ai_project.sh: $project_path/AGENTS.md
 Refusing topology setup before writing scaffold or registry files.
 Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router only if replacement is approved."
+      fi
+      if ! exact_file_exists "$project_path/AGENTS.md" && exact_file_exists "$project_path/Agents.md"; then
+        if [ "$ALLOW_MANAGED_REFRESH" != "1" ] || ! project_router_is_managed "$project_path/Agents.md"; then
+          fail "Legacy mixed-case project router found: $project_path/Agents.md
+Codex requires the exact canonical filename $project_path/AGENTS.md. Use --adopt-existing-router to preserve and migrate an unmanaged router, or --refresh-managed-router for a managed router."
+        fi
       fi
     done
   fi
@@ -277,7 +304,7 @@ storage_profile: project-local
 router_mode: repo-and-project
 project_link_mode: direct
 solution_mode: none
-active_repo_router: Agents.md
+active_repo_router: AGENTS.md
 active_project_memory_root: <Project>/Assets/AIOutput/ProjectMemory/
 active_project_reports_root: <Project>/Assets/AIOutput/
 active_project_skill_overrides_root: <Project>/Assets/AIOutput/ProjectMemory/SkillOverrides/
@@ -342,7 +369,7 @@ write_setup_status() {
 
   cat > "$status_path" <<EOF
 setup_state: provisioned
-host_root: $ROOT_DIR
+host_root: .
 airroot_root: ${airroot_rel}/
 profile_id: $PROFILE
 repo_mode: $repo_mode
