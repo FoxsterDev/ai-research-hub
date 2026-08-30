@@ -139,7 +139,7 @@ esac
 case "$CMD" in
   *"rm -rf"*|*"rm -fr"*)
     # The scratch check below is a substring match over the whole command, so a `..` defeats
-    # it outright: `rm -rf /tmp/../Users/someone/work` contains `/tmp/` and would be waved
+    # it outright: `rm -rf /tmp/../Users/example/work` contains `/tmp/` and would be waved
     # through while targeting something else entirely. A relative segment means the literal
     # path does not bound the target, so it can never qualify as scratch.
     if printf '%s' "$CMD" | grep -Eq '(^|[^.])\.\.(/|$|[ "])'; then
