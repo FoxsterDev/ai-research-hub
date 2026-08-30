@@ -6,7 +6,7 @@ Provide one canonical protocol for agents interpreting the phrase `airoot setup`
 ## Core Rule
 `airoot setup` is a repo-local protocol phrase.
 It is not a required installed command.
-Use `AIROOT_SETUP.md` as the discovery entry, not `Agents.md`.
+Use `AIROOT_SETUP.md` as the setup discovery entry; normal repository work still starts from the nearest exact `AGENTS.md`.
 
 ## Context Rule
 There are two valid contexts:
@@ -47,7 +47,7 @@ bash /path/to/host/AIRoot/scripts/init_ai_topology.sh --host-root /path/to/host 
 ```
 
 ## Expected Outputs
-- host router at `Agents.md`
+- host router at exact `AGENTS.md`
 - host report scaffold under `AIOutput/Reports/`
 - extraction evidence slots under `AIOutput/Reports/System/`
 - topology metadata at `AIOutput/Registry/host_topology.yaml`

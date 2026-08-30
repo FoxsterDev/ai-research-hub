@@ -149,6 +149,20 @@ validate_file() {
   [ -e "$path" ] || fail "Missing: $path"
 }
 
+exact_file_exists() {
+  local path="$1"
+
+  "$PYTHON_BIN" - "$path" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+if not path.parent.is_dir():
+    raise SystemExit(1)
+raise SystemExit(0 if any(entry.name == path.name and entry.is_file() for entry in path.parent.iterdir()) else 1)
+PY
+}
+
 is_supported_project_kind() {
   case "$1" in
     unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
@@ -264,6 +278,45 @@ Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router
   fi
 }
 
+prepare_legacy_router_filename() {
+  local migration_path
+
+  exact_file_exists "$ROUTER_PATH" && return 0
+  exact_file_exists "$LEGACY_CASE_ROUTER_PATH" || return 0
+
+  if router_is_managed "$LEGACY_CASE_ROUTER_PATH"; then
+    if [ "$MODE" != "--fix" ] || [ "$ALLOW_MANAGED_REFRESH" != "1" ]; then
+      fail "Legacy mixed-case managed project router found: $LEGACY_CASE_ROUTER_PATH
+Codex requires the exact canonical filename: $ROUTER_PATH
+Re-run with --fix --refresh-managed-router to migrate and refresh it."
+    fi
+    if [ "$DRY_RUN" = "1" ]; then
+      dry_log "would migrate managed project router filename $LEGACY_CASE_ROUTER_PATH -> $ROUTER_PATH"
+      return 0
+    fi
+    migration_path="$PROJECT_DIR/.AGENTS.md.case-migration.$$"
+    mv "$LEGACY_CASE_ROUTER_PATH" "$migration_path"
+    mv "$migration_path" "$ROUTER_PATH"
+    log "Migrated managed project router filename: $ROUTER_PATH"
+    return 0
+  fi
+
+  if [ "$MODE" = "--fix" ] && [ "$ALLOW_ADOPT_EXISTING" = "1" ]; then
+    [ ! -e "$LEGACY_PATH" ] || fail "Cannot preserve existing router because backup already exists: $LEGACY_PATH"
+    if [ "$DRY_RUN" = "1" ]; then
+      dry_log "would preserve mixed-case unmanaged project router as legacy backup: $LEGACY_PATH"
+      return 0
+    fi
+    mv "$LEGACY_CASE_ROUTER_PATH" "$LEGACY_PATH"
+    log "Preserved mixed-case unmanaged project router as legacy backup: $LEGACY_PATH"
+    return 0
+  fi
+
+  fail "Legacy mixed-case unmanaged project router found: $LEGACY_CASE_ROUTER_PATH
+Codex requires the exact canonical filename: $ROUTER_PATH
+Use --adopt-existing-router to preserve it as $LEGACY_PATH and create a managed canonical router. Preserving only the mixed-case filename cannot satisfy canonical Codex discovery on a case-sensitive checkout."
+}
+
 write_router() {
   local router_path="$1"
   local project_name="$2"
@@ -317,7 +370,7 @@ This file is the project-level routing layer.
 Keep it short. Route the work first, then load the minimum required protocol files.
 
 ## Load Order
-1. Local repo router alias \`Agents.repo.md\` if available, otherwise workspace or repo router at \`$repo_router_rel\`
+1. Local repo router alias \`AGENTS.repo.md\` if available, otherwise workspace or repo router at \`$repo_router_rel\`
 $load_order_line
 3. This project file
 4. Project memory from \`Assets/AIOutput/ProjectMemory/\`
@@ -381,8 +434,8 @@ Use this directory for current reusable project truth that should load before hi
 ## Project Role
 - Project kind: \`$project_kind\`
 - Shared protocol: \`xuunity\`
-- Project router: \`Agents.md\`
-- Repo router alias: \`Agents.repo.md\`
+- Project router: \`AGENTS.md\`
+- Repo router alias: \`AGENTS.repo.md\`
 - Skill override root: \`SkillOverrides/\`
 
 ## Memory Files
@@ -620,7 +673,7 @@ case "$REPO_MODE" in
     ;;
 esac
 
-validate_file "$ROOT_DIR/Agents.md"
+exact_file_exists "$ROOT_DIR/AGENTS.md" || fail "Missing exact canonical host router: $ROOT_DIR/AGENTS.md"
 validate_file "$AIRROOT_DIR/Modules/XUUnity/README.md"
 if [ -d "$ROOT_DIR/AIModules" ]; then
   HAS_AIMODULES=1
@@ -639,19 +692,21 @@ fi
 
 PROJECT_DIR="$(resolve_path "$PROJECT_ARG")"
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
-ROUTER_PATH="$PROJECT_DIR/Agents.md"
-LEGACY_PATH="$PROJECT_DIR/Agents.legacy.md"
-REPO_ALIAS_PATH="$PROJECT_DIR/Agents.repo.md"
+ROUTER_PATH="$PROJECT_DIR/AGENTS.md"
+LEGACY_CASE_ROUTER_PATH="$PROJECT_DIR/Agents.md"
+LEGACY_PATH="$PROJECT_DIR/AGENTS.legacy.md"
+REPO_ALIAS_PATH="$PROJECT_DIR/AGENTS.repo.md"
 AIMODULES_ALIAS_PATH="$PROJECT_DIR/AIModules"
 PROJECT_MEMORY_DIR="$PROJECT_DIR/Assets/AIOutput/ProjectMemory"
 PROJECT_OUTPUT_DIR="$PROJECT_DIR/Assets/AIOutput"
 
+prepare_legacy_router_filename
 preflight_project_router_conflict
 
-REPO_ROUTER_PATH="$ROOT_DIR/Agents.md"
+REPO_ROUTER_PATH="$ROOT_DIR/AGENTS.md"
 PROJECT_PARENT_DIR="$(dirname "$PROJECT_DIR")"
-if [ "$REPO_MODE" = "monorepo" ] && [ "$PROJECT_PARENT_DIR" != "$ROOT_DIR" ] && [ -f "$PROJECT_PARENT_DIR/Agents.md" ]; then
-  REPO_ROUTER_PATH="$PROJECT_PARENT_DIR/Agents.md"
+if [ "$REPO_MODE" = "monorepo" ] && [ "$PROJECT_PARENT_DIR" != "$ROOT_DIR" ] && exact_file_exists "$PROJECT_PARENT_DIR/AGENTS.md"; then
+  REPO_ROUTER_PATH="$PROJECT_PARENT_DIR/AGENTS.md"
 fi
 
 REPO_ROUTER_REL="$(relative_path "$REPO_ROUTER_PATH" "$PROJECT_DIR")"

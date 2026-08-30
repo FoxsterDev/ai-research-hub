@@ -136,6 +136,20 @@ validate_file() {
   [ -e "$path" ] || fail "Missing: $path"
 }
 
+exact_file_exists() {
+  local path="$1"
+
+  "$PYTHON_BIN" - "$path" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+if not path.parent.is_dir():
+    raise SystemExit(1)
+raise SystemExit(0 if any(entry.name == path.name and entry.is_file() for entry in path.parent.iterdir()) else 1)
+PY
+}
+
 router_is_managed() {
   local path="$1"
   [ -f "$path" ] && grep -Eq '^<!-- Managed by (scripts|AIRoot/scripts)/init_ai_repo\.sh -->$' "$path"
@@ -147,6 +161,45 @@ preflight_repo_router_conflict() {
 Refusing to modify or validate setup around an unmanaged repo router without an explicit router mode.
 Use --preserve-existing-router to leave it unchanged, or --adopt-existing-router only if replacement is approved."
   fi
+}
+
+prepare_legacy_router_filename() {
+  local migration_path
+
+  exact_file_exists "$ROUTER_PATH" && return 0
+  exact_file_exists "$LEGACY_CASE_ROUTER_PATH" || return 0
+
+  if router_is_managed "$LEGACY_CASE_ROUTER_PATH"; then
+    if [ "$MODE" != "--fix" ] || [ "$ALLOW_MANAGED_REFRESH" != "1" ]; then
+      fail "Legacy mixed-case managed router found: $LEGACY_CASE_ROUTER_PATH
+Codex requires the exact canonical filename: $ROUTER_PATH
+Re-run with --fix --refresh-managed-router to migrate and refresh it."
+    fi
+    if [ "$DRY_RUN" = "1" ]; then
+      dry_log "would migrate managed router filename $LEGACY_CASE_ROUTER_PATH -> $ROUTER_PATH"
+      return 0
+    fi
+    migration_path="$ROOT_DIR/.AGENTS.md.case-migration.$$"
+    mv "$LEGACY_CASE_ROUTER_PATH" "$migration_path"
+    mv "$migration_path" "$ROUTER_PATH"
+    log "Migrated managed router filename: $ROUTER_PATH"
+    return 0
+  fi
+
+  if [ "$MODE" = "--fix" ] && [ "$ALLOW_ADOPT_EXISTING" = "1" ]; then
+    [ ! -e "$LEGACY_PATH" ] || fail "Cannot preserve existing router because backup already exists: $LEGACY_PATH"
+    if [ "$DRY_RUN" = "1" ]; then
+      dry_log "would preserve mixed-case unmanaged router as legacy backup: $LEGACY_PATH"
+      return 0
+    fi
+    mv "$LEGACY_CASE_ROUTER_PATH" "$LEGACY_PATH"
+    log "Preserved mixed-case unmanaged router as legacy backup: $LEGACY_PATH"
+    return 0
+  fi
+
+  fail "Legacy mixed-case unmanaged router found: $LEGACY_CASE_ROUTER_PATH
+Codex requires the exact canonical filename: $ROUTER_PATH
+Use --adopt-existing-router to preserve it as $LEGACY_PATH and create a managed canonical router. Preserving only the mixed-case filename cannot satisfy canonical Codex discovery on a case-sensitive checkout."
 }
 
 overlay_file_is_managed() {
@@ -234,7 +287,7 @@ write_xuunity_internal_start_session() {
 Apply host-local routing rules for \`$REPO_NAME\` after the public \`xuunity\` core is loaded.
 
 ## Load Order
-1. Repo router at \`Agents.md\`
+1. Repo router at \`AGENTS.md\`
 2. Public core at \`AIRoot/Modules/XUUnity/\`
 3. This file
 4. Narrow host-local knowledge files from \`knowledge/\` using the trigger rules below
@@ -573,7 +626,7 @@ write_repo_router() {
 
   if [ -d "$ROOT_DIR/AIRoot/Operations/XUUnityLightUnityMcp" ]; then
     routing_extra_block=$(cat <<'EOF'
-- For tasks under `AIRoot/Operations/XUUnityLightUnityMcp/`, route to `AIRoot/Operations/XUUnityLightUnityMcp/Agents.md` before project-specific work. This child project is a public MCP tooling repo, not a host Unity consumer project.
+- For tasks under `AIRoot/Operations/XUUnityLightUnityMcp/`, route to its child-owned exact `AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md` before project-specific work. This independently versioned tooling satellite remains standalone-capable; the host only augments it when available.
 - For tasks under `AIRoot/Operations/XUUnityLightUnityMcp/docs/clients/`, route through the MCP project router first, then the local client-docs router in that folder.
 EOF
 )
@@ -587,13 +640,14 @@ EOF
     title="Monorepo Agent Router"
     purpose_line="This file is the repo-level routing layer for the host."
     load_order_block=$(cat <<'EOF'
-1. This repo-level `Agents.md`
-2. Shared protocol modules from `AIRoot/Modules/`, with `xuunity` loading public core from `AIRoot/Modules/XUUnity/`
-3. Optional monorepo-internal overlay from `AIModules/XUUnityInternal/` when the host uses it
-4. Other host-local prompt families from `AIModules/` when the selected protocol is host-local
-5. Project-level `Agents.md`
-6. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
-7. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
+1. This repo-level `AGENTS.md`
+2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+3. Shared protocol modules from `AIRoot/Modules/`, with `xuunity` loading public core from `AIRoot/Modules/XUUnity/`
+4. Optional monorepo-internal overlay from `AIModules/XUUnityInternal/` when the host uses it
+5. Other host-local prompt families from `AIModules/` when the selected protocol is host-local
+6. Project-level `AGENTS.md`
+7. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
+8. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
 EOF
 )
     prompt_map_block=$(cat <<'EOF'
@@ -611,11 +665,12 @@ EOF
 )
   else
     load_order_block=$(cat <<'EOF'
-1. This repo-level `Agents.md`
-2. Shared protocol modules from `AIRoot/Modules/`
-3. Project-level `Agents.md`
-4. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
-5. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
+1. This repo-level `AGENTS.md`
+2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+3. Shared protocol modules from `AIRoot/Modules/`
+4. Project-level `AGENTS.md`
+5. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
+6. Project-local previous AI outputs from `<Project>/Assets/AIOutput/` when they are relevant
 EOF
 )
     prompt_map_block=$(cat <<'EOF'
@@ -767,13 +822,15 @@ if [ "$REPO_MODE" = "auto" ]; then
   fi
 fi
 
-ROUTER_PATH="$ROOT_DIR/Agents.md"
-LEGACY_PATH="$ROOT_DIR/Agents.legacy.md"
+ROUTER_PATH="$ROOT_DIR/AGENTS.md"
+LEGACY_CASE_ROUTER_PATH="$ROOT_DIR/Agents.md"
+LEGACY_PATH="$ROOT_DIR/AGENTS.legacy.md"
 AI_OUTPUT_DIR="$ROOT_DIR/AIOutput"
 AI_OUTPUT_OPERATIONS_DIR="$ROOT_DIR/AIOutput/Operations"
 AI_OUTPUT_REPORTS_DIR="$ROOT_DIR/AIOutput/Reports"
 AI_OUTPUT_REGISTRY_DIR="$ROOT_DIR/AIOutput/Registry"
 
+prepare_legacy_router_filename
 preflight_repo_router_conflict
 
 log "AI repo init: $ROOT_DIR"

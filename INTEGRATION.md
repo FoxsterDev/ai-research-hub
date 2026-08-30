@@ -10,7 +10,7 @@ If you want the simplest first-use path instead of the integration contract, sta
 
 ## Expected Host Responsibilities
 The host repo should provide:
-- a repo-level router such as `Agents.md`
+- an exact repo-level router named `AGENTS.md`
 - any host-local prompt families or private modules
 - a repo-level mutable AI state root such as `AIOutput/`
 - project routers
@@ -19,7 +19,7 @@ The host repo should provide:
 ## Recommended Host Topology
 ```text
 HostRepo/
-  Agents.md
+  AGENTS.md
   AIRoot/
     Modules/
       XUUnity/
@@ -34,7 +34,7 @@ HostRepo/
     Reports/
     Operations/
   ProjectA/
-    Agents.md
+    AGENTS.md
     Assets/
       AIOutput/
         ProjectMemory/
@@ -101,7 +101,8 @@ bash AIRoot/scripts/init_ai_repo.sh --repo-mode monorepo --dry-run
 Then execute the non-preview command only after the governing workflow approves the plan.
 
 Safety rule:
-- if the host already has `Agents.md`, the script must not rewrite it silently
+- if the host already has `AGENTS.md`, the script must not rewrite it silently
+- a legacy mixed-case `Agents.md` must be explicitly migrated; unmanaged content is preserved as `AGENTS.legacy.md` during adoption
 - use `--refresh-managed-router` only for an already managed repo router that you intentionally want to rewrite
 - use `--adopt-existing-router` only after explicitly deciding to replace an unmanaged repo router
 
@@ -131,8 +132,8 @@ bash AIRoot/scripts/init_ai_project.sh --project <ProjectName> --repo-mode monor
 ```
 
 This creates or refreshes:
-- `Agents.md` for the project
-- `Agents.repo.md` as the local repo-router alias
+- `AGENTS.md` for the project
+- `AGENTS.repo.md` as the local repo-router alias
 - `Assets/AIOutput/ProjectMemory/` as the project memory root
 - baseline project-memory files when they are missing
 
@@ -142,7 +143,8 @@ If the host repo has `AIModules/`, the script also creates:
 If the host repo only attaches `AIRoot` and does not provide `AIModules/`, the script still works and generates a router that uses the public `xuunity` core while marking internal overlays and host-local families as unavailable until they are attached.
 
 Safety rule:
-- if the project already has `Agents.md`, the script must not rewrite it silently
+- if the project already has `AGENTS.md`, the script must not rewrite it silently
+- a legacy mixed-case `Agents.md` must be explicitly migrated; unmanaged content is preserved as `AGENTS.legacy.md` during adoption
 - use `--refresh-managed-router` only for an already managed router that you intentionally want to rewrite
 - use `--adopt-existing-router` only after explicitly deciding to replace an unmanaged router
 

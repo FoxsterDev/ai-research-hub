@@ -4,12 +4,12 @@ The script fills these values dynamically:
 - project name
 - project kind; prefer precise kinds such as `unity_package_source`, `unity_package_validation_consumer`, `unity_package_and_editor_tooling_source`, or `public_unity_mcp_tooling`
 - priority string
-- relative path to repo `Agents.md`
+- relative path to repo `AGENTS.md`
 - relative path to `AIRoot/`
 - relative path to `AIModules/`
 
 The generated router contract is:
-- local `Agents.repo.md` if available, otherwise workspace or repo router
+- local `AGENTS.repo.md` if available, otherwise workspace or repo router
 - public `xuunity` core from `AIRoot/Modules/XUUnity/`
 - internal `xuunity` overlay from `AIModules/XUUnityInternal/` only when the host is using a multi-project internal shared layer
 - optional host-local private protocols from `AIModules/`
@@ -19,6 +19,6 @@ The generated router contract is:
 Supported generated shapes:
 - `core-only` for single-project hosts
 - `core + internal overlay` for monorepo or multi-project hosts
-- nested workspace projects should link `Agents.repo.md` to their workspace router, not directly to the host root router
+- nested workspace projects should link `AGENTS.repo.md` to their workspace router, not directly to the host root router
 
-If an existing unmanaged `Agents.md` is found, the init script preserves it as `Agents.legacy.md` before writing the managed router.
+If an existing unmanaged `AGENTS.md` is found, the init script preserves it as `AGENTS.legacy.md` before writing the managed router. A legacy mixed-case `Agents.md` must be explicitly adopted so it can be preserved and replaced by the canonical filename.

@@ -2,6 +2,10 @@
 
 This folder contains public operational surfaces for `AIRoot`.
 
+When AIRoot is opened standalone, its root `AGENTS.md` routes directly to these
+public operations and `Modules/XUUnity/`. Parent-host overlays are optional
+augmentation, never a prerequisite or an implied source of missing evidence.
+
 Use a strict split:
 - host bootstrap and onboarding -> `Operations/Setup/`
 - reusable handbooks and operator guides -> `Operations/*.md`

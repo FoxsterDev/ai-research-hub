@@ -17,7 +17,7 @@
 
 ## Process
 1. Verify routing readiness:
-   - confirm the project has an active `Agents.md`
+   - confirm the project has an active exact `AGENTS.md`
    - confirm the router points at the current shared module model
    - confirm storage expectations do not contradict the repo router
 2. Review project memory structure:

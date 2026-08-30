@@ -3,6 +3,32 @@
 Use this file when validation strategy depends on tool-path selection and evidence quality.
 It defines the shared lane model for Unity validation so `xuunity` can choose the narrowest representative path without overclaiming proof.
 
+## Delivery Risk Lanes
+
+Repository harnesses may classify work into four semantic delivery lanes before
+choosing the execution lane below. These classifications set the proof
+obligation; they do not create a second Unity runner or replace
+`interactive_mcp`, `batch_compile`, or `scenario`:
+
+- `docs`: documentation, routing, metadata, or non-runtime configuration only.
+  Use focused source, link, schema, generator, or contract checks. Do not start
+  Unity merely to make the lane look stronger.
+- `ordinary`: contained implementation or asset work with a bounded regression
+  surface. Require the narrowest affected compile/test/import proof, adding
+  runtime evidence only when the claim depends on runtime behavior.
+- `high-risk`: save/data migration, startup/lifecycle, serialized scene or prefab
+  ownership, Addressables/catalog generation, native SDK/permission, or another
+  compatibility-sensitive path. Require representative state, lifecycle,
+  generated-artifact, or runtime evidence and keep device-only gaps explicit.
+- `release`: a shipping or package-promotion decision. Require the intended
+  Unity-version, target, package-to-consumer, and release-gate matrix; a waived,
+  missing, or intentionally failing mandatory gate is a block, not a pass.
+
+Choose exactly one semantic delivery lane when a repository harness asks for it,
+then choose the smallest execution lane or lane pair that can actually produce
+that lane's required evidence. A higher semantic lane never upgrades the proof
+ceiling of the selected execution path.
+
 ## Lane Types
 
 ### `interactive_mcp`
