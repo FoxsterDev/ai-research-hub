@@ -165,7 +165,7 @@ PY
 
 is_supported_project_kind() {
   case "$1" in
-    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
+    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|unity_unsupported_legacy_compatibility_lane|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
       return 0
       ;;
     *)
@@ -332,8 +332,13 @@ write_router() {
   local optional_note=""
   local host_local_block
   local xuunity_internal_line=""
+  local project_kind_contract=""
   local project_memory_line="6. Project memory from \`Assets/AIOutput/ProjectMemory/\`"
   local prior_outputs_line="7. Relevant prior analysis outputs from \`Assets/AIOutput/\`"
+
+  if [ "$project_kind" = "unity_unsupported_legacy_compatibility_lane" ]; then
+    project_kind_contract=$'\n- Support status: Unsupported legacy compatibility lane. Its evidence is informational or negative only and never proves advertised support.'
+  fi
 
   if [ "$repo_mode" = "monorepo" ] && [ "$has_aimodules" = "1" ]; then
     load_order_line="2. Shared protocol modules from \`$airroot_rel/Modules/\` and optional host-local prompt families from \`$aimodules_rel/\` when that root exists. Use local alias \`AIModules/\` only for host-local families when it exists and mirrors the same structure."
@@ -382,7 +387,7 @@ ${optional_note}
 ## Project Context
 - Project: \`$project_name\`
 - Engine context: Unity project
-- Project kind: \`$project_kind\`
+- Project kind: \`$project_kind\`${project_kind_contract}
 - Priority: $priority
 - Project memory path: \`Assets/AIOutput/ProjectMemory/\`
 - AI output path: \`Assets/AIOutput/\`
@@ -662,7 +667,7 @@ validate_host_root
 [ -n "$PROJECT_ARG" ] || fail "Missing required --project argument"
 
 if ! is_supported_project_kind "$PROJECT_KIND"; then
-  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, public_unity_mcp_tooling, infrastructure, or tooling."
+  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, unity_unsupported_legacy_compatibility_lane, public_unity_mcp_tooling, infrastructure, or tooling."
 fi
 
 case "$REPO_MODE" in
