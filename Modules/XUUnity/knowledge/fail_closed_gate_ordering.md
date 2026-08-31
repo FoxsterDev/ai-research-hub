@@ -22,6 +22,10 @@
   "available, value unusable" share a representation, keep them as separate fields so a gate cannot confuse them.
 - Reachability of the fallback is a test case, not a reading. Cover: nothing available, alternative available and
   acceptable, alternative available and unacceptable. The middle case is the one that disappears under the wrong order.
+- A gated branch that skips is a decision, not a non-event. Log the skip once, with the gate's inputs (which condition
+  failed, what was present versus absent). On monetization, attribution, or reward flows the missing skip-log is itself
+  the costliest diagnosis gap: the branch that does nothing is exactly the one telemetry must explain. Rate-limit or
+  aggregate on hot paths instead of omitting the log.
 
 ## What This Is Not
 This is the operational form of a distinction canonical sources already draw: HTTP separates `404` (absent) from `422`
