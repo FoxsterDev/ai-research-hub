@@ -146,6 +146,92 @@ path.write_text(text, encoding="utf-8")
 PY
 "$PYTHON_BIN" "$host_root/AIRoot/scripts/routing_audit.py" --host-root "$host_root"
 
+log "Unsupported legacy lane and semantic standalone routing"
+tmp_root="$(mktemp -d)"
+host_root="$tmp_root/routing-contract"
+make_host_fixture "$host_root"
+(
+  cd "$host_root"
+  bash AIRoot/scripts/init_ai_topology.sh \
+    --profile single_project_default \
+    --project LegacyCompatibility \
+    --kind unity_unsupported_legacy_compatibility_lane
+  bash AIRoot/scripts/init_ai_topology.sh \
+    --profile single_project_default \
+    --project LegacyCompatibility \
+    --kind unity_unsupported_legacy_compatibility_lane \
+    --check
+)
+assert_contains "$host_root/LegacyCompatibility/AGENTS.md" \
+  'Project kind: `unity_unsupported_legacy_compatibility_lane`'
+assert_contains "$host_root/LegacyCompatibility/AGENTS.md" \
+  "never proves advertised support"
+
+mkdir -p "$host_root/AIRoot/Operations/XUUnityLightUnityMcp"
+cat >> "$host_root/AIOutput/Registry/host_topology.yaml" <<'EOF'
+routed_operation_projects:
+  - path: AIRoot/Operations/XUUnityLightUnityMcp
+    router: AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md
+EOF
+cat >> "$host_root/AGENTS.md" <<'EOF'
+
+Tasks under `AIRoot/Operations/XUUnityLightUnityMcp` use its child-owned router.
+EOF
+cat > "$host_root/AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md" <<'EOF'
+# Public MCP Router
+
+## Mode Detection
+- Standalone mode: This router and local repository docs form the complete routing contract.
+- Host-mounted mode: Parent routing may add workspace context when it exists.
+
+Discovery files: `llms.txt`, `mcp-server.json`.
+EOF
+"$PYTHON_BIN" "$host_root/AIRoot/scripts/routing_audit.py" --host-root "$host_root"
+
+"$PYTHON_BIN" - "$host_root/AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+path.write_text(text.replace("- Standalone mode:", "- Embedded mode:"), encoding="utf-8")
+PY
+set +e
+"$PYTHON_BIN" "$host_root/AIRoot/scripts/routing_audit.py" --host-root "$host_root" \
+  >"$tmp_root/standalone.out" 2>"$tmp_root/standalone.err"
+rc="$?"
+set -e
+[ "$rc" -ne 0 ] || fail "Routing audit accepted a Mode Detection section without standalone semantics"
+assert_contains "$tmp_root/standalone.out" "missing a semantic standalone mode declaration"
+
+"$PYTHON_BIN" - \
+  "$host_root/AIRoot/Operations/XUUnityLightUnityMcp/AGENTS.md" \
+  "$host_root/LegacyCompatibility/AGENTS.md" <<'PY'
+from pathlib import Path
+import sys
+
+mcp_path = Path(sys.argv[1])
+mcp_text = mcp_path.read_text(encoding="utf-8")
+mcp_path.write_text(mcp_text.replace("- Embedded mode:", "- Standalone mode:"), encoding="utf-8")
+
+project_path = Path(sys.argv[2])
+project_text = project_path.read_text(encoding="utf-8")
+project_path.write_text(
+    project_text.replace(
+        "- Support status: Unsupported legacy compatibility lane. Its evidence is informational or negative only and never proves advertised support.",
+        "- Support status: Supported release evidence.",
+    ),
+    encoding="utf-8",
+)
+PY
+set +e
+"$PYTHON_BIN" "$host_root/AIRoot/scripts/routing_audit.py" --host-root "$host_root" \
+  >"$tmp_root/support-boundary.out" 2>"$tmp_root/support-boundary.err"
+rc="$?"
+set -e
+[ "$rc" -ne 0 ] || fail "Routing audit accepted an unsupported legacy lane as support proof"
+assert_contains "$tmp_root/support-boundary.out" "must state that its evidence does not prove support"
+
 log "Unmanaged router preflight"
 tmp_root="$(mktemp -d)"
 host_root="$tmp_root/unmanaged"

@@ -25,10 +25,13 @@ ALLOWED_PROJECT_KINDS = {
     "unity_embedded_package_validation_consumer",
     "unity_package_validation_demo",
     "unity_package_and_editor_tooling_source",
+    "unity_unsupported_legacy_compatibility_lane",
     "public_unity_mcp_tooling",
     "infrastructure",
     "tooling",
 }
+
+UNSUPPORTED_LEGACY_COMPATIBILITY_KIND = "unity_unsupported_legacy_compatibility_lane"
 
 
 def fail(message: str) -> None:
@@ -194,6 +197,30 @@ def check_project_kinds(projects: list[str], root: Path, errors: list[str]) -> N
             fail(f"Unsupported project kind '{kind}' in {router}")
         else:
             ok(f"{router.relative_to(root)} project kind: {kind}")
+            if kind == UNSUPPORTED_LEGACY_COMPATIBILITY_KIND:
+                boundary_lines = [
+                    line.lower()
+                    for line in text.splitlines()
+                    if not line.startswith("- Project kind:")
+                ]
+                has_support_boundary = any(
+                    re.search(r"\b(?:not|never|must not|does not)\b.*\bsupport(?:ed)?\b", line)
+                    for line in boundary_lines
+                )
+                if has_support_boundary:
+                    ok(
+                        f"{router.relative_to(root)} keeps unsupported legacy evidence "
+                        "outside support proof"
+                    )
+                else:
+                    errors.append(
+                        f"Unsupported legacy compatibility lane lacks an explicit "
+                        f"non-support boundary: {router}"
+                    )
+                    fail(
+                        f"Unsupported legacy compatibility lane must state that its "
+                        f"evidence does not prove support: {router}"
+                    )
 
 
 def asset_package_jsons(project_dir: Path) -> list[Path]:
@@ -242,6 +269,60 @@ def check_unity_baselines(projects: list[str], root: Path, errors: list[str]) ->
                     ok(f"{memory_file.relative_to(root)} Unity baseline matches package.json: {unity}")
 
 
+def markdown_section(text: str, heading: str) -> str | None:
+    """Return the body of an exact level-two Markdown section."""
+    lines = text.splitlines()
+    start: int | None = None
+    for index, line in enumerate(lines):
+        if line.strip() == heading:
+            start = index + 1
+            break
+    if start is None:
+        return None
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
+def has_standalone_mode_declaration(mode_detection: str) -> bool:
+    """Recognize a meaningful standalone-mode bullet without freezing its wording."""
+    for line in mode_detection.splitlines():
+        match = re.match(r"^\s*[-*]\s+(.+?):\s*(\S.*)$", line)
+        if not match:
+            continue
+        label = re.sub(r"[`*_]", "", match.group(1)).strip().lower()
+        if label in {"standalone", "standalone mode"}:
+            return True
+    return False
+
+
+def check_mcp_standalone_contract(text: str, errors: list[str]) -> None:
+    mode_detection = markdown_section(text, "## Mode Detection")
+    if mode_detection is None:
+        errors.append("XUUnityLightUnityMcp standalone contract missing: ## Mode Detection")
+        fail("XUUnityLightUnityMcp standalone contract missing: ## Mode Detection")
+    elif has_standalone_mode_declaration(mode_detection):
+        ok("XUUnityLightUnityMcp standalone contract defines standalone mode semantics")
+    else:
+        errors.append(
+            "XUUnityLightUnityMcp Mode Detection section lacks a standalone mode declaration"
+        )
+        fail(
+            "XUUnityLightUnityMcp standalone contract missing a semantic standalone "
+            "mode declaration under ## Mode Detection"
+        )
+
+    for required in ("llms.txt", "mcp-server.json"):
+        if required in text:
+            ok(f"XUUnityLightUnityMcp standalone contract contains: {required}")
+        else:
+            errors.append(f"XUUnityLightUnityMcp standalone contract missing: {required}")
+            fail(f"XUUnityLightUnityMcp standalone contract missing: {required}")
+
+
 def check_operation_routes(root: Path, topology: Path, errors: list[str]) -> None:
     operations = parse_yaml_path_blocks(topology, "routed_operation_projects")
     for operation in operations:
@@ -256,7 +337,7 @@ def check_operation_routes(root: Path, topology: Path, errors: list[str]) -> Non
                 check_file_exists(router_path, errors, "Routed operation router")
         if operation["path"] == "AIRoot/Operations/XUUnityLightUnityMcp":
             # The independently versioned MCP repo owns this exact router and its
-            # generator. The host verifies the boundary but does not render it.
+            # standalone contract. The host verifies the boundary but does not render it.
             mcp_router = root / operation["path"] / "AGENTS.md"
             if exact_file_exists(mcp_router):
                 ok(f"XUUnityLightUnityMcp uses canonical child-owned router: {mcp_router}")
@@ -264,12 +345,7 @@ def check_operation_routes(root: Path, topology: Path, errors: list[str]) -> Non
                 errors.append(f"XUUnityLightUnityMcp child-owned router missing: {mcp_router}")
                 fail(f"XUUnityLightUnityMcp child-owned router missing: {mcp_router}")
             text = mcp_router.read_text(encoding="utf-8") if exact_file_exists(mcp_router) else ""
-            for required in ("## Mode Detection", "Standalone:", "llms.txt", "mcp-server.json"):
-                if required in text:
-                    ok(f"XUUnityLightUnityMcp standalone contract contains: {required}")
-                else:
-                    errors.append(f"XUUnityLightUnityMcp standalone contract missing: {required}")
-                    fail(f"XUUnityLightUnityMcp standalone contract missing: {required}")
+            check_mcp_standalone_contract(text, errors)
 
 
 def check_markdown_mirrors(root: Path, topology: Path, errors: list[str]) -> None:

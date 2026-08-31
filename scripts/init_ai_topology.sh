@@ -65,7 +65,7 @@ PY
 
 is_supported_project_kind() {
   case "$1" in
-    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
+    unity_project|unity_package_source|unity_native_package_source|unity_package_validation_consumer|unity_embedded_package_validation_consumer|unity_package_validation_demo|unity_package_and_editor_tooling_source|unity_unsupported_legacy_compatibility_lane|public_unity_mcp_tooling|infrastructure|tooling|gameplay)
       return 0
       ;;
     *)
@@ -474,7 +474,7 @@ case "$PROFILE" in
 esac
 
 if ! is_supported_project_kind "$PROJECT_KIND"; then
-  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, public_unity_mcp_tooling, infrastructure, or tooling."
+  fail "Unsupported --kind '$PROJECT_KIND'. Use a supported routing kind such as unity_project, unity_package_source, unity_package_validation_consumer, unity_package_and_editor_tooling_source, unity_unsupported_legacy_compatibility_lane, public_unity_mcp_tooling, infrastructure, or tooling."
 fi
 
 REPO_CMD=(bash "$AIRROOT_DIR/scripts/init_ai_repo.sh" --host-root "$ROOT_DIR" --repo-mode "$REPO_MODE" "$MODE")
