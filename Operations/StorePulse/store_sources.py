@@ -34,10 +34,10 @@ def clean_user_text(text, limit=240):
     return flat[:limit] + ("…" if len(flat) > limit else "")
 
 
-def _date_params(prefix, day, with_tz=True):
+def _date_params(prefix, day, with_tz=True, tz=None):
     out = {f"{prefix}.year": day.year, f"{prefix}.month": day.month, f"{prefix}.day": day.day}
     if with_tz:
-        out[f"{prefix}.timeZone.id"] = PLAY_TZ
+        out[f"{prefix}.timeZone.id"] = tz or PLAY_TZ
     return out
 
 
@@ -183,8 +183,9 @@ def play_error_issues(transport, headers, package, day, trail_days=1, limit=8,
                       issue_types=("CRASH", "ANR"), order_by="distinctUsers desc"):
     start = day - dt.timedelta(days=trail_days)
     params = {"pageSize": limit, "orderBy": order_by, "sampleErrorReportLimit": 1}
-    params.update(_date_params("interval.startTime", start))
-    params.update(_date_params("interval.endTime", day + dt.timedelta(days=1)))
+    # errorIssues:search accepts only UTC intervals, unlike the vitals queries.
+    params.update(_date_params("interval.startTime", start, tz="UTC"))
+    params.update(_date_params("interval.endTime", day + dt.timedelta(days=1), tz="UTC"))
     if issue_types:
         params["filter"] = " OR ".join(f"errorIssueType = {t}" for t in issue_types)
     url = f"{PLAY_REPORTING}/apps/{package}/errorIssues:search?{urllib.parse.urlencode(params)}"
