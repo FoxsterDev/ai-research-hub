@@ -151,3 +151,27 @@ The report should recommend staged rollout with monitoring gates for:
 - purchase success or revenue event delivery
 - attribution event continuity
 - marketing campaign continuity
+
+## OneLink Runtime Deep-Link Delivery (observed 2026-08-31, iOS SDK 6.17.x / Unity plugin 6.17.80)
+Field-verified behavior for user-invite OneLink SHORT links (`generateUserInviteLink`); long links and
+non-invite links were not covered by this evidence.
+
+- iOS UDL (`didResolveDeepLink`) delivered `deep_link_value` and `media_source` but NOT
+  `deep_link_sub1`/`af_sub1` — in both direct (universal link, app installed) and deferred (fresh
+  install) flows, 100% of observed clicks — while the short link's stored payload demonstrably
+  contained the sub params. Android delivered the full payload via the Play install referrer.
+  Where the params are lost (vendor response filtering vs iOS SDK payload surface) is an unproven
+  hypothesis; the observation itself is log-verified. Known-unfixed: AppsFlyerFramework#270.
+- Query params APPENDED to an existing short link are ignored by the iOS in-app resolution path;
+  only params STORED at link generation arrive. Do not design fixes around appending.
+- Consequence: on iOS, payload that must survive end-to-end belongs in `deep_link_value` (dual-carry
+  it in a sub param for Android/back-compat). Beware the analytics cost: per-user values in
+  `deep_link_value` raise its cardinality in dashboards — group by `media_source` instead.
+- UDL deferred deep linking has a 15-minute click-to-first-launch lookback. For owned invite flows,
+  implement the eDDL fallback (`onConversionDataSuccess`, non-organic + first launch) which retains
+  the deep-link payload for the full attribution window.
+- Diagnostic: fetch the short link with an Android browser User-Agent; the Google Play redirect
+  exposes the full stored parameter set in the `referrer` query param — the fastest proof of what a
+  link actually carries, with no dashboard access.
+- Dashboard interaction: OneLink template "Secure Shortlinks" treats any appended param as attribution
+  manipulation and drops the click's attribution entirely; leave it off if links are ever extended.
