@@ -33,6 +33,7 @@ environment variable. Nothing here is safe-to-share-sensitive.
 | `play_vitals` | Play Developer Reporting API metric sets | Google service account |
 | `play_issues` | Reporting API `errorIssues:search` | Google service account |
 | `play_anomalies` | Reporting API `anomalies.list` | Google service account |
+| `play_release_catalog` | Reporting API `fetchReleaseFilterOptions` (read-only: serving releases per track, versionCode→versionName) | Google service account |
 | `play_reviews` | Android Publisher `reviews.list` | Google service account |
 | `play_rating` | Play Console bulk CSV `stats/ratings/…` | Google SA + reports bucket |
 | `play_store_perf` | bulk CSV `stats/store_performance/…` | Google SA + reports bucket |
@@ -73,10 +74,20 @@ python3 store_pulse.py doctor --config /path/to/config.json     # what is reacha
 python3 store_pulse.py bootstrap --config /path/to/config.json  # register the Apple analytics requests
 python3 store_pulse.py bootstrap --config /path/to/config.json \
     --access ONGOING,ONE_TIME_SNAPSHOT                          # + backfill the trailing year
+python3 store_pulse.py backfill-google --config … --out … --days 30 --apps KEY
+    # bounded Google vitals history under <out>/history/google/, idempotent by
+    # app/day/metric-set/dimension key; prints requested/returned/new/existing/missing per set
 ```
 
 Options: `--day YYYY-MM-DD`, `--slug NAME`, `--only slice,slice`, `--apps KEY,KEY`, `--dive`,
 `--access` (bootstrap only).
+
+Weekly/monthly reports additionally render an Android **rollout diff**: the rolling-out build
+vs the previous main prod version, user-perceived crash/ANR weighted by daily `distinctUsers`
+over the vitals window. A version qualifies with `min_vitals_users` average users/day and
+`rollout_min_days` provider days (thresholds); smaller newer builds are listed as samples,
+never the focus. Labels resolve from the release catalog (serving releases), then from review
+metadata for historical codes; an unnamed code renders as the bare versionCode.
 
 `doctor` is the credential-landing gate: it prints a per-app, per-slice `ok` / `FAIL` / `skip`
 matrix with reasons and no secret values, then the analytics-request state per app — the thing

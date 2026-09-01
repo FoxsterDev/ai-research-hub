@@ -1594,5 +1594,215 @@ class TechRenderTests(unittest.TestCase):
         self.assertNotIn("Technical health", pulse.render_store_slack(report, "play"))
 
 
+class ReleaseCatalogTests(unittest.TestCase):
+    PAYLOAD = {"tracks": [
+        {"displayName": "production", "type": "Production", "servingReleases": [
+            {"displayName": "2.3.1", "versionCodes": ["5100001"]}]},
+        {"displayName": "instantProd", "type": "Production"},
+        {"displayName": "internal", "type": "Internal", "servingReleases": [
+            {"displayName": "2.3.3-int", "versionCodes": ["5100001", "5200000"]}]},
+    ]}
+
+    def test_tracks_and_version_names_are_flattened(self):
+        out = src.play_release_catalog(
+            FakeTransport({"fetchReleaseFilterOptions": self.PAYLOAD}), {}, "com.example")
+        self.assertEqual(3, len(out["tracks"]))
+        self.assertEqual([{"name": "2.3.1", "codes": ["5100001"]}],
+                         out["tracks"][0]["releases"])
+        self.assertEqual([], out["tracks"][1]["releases"])   # a track may serve nothing
+        self.assertEqual({"name": "2.3.3-int", "track": "internal"},
+                         out["version_names"]["5200000"])
+
+    def test_production_label_wins_when_a_code_serves_several_tracks(self):
+        out = src.play_release_catalog(
+            FakeTransport({"fetchReleaseFilterOptions": self.PAYLOAD}), {}, "com.example")
+        self.assertEqual({"name": "2.3.1", "track": "production"},
+                         out["version_names"]["5100001"])
+
+    def test_empty_answer_yields_empty_catalog(self):
+        out = src.play_release_catalog(
+            FakeTransport({"fetchReleaseFilterOptions": {}}), {}, "com.example")
+        self.assertEqual({"tracks": [], "version_names": {}}, out)
+
+
+class MetricQueryPaginationTests(unittest.TestCase):
+    def test_all_pages_are_read_and_the_token_is_passed_back(self):
+        pages = [
+            {"rows": _metric_rows()["rows"][:1], "nextPageToken": "t2"},
+            {"rows": _metric_rows()["rows"][1:]},
+        ]
+
+        def answer(url, payload):
+            return pages[1] if payload.get("pageToken") == "t2" else pages[0]
+
+        t = FakeTransport({"crashRateMetricSet:query": answer})
+        rows = src.play_metric_query(t, {}, "com.example", "crashRateMetricSet",
+                                     ["userPerceivedCrashRate"], dt.date(2026, 8, 10),
+                                     dt.date(2026, 8, 17))
+        self.assertEqual(3, len(rows))
+        self.assertEqual("t2", t.seen[-1][2].get("pageToken"))
+
+
+def _trail_row(day, code, users, crash=None, anr=None):
+    metrics = {"distinctUsers": users}
+    if crash is not None:
+        metrics["userPerceivedCrashRate"] = crash
+    if anr is not None:
+        metrics["userPerceivedAnrRate"] = anr
+    return {"day": day, "dims": {"versionCode": code}, "metrics_pct": metrics}
+
+
+class RolloutDiffTests(unittest.TestCase):
+    THRESHOLDS = {"min_vitals_users": 100, "rollout_min_days": 2}
+
+    def _app(self, crash_rows, anr_rows=(), names=None):
+        return {"slices": {
+            "play_vitals": {"sets": {"crash": {"breakdown_trail": list(crash_rows)},
+                                     "anr": {"breakdown_trail": list(anr_rows)}}},
+            "play_release_catalog": {"version_names": names or {}},
+        }}
+
+    def test_focus_and_baseline_by_numeric_code_with_weighted_rates(self):
+        app = self._app(
+            [_trail_row("2026-08-29", "200", 1000, crash=0.5),
+             _trail_row("2026-08-30", "200", 3000, crash=0.1),
+             _trail_row("2026-08-29", "100", 2000, crash=0.2),
+             _trail_row("2026-08-30", "100", 2000, crash=0.2)],
+            names={"200": {"name": "2.3.1", "track": "production"}})
+        out = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        self.assertEqual("200", out["focus"]["code"])
+        self.assertEqual("2.3.1", out["focus"]["name"])
+        self.assertEqual("100", out["baseline"]["code"])
+        self.assertAlmostEqual(0.2, out["focus"]["crash"])   # (0.5*1k + 0.1*3k) / 4k
+        self.assertAlmostEqual(0.0, out["delta_crash_pp"])
+        self.assertEqual(2000, out["focus"]["users_day"])
+
+    def test_tiny_newer_build_is_a_sample_never_the_focus(self):
+        app = self._app(
+            [_trail_row("2026-08-29", "300", 50, crash=9.0),
+             _trail_row("2026-08-30", "300", 50, crash=9.0),
+             _trail_row("2026-08-29", "200", 1000, crash=0.1),
+             _trail_row("2026-08-30", "200", 1000, crash=0.1),
+             _trail_row("2026-08-29", "100", 1000, crash=0.2),
+             _trail_row("2026-08-30", "100", 1000, crash=0.2)])
+        out = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        self.assertEqual("200", out["focus"]["code"])
+        self.assertEqual(["300"], out["newer_samples"])
+
+    def test_a_one_day_rollout_start_cannot_become_the_focus(self):
+        app = self._app(
+            [_trail_row("2026-08-30", "300", 5000, crash=0.1),
+             _trail_row("2026-08-29", "200", 1000, crash=0.1),
+             _trail_row("2026-08-30", "200", 1000, crash=0.1),
+             _trail_row("2026-08-29", "100", 1000, crash=0.2),
+             _trail_row("2026-08-30", "100", 1000, crash=0.2)])
+        out = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        self.assertEqual("200", out["focus"]["code"])
+
+    def test_fewer_than_two_qualifying_versions_is_no_diff(self):
+        app = self._app([_trail_row("2026-08-29", "200", 1000, crash=0.1),
+                         _trail_row("2026-08-30", "200", 1000, crash=0.1)])
+        self.assertIsNone(pulse.build_rollout_diff(app, self.THRESHOLDS))
+
+    def test_crash_and_anr_share_the_daily_denominator_not_sum_it(self):
+        app = self._app(
+            [_trail_row("2026-08-29", "200", 1000, crash=0.1),
+             _trail_row("2026-08-30", "200", 1000, crash=0.1),
+             _trail_row("2026-08-29", "100", 1000, crash=0.2),
+             _trail_row("2026-08-30", "100", 1000, crash=0.2)],
+            [_trail_row("2026-08-29", "200", 1000, anr=0.4),
+             _trail_row("2026-08-30", "200", 1000, anr=0.4),
+             _trail_row("2026-08-29", "100", 1000, anr=0.2),
+             _trail_row("2026-08-30", "100", 1000, anr=0.2)])
+        out = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        self.assertEqual(1000, out["focus"]["users_day"])
+        self.assertAlmostEqual(0.4, out["focus"]["anr"])
+        self.assertAlmostEqual(0.2, out["delta_anr_pp"])
+
+    def test_review_names_label_historical_codes_catalog_still_wins(self):
+        app = self._app(
+            [_trail_row("2026-08-29", "200", 1000, crash=0.1),
+             _trail_row("2026-08-30", "200", 1000, crash=0.1),
+             _trail_row("2026-08-29", "100", 1000, crash=0.2),
+             _trail_row("2026-08-30", "100", 1000, crash=0.2)],
+            names={"200": {"name": "2.3.1", "track": "production"}})
+        app["slices"]["play_reviews"] = {"version_names": {"100": "2.0.3",
+                                                           "200": "2.3.0-stale"}}
+        out = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        self.assertEqual("2.3.1", out["focus"]["name"])       # catalog beats reviews
+        self.assertEqual("2.0.3", out["baseline"]["name"])    # reviews fill the gap
+
+    def test_version_label_drops_the_code_prefix_play_adds(self):
+        self.assertEqual("15.54.34",
+                         pulse._version_label({"code": "155434", "name": "155434 (15.54.34)"}))
+        self.assertEqual("2.3.1", pulse._version_label({"code": "1", "name": "2.3.1"}))
+        self.assertEqual("50241581", pulse._version_label({"code": "50241581", "name": None}))
+
+    def test_weekly_slack_table_renders_and_daily_stays_silent(self):
+        app = self._app(
+            [_trail_row("2026-08-29", "200", 1000, crash=0.3),
+             _trail_row("2026-08-30", "200", 1000, crash=0.3),
+             _trail_row("2026-08-29", "100", 1000, crash=0.2),
+             _trail_row("2026-08-30", "100", 1000, crash=0.2)],
+            names={"200": {"name": "2.3.1", "track": "production"},
+                   "100": {"name": "2.0.3", "track": "production"}})
+        app["name"] = "Example"
+        app["rollout_diff"] = pulse.build_rollout_diff(app, self.THRESHOLDS)
+        report = {"mode": "weekly", "apps": [app]}
+        lines = pulse.render_rollout_diff_slack(report)
+        table = "\n".join(lines)
+        self.assertIn("```", table)
+        self.assertIn("2.3.1", table)
+        self.assertIn("+0.10!", table)
+        self.assertEqual([], pulse.render_rollout_diff_slack({"mode": "daily", "apps": [app]}))
+
+
+class BackfillGoogleTests(unittest.TestCase):
+    CFG = {"apps": [{"key": "EX", "name": "Example", "android": "com.example"}],
+           "play_vitals_sets": [{"key": "crash", "metric_set": "crashRateMetricSet",
+                                 "metrics": ["userPerceivedCrashRate", "distinctUsers"],
+                                 "dimensions": ["versionCode"]}]}
+
+    def _creds(self):
+        return type("Creds", (), {"has": lambda self, name: name == "google",
+                                  "google_headers": lambda self: {},
+                                  "reasons": {}})()
+
+    def _routes(self):
+        return {
+            "crashRateMetricSet:query": _metric_rows(),
+            "crashRateMetricSet": {"freshnessInfo": {"freshnesses": [
+                {"aggregationPeriod": "DAILY",
+                 "latestEndTime": {"year": 2026, "month": 8, "day": 17}}]}},
+        }
+
+    def test_rows_are_stored_once_and_reruns_converge(self):
+        with tempfile.TemporaryDirectory() as out:
+            for _ in range(2):
+                rc = pulse.cmd_backfill_google(self.CFG, self._creds(),
+                                               FakeTransport(self._routes()), out,
+                                               days=7, through=dt.date(2026, 8, 17))
+                self.assertEqual(0, rc)
+            path = os.path.join(out, "history", "google", "EX.json")
+            with open(path) as fh:
+                store = json.load(fh)
+            rows = store["sets"]["crash"]["rows"]
+            self.assertEqual(3, len(rows))
+            self.assertIn("2026-08-17|versionCode=1603", rows)
+            self.assertIn("2026-08-16|-", rows)
+            self.assertEqual("com.example", store["package"])
+            self.assertEqual("2026-08-17", store["sets"]["crash"]["freshness"])
+
+    def test_a_failing_set_reports_nonzero_and_writes_nothing(self):
+        routes = self._routes()
+        routes["crashRateMetricSet:query"] = auth.HttpError(403, "u", "denied")
+        with tempfile.TemporaryDirectory() as out:
+            rc = pulse.cmd_backfill_google(self.CFG, self._creds(),
+                                           FakeTransport(routes), out,
+                                           days=7, through=dt.date(2026, 8, 17))
+            self.assertEqual(1, rc)
+            self.assertFalse(os.path.exists(os.path.join(out, "history", "google", "EX.json")))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
