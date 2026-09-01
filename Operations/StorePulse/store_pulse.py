@@ -45,6 +45,7 @@ SLICE_NEEDS = {
     "play_vitals": ("google",),
     "play_issues": ("google",),
     "play_anomalies": ("google",),
+    "play_release_catalog": ("google",),
     "play_reviews": ("google",),
     "play_rating": ("google", "bucket"),
     "play_store_perf": ("google", "bucket"),
@@ -700,16 +701,20 @@ def collect_play_vitals(ctx, app):
         trail = {}
         for day, metrics in (block["trail"] or {}).items():
             trail[day] = {m: rate_to_pct(v, mode) for m, v in metrics.items() if m != "distinctUsers"}
-        breakdown = []
-        for row in block["breakdown"] or []:
-            raw_metrics = row.get("metrics") or {}
-            metrics_pct = {
-                m: (v if m == "distinctUsers" else rate_to_pct(v, mode))
-                for m, v in raw_metrics.items()
-            }
-            breakdown.append({**row, "metrics_pct": metrics_pct})
+        def _pct_rows(rows):
+            done = []
+            for row in rows or []:
+                raw_metrics = row.get("metrics") or {}
+                metrics_pct = {
+                    m: (v if m == "distinctUsers" else rate_to_pct(v, mode))
+                    for m, v in raw_metrics.items()
+                }
+                done.append({**row, "metrics_pct": metrics_pct})
+            return done
         out["sets"][key] = {"as_of": block["as_of"], "pct": pcts, "users": users, "trail": trail,
-                            "breakdown": breakdown, "freshness": block["freshness"]}
+                            "breakdown": _pct_rows(block["breakdown"]),
+                            "breakdown_trail": _pct_rows(block.get("breakdown_trail")),
+                            "freshness": block["freshness"]}
         for m, v in pcts.items():
             out["metrics"][m] = v
         if users:
@@ -729,6 +734,11 @@ def collect_play_anomalies(ctx, app):
                               limit=ctx["cfg"].get("anomalies_limit", 10))
 
 
+def collect_play_release_catalog(ctx, app):
+    return src.play_release_catalog(ctx["transport"], ctx["creds"].google_headers(),
+                                    app["android"])
+
+
 def collect_play_reviews(ctx, app):
     items = src.play_reviews(ctx["transport"], ctx["creds"].google_headers(), app["android"],
                              max_results=ctx["cfg"].get("play_reviews_max", 100),
@@ -739,6 +749,11 @@ def collect_play_reviews(ctx, app):
     out["backlog_unanswered"] = sum(1 for r in items if not r.get("answered"))
     out["scanned"] = len(items)
     out["window_start"] = cutoff
+    # reviews are the only versionCode→versionName source for releases that no
+    # longer serve; the release catalog names serving releases only
+    out["version_names"] = {str(r["app_version_code"]): r["app_version_name"]
+                            for r in items
+                            if r.get("app_version_code") and r.get("app_version_name")}
     return out
 
 
@@ -821,6 +836,7 @@ COLLECTORS = {
     "play_vitals": collect_play_vitals,
     "play_issues": collect_play_issues,
     "play_anomalies": collect_play_anomalies,
+    "play_release_catalog": collect_play_release_catalog,
     "play_reviews": collect_play_reviews,
     "play_rating": collect_play_rating,
     "play_store_perf": collect_play_store_perf,
@@ -1560,6 +1576,86 @@ def slice_state_delivery_safe(slice_state, corrupt_candidates=None):
         for state in slice_state.values()))
 
 
+def _weighted_rate(rows, rate_metric):
+    num = den = 0.0
+    for row in rows:
+        m = row.get("metrics_pct") or {}
+        users, rate = m.get("distinctUsers"), m.get(rate_metric)
+        if users and rate is not None:
+            num += rate * users
+            den += users
+    return round(num / den, 2) if den else None
+
+
+def build_rollout_diff(app_out, thresholds):
+    """Rolling-out build vs the previous main prod version over the vitals window.
+
+    Plan §7.3: order strictly by numeric versionCode; a version qualifies with
+    >= min_vitals_users average users/day AND >= rollout_min_days provider days
+    (a one-day rollout start must not become a verdict). Focus = highest
+    qualifying code, baseline = next lower. Rates are user-perceived, weighted
+    by daily distinctUsers. versionName labels come from the release catalog
+    when the code is still serving; historical codes keep the bare code.
+    """
+    vitals = app_out["slices"].get("play_vitals") or {}
+    sets = vitals.get("sets") or {}
+    names = {code: {"name": name, "track": None}
+             for code, name in ((app_out["slices"].get("play_reviews") or {})
+                                .get("version_names") or {}).items()}
+    names.update({code: label
+                  for code, label in (((app_out["slices"].get("play_release_catalog") or {})
+                                       .get("version_names") or {}).items())
+                  if label.get("name")})
+    min_users = (thresholds or {}).get("min_vitals_users", 100)
+    min_days = (thresholds or {}).get("rollout_min_days", 2)
+
+    per_code = {}
+    for set_key in ("crash", "anr"):
+        for row in (sets.get(set_key) or {}).get("breakdown_trail") or []:
+            code = (row.get("dims") or {}).get("versionCode")
+            if code is None:
+                continue
+            entry = per_code.setdefault(str(code), {"crash": [], "anr": [], "users_by_day": {}})
+            entry[set_key].append(row)
+            users = (row.get("metrics_pct") or {}).get("distinctUsers")
+            if users and row.get("day"):
+                # crash and anr sets repeat the same daily denominator; keep the max,
+                # never the sum, or every user would be counted twice
+                prev = entry["users_by_day"].get(row["day"], 0)
+                entry["users_by_day"][row["day"]] = max(prev, users)
+
+    versions = []
+    for code, entry in per_code.items():
+        try:
+            code_num = int(code)
+        except ValueError:
+            continue
+        days = len(entry["users_by_day"])
+        users_day = (sum(entry["users_by_day"].values()) / days) if days else 0
+        label = names.get(code) or {}
+        versions.append({
+            "code": code, "code_num": code_num,
+            "name": label.get("name"), "track": label.get("track"),
+            "days": days, "users_day": round(users_day),
+            "crash": _weighted_rate(entry["crash"], "userPerceivedCrashRate"),
+            "anr": _weighted_rate(entry["anr"], "userPerceivedAnrRate"),
+            "qualifies": users_day >= min_users and days >= min_days,
+        })
+    versions.sort(key=lambda v: -v["code_num"])
+    qualifying = [v for v in versions if v["qualifies"]]
+    if len(qualifying) < 2:
+        return None
+    focus, baseline = qualifying[0], qualifying[1]
+    return {
+        "focus": focus, "baseline": baseline,
+        "delta_crash_pp": _delta(focus["crash"], baseline["crash"]),
+        "delta_anr_pp": _delta(focus["anr"], baseline["anr"]),
+        "newer_samples": [v["code"] for v in versions
+                          if v["code_num"] > focus["code_num"]],
+        "versions": versions,
+    }
+
+
 def build_report(cfg, creds, transport, day, out_dir, slug, only=None, app_filter=None):
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     apps_cfg = [a for a in cfg["apps"] if not app_filter or a["key"] in app_filter]
@@ -1584,6 +1680,7 @@ def build_report(cfg, creds, transport, day, out_dir, slug, only=None, app_filte
         attach_deltas(block, history, day)
         block.pop("_min_sessions", None)
         score_app(block, cfg)
+        block["rollout_diff"] = build_rollout_diff(block, cfg["thresholds"])
         apps.append(block)
 
     PRE_RELEASE = ("PREPARE_FOR_SUBMISSION", "WAITING_FOR_REVIEW", "IN_REVIEW",
@@ -2449,6 +2546,51 @@ def _att_of(report, nature, store=None):
             and (store is None or a["store"] == store)]
 
 
+def _fmt_users_day(value):
+    if value is None:
+        return "—"
+    return f"{value / 1000:.1f}k" if value >= 1000 else str(int(value))
+
+
+def _version_label(entry, limit=10):
+    label = str(entry.get("name") or entry.get("code") or "?")
+    # Play names a stale-serving release "51985852 (1.63.1)"; the human half suffices
+    if label.endswith(")") and " (" in label:
+        head, _, tail = label.partition(" (")
+        if head == str(entry.get("code")):
+            label = tail[:-1]
+    return label[:limit]
+
+
+def render_rollout_diff_slack(report):
+    """Weekly-only rollout table: mrkdwn has no tables, so a fenced code block with
+    programmatic column alignment is the one legible dense form Slack renders."""
+    if report.get("mode") not in ("weekly", "monthly"):
+        return []
+    rows = [a for a in report.get("apps") or [] if a.get("rollout_diff")]
+    if not rows:
+        return []
+    lines = ["", "*Rollout diff* — rolling-out build vs previous main prod version, "
+                 "user-perceived rates over the window; `!` = worse:", "```"]
+    lines.append(f"{'App':<13}{'new':<11}{'prod':<11}{'crashΔ':<9}{'anrΔ':<9}{'u/day':<7}days")
+    for a in rows:
+        d = a["rollout_diff"]
+
+        def _pp(delta):
+            if delta is None:
+                return "—"
+            return f"{delta:+.2f}" + ("!" if delta > 0 else " ")
+        lines.append(f"{a['name'][:12]:<13}"
+                     f"{_version_label(d['focus']):<11}"
+                     f"{_version_label(d['baseline']):<11}"
+                     f"{_pp(d['delta_crash_pp']):<9}"
+                     f"{_pp(d['delta_anr_pp']):<9}"
+                     f"{_fmt_users_day(d['focus']['users_day']):<7}"
+                     f"{d['focus']['days']}")
+    lines.append("```")
+    return lines
+
+
 def render_technical_slack(report):
     """The store-side section of the technical report message.
 
@@ -2467,6 +2609,7 @@ def render_technical_slack(report):
                      f"below is partial, not the whole portfolio._")
     lines += [l for l in render_core_slack(report)[1:]]     # drop the leading blank
     lines += [l for l in render_tech_slack(report)[1:]]
+    lines += render_rollout_diff_slack(report)
     play = [a for a in _att_of(report, "technical", "play")]
     if play:
         lines.append("")
@@ -2770,6 +2913,22 @@ def render_technical_md(report):
         L += ["_No store-side technical finding over threshold._", ""]
     L += render_tech_md(report)
     L += render_crash_trend_md(report)
+    diff_apps = [a for a in report["apps"] if a.get("rollout_diff")]
+    if diff_apps:
+        L += ["## Android rollout diff (user-perceived, weighted by daily users)", "",
+              "| App | Version | Track | Days | Users/day | Crash % | ANR % | Focus |",
+              "|---|---|---|---|---|---|---|---|"]
+        def _pct_cell(value):
+            return "—" if value is None else f"{value:.2f}"
+        for a in diff_apps:
+            d = a["rollout_diff"]
+            marks = {d["focus"]["code"]: "focus", d["baseline"]["code"]: "baseline"}
+            for v in d["versions"]:
+                role = marks.get(v["code"], "" if v["qualifies"] else "below gate")
+                L.append(f"| {a['name']} | {v.get('name') or v['code']} | {v.get('track') or '—'} "
+                         f"| {v['days']} | {fmt_int(v['users_day'])} "
+                         f"| {_pct_cell(v['crash'])} | {_pct_cell(v['anr'])} | {role} |")
+        L.append("")
     for a in report["apps"]:
         issues = a["slices"].get("play_issues") or []
         if not issues:
@@ -3411,10 +3570,88 @@ def cmd_backfill(cfg, creds, transport, out_dir, slug="store_pulse", days=14,
     return 0
 
 
+def _history_row_key(row):
+    dims = row.get("dims") or {}
+    parts = [row["day"]] + [f"{k}={dims[k]}" for k in sorted(dims)]
+    return "|".join(parts) if dims else row["day"] + "|-"
+
+
+def cmd_backfill_google(cfg, creds, transport, out_dir, days=30, app_filter=None, through=None):
+    """Bounded Google vitals history under history/google/, idempotent by
+    app/day/metric-set/dimension key (plan §7.4).
+
+    Raw provider rows only: no daily report is rewritten, and derived deltas are
+    recomputed elsewhere once coverage is verified. Reruns merge by key, so an
+    interrupted or repeated run converges instead of duplicating.
+    """
+    if not creds.has("google"):
+        print(f"google backfill unavailable — {creds.reasons.get('google')}")
+        return 1
+    headers = creds.google_headers()
+    end_req = through or dt.date.today() - dt.timedelta(days=1)
+    hist_dir = os.path.join(out_dir, "history", "google")
+    os.makedirs(hist_dir, exist_ok=True)
+    apps = [a for a in cfg["apps"]
+            if a.get("android") and (not app_filter or a["key"] in app_filter)]
+    print(f"google backfill — {len(apps)} app(s), {days} day(s) through {end_req.isoformat()}")
+    failures = 0
+    for app in apps:
+        path = os.path.join(hist_dir, f"{app['key']}.json")
+        try:
+            with open(path) as fh:
+                store = json.load(fh)
+        except (OSError, ValueError):
+            store = {}
+        store["package"] = app["android"]
+        store["timezone"] = src.PLAY_TZ
+        sets_store = store.setdefault("sets", {})
+        changed = False
+        for spec in cfg["play_vitals_sets"]:
+            try:
+                fresh = src.play_metric_freshness(transport, headers, app["android"],
+                                                  spec["metric_set"])
+                end = min(end_req, fresh) if fresh else end_req
+                start = end - dt.timedelta(days=days - 1)
+                rows = src.play_metric_query(transport, headers, app["android"],
+                                             spec["metric_set"], spec["metrics"],
+                                             start, end, spec.get("dimensions", ()))
+            except (HttpError, AuthError) as exc:
+                print(f"  {app['name']}  {spec['key']:<11} FAILED — {safe_error(exc)}")
+                failures += 1
+                continue
+            block = sets_store.setdefault(spec["key"], {"metric_set": spec["metric_set"],
+                                                        "rows": {}})
+            block["freshness"] = fresh.isoformat() if fresh else None
+            new = existing = 0
+            days_seen = set()
+            for row in rows:
+                if not row.get("day"):
+                    continue
+                days_seen.add(row["day"])
+                key = _history_row_key(row)
+                if key in block["rows"]:
+                    existing += 1
+                else:
+                    new += 1
+                block["rows"][key] = {"day": row["day"], "dims": row.get("dims") or {},
+                                      "metrics": row.get("metrics") or {}}
+            if new:
+                changed = True
+            expected = {(start + dt.timedelta(days=i)).isoformat()
+                        for i in range((end - start).days + 1)}
+            missing = sorted(expected - days_seen)
+            gap = f"  missing {len(missing)}d ({missing[0]}..)" if missing else ""
+            print(f"  {app['name']}  {spec['key']:<11} requested {len(expected)}d  "
+                  f"returned {len(rows)} rows  new {new}  existing {existing}{gap}")
+        if changed:
+            atomic_write_json(path, store, indent=1, default=str)
+    return 1 if failures else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description="Store health reporter for Google Play + App Store Connect")
     ap.add_argument("command", nargs="?", default="report",
-                    choices=("report", "doctor", "bootstrap", "backfill"))
+                    choices=("report", "doctor", "bootstrap", "backfill", "backfill-google"))
     ap.add_argument("--config", required=True)
     ap.add_argument("--out", default=".")
     ap.add_argument("--day", default=None, help="report day (default: today UTC)")
@@ -3456,6 +3693,10 @@ def main():
         through = dt.date.fromisoformat(args.day) if args.day else None
         return cmd_backfill(cfg, creds, transport, args.out, args.slug, args.days,
                             app_filter, through)
+    if args.command == "backfill-google":
+        through = dt.date.fromisoformat(args.day) if args.day else None
+        return cmd_backfill_google(cfg, creds, transport, args.out, args.days,
+                                   app_filter, through)
 
     day = dt.date.fromisoformat(args.day) if args.day else dt.datetime.now(dt.timezone.utc).date()
     only = set(args.only.split(",")) if args.only else None

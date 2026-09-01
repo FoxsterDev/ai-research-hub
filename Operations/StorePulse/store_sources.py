@@ -116,7 +116,7 @@ def play_metric_freshness(transport, headers, package, metric_set, period="DAILY
 
 
 def play_metric_query(transport, headers, package, metric_set, metrics, start, end,
-                      dimensions=(), page_size=1000):
+                      dimensions=(), page_size=1000, max_pages=50):
     body = {
         "timelineSpec": {"aggregationPeriod": "DAILY",
                          "startTime": _date_obj(start), "endTime": _date_obj(end)},
@@ -124,22 +124,27 @@ def play_metric_query(transport, headers, package, metric_set, metrics, start, e
         "dimensions": list(dimensions),
         "pageSize": page_size,
     }
-    data = transport.json(f"{PLAY_REPORTING}/apps/{package}/{metric_set}:query",
-                          method="POST", payload=body, headers=headers, retry_safe=True)
     rows = []
-    for row in data.get("rows") or []:
-        day = _parse_date_obj(row.get("startTime"))
-        dims = {}
-        for d in row.get("dimensions") or []:
-            dims[d.get("dimension")] = (d.get("stringValue") or d.get("int64Value")
-                                        or d.get("valueLabel"))
-        vals = {}
-        for m in row.get("metrics") or []:
-            raw = m.get("decimalValue", {}).get("value")
-            if raw is None:
-                raw = m.get("value")
-            vals[m.get("metric")] = _num(raw)
-        rows.append({"day": day.isoformat() if day else None, "dims": dims, "metrics": vals})
+    for _ in range(max_pages):
+        data = transport.json(f"{PLAY_REPORTING}/apps/{package}/{metric_set}:query",
+                              method="POST", payload=body, headers=headers, retry_safe=True)
+        for row in data.get("rows") or []:
+            day = _parse_date_obj(row.get("startTime"))
+            dims = {}
+            for d in row.get("dimensions") or []:
+                dims[d.get("dimension")] = (d.get("stringValue") or d.get("int64Value")
+                                            or d.get("valueLabel"))
+            vals = {}
+            for m in row.get("metrics") or []:
+                raw = m.get("decimalValue", {}).get("value")
+                if raw is None:
+                    raw = m.get("value")
+                vals[m.get("metric")] = _num(raw)
+            rows.append({"day": day.isoformat() if day else None, "dims": dims, "metrics": vals})
+        token = data.get("nextPageToken")
+        if not token:
+            break
+        body["pageToken"] = token
     return rows
 
 
@@ -169,6 +174,9 @@ def play_vitals(transport, headers, package, day, metric_sets, trail_days=7):
             out["sets"][spec["key"]] = {
                 "metric_set": name, "as_of": as_of, "overall": overall, "trail": trail,
                 "breakdown": [r for r in rows if r["dims"] and r["day"] == as_of],
+                # every dimensioned day in the window, not just as_of — the weekly
+                # rollout diff needs per-version daily samples to weight and gate on
+                "breakdown_trail": [r for r in rows if r["dims"] and r["day"]],
                 "freshness": fresh.isoformat() if fresh else None,
             }
             if as_of and (newest is None or as_of > newest):
@@ -228,6 +236,33 @@ def play_anomalies(transport, headers, package, limit=10):
     return out
 
 
+def play_release_catalog(transport, headers, package):
+    """Currently serving releases per track, read-only via fetchReleaseFilterOptions.
+
+    This is the only sanctioned versionCode→versionName source: it never opens an
+    Android Publisher edit, but it also names only *serving* releases — historical
+    codes stay unlabeled and callers must tolerate that.
+    """
+    data = transport.json(f"{PLAY_REPORTING}/apps/{package}:fetchReleaseFilterOptions",
+                          headers=headers)
+    tracks = []
+    names = {}
+    for track in data.get("tracks") or []:
+        track_name = track.get("displayName") or track.get("type") or "?"
+        releases = []
+        for rel in track.get("servingReleases") or []:
+            codes = [str(c) for c in rel.get("versionCodes") or []]
+            label = rel.get("displayName") or rel.get("name")
+            releases.append({"name": label, "codes": codes})
+            for code in codes:
+                # production wins when one code serves several tracks
+                if code not in names or track_name == "production":
+                    names[code] = {"name": label, "track": track_name}
+        tracks.append({"track": track_name, "type": track.get("type"),
+                       "releases": releases})
+    return {"tracks": tracks, "version_names": names}
+
+
 # ------------------------------------------------------------- Play: reviews
 
 def play_reviews(transport, headers, package, max_results=100, translation=None):
@@ -252,6 +287,8 @@ def play_reviews(transport, headers, package, max_results=100, translation=None)
             "device": user.get("device"),
             "os": user.get("androidOsVersion"),
             "app_version": user.get("appVersionName") or user.get("appVersionCode"),
+            "app_version_code": user.get("appVersionCode"),
+            "app_version_name": user.get("appVersionName"),
             "thumbs_up": int(user.get("thumbsUpCount") or 0),
             "at": dt.datetime.fromtimestamp(int(ts), dt.timezone.utc).isoformat()[:19] if ts else None,
             "answered": dev is not None,
