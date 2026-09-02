@@ -84,6 +84,7 @@ When this happens:
 - project-native capability discovery by semantics before custom lifecycle, binding, shared-operation, caching, or synchronization machinery
 - complexity delta: state owners, coordination primitives, wrappers, root-owner growth, call-hopping, duplicated lifecycle, and production test seams
 - writer/thread evidence for every synchronization primitive or thread-safety claim
+- a reachability trace for every guard or fallback the change marks `introduced`; a guard whose state the boot or call contract makes unreachable is a Low finding to delete, never a safety positive
 - feature and core-flow breakage probability
 - whether any issue is a deterministic bug versus a probabilistic regression risk
 - what manual QA must verify before release confidence is credible

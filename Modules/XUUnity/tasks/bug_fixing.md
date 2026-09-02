@@ -107,6 +107,7 @@ Resolve a concrete defect with the minimum safe change while preserving producti
   - stuck queue or retry paths
   - missing cleanup of temporary workaround logic
   - compile-time fallout from moved fields, signatures, or ownership changes
+  - every defensive branch, guard, or fallback the fix itself introduced: record `reachable: <controlling condition -> owner>` from a trace or delete it; how bad its absence would be describes the consequence, not the reachability of the condition
 - For `configuration_fix`, do not claim closure until self-review and the matched validation obligations were completed or explicitly reported as gaps.
 - For `ownership_fix`, `sequencing_fix`, `state_orchestration_fix`, and `cross_layer_fix`, do not claim closure until simplification, self-review, and the matched validation obligations were completed or explicitly reported as gaps.
 - When the fix moved code across layers or changed public or cross-module call paths, validate the affected assembly or the narrowest representative build target before claiming completion.
