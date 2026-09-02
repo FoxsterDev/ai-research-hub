@@ -524,6 +524,68 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertIn("Crash rate *0.60% 🔴* @ build 205 vs 0.30% previous avg ", text)
         self.assertIn("ANR rate 0.10% @ build 205 vs 0.08% previous avg", text)
 
+    def test_android_store_state_comes_from_the_release_catalog(self):
+        app = _store_app()
+        app["slices"]["play_release_catalog"] = {"tracks": [
+            {"track": "production", "releases": [
+                {"name": "0.36.1", "codes": ["50248293"]},
+                {"name": "0.37.2", "codes": ["52059486"]}]},
+            {"track": "internal", "releases": [{"name": "0.37.3", "codes": ["52070000"]}]},
+        ], "version_names": {"52059486": {"name": "0.37.2", "track": "production"}}}
+        report = self._overview(apps=[app])
+        platform = report["health"]["rows"][0]["platform_overview"]["Android"]
+        self.assertEqual("Live", platform["store_state"])
+        self.assertEqual("0.37.2", platform["store_version"])   # newest serving code wins
+        self.assertIn("Google Play: Live v0.37.2", pulse.render_status_slack(report))
+
+    def test_android_catalog_without_a_production_release_says_so(self):
+        app = _store_app()
+        app["slices"]["play_release_catalog"] = {"tracks": [
+            {"track": "internal", "releases": [{"name": "155434 (15.54.34)",
+                                                "codes": ["155434"]}]}],
+            "version_names": {}}
+        report = self._overview(apps=[app])
+        platform = report["health"]["rows"][0]["platform_overview"]["Android"]
+        self.assertEqual("No production release", platform["store_state"])
+        self.assertIsNone(platform["store_version"])
+        self.assertEqual("15.54.34", pulse._play_release_display("155434 (15.54.34)", "155434"))
+
+    def test_catalog_name_confirms_the_build_and_a_zero_baseline_shows_the_absolute_move(self):
+        app = _store_app(sessions=None)
+        app["slices"]["play_release_catalog"] = {"tracks": [
+            {"track": "production", "releases": [{"name": "0.37.2", "codes": ["52059486"]}]}],
+            "version_names": {"52059486": {"name": "0.37.2", "track": "production"}}}
+        app["slices"]["play_vitals"] = {
+            "metrics": {"userPerceivedCrashRate": 0.0, "userPerceivedAnrRate": 0.7},
+            "users": 1100,
+            "sets": {
+                "crash": {"breakdown": [
+                    {"dims": {"versionCode": "52059486"},
+                     "metrics_pct": {"userPerceivedCrashRate": 0.0, "distinctUsers": 1000}},
+                    {"dims": {"versionCode": "50248293"},
+                     "metrics_pct": {"userPerceivedCrashRate": 0.0, "distinctUsers": 100}}]},
+                "anr": {"breakdown": [
+                    {"dims": {"versionCode": "52059486"},
+                     "metrics_pct": {"userPerceivedAnrRate": 0.77, "distinctUsers": 1000}},
+                    {"dims": {"versionCode": "50248293"},
+                     "metrics_pct": {"userPerceivedAnrRate": 0.0, "distinctUsers": 100}}]},
+            }}
+        project = _project()
+        project["release_cohorts"] = {"Android": {
+            "current": {"ver": "0.37.2", "rollout_pct": 90.0, "dau": 1400,
+                        "err_per_user": 0.8},
+            "previous": {"ver": "0.36.1", "rollout_pct": 10.0, "dau": 100,
+                         "err_per_user": 0.6}}}
+        report = self._overview(projects=[project], apps=[app], thresholds={
+            "min_vitals_users": 100, "play_crash_alert_pct": 1.09,
+            "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
+        text = pulse.render_status_slack(report)
+        self.assertIn("Crash rate 0.00% @ v0.37.2 (build 52059486) "
+                      "vs 0.00% previous avg (+0.00 pp)", text)
+        self.assertIn("ANR rate *0.77% 🔴* @ v0.37.2 (build 52059486) "
+                      "vs 0.00% previous avg (+0.77 pp)", text)
+        self.assertNotIn("(v0.37.2 pending)", text)
+
     def test_temporal_trigger_prints_the_exact_breached_bar(self):
         project = _project(status="degraded", err_per_user=1.0)
         project["err_per_user_base"] = 0.64

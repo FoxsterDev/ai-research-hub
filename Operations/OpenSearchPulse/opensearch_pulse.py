@@ -624,9 +624,49 @@ def _store_state(slices, platform):
             "phased": phased_label,
         }
 
-    # StorePulse currently has Play vitals/ratings/reviews but no Publishing API release-track
-    # collector. Log traffic proves an Android build runs; it does not prove its store state.
-    return {"label": "—", "raw": None, "version": None, "phased": None}
+    # Android state comes only from StorePulse's read-only release catalog
+    # (fetchReleaseFilterOptions). Log traffic proves a build runs; it never proves store state.
+    catalog = slices.get("play_release_catalog") or {}
+    if not catalog.get("tracks"):
+        return {"label": "—", "raw": None, "version": None, "phased": None}
+    serving = [rel for track in catalog["tracks"]
+               if (track.get("track") or "").lower() == "production"
+               for rel in track.get("releases") or []]
+    if not serving:
+        return {"label": "No production release", "raw": "NO_PRODUCTION_RELEASE",
+                "version": None, "phased": None}
+    newest = max(serving, key=lambda rel: _newest_code(rel.get("codes")))
+    code = _newest_code(newest.get("codes"))
+    return {"label": "Live", "raw": "PRODUCTION",
+            "version": _play_release_display(newest.get("name"), code if code >= 0 else None),
+            "phased": None}
+
+
+def _newest_code(codes):
+    numeric = [int(c) for c in codes or [] if str(c).isdigit()]
+    return max(numeric) if numeric else -1
+
+
+def _play_release_display(name, code=None):
+    """Play names a stale-serving release "51985852 (1.63.1)"; keep the human half."""
+    label = str(name or "").strip()
+    if label.endswith(")") and " (" in label:
+        head, _, tail = label.partition(" (")
+        if code is None or head == str(code):
+            return tail[:-1]
+    return label or None
+
+
+def _play_version_names(slices):
+    """versionCode -> versionName: the release catalog names serving releases (authoritative),
+    review metadata fills in codes that no longer serve."""
+    names = {str(code): name
+             for code, name in ((slices.get("play_reviews") or {}).get("version_names") or {}).items()
+             if name}
+    for code, label in ((slices.get("play_release_catalog") or {}).get("version_names") or {}).items():
+        if isinstance(label, dict) and label.get("name"):
+            names[str(code)] = _play_release_display(label["name"], code)
+    return names
 
 
 def _clean_version(value):
@@ -700,7 +740,8 @@ def _ios_crash_stability(store_app, focus_version, thresholds, overview_cfg):
     return None
 
 
-def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview_cfg):
+def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview_cfg,
+                    version_names=None):
     """Newest well-sampled Play versionCode, falling back to the all-version rate."""
     metric_set = ((vitals.get("sets") or {}).get(set_key) or {})
     floor = thresholds.get("min_vitals_users", 100)
@@ -724,6 +765,7 @@ def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview
         baseline = _weighted_stability_average(historical)
         delta, delta_status = _stability_delta(current["value_pct"], baseline, overview_cfg)
         return {**current, "version_kind": "build", "scope": "latest_measured",
+                "version_name": (version_names or {}).get(current["version"]),
                 "focus_version": focus_version, "baseline_pct": baseline,
                 "baseline_versions": [r.get("version") for r in historical],
                 "delta_pct": delta, "delta_status": delta_status,
@@ -859,12 +901,13 @@ def _platform_overview(project, store_app, slices, platform, thresholds, overvie
             "crash": {"watch": crash_watch, "alert": crash_alert},
             "anr": {"watch": anr_watch, "alert": anr_alert},
         }
+        version_names = _play_version_names(slices)
         out["crash_stability"] = _play_stability(
             vitals, "crash", "userPerceivedCrashRate", out.get("version"),
-            thresholds, overview_cfg)
+            thresholds, overview_cfg, version_names)
         out["anr_stability"] = _play_stability(
             vitals, "anr", "userPerceivedAnrRate", out.get("version"),
-            thresholds, overview_cfg)
+            thresholds, overview_cfg, version_names)
         if out["crash_stability"]:
             out["metric_status"]["crash"] = out["crash_stability"].get("absolute_status")
         if out["anr_stability"]:
@@ -3948,24 +3991,31 @@ def _stability_metric_text(metric, fallback_value=None, fallback_status="nodata"
     value_text = _overview_value(f"{value:.2f}%", metric.get("absolute_status"))
     version = metric.get("version")
     scope = metric.get("scope")
+    name = metric.get("version_name")
     if version:
-        version_label = (f"build {version}" if metric.get("version_kind") == "build"
-                         else f"v{version}")
+        if metric.get("version_kind") == "build":
+            version_label = f"v{name} (build {version})" if name else f"build {version}"
+        else:
+            version_label = f"v{version}"
         value_text += f" @ {version_label}"
     elif scope == "all_versions":
         value_text += " all versions"
     focus = metric.get("focus_version")
     if (scope == "latest_measured" and focus and version
-            and _clean_version(focus) != _clean_version(version)):
+            and _clean_version(focus) != _clean_version(name or version)):
         value_text += f" (v{focus} pending)"
     baseline = metric.get("baseline_pct")
     if baseline is not None:
         previous_count = len(metric.get("baseline_versions") or [])
         baseline_label = ("previous avg" if compact or previous_count < 2 else
                           f"previous {previous_count}-version avg")
-        delta = _error_delta(
-            metric.get("delta_pct"), metric.get("delta_status"),
-            meaningful_pct=None)
+        if metric.get("delta_pct") is None and value is not None:
+            # a zero baseline has no relative change; the absolute move still does
+            delta = f"{value - baseline:+.2f} pp"
+        else:
+            delta = _error_delta(
+                metric.get("delta_pct"), metric.get("delta_status"),
+                meaningful_pct=None)
         value_text += f" vs {baseline:.2f}% {baseline_label} ({delta})"
     return value_text
 
