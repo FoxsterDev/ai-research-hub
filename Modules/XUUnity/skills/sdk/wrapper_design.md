@@ -28,7 +28,7 @@
 - Do not fork near-identical platform wrapper implementations behind compile flags unless the behavioral difference is substantial enough to justify independent tests, ownership, and maintenance.
 - If an async SDK call returns meaningful metadata, return it as a result struct instead of exposing mutable state flags.
 - Prefer small top-level result or status types over nested public contract types when the result is reused or part of the stable wrapper surface.
-- Avoid `partial` and nested public API shape unless language tooling or generation actually requires it.
+- Avoid nested public API shape unless language tooling or generation actually requires it. Avoid `partial` the same way, except for a concern-per-file split of an adapter with a single state owner when the alternative is a delegate seam that carries no behavior.
 - Keep canonical mirrored state in one owner only. If platform or vendor mirroring fails, preserve the previous canonical value instead of partially applying the mutation.
 - When launch behavior materially differs across modes such as native vs browser, prefer strategy split over a broad capability-probing interface with methods that some implementations should never use.
 - Keep editor helpers, test hooks, and platform-specific support classes out of the main production wrapper folder when they are not part of the runtime contract.

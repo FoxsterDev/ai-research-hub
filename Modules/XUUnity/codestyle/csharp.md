@@ -46,7 +46,7 @@
 - Name native collaborators by role, not by implementation vagueness. Prefer specific names such as `_paymentBridge`, `_resultListenerProxy`, or `_browserBridge` over `_bridge` or `_proxy` when the narrower name reduces ambiguity.
 - Prefer a boundary-specific logger decorator when many call sites need the same subsystem prefix or context; do not repeat the same log prefix string at every call site.
 - Prefer explicit operation-specific helper names over generic `Invoke(methodName, payload)` helpers on critical native or SDK flows when the generic form hides ownership or lifecycle differences.
-- Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them.
+- Avoid `partial` types unless generation, tooling, or a strong separation boundary genuinely requires them. A concern-per-file split of one SDK adapter with a single state owner is such a boundary when the alternative is a delegate seam that carries no behavior.
 - Avoid nested public types for reusable contract or result objects when a small top-level type in its own file would keep the API surface clearer.
 
 ## Braces And Blocks
