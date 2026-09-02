@@ -521,8 +521,8 @@ class PortfolioOverviewTests(unittest.TestCase):
             "play_anr_alert_pct": 0.47, "watch_fraction": 0.6,
         })
         text = pulse.render_status_slack(report)
-        self.assertIn("Crash rate *0.60% 🔴* @ build 205 vs 0.30% previous avg ", text)
-        self.assertIn("ANR rate 0.10% @ build 205 vs 0.08% previous avg", text)
+        self.assertIn("Crash rate *0.60% 🔴* @ build 205 vs 0.30% prod avg ", text)
+        self.assertIn("ANR rate 0.10% @ build 205 vs 0.08% prod avg", text)
 
     def test_android_store_state_comes_from_the_release_catalog(self):
         app = _store_app()
@@ -581,10 +581,60 @@ class PortfolioOverviewTests(unittest.TestCase):
             "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
         text = pulse.render_status_slack(report)
         self.assertIn("Crash rate 0.00% @ v0.37.2 (build 52059486) "
-                      "vs 0.00% previous avg (+0.00 pp)", text)
+                      "vs 0.00% prod avg (+0.00 pp)", text)
         self.assertIn("ANR rate *0.77% 🔴* @ v0.37.2 (build 52059486) "
-                      "vs 0.00% previous avg (+0.77 pp)", text)
+                      "vs 0.00% prod avg (+0.77 pp)", text)
         self.assertNotIn("(v0.37.2 pending)", text)
+
+    def test_a_test_track_build_is_never_the_focus_nor_in_the_prod_pool(self):
+        app = _store_app(sessions=None)
+        app["slices"]["play_release_catalog"] = {"tracks": [
+            {"track": "production", "releases": [{"name": "2.5.0", "codes": ["205"]}]},
+            {"track": "internal", "releases": [{"name": "2.6.0-int", "codes": ["206"]}]}],
+            "version_names": {"205": {"name": "2.5.0", "track": "production"},
+                              "206": {"name": "2.6.0-int", "track": "internal"}}}
+        app["slices"]["play_vitals"] = {"metrics": {}, "users": 3300, "sets": {
+            "crash": {"breakdown": [
+                {"dims": {"versionCode": "206"},
+                 "metrics_pct": {"userPerceivedCrashRate": 5.0, "distinctUsers": 300}},
+                {"dims": {"versionCode": "205"},
+                 "metrics_pct": {"userPerceivedCrashRate": 0.6, "distinctUsers": 1000}},
+                {"dims": {"versionCode": "204"},
+                 "metrics_pct": {"userPerceivedCrashRate": 0.3, "distinctUsers": 2000}}]},
+            "anr": {"breakdown": []}}}
+        report = self._overview(apps=[app], thresholds={
+            "min_vitals_users": 100, "play_crash_alert_pct": 1.09,
+            "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
+        stability = report["health"]["rows"][0]["platform_overview"]["Android"]["crash_stability"]
+        self.assertEqual("205", stability["version"])
+        self.assertEqual(["204"], stability["baseline_versions"])
+        self.assertEqual(["206"], stability["non_production_builds"])
+        text = pulse.render_status_slack(report)
+        self.assertIn("Crash rate 0.60% @ v2.5.0 (build 205) vs 0.30% prod avg", text)
+        self.assertIn("non-prod build sampled: 206", text)
+
+    def test_android_all_versions_rate_moves_against_the_prior_days_average(self):
+        app = _store_app(sessions=None)
+        app["slices"]["play_vitals"] = {
+            "metrics": {"userPerceivedCrashRate": 0.30, "userPerceivedAnrRate": 0.50},
+            "users": 5000,
+            "sets": {
+                "crash": {"as_of": "2026-08-26", "pct": {"userPerceivedCrashRate": 0.30},
+                          "trail": {"2026-08-23": {"userPerceivedCrashRate": 0.10},
+                                    "2026-08-24": {"userPerceivedCrashRate": 0.20},
+                                    "2026-08-25": {"userPerceivedCrashRate": 0.30},
+                                    "2026-08-20": {"userPerceivedCrashRate": 9.0}},
+                          "breakdown": []},
+                "anr": {"as_of": "2026-08-26", "pct": {"userPerceivedAnrRate": 0.50},
+                        "trail": {}, "breakdown": []}}}
+        report = self._overview(apps=[app], thresholds={
+            "play_crash_alert_pct": 1.09, "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
+        platform = report["health"]["rows"][0]["platform_overview"]["Android"]
+        self.assertEqual(3, platform["crash_period"]["days"])     # only the 3 prior days count
+        self.assertAlmostEqual(0.10, platform["crash_period"]["delta_pp"])
+        self.assertIsNone(platform["anr_period"]["delta_pp"])
+        text = pulse.render_status_slack(report)
+        self.assertIn("all versions: crash 0.30% ↑0.10 pp · ANR 0.50% Δ—", text)
 
     def test_temporal_trigger_prints_the_exact_breached_bar(self):
         project = _project(status="degraded", err_per_user=1.0)

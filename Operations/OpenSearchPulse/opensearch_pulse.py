@@ -657,6 +657,31 @@ def _play_release_display(name, code=None):
     return label or None
 
 
+def _play_tracks(slices):
+    """versionCode -> Play track name, for the codes the release catalog currently serves."""
+    return {str(code): label.get("track")
+            for code, label in ((slices.get("play_release_catalog") or {}).get("version_names") or {}).items()
+            if isinstance(label, dict) and label.get("track")}
+
+
+def _play_period_delta(vitals, set_key, metric, baseline_days=3):
+    """All-versions rate on the provider day vs the average of the prior N provider days."""
+    block = ((vitals.get("sets") or {}).get(set_key) or {})
+    current = (block.get("pct") or {}).get(metric)
+    as_of = block.get("as_of")
+    if current is None or not as_of:
+        return None
+    prior = sorted((day, values.get(metric))
+                   for day, values in (block.get("trail") or {}).items()
+                   if day < as_of and values.get(metric) is not None)
+    prior = [value for _, value in prior[-max(1, int(baseline_days or 3)):]]
+    if not prior:
+        return {"value_pct": current, "baseline_pct": None, "delta_pp": None, "days": 0}
+    baseline = sum(prior) / len(prior)
+    return {"value_pct": current, "baseline_pct": round(baseline, 2),
+            "delta_pp": round(current - baseline, 2), "days": len(prior)}
+
+
 def _play_version_names(slices):
     """versionCode -> versionName: the release catalog names serving releases (authoritative),
     review metadata fills in codes that no longer serve."""
@@ -741,11 +766,13 @@ def _ios_crash_stability(store_app, focus_version, thresholds, overview_cfg):
 
 
 def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview_cfg,
-                    version_names=None):
-    """Newest well-sampled Play versionCode, falling back to the all-version rate."""
+                    version_names=None, tracks=None):
+    """Newest well-sampled production versionCode vs the rest of the production pool,
+    falling back to the all-version rate."""
     metric_set = ((vitals.get("sets") or {}).get(set_key) or {})
     floor = thresholds.get("min_vitals_users", 100)
     rows = []
+    non_production = []
     for row in metric_set.get("breakdown") or []:
         dims = row.get("dims") or {}
         version = dims.get("versionCode")
@@ -753,6 +780,12 @@ def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview
         value = values.get(metric)
         users = values.get("distinctUsers")
         if value is None or version is None or users is None or users < floor:
+            continue
+        # a build the catalog places on a test track is never the focus nor part of the
+        # production pool, however many testers it has; unknown codes are the prod long tail
+        track = ((tracks or {}).get(str(version)) or "").lower()
+        if track and track != "production":
+            non_production.append(str(version))
             continue
         rows.append({"version": str(version), "value_pct": value, "sample": users})
     rows.sort(key=lambda r: (int(r["version"]) if r["version"].isdigit() else -1,
@@ -767,6 +800,7 @@ def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview
         return {**current, "version_kind": "build", "scope": "latest_measured",
                 "version_name": (version_names or {}).get(current["version"]),
                 "focus_version": focus_version, "baseline_pct": baseline,
+                "baseline_kind": "prod", "non_production_builds": non_production,
                 "baseline_versions": [r.get("version") for r in historical],
                 "delta_pct": delta, "delta_status": delta_status,
                 "absolute_status": _bar_status(current["value_pct"], watch, alert)}
@@ -774,6 +808,7 @@ def _play_stability(vitals, set_key, metric, focus_version, thresholds, overview
     if overall is not None:
         return {"value_pct": overall, "version": None, "sample": vitals.get("users"),
                 "scope": "all_versions", "focus_version": focus_version,
+                "non_production_builds": non_production,
                 "baseline_pct": None, "baseline_versions": [], "delta_pct": None,
                 "delta_status": "nodata", "absolute_status": _bar_status(overall, watch, alert)}
     return None
@@ -902,12 +937,18 @@ def _platform_overview(project, store_app, slices, platform, thresholds, overvie
             "anr": {"watch": anr_watch, "alert": anr_alert},
         }
         version_names = _play_version_names(slices)
+        tracks = _play_tracks(slices)
         out["crash_stability"] = _play_stability(
             vitals, "crash", "userPerceivedCrashRate", out.get("version"),
-            thresholds, overview_cfg, version_names)
+            thresholds, overview_cfg, version_names, tracks)
         out["anr_stability"] = _play_stability(
             vitals, "anr", "userPerceivedAnrRate", out.get("version"),
-            thresholds, overview_cfg, version_names)
+            thresholds, overview_cfg, version_names, tracks)
+        baseline_days = overview_cfg.get("baseline_days") or 3
+        out["crash_period"] = _play_period_delta(
+            vitals, "crash", "userPerceivedCrashRate", baseline_days)
+        out["anr_period"] = _play_period_delta(
+            vitals, "anr", "userPerceivedAnrRate", baseline_days)
         if out["crash_stability"]:
             out["metric_status"]["crash"] = out["crash_stability"].get("absolute_status")
         if out["anr_stability"]:
@@ -1050,7 +1091,8 @@ def build_health(report, snapshot, min_ios_dau=HEALTH_MIN_IOS_DAU):
         secondary_metrics = [_configured_overview_metric(p, spec) for spec in secondary_specs]
         platform_overview = {
             platform: _platform_overview(p, a, slices, platform, store_thresholds,
-                                         overview_cfg)
+                                         dict(overview_cfg,
+                                              baseline_days=report.get("baseline_days") or 3))
             for platform in ("iOS", "Android")
         }
         platform_funnel_specs = [s for s in secondary_specs if s.get("kind") == "funnel_rate"]
@@ -4007,8 +4049,12 @@ def _stability_metric_text(metric, fallback_value=None, fallback_status="nodata"
     baseline = metric.get("baseline_pct")
     if baseline is not None:
         previous_count = len(metric.get("baseline_versions") or [])
-        baseline_label = ("previous avg" if compact or previous_count < 2 else
-                          f"previous {previous_count}-version avg")
+        if metric.get("baseline_kind") == "prod":
+            baseline_label = ("prod avg" if previous_count < 2
+                              else f"prod avg of {previous_count}")
+        else:
+            baseline_label = ("previous avg" if compact or previous_count < 2 else
+                              f"previous {previous_count}-version avg")
         if metric.get("delta_pct") is None and value is not None:
             # a zero baseline has no relative change; the absolute move still does
             delta = f"{value - baseline:+.2f} pp"
@@ -4069,6 +4115,27 @@ def _readable_platform_line(label, data, compact=False):
                 f"v{version} rollout {rollout_text} ← v{previous_version} · "
                 f"version errors/user {error_text}")
     line += f"\n    Stability: Crash rate {crash_text} · ANR rate {anr_text}"
+    period_bits = []
+    for key, label in (("crash_period", "crash"), ("anr_period", "ANR")):
+        period = data.get(key)
+        if period and period.get("value_pct") is not None:
+            move = period.get("delta_pp")
+            if move is None:
+                move_text = "Δ—"
+            elif move > 0:
+                move_text = f"↑{move:.2f} pp"
+            elif move < 0:
+                move_text = f"↓{abs(move):.2f} pp"
+            else:
+                move_text = "0.00 pp"
+            period_bits.append(f"{label} {period['value_pct']:.2f}% {move_text}")
+    if period_bits:
+        line += " · all versions: " + " · ".join(period_bits)
+    non_prod = sorted({b for key in ("crash_stability", "anr_stability")
+                       for b in ((data.get(key) or {}).get("non_production_builds") or [])})
+    if non_prod:
+        line += (f" · non-prod build{'s' if len(non_prod) > 1 else ''} sampled: "
+                 + ", ".join(non_prod))
     if flows:
         line += flows
     excluded_newer = data.get("excluded_newer_versions") or []
