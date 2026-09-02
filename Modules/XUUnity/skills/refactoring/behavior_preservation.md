@@ -16,6 +16,7 @@
   - failure severity
   - reviewed trigger ownership and delivery-channel boundaries for user-visible flows
 - Do not start helper extraction or structural cleanup until those invariants are fixed.
+- When the refactor extracts a state model or moves ownership between units, freeze the target ownership statement with the owner as well — which state, rules and diagnostics the new owner takes — before the first extraction commit. Escalating ownership in steps ships intermediate APIs that the next step supersedes.
 - Keep public method shape, callback timing, threading guarantees, and failure semantics unchanged unless contract change is part of the task.
 - When substituting a base class or framework lifecycle for an existing implementation, prove parity with a method-by-method behavior matrix that covers initialization, activation, subscriptions, teardown, resource destruction, and concurrent or re-entrant calls. API compatibility or matching inheritance shape alone is not behavior-preservation evidence.
 - A fallback that changes the semantic class of the contract is a behavior change, not a safe refactor.
