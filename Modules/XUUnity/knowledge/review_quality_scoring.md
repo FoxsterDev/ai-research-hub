@@ -276,7 +276,7 @@ Usually cap `Validation and release confidence` at `59` or below.
 Usually cap `Observability and operability` at `59` or below.
 
 ### Unproven or duplicated safety machinery
-When synchronization, atomics, thread hops, or duplicate guards lack the writer/thread evidence required by `skills/async/concurrency_classification.md`:
+When synchronization, atomics, thread hops, or duplicate guards lack the writer/thread evidence required by `skills/async/concurrency_classification.md`, or a defensive branch lacks a reachability trace for the state it guards:
 
 - award no positive safety credit for their presence;
 - usually cap `Simplicity, project fit, maintainability, and change safety` at `49` or below;
