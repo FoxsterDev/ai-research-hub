@@ -186,6 +186,15 @@ class PlayVitalsTests(unittest.TestCase):
         self.assertEqual(block["breakdown"][0]["dims"], {"versionCode": "1603"})
         self.assertIn("2026-08-16", block["trail"])
 
+    def test_a_dimensioned_set_also_reads_the_all_versions_series_once(self):
+        t = FakeTransport(self.routes)
+        out = src.play_vitals(t, {}, "com.example", dt.date(2026, 8, 17), self.sets)
+        bodies = [c[2] for c in t.seen if c[2]]
+        self.assertEqual([["versionCode"], []], [b["dimensions"] for b in bodies])
+        block = out["sets"]["crash"]
+        self.assertAlmostEqual(block["overall"]["userPerceivedCrashRate"], 0.0142)
+        self.assertEqual(1, len(block["breakdown"]))      # merged rows are de-duplicated
+
     def test_a_failing_metric_set_is_recorded_not_raised(self):
         routes = dict(self.routes)
         routes["crashRateMetricSet:query"] = auth.HttpError(403, "u", "denied")

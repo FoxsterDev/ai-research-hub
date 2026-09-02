@@ -157,9 +157,20 @@ def play_vitals(transport, headers, package, day, metric_sets, trail_days=7):
         try:
             fresh = play_metric_freshness(transport, headers, package, name)
             end = min(day, fresh) if fresh else day
+            start = end - dt.timedelta(days=trail_days)
+            dims_spec = tuple(spec.get("dimensions", ()))
             rows = play_metric_query(transport, headers, package, name, spec["metrics"],
-                                     end - dt.timedelta(days=trail_days), end,
-                                     spec.get("dimensions", ()))
+                                     start, end, dims_spec)
+            if dims_spec:
+                # a dimensioned query returns no all-versions row; the overall series must be
+                # Google's own number, not a re-aggregation of bucketed per-version users
+                seen = {(r["day"], tuple(sorted((r["dims"] or {}).items()))) for r in rows}
+                for r in play_metric_query(transport, headers, package, name, spec["metrics"],
+                                           start, end):
+                    key = (r["day"], tuple(sorted((r["dims"] or {}).items())))
+                    if key not in seen:
+                        rows.append(r)
+                        seen.add(key)
             days = sorted({r["day"] for r in rows if r["day"]})
             as_of = days[-1] if days else None
             overall = {}
