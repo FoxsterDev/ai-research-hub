@@ -139,6 +139,18 @@ These are the recurring, high-cost lessons. Check them at the start, not in the 
     value** the environment can misreport (screen size, safe area, density, time scale).
 12. **Re-read the durable memory index by symptom when a new failure appears**, not only by topic at
     session start.
+13. **A cadence is not a cost.** When a frame-rate measurement reports how often frames are presented,
+    it says nothing about how long they took to produce. Separate the two before naming a bottleneck;
+    most frame-pacing tools report both in the same sample.
+14. **Look at an asset before binding it.** Filename, dimensions and aspect ratio are not identity. Art
+    copied from a reference project can carry that project's brand or a composite background, and both
+    reach a screenshot the owner sees.
+15. **Compiling the player does not rebuild the editor.** After editing code that an editor action
+    executes, force a project refresh before invoking it. Byte-identical output from a changed generator
+    is a stale-domain signal, not a result.
+16. **Prove a new automation harness moved before spending a real run on it.** One log line or one
+    changed pixel. Harness assumptions — what can be attached to a scene, what a hand-rolled stepper
+    unrolls — fail silently and cost a full run each.
 
 ## Expected Outputs
 
