@@ -16,6 +16,9 @@ Use placeholders such as `<host-output-root>`, `<incident-report-path>`, and
 
 ## XUUnity
 
+- `GREENFIELD_GAME_FROM_SPEC_RETRO_PROMPT.md` - public-safe retrospective
+  prompt for reviewing delivery of a greenfield game built from a product
+  specification.
 - `XUUNITY_FIX_CONTRACT_FOLLOWUP_PROMPT_TEMPLATE.md` - evidence-based review
   loop for improving the public `xuunity fix` contract from real incidents
   while keeping concrete incident evidence host-local.
