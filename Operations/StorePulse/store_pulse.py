@@ -32,6 +32,11 @@ import store_sources as src
 from store_auth import AppleAuth, AuthError, GoogleAuth, HttpError, Transport
 from report_safety import atomic_write_json, atomic_write_text, redact as safety_redact, safe_error as shared_safe_error
 
+class SliceUnavailable(Exception):
+    """The source is reachable but publishes nothing for this app — a coverage gap,
+    not a failure: an app with no installs gets no bulk report at all."""
+
+
 STATUS_ORDER = {"healthy": 0, "nodata": 1, "watch": 2, "degraded": 3}
 STATUS_LABEL = {"healthy": "Healthy", "watch": "Watch", "degraded": "Degraded", "nodata": "Low data"}
 ICON = {"healthy": "\U0001f7e2", "watch": "\U0001f7e1", "degraded": "\U0001f534", "nodata": "⚪"}
@@ -786,8 +791,10 @@ def _play_report_series(ctx, app, report_key):
         series.update(part)
         read.append(obj["name"].rsplit("/", 1)[-1])
     if not read:
-        raise RuntimeError(f"no {report_key} report object found for {app['android']} "
-                           f"in {'/'.join(months)}")
+        # the listing itself succeeded, so access is fine; Play simply publishes no
+        # report for an app with no activity in these months
+        raise SliceUnavailable(f"Play publishes no {report_key} report for this app "
+                               f"in {'/'.join(months)}")
     return series, header
 
 
@@ -865,6 +872,8 @@ def collect_app(ctx, app, only=None):
             continue
         try:
             out["slices"][name] = fn(ctx, app)
+        except SliceUnavailable as exc:
+            out["skipped"][name] = safe_error(exc, 160)
         except (HttpError, AuthError) as exc:
             out["errors"][name] = safe_error(exc)
         except Exception as exc:  # a broken slice must not take the report down
