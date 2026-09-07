@@ -4034,18 +4034,19 @@ def _stability_metric_text(metric, fallback_value=None, fallback_status="nodata"
     version = metric.get("version")
     scope = metric.get("scope")
     name = metric.get("version_name")
+    focus = metric.get("focus_version")
+    pending = (scope == "latest_measured" and focus and version
+               and _clean_version(focus) != _clean_version(name or version))
     if version:
-        if metric.get("version_kind") == "build":
-            version_label = f"v{name} (build {version})" if name else f"build {version}"
-        else:
-            version_label = f"v{version}"
-        value_text += f" @ {version_label}"
+        is_build = metric.get("version_kind") == "build"
+        head = f"v{name}" if (is_build and name) else (
+            f"build {version}" if is_build else f"v{version}")
+        inner = [f"build {version}"] if (is_build and name) else []
+        if pending:
+            inner.append(f"v{focus} pending")
+        value_text += f" @ {head}" + (f" ({', '.join(inner)})" if inner else "")
     elif scope == "all_versions":
         value_text += " all versions"
-    focus = metric.get("focus_version")
-    if (scope == "latest_measured" and focus and version
-            and _clean_version(focus) != _clean_version(name or version)):
-        value_text += f" (v{focus} pending)"
     baseline = metric.get("baseline_pct")
     if baseline is not None:
         previous_count = len(metric.get("baseline_versions") or [])

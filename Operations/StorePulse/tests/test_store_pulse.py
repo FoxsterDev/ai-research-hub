@@ -1603,6 +1603,44 @@ class TechRenderTests(unittest.TestCase):
         self.assertNotIn("Technical health", pulse.render_store_slack(report, "play"))
 
 
+class BulkReportCoverageTests(unittest.TestCase):
+    """An app with no activity gets no bulk report; that is a gap, not a failure."""
+
+    CFG = {"apps": [{"key": "EX", "name": "Example", "android": "com.example",
+                     "ios": None}],
+           "slices": {"play_installs": True},
+           "play_reports": {"installs": {"dir": "stats/installs/",
+                                         "prefix_template": "stats/installs/installs_{package}_{month}_overview.csv",
+                                         "values": {}}},
+           "thresholds": {"ios_crash_min_sessions": 500},
+           "review_excerpt_chars": 240, "review_sample": 3, "review_topics": [],
+           "storefronts": ["us"]}
+
+    def _ctx(self, listing):
+        routes = {"/o?": {"items": listing}}
+        return {"cfg": self.CFG, "day": dt.date(2026, 9, 7),
+                "transport": FakeTransport(routes),
+                "creds": type("Creds", (), {
+                    "google_headers": lambda self: {}, "bucket": "b",
+                    "missing_for": lambda self, name: [], "reasons": {}})(),
+                "window_start": "2026-09-06"}
+
+    def test_an_empty_listing_is_a_documented_skip_not_an_error(self):
+        app = self.CFG["apps"][0]
+        out = pulse.collect_app(self._ctx([]), app, only={"play_installs"})
+        self.assertEqual({}, out["errors"])
+        self.assertIn("play_installs", out["skipped"])
+        self.assertIn("publishes no installs report", out["skipped"]["play_installs"])
+
+    def test_a_skipped_slice_still_leaves_the_report_delivery_safe(self):
+        state = {"play_installs": {"ok": 0, "failed": 0, "skipped": "none published",
+                                   "skipped_count": 1, "expected": 1, "complete": False}}
+        self.assertTrue(pulse.slice_state_delivery_safe(state))
+        state["play_installs"] = {"ok": 0, "failed": 1, "skipped": None,
+                                  "skipped_count": 0, "expected": 1, "complete": False}
+        self.assertFalse(pulse.slice_state_delivery_safe(state))
+
+
 class ReleaseCatalogTests(unittest.TestCase):
     PAYLOAD = {"tracks": [
         {"displayName": "production", "type": "Production", "servingReleases": [

@@ -586,6 +586,29 @@ class PortfolioOverviewTests(unittest.TestCase):
                       "vs 0.00% prod avg (+0.77 pp)", text)
         self.assertNotIn("(v0.37.2 pending)", text)
 
+    def test_a_named_build_still_waiting_on_the_focus_reads_as_one_parenthesis(self):
+        app = _store_app(sessions=None)
+        app["slices"]["play_release_catalog"] = {"tracks": [
+            {"track": "production", "releases": [{"name": "2.5.0", "codes": ["205"]}]}],
+            "version_names": {"205": {"name": "2.5.0", "track": "production"}}}
+        app["slices"]["play_vitals"] = {"metrics": {}, "users": 1000, "sets": {
+            "crash": {"breakdown": [
+                {"dims": {"versionCode": "205"},
+                 "metrics_pct": {"userPerceivedCrashRate": 0.2, "distinctUsers": 1000}}]},
+            "anr": {"breakdown": []}}}
+        project = _project()
+        project["release_cohorts"] = {"Android": {
+            "current": {"ver": "2.6.0", "rollout_pct": 21.0, "dau": 400,
+                        "err_per_user": 0.3},
+            "previous": {"ver": "2.5.0", "rollout_pct": 79.0, "dau": 1200,
+                         "err_per_user": 0.3}}}
+        report = self._overview(projects=[project], apps=[app], thresholds={
+            "min_vitals_users": 100, "play_crash_alert_pct": 1.09,
+            "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
+        text = pulse.render_status_slack(report)
+        self.assertIn("Crash rate 0.20% @ v2.5.0 (build 205, v2.6.0 pending)", text)
+        self.assertNotIn(") (v2.6.0 pending)", text)
+
     def test_a_test_track_build_is_never_the_focus_nor_in_the_prod_pool(self):
         app = _store_app(sessions=None)
         app["slices"]["play_release_catalog"] = {"tracks": [
