@@ -29,8 +29,9 @@ particular model follows it.
 - `utilities/system_self_evaluation.md` owns the installation/corpus review:
   routers, roles, skills, knowledge, conflicts, dead paths, design-registry
   reconciliation, and public-core promotion candidates.
-- A host-local model-fitness runner owns fixture execution, transcript
-  normalization, scoring, aggregation, and immutable run evidence.
+- `Operations/XUUnityModelFitness/xuunity_model_fitness.py` owns audited
+  execution, normalization, scoring, aggregation and immutable run evidence.
+  A host binding supplies confidential fixtures and its approved compiler lane.
 - This utility owns orchestration, comparison, and the final health report.
 - `utilities/system_protocol_clean_review.md` owns approved public protocol
   cleanup.
@@ -49,6 +50,11 @@ particular model follows it.
 4. Locate an exact compatible fixture baseline. Run the host fixture suite when
    an approved adapter and budget are available; otherwise report `not_run` and
    the concrete gap.
+   When an execution journal already exists, use the public `report --plan
+   <saved-plan> --output <new-json> --report <new-markdown>` command first. It
+   verifies captured artifacts without a model call. Keep its installation
+   projection, task-oracle outcomes and fitness eligibility separate. A stale
+   engine requires the recorded tested checkout for replay, not a silent rescore.
 5. Keep installation findings and model-surface findings separate in diagnosis
    and scoring.
 6. In `review` mode, stop after the report and ordered recommendations.
@@ -195,7 +201,7 @@ subsection in the report using this exact shape:
 - `fixtures_run`: `<fixture ids or none>`
 - `models_scored`:
   - `<model-surface identity>` — baseline `exact` | `stale` | `missing` | `not_runnable`,
-    score `<n>/100` (`fit` | `fit_with_supervision` | `marginal` | `unfit`),
+    score `<n>/100` or `null` with cause codes (`fit` | `fit_with_supervision` | `marginal` | `unfit` | `not_qualified`),
     valid runs `<n>/<n>`, range `<min>-<max>`, required stack loaded `<n>%`,
     critical defects `<n>`, gate `executed` | `signed_without_execution` | `absent`
 - `invalid_runs`:
@@ -215,11 +221,14 @@ Use:
 - `gate: signed_without_execution` when the run produced a gate artifact (task item, checklist
   entry, assertion) without evidence in the tool log that the named files were actually read —
   this is a compliance incident even when the shipped diff happens to be correct.
-- `models_scored` rows come from the scorer's `metrics.json`, never from a model's self-report.
+- `models_scored` rows come from verified execution/suite reports, never from a
+  model's self-report. Legacy `metrics.json` remains historical evidence only.
 - Each model row's `baseline: exact` requires every exact-baseline identity
   field listed in the Rules section to match. The current-session field reports
   only the active session identity.
-- Do not put invalid runs into the score denominator.
+- Keep invalid and censored rows in the full scheduled denominator and report
+  their cause-coded counts. Exclude them only from the numeric score distribution;
+  never replace a failure or hide it by reporting successful attempts alone.
 - `protocol_changes_gated: rejected` is a valid, expected outcome; record it rather than
   re-arguing the change in prose.
 - Keep fixture task content and host identifiers out of this public template; the host report

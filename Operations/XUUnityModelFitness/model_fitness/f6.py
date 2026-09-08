@@ -11,8 +11,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, Iterable
+from pathlib import Path
+import re
 
-from . import attestation, contracts
+from . import attestation, contracts, records
 
 import xuunity_canonical as xc
 
@@ -215,3 +217,91 @@ def verify_artifact(
     if entries != _attempt_entries(expected_attempts):
         raise F6EvidenceError("F6 artifact attempt roster mismatch")
     return artifact
+
+
+def register_holdout(root: Path, *, holdout_id: str, fixture_hash: str,
+                     producer_contexts: list[str], max_exposures: int) -> dict:
+    """Register an immutable rotation. Author/reference data stays host-owned."""
+    records.slug(holdout_id)
+    if (len(set(producer_contexts)) < 2 or type(max_exposures) is not int or max_exposures < 1
+            or not re.fullmatch("[a-f0-9]{64}", fixture_hash)):
+        raise F6EvidenceError("holdout_requires_two_producers_and_positive_budget")
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    lock = root / "registration.lock"
+    records.write(lock, {"holdout_id": holdout_id}, exclusive=True)
+    record = records.seal({"schema_version": "xuunity.holdout-rotation.v1", "holdout_id": holdout_id,
+                           "fixture_hash": fixture_hash, "producer_contexts": producer_contexts,
+                           "max_exposures": max_exposures})
+    try:
+        for path in root.glob("*/rotation.json"):
+            previous = records.read(path)
+            records.verify(previous)
+            if previous["fixture_hash"] == fixture_hash:
+                raise F6EvidenceError("rotation_requires_new_fixture_identity")
+        directory = root / holdout_id
+        directory.mkdir(exist_ok=False)
+        records.write(directory / "rotation.json", record, exclusive=True)
+    finally:
+        lock.unlink()
+    return record
+
+
+def reserve_exposure(root: Path, *, holdout_id: str, attempt_id: str, schedule_hash: str) -> dict:
+    """Charge before evaluation, including failures and interrupted evaluations."""
+    records.slug(holdout_id)
+    records.slug(attempt_id)
+    directory = Path(root) / holdout_id
+    rotation = records.read(directory / "rotation.json")
+    records.verify(rotation)
+    lock = directory / "exposure.lock"
+    records.write(lock, {"attempt_id": attempt_id}, exclusive=True)
+    try:
+        reservations = list(directory.glob("*.exposure.json"))
+        for path in reservations:
+            records.verify(records.read(path))
+        if (directory / "quarantine.json").exists() or len(reservations) >= rotation["max_exposures"]:
+            raise F6EvidenceError("holdout_exhausted_or_quarantined_rotate_required")
+        row = records.seal({"schema_version": "xuunity.holdout-exposure.v1", "attempt_id": attempt_id,
+                            "rotation_hash": rotation["record_hash"], "schedule_hash": schedule_hash})
+        records.write(directory / (attempt_id + ".exposure.json"), row, exclusive=True)
+        if len(reservations) + 1 == rotation["max_exposures"]:
+            records.write(directory / "quarantine.json", {"reason": "exposure_budget_exhausted"}, exclusive=True)
+        return row
+    finally:
+        lock.unlink()
+
+
+def complete_exposure(root: Path, *, holdout_id: str, attempt_id: str,
+                      artifact: dict, verification_keys: Mapping[str, bytes]) -> dict:
+    """Authenticate once and reject artifact/attempt replay across rotations."""
+    records.slug(holdout_id)
+    records.slug(attempt_id)
+    verified = authenticate_artifact(artifact, verification_keys=verification_keys)
+    root = Path(root)
+    rotation = records.read(root / holdout_id / "rotation.json")
+    records.verify(rotation)
+    reserved = records.read(root / holdout_id / (attempt_id + ".exposure.json"))
+    records.verify(reserved)
+    if (reserved["rotation_hash"] != rotation["record_hash"] or verified["holdout_ref"] != holdout_id
+            or verified["fixture_sha256"] != rotation["fixture_hash"]
+            or attempt_id not in {row["attempt_id"] for row in verified["attempts"]}):
+        raise F6EvidenceError("holdout_exposure_binding_mismatch")
+    # One exclusive content-addressed receipt is the cross-rotation replay guard.
+    receipts = root / "receipts"
+    receipts.mkdir(exist_ok=True)
+    record = records.seal({"schema_version": "xuunity.holdout-consumption.v1",
+                           "holdout_id": holdout_id, "attempt_id": attempt_id,
+                           "exposure_hash": reserved["record_hash"], "artifact": verified})
+    lock = receipts / "completion.lock"
+    records.write(lock, {"attempt_id": attempt_id}, exclusive=True)
+    try:
+        for path in receipts.glob("*.json"):
+            previous = records.read(path)
+            records.verify(previous)
+            if (previous["holdout_id"], previous["attempt_id"]) == (holdout_id, attempt_id):
+                raise FileExistsError("holdout_attempt_already_consumed")
+        records.write(receipts / (verified["artifact_hash"] + ".json"), record, exclusive=True)
+    finally:
+        lock.unlink()
+    return record

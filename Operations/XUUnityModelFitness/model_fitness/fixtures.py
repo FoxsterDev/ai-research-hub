@@ -26,7 +26,7 @@ from typing import Any, Callable, Iterable
 import observation_contract as oc
 import xuunity_canonical as xc
 
-from . import OPERATION_DIR, adapters, isolation, scoring
+from . import OPERATION_DIR, adapters, baseline, isolation, scoring
 from .contracts import fractional_document_hash, require_valid
 
 FIXTURES_DIR = OPERATION_DIR / "fixtures"
@@ -42,8 +42,8 @@ def _read_json(path: Path) -> Any:
     if not path.is_file():
         raise FixtureError(f"missing fixture file: {path}")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
+        return xc.load_strict(path)
+    except xc.CanonicalizationError as error:
         raise FixtureError(f"invalid JSON in {path}: {error}") from error
 
 
@@ -229,6 +229,7 @@ def run_semantic_oracle(
     tree: Path,
     *,
     workspace: Path | None = None,
+    prepare_oracle: Callable[[dict[str, Any], Path], dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """Evaluate one declared semantic oracle over a fresh hermetic
     materialization of ``tree``. In-process ``task``/``static`` oracles
@@ -246,7 +247,10 @@ def run_semantic_oracle(
 
     def finish(destination: Path) -> dict[str, Any]:
         identity = isolation.hermetic_materialize(tree, destination)
-        raw = module.evaluate(destination)
+        context = prepare_oracle(row, destination) if prepare_oracle else None
+        raw = module.evaluate(destination, context=context) if context is not None else module.evaluate(destination)
+        if baseline.content_identity(destination) != identity:
+            raise FixtureError("oracle_materialization_changed_during_evaluation")
         if not isinstance(raw, dict) or raw.get("status") not in {
             "passed",
             "failed",
@@ -342,12 +346,16 @@ def run_safety_validators(
 
 def load_expected_stack(fixture_dir: Path) -> dict[str, Any]:
     document = _read_json(Path(fixture_dir) / "expected_stack.json")
-    if document.get("authored_by") != "human":
+    if document.get("authored_by") not in {"human", "independent_parent"}:
         raise FixtureError(
-            "expected_stack.json must declare authored_by: human — a "
+            "expected_stack.json must declare authored_by: human or independent_parent — a "
             "derivation produced by the resolver under test cannot be the "
             "expected answer"
         )
+    if document.get("authored_by") == "independent_parent" and (
+            not document.get("author_context") or not document.get("evaluator_context")
+            or document["author_context"] == document["evaluator_context"]):
+        raise FixtureError("independent expected obligations require separate author/evaluator contexts")
     return document
 
 
@@ -601,12 +609,21 @@ def evaluate_run(
     tree: Path | None = None,
     diff_text: str = "",
     requested_model: str | None = None,
-    f0_calibration_passed: bool = True,
+    f0_calibration_passed: bool = False,
     enforcement_mode: str = "audited",
     comparison_status: str = "matched_content_noncontrolled",
     reported_gap_ids: Iterable[str] = (),
     task_measurement_key: str | None = None,
     strict_profile_key: str | None = None,
+    execution_meta: dict[str, Any] | None = None,
+    invalid_json_lines: Iterable[int] = (),
+    changed_paths: Iterable[str] | None = None,
+    parent_gate_result: dict[str, Any] | None = None,
+    parent_reason_codes: Iterable[str] = (),
+    cause: dict[str, Any] | None = None,
+    prepare_oracle: Callable[[dict[str, Any], Path], dict[str, Any] | None] | None = None,
+    recorded_oracles: list[dict[str, Any]] | None = None,
+    recorded_safety: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Evaluate one run's evidence end-to-end against a fixture: adapter
     normalization, mutation boundary, scope containment, hand-authored
@@ -615,18 +632,22 @@ def evaluate_run(
     run result plus the intermediate diagnostics."""
     fixture_dir = Path(fixture_dir)
     manifest = manifest or {}
-    normalized = adapters.normalize_transcript(events, adapter, manifest)
-    validity = adapters.inspect_run_validity({}, normalized)
+    meta = execution_meta or {}
+    normalized = adapters.normalize_transcript(
+        events, adapter, manifest, cwd=meta.get("worktree")
+    )
+    validity = adapters.inspect_run_validity(meta, normalized, invalid_json_lines)
     changed_files = adapters.parse_diff(diff_text) if diff_text else {}
+    actual_paths = list(changed_paths) if changed_paths is not None else list(changed_files)
     changed_code = [
-        path for path in changed_files if adapters.is_code_path(path)
+        path for path in actual_paths if adapters.is_code_path(path)
     ]
     boundary = adapters.mutation_boundary(
         normalized["mutations"], normalized["flags"], changed_code
     )
     scope = mutation_scope(
         normalized["mutations"],
-        list(changed_files),
+        actual_paths,
         allowed=fixture["allowed_mutation_paths"],
         protected=fixture["protected_paths"],
     )
@@ -673,15 +694,36 @@ def evaluate_run(
         )
         else "fail"
     )
+    if parent_gate_result is not None:
+        require_valid("xuunity.stack-gate-result.schema.json", parent_gate_result, "parent gate result")
+        gate_decision = parent_gate_result["decision"]
+        if gate_decision in {"invalid", "not_runnable"}:
+            axes["observer"] = "observer_unsupported"
 
     oracle_results: list[dict[str, Any]] = []
     safety_results: list[dict[str, Any]] = []
-    if tree is not None:
+    if recorded_oracles is not None:
+        declared = {row["id"]: row for row in fixture["semantic_oracles"] if row["blocking"]}
+        if tree is None or {row["oracle_id"] for row in recorded_oracles} != set(declared) or len(recorded_oracles) != len(declared):
+            raise FixtureError("recorded_oracle_set_mismatch")
+        recorded_tree_identity = baseline.content_identity(tree)
+        for row in recorded_oracles:
+            require_valid("xuunity.oracle-result.schema.json", row, "recorded oracle")
+            if row["tree_identity"] != recorded_tree_identity or row["fixture_id"] != fixture["fixture_id"] or row["implementation_sha256"] != declared[row["oracle_id"]]["implementation_sha256"]:
+                raise FixtureError("recorded_oracle_identity_mismatch")
+        oracle_results = recorded_oracles
+        safety_results = recorded_safety or []
+        if {row["validator_id"] for row in safety_results} != {row["id"] for row in fixture["safety_validators"]} or len(safety_results) != len(fixture["safety_validators"]):
+            raise FixtureError("recorded_safety_set_mismatch")
+        if any(type(row.get("passed")) is not bool for row in safety_results):
+            raise FixtureError("recorded_safety_verdict_invalid")
+    elif tree is not None:
         for row in fixture["semantic_oracles"]:
             if row["blocking"]:
                 oracle_results.append(
                     run_semantic_oracle(
-                        fixture_dir, fixture, row["id"], tree
+                        fixture_dir, fixture, row["id"], tree,
+                        prepare_oracle=prepare_oracle,
                     )
                 )
         if fixture["safety_validators"]:
@@ -701,13 +743,15 @@ def evaluate_run(
         profile_identity_match=not identity["mismatch"],
         comparison_status=comparison_status,
         gate_decision=gate_decision,
-        delivery_percent=stack["delivery_percent"],
+        delivery_percent=(None if parent_gate_result is not None and
+                          gate_decision in {"invalid", "not_runnable"} else stack["delivery_percent"]),
         oracle_result=oracle_results,
         safety_results=safety_results,
         reported_gap_ids=reported_gap_ids,
         protected_mutation=scope["protected_mutation"],
+        cause=cause,
         extra_reason_codes=list(validity["reason_codes"])
-        + scope["reason_codes"],
+        + scope["reason_codes"] + list(parent_reason_codes),
     )
     return {
         "run_result": run_result,
@@ -718,6 +762,7 @@ def evaluate_run(
         "observer_axis": observer,
         "gate_decision": gate_decision,
         "oracle_results": oracle_results,
+        "safety_results": safety_results,
     }
 
 

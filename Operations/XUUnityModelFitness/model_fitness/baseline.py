@@ -94,6 +94,7 @@ def content_entries(
     root: Path,
     *,
     gitlink_hashes: dict[str, str] | None = None,
+    excluded_roots: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     root = Path(root)
     if not root.is_dir():
@@ -102,12 +103,31 @@ def content_entries(
         xc.normalize_repo_path(path): value
         for path, value in (gitlink_hashes or {}).items()
     }
+    excluded = tuple(xc.normalize_repo_path(path.rstrip("/")) for path in excluded_roots)
+    def omitted(path: str) -> bool:
+        return any(path == prefix or path.startswith(prefix + "/") for prefix in excluded)
+
     entries: list[dict[str, Any]] = []
     for current, dirnames, filenames in os.walk(root, followlinks=False):
         current_path = Path(current)
         for name in list(dirnames):
             relative = (current_path / name).relative_to(root).as_posix()
-            if relative in gitlinks:
+            if omitted(relative):
+                dirnames.remove(name)
+                continue
+            if (current_path / name).is_symlink():
+                dirnames.remove(name)
+                target = os.readlink(current_path / name)
+                entries.append(
+                    {
+                        "path": xc.nfc(relative),
+                        "type": "symlink",
+                        "mode": "120000",
+                        "size": len(target.encode("utf-8")),
+                        "sha256": xc.sha256_bytes(target.encode("utf-8")),
+                    }
+                )
+            elif relative in gitlinks:
                 dirnames.remove(name)
                 entries.append(
                     {
@@ -122,6 +142,8 @@ def content_entries(
         for name in sorted(filenames):
             path = current_path / name
             relative = xc.nfc(path.relative_to(root).as_posix())
+            if omitted(relative):
+                continue
             info = path.lstat()
             if stat.S_ISLNK(info.st_mode):
                 target = os.readlink(path)

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import sys
 from pathlib import Path
@@ -10,6 +11,29 @@ import runner
 
 
 class RunnerPolicyTests(unittest.TestCase):
+    def test_claude_command_includes_explicit_effort(self):
+        adapter = runner.ClaudeCliAdapter({
+            "id": "claude_cli",
+            "command": "claude",
+            "modelPolicy": {"default": "opus"},
+        })
+        completed = __import__("subprocess").CompletedProcess([], 0, "{}", "")
+        with patch("providers.claude_cli.find_command", return_value="/usr/bin/claude"), patch(
+            "providers.claude_cli.subprocess.run", return_value=completed
+        ) as run:
+            adapter.run_prompt(
+                prompt="Review the design.",
+                project_root=Path("/tmp"),
+                model="claude-opus-5",
+                effort="xhigh",
+                allow_web=False,
+                allow_writes=False,
+                timeout_seconds=30,
+            )
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("--model") + 1], "claude-opus-5")
+        self.assertEqual(command[command.index("--effort") + 1], "xhigh")
+
     def test_writes_require_task_config_and_runtime_flag(self):
         self.assertFalse(
             runner.strict_capability_allowed(

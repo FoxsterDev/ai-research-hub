@@ -1,13 +1,46 @@
-# XUUnity Model Fitness — Public Deterministic Engine
+# XUUnity Model Fitness — Audited Execution and Evaluation
 
 Public core of the fitness engine from
 `AIRoot/Design/XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md`
-(phase P2). Everything here is public-safe and host-agnostic: no fixture
-prompts, raw transcripts, host paths, tokens, or provider secrets. Host
+(execution completion). Public code and synthetic fixtures are host-agnostic:
+no private fixture prompts, raw transcripts, host paths, or provider secrets. Host
 installations keep their confidential fixtures, adapter configuration, and
 raw evidence in their own private operation and compose this engine.
 
-## What is implemented (P2.1 – P2.4, P3)
+## Operator entrypoint
+
+Run `python3 xuunity_model_fitness.py --help` from this directory. Every input,
+workspace, evidence directory and report destination is explicit. Installed
+CLI subscription authentication is reused; API billing fallback is prohibited.
+
+| Command | Effect |
+|---|---|
+| `inspect` | Bind installed executable/version, parser, requested profile and capability limits. No model call. |
+| `prepare` | Verify fixture/seed/oracles; derive obligations and freeze bundle, host extensions and semantic inputs. |
+| `plan` | Persist the entire ordered roster, blocks, seeds, timeouts, launch ceiling and comparison contracts. |
+| `calibrate` | One registered live F0 canary plus parser/observer controls. Compatibility is distinct from eligibility. |
+| `run` / `run-schedule` | Execute registered rows, capture process and final tree, independently evaluate and retain every outcome. |
+| `score` | Verify protected artifacts and reproduce one result without launching or recompiling. |
+| `recover` / `close` | Record a proven abandoned attempt or censor remaining rows; never silently retry a provider call. |
+| `aggregate` / `report` | Reproduce suite accounting and separate installation health from model fitness. |
+| `experiment` | Evaluate preregistered arms with durable alpha accounting; cannot apply a change. |
+| `telemetry` / `rollout` | Record verified sessions and switch off/observe; advisory requires live conformance. |
+| `protocol-change` | Mark matching baselines stale and persist pending smoke work; no automatic launch. |
+
+`executor.py`, `schedule.py`, `processes.py`, `records.py`, `calibration.py`,
+`profiles.py`, `causes.py`, `reporting.py`, `experiment_journal.py` and
+`operations.py` compose the components below. The host contributes confidential
+fixture inputs and its approved compiler callback. The public executor does not
+invoke Unity directly. The completion decision record is
+`Design/XUUNITY_MODEL_FITNESS_COMPLETION_TECHNICAL_DESIGN.md` from the public root.
+
+The caller must freeze the complete plan before the first launch. A failed
+canary or evaluator defect remains in its original schedule. Fix the engine,
+create a separately identified plan, and carry previous launches into the
+aggregate budget. Never replace a failed row. An interrupted process with no
+proven PID cannot be declared dead; investigate its recorded process intent.
+
+## Implemented components
 
 ### `model_fitness/baseline.py` — content-addressed baseline (P2.1)
 
@@ -168,9 +201,8 @@ raw evidence in their own private operation and compose this engine.
   with an explicit declared scope (producers, untested contexts).
 - Authored controls: every fixture ships known-bad/known-good trees;
   `verify_controls` requires at least one red and one green control and
-  fails on any drift. Expected stacks must declare `authored_by: human` —
-  a derivation produced by the resolver under test is rejected as an
-  answer key.
+  fails on any drift. Expected stacks declare `human` or `independent_parent` with distinct
+  author/evaluator contexts. Resolver output cannot author its own answer key.
 - `evaluate_run` composes the whole per-run pipeline: adapter
   normalization, mutation boundary, allowed/protected scope containment,
   hand-authored obligation groups, observer axis, oracles, safety
@@ -252,54 +284,47 @@ stays I-JSON integer-only.
 
 ## Honest boundaries
 
-- **The v2 evidence contracts are intentionally fail-closed.** Structural v1
-  run, suite, and experiment documents must be regenerated; they are not
-  silently promoted. No real numeric model run or F6 payload existed when v2
-  was introduced.
-- **No real model run has a numeric fitness score yet.** The P3 corpus
-  (F2–F5 and F7–F8 here, the critical-integration F1 host-locally) now provides the
-  independent oracles the design requires, but a number for a real run
-  additionally needs the run to be executed under the P2 runner with F0
-  calibration for the exact adapter profile — no such run exists yet.
-  Compile-lane oracles fail closed without a receipt bound to the exact
-  hermetic tree identity, so a static-only pass can never mint a score on
-  a fixture that declares a compile lane. Host scorers remain
-  compatibility layers over `model_fitness.adapters` for the legacy
-  fixture format; their scoring of legacy fixtures is diagnostic, not
-  adoption evidence.
-- **F6 has an evidence contract, not a real payload.** The blinded cross-domain
-  holdout uses this same fixture schema with opaque task/seed refs and a
-  rotating host-local payload hidden from the model namespace. The suite
-  verifies a parent-signed result artifact and caps any profile without one at
-  `fit_with_supervision`. No F6 payload or real F6 model run has been authored
-  yet, so that cap is currently always in force.
-- **The v2 attempt plan binds roster order, not wall-clock execution.**
-  Aggregation enforces the exact ordered attempt/fixture/replicate identities,
-  fixed denominator, and complete replicate blocks. It does not independently
-  attest that the runner executed those rows in wall-clock order, nor does it
-  yet bind per-attempt seed allocation, timeout, or cost budget. Those claims
-  still require a protected runner-owned execution-schedule receipt.
-- **The experiment evaluator decides; it does not run.** Scheduling model
-  runs, building cohorts, and producing suite results for control and
-  treatment are the runner's job; `evaluate_experiment` only applies the
-  preregistered decision rule to two finished suite results. It validates their
-  schema, arm identities, cohort hashes, and F6 signatures, but the suite-result
-  document itself is a trusted-parent output, not a separately signed receipt.
-- **F6 ledger persistence is host-owned.** The v2 manifest carries exact
-  previously consumed artifact hashes, so the evaluator detects replay and
-  reports the next hash set. Atomically persisting that returned set before a
-  later experiment remains the parent runner's responsibility.
-- **Windows enforcement.** The engine runs on Windows (broker, baseline,
-  attestation, replay, hermetic materialization are OS-neutral and the
-  capability store uses portable `O_EXCL` atomicity), but no OS sandbox
-  backend is driven there, so read-namespace/network policies report
-  unenforced and results stay `audited`. A parent that supplies its own OS
-  boundary (read-only mount, user separation) can still declare it via the
-  write-boundary contract.
-- **Provider transport.** CLI surfaces that share network between the model
-  process and the provider cannot be network-isolated by this module alone;
-  the adapter profile records that honestly and such runs are not
-  adoption-grade (design rule).
+- The installed Codex/Claude CLI route produces **audited diagnostic evidence**.
+  It cannot attest exact post-truncation provider requests, immutable backend
+  revisions, exclusive brokered writes, read namespaces or separate provider/tool
+  transport. F0 compatibility therefore never grants numeric fitness eligibility.
+  Bundle bytes and observed tool reads are not verified delivered bytes.
+- Independent task-oracle success is useful even when fitness is `null`. Real
+  final-tree compile receipts bind toolchain, targets/defines, diagnostics and
+  unchanged source identity. A successful compile cannot override a failed task
+  oracle. Host validation routes and evidence remain host-owned.
+- Preparation v2 freezes host implementation dependencies for artifact replay.
+  Launch still checks the current helper bytes; replay verifies the frozen bytes
+  without executing them. Historical v1 preparations still require their original
+  host files. The recorded engine revision remains required in both versions.
+- The model receives explicit source-snapshot and allowed-path context. A declared
+  compile oracle belongs to the parent evaluator. The host may compile a declared
+  source projection, but must retain the full captured tree and bind both hashes.
+- The schedule now binds actual exclusive launch claims, per-row seeds, order,
+  timeouts and a total launch window. Every row stays counted. Local artifact
+  recovery is safe only after process liveness and evidence integrity checks;
+  it never grants permission to relaunch the same row.
+- F6 authoring, signatures and atomic exposure/replay/rotation persistence are
+  implemented. A host can validate a payload's controls without exposing it to a
+  model. Those controls are not blinded model qualification. An exhausted
+  identity cannot be revived by relabeling its rotation.
+- `experiment_journal.py` persists family alpha before evaluation. Inconclusive
+  results remain evidence. Statistical acceptance, candidate production, the
+  supported-profile/host regression matrix and owner-held apply authority are
+  separate gates. The executor never applies candidates to a live protocol.
+- Advisory requires verified live request-boundary conformance. Blocking also
+  requires at least fourteen days of advisory observation and reviewed false-block
+  telemetry. `rollout --mode off` is the rollback; no daemon is installed.
+- Windows has an explicit unsupported OS-isolation backend and unverified child
+  cleanup beyond the owned process handle. Deterministic engine behavior is
+  portable; this is not authoritative Windows execution. macOS/Linux probes must
+  prove the actual policy used before it earns enforcement credit.
+- A local green test run does not prove remote CI. The existing workflow runs
+  protocol/fitness tests on macOS, Linux and Windows when dispatched by the
+  repository's normal publication workflow. No qualification follows from setup
+  smoke alone. No remote publication or production application is implied.
+- v2 evidence contracts remain fail-closed. Historical v1 or superseded numeric
+  diagnostics are traceable history and must not be promoted to current fitness.
 
 ## Tests
 

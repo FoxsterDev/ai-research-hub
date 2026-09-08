@@ -106,6 +106,7 @@ class GeminiCliAdapter(ProviderAdapter):
         prompt: str,
         project_root: Path,
         model: str,
+        effort: str,
         allow_web: bool,
         allow_writes: bool,
         timeout_seconds: int,
