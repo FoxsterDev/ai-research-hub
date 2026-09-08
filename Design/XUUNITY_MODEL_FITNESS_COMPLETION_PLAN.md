@@ -2,6 +2,7 @@
 
 Status: ready-to-execute engineering plan.
 Parent design: `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md`.
+Execution prompt: [Technical design, implementation, review, and pilots](XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md).
 Scope: everything required to take the system from "measurement machine
 proven on synthetic corpora" (P0–P3 complete) to "live adoption grades for
 real model profiles and a gated live surface" (design P4 plus the
