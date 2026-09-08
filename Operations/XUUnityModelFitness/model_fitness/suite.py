@@ -359,11 +359,26 @@ def _summary(values: list[float]) -> dict[str, Any]:
     }
 
 
+def suite_profile_key(fixture_profile_keys: Mapping[str, str]) -> str:
+    """A cohort key binds task-specific strict keys without conflating tasks.
+
+    Legacy callers retain the single-key contract. New callers preregister the
+    complete mapping; they must not derive it by selecting successful runs.
+    """
+    import re
+
+    if not fixture_profile_keys or any(not re.fullmatch("[0-9a-f]{64}", key)
+                                       for key in fixture_profile_keys.values()):
+        raise SuiteError("invalid fixture profile key mapping")
+    return xc.domain_digest("xuunity.suite-profile-key.v1", {"fixture_profile_keys": dict(fixture_profile_keys)})
+
+
 def aggregate_suite(
     suite: dict[str, Any],
     attempts: list[dict[str, Any]],
     *,
     strict_profile_key: str,
+    fixture_profile_keys: Mapping[str, str] | None = None,
     f6_artifact: dict[str, Any] | None = None,
     f6_verification_keys: Mapping[str, bytes] | None = None,
 ) -> dict[str, Any]:
@@ -380,6 +395,11 @@ def aggregate_suite(
     the cohort rather than silently changing its denominator."""
     validate_suite(suite)
     known = {row["fixture_id"]: row for row in suite["fixtures"]}
+    if fixture_profile_keys is not None:
+        if set(fixture_profile_keys) != set(known):
+            raise SuiteError("fixture profile keys must cover the complete suite")
+        if strict_profile_key != suite_profile_key(fixture_profile_keys):
+            raise SuiteError("suite profile key does not bind fixture profile keys")
     _validate_attempt_schedule(suite, attempts, known)
     for attempt in attempts:
         if attempt.get("run_result") is not None:
@@ -560,7 +580,11 @@ def aggregate_suite(
     strict_keys = {
         a["run_result"]["strict_profile_key"] for a in eligible_attempts
     }
-    if not strict_keys:
+    if fixture_profile_keys is not None and eligible_attempts:
+        matched = [a["run_result"]["strict_profile_key"] == fixture_profile_keys[a["fixture_id"]]
+                   for a in eligible_attempts]
+        comparison_status = "exact" if all(matched) else "mixed" if any(matched) else "non_controlled"
+    elif not strict_keys:
         comparison_status = "non_controlled"
     elif strict_keys == {strict_profile_key}:
         comparison_status = "exact"
@@ -618,7 +642,7 @@ def aggregate_suite(
                     or suite_hash(suite),
                     expected_fixture_id=fixture_id,
                     expected_fixture_sha256=known[fixture_id]["fixture_sha256"],
-                    expected_strict_profile_key=strict_profile_key,
+                    expected_strict_profile_key=(fixture_profile_keys or {}).get(fixture_id, strict_profile_key),
                     expected_attempts=f6_rows,
                 )
             except f6.F6EvidenceError as error:
@@ -626,7 +650,7 @@ def aggregate_suite(
             f6_passed = all(
                 classes[row["attempt_id"]] == "eligible"
                 and row["run_result"]["strict_profile_key"]
-                == strict_profile_key
+                == (fixture_profile_keys or {}).get(fixture_id, strict_profile_key)
                 and row["run_result"]["measurement_state"]["outcome"]
                 == "valid_complete"
                 and row["run_result"]["band"] == "fit_candidate"
@@ -711,6 +735,7 @@ def aggregate_suite(
         "suite_hash": suite.get("suite_hash") or suite_hash(suite),
         "cohort_hash": cohort_hash(attempts),
         "strict_profile_key": strict_profile_key,
+        **({"fixture_profile_keys": dict(fixture_profile_keys)} if fixture_profile_keys is not None else {}),
         "scheduled_attempts": scheduled,
         "valid_count": len(valid_attempts),
         "eligible_count": len(eligible_attempts),

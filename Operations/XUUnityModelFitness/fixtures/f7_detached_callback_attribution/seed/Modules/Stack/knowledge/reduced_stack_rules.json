@@ -1,18 +1,13 @@
 {
-  "schema_version": "xuunity.reduced-stack-rules.v1",
-  "ruleset_id": "xuunity.fixture.f2-override-precedence",
-  "ruleset_version": "1.0.0",
   "override_path_templates": [
     "{project}/Overrides/{family}.md"
   ],
   "rules": [
     {
-      "id": "entrypoint",
       "description": "Stack entrypoint is always required.",
+      "human_owner": "{module}/tasks/start_here.md",
+      "id": "entrypoint",
       "priority": 10,
-      "selectors": {
-        "always": true
-      },
       "requirements": [
         {
           "id": "start",
@@ -20,39 +15,39 @@
           "paths": [
             "{module}/tasks/start_here.md"
           ],
-          "weight": 2,
-          "phase": "before_first_mutation"
+          "phase": "before_first_mutation",
+          "weight": 2
         }
       ],
       "risk": "baseline",
-      "human_owner": "{module}/tasks/start_here.md"
+      "selectors": {
+        "always": true
+      }
     },
     {
-      "id": "network_retry",
-      "description": "Retry/backoff work loads the network retry family and any existing project override of it.",
+      "description": "The fixture task requires scheduler ownership and causal attribution guidance.",
+      "human_owner": "{module}/skills/scheduler_timers.md",
+      "id": "scheduler_timers",
       "priority": 20,
-      "selectors": {
-        "keywords_any": [
-          "retry",
-          "backoff",
-          "telemetry"
-        ]
-      },
       "requirements": [
         {
-          "id": "guidance",
+          "id": "owner",
           "mode": "all_of",
           "paths": [
-            "{module}/skills/network_retry.md"
+            "{module}/skills/scheduler_timers.md"
           ],
-          "weight": 2,
-          "phase": "before_first_mutation"
+          "phase": "before_first_mutation",
+          "weight": 3
         }
       ],
-      "override_family": "network_retry",
       "risk": "high",
-      "human_owner": "{module}/skills/network_retry.md"
+      "selectors": {
+        "always": true
+      }
     }
   ],
-  "ruleset_hash": "379935216ae5c61551e01f46fce74f6d8667f88b1119695ec1ac81cb566f2c15"
+  "ruleset_hash": "8e4289ff6bf0570223d4b4524a062b9c3847a300cd605b5a8c93d4481a9dcf54",
+  "ruleset_id": "xuunity.fixture.f7-attribution",
+  "ruleset_version": "1.1.0",
+  "schema_version": "xuunity.reduced-stack-rules.v1"
 }

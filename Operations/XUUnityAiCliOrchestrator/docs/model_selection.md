@@ -17,4 +17,6 @@ Rules:
 - If a model override is unavailable, the provider should fail visibly rather
   than silently downgrade to API billing.
 - Model selection must not change auth policy.
-
+- Pass `--effort` only when the selected adapter supports it. Claude currently
+  accepts `low`, `medium`, `high`, `xhigh`, and `max`; invalid values fail before
+  launch and the selected effort is recorded in the normalized result.

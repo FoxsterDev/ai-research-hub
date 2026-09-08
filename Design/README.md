@@ -60,8 +60,8 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 | `XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md` | implemented | 5 | ✅ 100% (25/25 tests) | — done | Sets the commercial + security invariants for paid modules (entitlement-provider contract, license ≠ local flag, redaction boundary, capability tags). Errors here become product and security debt. |
 | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned | 5 | ⬜ ~5% (est.) | S · ~1d · Low | Parent safety policy (allowlist, deny-by-default, runtime-critical denylist, mandatory artifact + human gate) that makes *safe* autonomy possible — the most strategically important unbuilt direction.<br>**Left to 100%:** trim to a thin "policy north-star" after the 3 plans land; drop duplicated level/allowlist/gate detail. |
 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active | 5 | 🟡 ~85% (est.) | S · ~1–2d · Med | Lifts routing reliability from prompt-discipline to an enforceable, testable contract. The reliability core and the only path from ~82 to 95+. Executable layer built 2026-06-16: canonical `knowledge/execution_contract.md`, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass).<br>**Left to 100%:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
-| `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | active | 5 | 🟡 ~65% (P0–P3 built, 357 tests) | XL · ~3–4wk · High | Makes protocol delivery and exact model-surface suitability mechanically measurable without a universal full-stack gate. P0–P3 landed 2026-07-30: observer validity + null-score reprocessing, public `reduced_stack_resolver`/`loader`/`gate` + data-driven ruleset with self-hash conformance, deterministic public runner (`Operations/XUUnityModelFitness`), and the F2–F5 fixture corpus with red/green controls. Still produces **no numeric fitness**, because no attempt has ever been executed under the runner.<br>**Left to 100%:** W1 compile-receipt producer; **W2 one real end-to-end run** (blocks every score); W3 preregistered repeats/adoption matrix; W4 F6 blinded holdout (lifts the `fit_with_supervision` cap); W5 health-loop integration; W7 live-surface gate adoption. |
-| `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md` | active | 5 | 🟡 ~40% (W8 partial; W1–W7, W9 open) | L · ~1–2wk · High | Execution plan that carries the design above from P3 to finish: the W1–W9 work packages, their dependency order, and the 27-item end-to-end acceptance mapping. Its §1.2 is the honest open-state ledger (no numeric score anywhere, F1 compile lane unfed, F6 payload absent, live entrypoint unwired).<br>**Left to 100%:** execute W1 → W2 first (W2 unblocks all numbers), then W3/W4, W5 health integration, W7 staged live adoption, W9 knowledge loop. |
+| `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | active | 5 | Audited execution and bounded diagnostics delivered | Remaining: conformance, qualification and rollout | Public resolver/loader/gate, audited CLI executor, exact host compile receipts, durable schedules, reports, F6 authoring/exposure and experiment journals are integrated. Primary diagnostics, paired A/B and exact F1 compilation ran; a versioned task-oracle correction is validated retrospectively. Numeric fitness and advisory remain unavailable on hookless CLIs. See the completion decision record and plan for tested evidence and external gates. |
+| `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md` | active | 5 | Engineering integrated; remaining evidence gates explicit | Bounded pilots, then later qualification | Current W1–W9 state and links to the as-built decision record. Separates engineering, real diagnostics, model qualification and the fourteen-day observation window; the host ledger maps all 35 original criteria. |
 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active | 4 | 🟡 ~75% (est.) | S · ~1–2d · Low | Product-facing protocol layer for PMs/producers (explainers, change impact, rollout readiness, dependency maps). Product-critical, but a layer above the engineering core.<br>**Left to 100%:** build `protocols/flow_explainer.md` + `delivery_scope.md` (+ note formats), or trim them from the design. |
 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned | 4 | ⬜ ~5% (est.) | M · ~2–3d · Med | The executable L0–L4 ladder (act alone vs. need approval vs. stays human). Operationalizes the parent policy; the concrete next slice.<br>**Left to 100%:** `knowledge/autonomy_levels.md` (L0–L4) + autonomy hook/fields in `start_session.md`. |
 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned | 4 | ⬜ ~3% (est.) | M · ~2–3d · Med | The allowlist (A–F) + denylist that decides what is *actually* safe. Without it the level model is empty.<br>**Left to 100%:** `knowledge/low_risk_change_categories.md` (allowlist A–F) + `autonomy_exclusions.md` (denylist). |
@@ -79,7 +79,7 @@ cannot be trusted until item 1's P0 is complete.
 
 | # | Design | Status · Imp. · Impl. | What is left / next action |
 | :---: | --- | --- | --- |
-| 1 | `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` (+ `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md`) | active · 5 · 🟡 ~65% (P0–P3 built, 357 tests) | **P0–P3 done (2026-07-30):** observer validity + null-score reprocessing, public resolver/loader/gate + ruleset conformance, deterministic public runner, F2–F5 red/green corpus. **Next, in order:** W1 compile-receipt producer, then **W2 one real end-to-end run** — until W2 lands the system still yields no numeric fitness for any model surface. Then W3 repeats, W4 F6 holdout, W5 health integration, W7 live-surface adoption. |
+| 1 | `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` (+ `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md`) | active · 5 · audited execution integrated | Finish the fixed diagnostic cohort and artifact-only reports. Adoption remains gated on exact outbound conformance, qualified F6, sufficient repeats, supported-profile/host regression evidence and the later observation window. |
 | 2 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active · 5 · 🟡 ~85% (est.) | **Executable layer built (2026-06-16)** — canonical `knowledge/execution_contract.md` + de-duped 3 inline copies, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass). **Residual:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
 | 3 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned · 4 · ⬜ ~5% (est.) | First autonomy slice: create `knowledge/autonomy_levels.md` (L0–L4) + add the autonomy-level hook/fields to `start_session.md`'s execution contract. |
 | 4 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned · 4 · ⬜ ~3% (est.) | Create `knowledge/low_risk_change_categories.md` (allowlist A–F) + `knowledge/autonomy_exclusions.md` (denylist); precondition for any `L2` auto-route. |
@@ -121,7 +121,7 @@ so design history lives inside it.
 1. **Implemented (done, source of truth — no work pending):** module architecture, skills system, both
    halves of the paid-module overlay, external repos (dormant by design). The load-bearing frame; works end-to-end.
 2. **Active (in force, small gaps to finish):** root-cause routing (🟡 ~85% (est.)), product protocols (🟡 ~75% (est.)),
-   and the model-fitness / reduced-stack gate pair (🟡 ~65%, P0–P3 built with 357 tests; no real run yet).
+   and the model-fitness / reduced-stack gate pair (audited execution integrated; live diagnostics and explicit qualification gates).
 3. **Drafts (in progress, 🟡 30–50%):** topology bootstrap, tooling automation (`root-cause-95` advanced to active ~85% on 2026-06-16; see below).
 4. **Planned:** the low-risk autonomy family.
 5. **Archived (`./Archived/`):** four Workstream-3 generator prompts (`historical`) + the upstream-submodule tombstone (`legacy`).
@@ -180,16 +180,16 @@ These remain the canonical references for current behavior. The four importance-
   Pack A (portfolio metadata) is partially present (`xuunity system registry refresh` + `AIOutput/Registry/project_registry.yaml` + `Operations/router_storage_audit.py`).
   **Not built**: Pack B (Jira) and Pack D (GitLab/Bitbucket draft-PR); the `xuunity system jira|pr|unity` commands are wired nowhere; Pack E (orchestration) not started. *Registry corrected `active → draft`. (Backlog #8.)*
 
-### Planned — model fitness and reduced-stack gate
+### Model fitness and reduced-stack gate
 
-- **`XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md`** — importance
-  **5**, **🟡 ~20% (host prototype, est.)**. The host prototype proves that
-  fixture replay and transcript scoring are useful, but a 2026-07-29
-  independent audit found observer false negatives that invalidate its first
-  published model comparison. The implementation-ready design separates
-  obligation derivation, delivery evidence, mechanical gating, semantic
-  outcomes, and repeated model-surface fitness. *P0 observer validity and
-  corrected null-score diagnostics are Backlog #1.*
+The audited executor now connects content-addressed inputs, live compatibility
+calibration, immutable schedules, final-tree oracles, actual compiler receipts,
+artifact replay, separate health reporting and durable comparison accounting.
+The active completion record is
+`XUUNITY_MODEL_FITNESS_COMPLETION_TECHNICAL_DESIGN.md`. The historical 2026-07-29
+observer defects were corrected and their numerical scorecards superseded;
+they are not the current engineering bottleneck. Installed hookless surfaces
+still cannot provide numeric protocol fitness or advisory conformance.
 
 ### Planned — low-risk autonomy family (not started)
 
@@ -239,30 +239,22 @@ maturity. Reconciled in this update:
 | Tooling automation (MCP connectors) | 🟡 ~30% (est.), Unity only (draft) |
 | Topology / bootstrap profiles | 🟡 ~35% (est.) (draft) |
 | Root-cause routing → 95+ | 🟡 ~85% (est.) — prose + executable gate built (active) |
-| Model fitness + reduced-stack enforcement | 🟡 ~20% (host prototype, est.) — observer P0 and public gate not built (planned) |
+| Model fitness + reduced-stack enforcement | Audited executor and deterministic gate integrated; qualification and live advisory remain capability-gated. |
 | Low-risk autonomy | ⬜ ~5% (est.) (planned) |
 
 ### Current bottleneck and next step
 
-**Bottleneck:** model-fitness observer false negatives can currently turn
-proven stack delivery into `0%` and can move the apparent first-mutation
-boundary. Until P0 is fixed, model scores and a reduced-stack gate cannot be
-trusted. The autonomy lane remains an important downstream gap, but it should
-not be expanded on top of invalid compliance measurement.
-
-**Recommended next milestone (highest leverage):** complete P0 from
-`XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` (Backlog #1), correct
-preserved-evidence diagnostics with null scores, then build the public
-reduced-stack resolver/loader.
-
-**Next 3 deliverables:**
-1. Observer state taxonomy, real transcript regression cases, null-score
-   invalidity, and corrected supersession/diagnostic artifacts.
-2. Public reduced-stack rules/schema plus deterministic resolver and loader.
-3. Mechanical gate composition with `routing_gate_check.py`, followed by F2/F3
-   fixtures.
+The current Model Fitness path produces audited task outcomes, not adoption
+qualification. The bounded allocation and reproducible reports are delivered.
+The remaining gates are: a surface with verifiable outbound
+request and isolation capabilities, sufficient independent repeats, qualified
+F6, the supported-profile/host regression matrix and staged advisory telemetry.
+Do not turn an unsupported measurement into either a passing number or a low
+model score.
 
 ## Analysis Provenance & Review Notes
+
+- **2026-09-08 targeted completion refresh:** replaced stale Model Fitness readiness percentages and missing-runner claims with the integrated execution path and explicit evidence gates. Unrelated design assessments retain their original scope.
 
 - **Author:** `xuunity system progress review`, 2026-06-16. This pass also introduced the
   `implemented` status, moved 5 retired docs into `./Archived/`, and added the Priority Backlog.

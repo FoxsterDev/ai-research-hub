@@ -10,15 +10,33 @@ on:
 
 jobs:
   xuunity-protocol:
-    name: XUUnity protocol
-    runs-on: ubuntu-latest
+    name: XUUnity protocol and fitness (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
       - name: Run XUUnity protocol validation
         run: bash scripts/testing/run_xuunity_protocol_tests.sh
+
+      - name: Reject tracked byte or generated-file drift
+        run: git diff --exit-code
 
   setup-smoke:
     name: ${{ matrix.os }}

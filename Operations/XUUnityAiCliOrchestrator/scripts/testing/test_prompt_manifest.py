@@ -20,6 +20,7 @@ class PromptManifestTests(unittest.TestCase):
 external_ai:
   provider: claude_cli
   model: best_available
+  effort: xhigh
   authPolicy: official_login_only
   apiBilling: forbidden
   web: allowed
@@ -34,6 +35,7 @@ Body
         self.assertTrue(control.external_ai_allowed)
         self.assertEqual(control.provider, "claude_cli")
         self.assertEqual(control.model, "best_available")
+        self.assertEqual(control.effort, "xhigh")
         self.assertEqual(control.web, "allowed")
         self.assertEqual(control.writes, "forbidden")
         self.assertEqual(control.delegation_mode, "auto_phased")
@@ -43,6 +45,16 @@ Body
     def test_no_marker_is_not_allowed(self):
         control = runner.parse_prompt_control("Do the task.")
         self.assertFalse(control.external_ai_allowed)
+
+    def test_invalid_effort_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "effort must be"):
+            runner.parse_prompt_control("""---
+external_ai:
+  provider: claude_cli
+  effort: ultra
+---
+Body
+""")
 
     def test_via_claude_selects_claude_provider(self):
         control = runner.parse_prompt_control("xuunity fix the bug via claude\n\nDetails.")
