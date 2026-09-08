@@ -671,7 +671,17 @@ def parse_diff(diff_text: str) -> dict[str, list[str]]:
     files: dict[str, list[str]] = {}
     current: str | None = None
     for line in diff_text.splitlines():
-        if line.startswith("+++ b/"):
+        if line.startswith("diff --git "):
+            try:
+                operands = shlex.split(line)
+            except ValueError:
+                operands = []
+            if len(operands) == 4 and operands[3].startswith("b/"):
+                current = operands[3][2:]
+                files.setdefault(current, [])
+                if operands[2].startswith("a/") and operands[2][2:] != current:
+                    files.setdefault(operands[2][2:], [])
+        elif line.startswith("+++ b/"):
             current = line[6:]
             files.setdefault(current, [])
         elif line.startswith("+++ /dev/null"):

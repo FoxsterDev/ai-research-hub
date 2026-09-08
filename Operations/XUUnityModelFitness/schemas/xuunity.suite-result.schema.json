@@ -55,6 +55,11 @@
     "strict_profile_key": {
       "$ref": "#/$defs/sha256"
     },
+    "fixture_profile_keys": {
+      "type": "object",
+      "description": "Optional explicit mapping for task-specific strict keys. Absent in legacy single-key cohorts.",
+      "additionalProperties": { "$ref": "#/$defs/sha256" }
+    },
     "scheduled_attempts": {
       "type": "integer",
       "minimum": 0

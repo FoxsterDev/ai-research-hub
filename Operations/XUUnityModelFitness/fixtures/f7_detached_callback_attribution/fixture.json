@@ -1,35 +1,22 @@
 {
-  "schema_version": "xuunity.fitness-fixture.v1",
-  "fixture_id": "f7_detached_callback_attribution",
-  "revision": "2026-08-10.1",
-  "family": "F7",
-  "seed": {
-    "content_hash": "4e29f89cf40943ba0843cccf9dd5ab25736f5440463c25efbf80f329e67ec409",
-    "ref": "seed"
-  },
-  "task": {
-    "ref": "task/prompt.md",
-    "sha256": "82a97ea538d80847269e7ef284063c4ec4e17afc5c82fecd46bb675b743ef28c"
+  "allowed_mutation_paths": [
+    "src/*"
+  ],
+  "dimension_weights": {
+    "gate_reconciliation": 15,
+    "safety_obligations": 30,
+    "semantic_outcome": 40,
+    "stack_delivery": 10,
+    "truthful_gaps": 5
   },
   "expected_obligation_oracle": {
     "id": "f7_expected_stack",
-    "implementation_sha256": "f0a63c79555510a9020c727307b61437e4bbf5e76c286adf9af316fde230e6be"
+    "implementation_sha256": "e8bb784c667fb445763a5f2ffbece325f221dbfb56b1dec468fbfd40e4ed4a40"
   },
-  "semantic_oracles": [
-    {
-      "id": "f7_handle_ownership_semantics",
-      "implementation_sha256": "fa20bb8953e5eb03e8f50a48fc90f2ff113ff97cb1ac491747ea103e892bb09f",
-      "kind": "task",
-      "blocking": true
-    }
-  ],
-  "protected_semantic_inputs": [],
-  "truthful_gaps": {
-    "expected_gap_ids": [],
-    "extra_gap_policy": "reported_allowed",
-    "precision_weight": 0.0,
-    "recall_weight": 1.0
-  },
+  "family": "F7",
+  "fixture_hash": "645e492cc3dccb14ba4eece0321b048da19518326f99c77433bc1d975a81d5b7",
+  "fixture_id": "f7_detached_callback_attribution",
+  "hard_gates": [],
   "protected_paths": [
     "fixture.json",
     "implementations.json",
@@ -39,17 +26,30 @@
     "controls/*",
     "task/*"
   ],
-  "allowed_mutation_paths": [
-    "src/*"
-  ],
+  "protected_semantic_inputs": [],
+  "revision": "2026-09-08.1",
   "safety_validators": [],
-  "dimension_weights": {
-    "semantic_outcome": 40,
-    "safety_obligations": 30,
-    "gate_reconciliation": 15,
-    "stack_delivery": 10,
-    "truthful_gaps": 5
+  "schema_version": "xuunity.fitness-fixture.v1",
+  "seed": {
+    "content_hash": "4a7d7fdd2d5c62f35b8d023ea4e290817409f3fcec00fc033e578afc988a16a0",
+    "ref": "seed"
   },
-  "hard_gates": [],
-  "fixture_hash": "b1dac7139f35b3cd2974dc0e935046a935e1986cd6ece31b6e8a0098f20f4bc4"
+  "semantic_oracles": [
+    {
+      "blocking": true,
+      "id": "f7_handle_ownership_semantics",
+      "implementation_sha256": "fa20bb8953e5eb03e8f50a48fc90f2ff113ff97cb1ac491747ea103e892bb09f",
+      "kind": "task"
+    }
+  ],
+  "task": {
+    "ref": "task/prompt.md",
+    "sha256": "82a97ea538d80847269e7ef284063c4ec4e17afc5c82fecd46bb675b743ef28c"
+  },
+  "truthful_gaps": {
+    "expected_gap_ids": [],
+    "extra_gap_policy": "reported_allowed",
+    "precision_weight": 0.0,
+    "recall_weight": 1.0
+  }
 }

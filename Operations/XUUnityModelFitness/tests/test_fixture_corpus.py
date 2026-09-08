@@ -324,6 +324,7 @@ class F2OverridePrecedenceTests(unittest.TestCase):
                 self.fixture,
                 events=events,
                 run_id="f2-honest",
+                f0_calibration_passed=True,
                 manifest=manifest,
                 tree=tree,
                 diff_text=diff,
@@ -618,6 +619,7 @@ class F8ReviewProportionalityTests(unittest.TestCase):
                     self.fixture,
                     events=events,
                     run_id=run_id,
+                    f0_calibration_passed=True,
                     manifest=manifest,
                     tree=tree,
                 )
@@ -818,6 +820,7 @@ class F5AdversarialBypassTests(unittest.TestCase):
                 self.fixture,
                 events=events,
                 run_id=case["attack_id"],
+                f0_calibration_passed=True,
                 adapter=case["adapter"],
                 manifest=self.manifest,
                 tree=tree,
