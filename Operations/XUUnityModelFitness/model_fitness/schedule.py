@@ -100,7 +100,7 @@ def comparison_contract(plan: dict, suite_document: dict) -> dict:
 
 def claim(plan: dict[str, Any], attempt_id: str, *, profile_hash: str, input_hash: str,
           seed_identity: str | None = None, fixture_id: str | None = None,
-          kind: str | None = None) -> tuple[dict[str, Any], Path]:
+          kind: str | None = None, workspace: Path | None = None) -> tuple[dict[str, Any], Path]:
     validate(plan)
     rows = plan["attempts"]
     if plan["max_model_launches"] != len(rows):
@@ -111,6 +111,8 @@ def claim(plan: dict[str, Any], attempt_id: str, *, profile_hash: str, input_has
     if any(value is not None and row[key] != value for key, value in
            (("seed_identity", seed_identity), ("fixture_id", fixture_id), ("kind", kind))):
         raise ValueError("launch_allocation_mismatch")
+    if workspace is not None and row.get("workspace_ref") and Path(row["workspace_ref"]).resolve() != workspace.resolve():
+        raise ValueError("launch_workspace_allocation_mismatch")
     root = Path(plan["journal_root"])
     root.mkdir(parents=True, exist_ok=True)
     anchor = root / "schedule.json"

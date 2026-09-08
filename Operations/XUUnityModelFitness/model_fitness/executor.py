@@ -430,7 +430,7 @@ def run(
         raise ValueError(auth["reason"])
     claim, evidence = schedule.claim(plan, attempt_id, profile_hash=installed["record_hash"],
                                     input_hash=prepared["record_hash"], seed_identity=prepared["seed_identity"],
-                                    fixture_id=prepared["fixture"]["fixture_id"], kind="fixture")
+                                    fixture_id=prepared["fixture"]["fixture_id"], kind="fixture", workspace=workspace)
     meta = {"status": "failed", "started": processes.timestamp(), "exit_code": None}
     try:
         records.write(evidence / "installed-profile.json", installed, exclusive=True)
@@ -600,7 +600,7 @@ def recover(plan: dict, attempt_id: str) -> dict:
             if "/" in name or "\\" in name or xc.sha256_file(evidence / name) != digest:
                 raise ValueError("f0_raw_evidence_changed")
         artifact = evidence / "calibration.json"
-        owner = "measurement_system" if "calibration_local_failure" in result["reason_codes"] else None
+        owner = (result.get("cause") or {}).get("owner")
     else:
         # Even a crash before input publication remains in the denominator.
         # Do not depend on mutable preparation files to diagnose that crash.

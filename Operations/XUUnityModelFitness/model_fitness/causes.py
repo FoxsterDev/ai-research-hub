@@ -23,7 +23,7 @@ def classify(meta: dict[str, Any], reasons: Iterable[str], *, evaluator_error: b
         owners.add("environment")
     if meta.get("launch_error"):
         owners.add("environment")
-    if not owners and any(reason.endswith(("_unavailable", "_unobserved", "_unenforced")) for reason in reasons):
+    if not owners and meta.get("status") in {None, "completed"} and any(reason.endswith(("_unavailable", "_unobserved", "_unenforced")) for reason in reasons):
         owners.add("environment")
     if not owners and meta.get("status") not in {None, "completed"}:
         owners.add("unattributed")
