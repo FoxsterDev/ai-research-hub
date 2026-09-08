@@ -78,6 +78,7 @@ def diagnostic_report(plan: dict, *, suite_result: dict | None = None) -> dict[s
                     raise ValueError("calibration_artifact_changed")
             row["calibration"] = {k: calibration[k] for k in
                                   ("diagnostic_compatible", "score_eligible", "reason_codes")}
+            row["cause"] = (calibration.get("cause") or {}).get("owner")
         if (evidence / "process.json").exists():
             process = records.read(evidence / "process.json")
             row["execution"] = {k: process.get(k) for k in

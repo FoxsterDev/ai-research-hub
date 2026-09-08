@@ -12,7 +12,7 @@ from typing import Any
 
 import xuunity_canonical as xc
 
-from . import OPERATION_DIR, MODULE_SCRIPTS_DIR, adapters, fixtures, processes, profiles, records, schedule
+from . import OPERATION_DIR, MODULE_SCRIPTS_DIR, adapters, causes, fixtures, processes, profiles, records, schedule
 
 CANARY_GUIDANCE = "# F0 calibration\nSet Probe.Value to 7 after reading this whole file.\n"
 CANARY_SOURCE = "public static class Probe { public const int Value = 0; }\n"
@@ -45,6 +45,7 @@ def identity(installed: dict[str, Any]) -> dict[str, str]:
 
 
 def run(installed: dict[str, Any], plan: dict[str, Any], attempt_id: str, *, workspace: Path) -> dict[str, Any]:
+    workspace = Path(workspace).resolve()
     profiles.verify(installed)
     records.disjoint(workspace, Path(plan["journal_root"]))
     if Path(workspace).exists():
@@ -53,7 +54,7 @@ def run(installed: dict[str, Any], plan: dict[str, Any], attempt_id: str, *, wor
     if not auth["ready"]:
         raise ValueError(auth["reason"])
     claim, output = schedule.claim(plan, attempt_id, profile_hash=installed["record_hash"], input_hash=input_hash(),
-                                   seed_identity=input_hash(), fixture_id="f0_cli_canary", kind="calibration")
+                                   seed_identity=input_hash(), fixture_id="f0_cli_canary", kind="calibration", workspace=workspace)
     record: dict[str, Any] = {
         "schema_version": "xuunity.f0-calibration.v1", "attempt_id": attempt_id,
         "identity": identity(installed), "created": processes.timestamp(),
@@ -118,10 +119,12 @@ def run(installed: dict[str, Any], plan: dict[str, Any], attempt_id: str, *, wor
         record["error_type"] = type(error).__name__
     record["raw_artifact_hashes"] = {p.name: xc.sha256_file(p) for p in output.iterdir() if p.is_file()}
     record["reason_codes"] = sorted(set(record["reason_codes"]))
+    record["cause"] = causes.classify(record.get("process", {}), record["reason_codes"],
+                                      evaluator_error="calibration_local_failure" in record["reason_codes"])
     record = records.seal(record)
     records.write(output / "calibration.json", record, exclusive=True)
     schedule.finish(plan, output, result_hash=record["record_hash"],
-                    cause_owner="measurement_system" if "calibration_local_failure" in record["reason_codes"] else None)
+                    cause_owner=record["cause"]["owner"])
     return record
 
 

@@ -81,6 +81,7 @@ class JournalTests(unittest.TestCase):
                  ({}, [], True, "measurement_system"),
                  ({}, ["provider_api_error"], True, "unattributed"),
                  ({"timed_out": True}, [], False, "unattributed"),
+                 ({"status": "failed"}, ["request_boundary_unavailable"], False, "unattributed"),
                  ({"status": "completed"}, [], False, None)]
         for meta, reasons, evaluator, expected in cases:
             with self.subTest(meta=meta, reasons=reasons, evaluator=evaluator):
@@ -169,6 +170,8 @@ class WorkflowTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "scheduled_preparation_changed"):
                 executor.run_schedule(broken)
             self.assertFalse((root / "journal").exists(), "the whole roster must be checked before its first launch")
+            calibrated_relative = calibration.run(installed, plan, "f0", workspace=Path(os.path.relpath(root / "f0-workspace")))
+            self.assertTrue(calibrated_relative["diagnostic_compatible"], "relative cwd must be resolved before entering the workspace")
             self.assertEqual(["finished", "finished"], [r["status"] for r in executor.run_schedule(plan)])
             calibrated = records.read(root / "journal/f0/calibration.json")
             self.assertTrue(calibrated["diagnostic_compatible"], calibrated)
