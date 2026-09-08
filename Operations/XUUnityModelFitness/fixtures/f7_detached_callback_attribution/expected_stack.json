@@ -6,13 +6,13 @@
       "group_id": "scheduler_timers.owner",
       "mode": "all_of",
       "weight": 3,
-      "members": ["skills/scheduler_timers.md"],
+      "members": ["Modules/Stack/skills/scheduler_timers.md"],
       "phase": "before_first_mutation"
     }
   ],
   "artifacts": [
     {
-      "path": "skills/scheduler_timers.md",
+      "path": "Modules/Stack/skills/scheduler_timers.md",
       "effective_owner": null
     }
   ]

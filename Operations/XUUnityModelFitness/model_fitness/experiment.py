@@ -131,7 +131,7 @@ def _verified_f6_hashes(
                 expected_suite_id=result["suite_id"],
                 expected_suite_sha256=result["suite_hash"],
                 expected_fixture_id=str(evidence["fixture_id"]),
-                expected_strict_profile_key=result["strict_profile_key"],
+                expected_strict_profile_key=result.get("fixture_profile_keys", {}).get(str(evidence["fixture_id"]), result["strict_profile_key"]),
             )
         except f6.F6EvidenceError as error:
             raise ExperimentError(str(error)) from error
