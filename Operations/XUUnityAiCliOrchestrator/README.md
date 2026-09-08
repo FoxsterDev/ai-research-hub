@@ -94,6 +94,9 @@ bash Operations/XUUnityAiCliOrchestrator/xuunity_ai_cli_orchestrator.sh provider
 bash Operations/XUUnityAiCliOrchestrator/xuunity_ai_cli_orchestrator.sh run \
   --project-root /absolute/project \
   --prompt-file /absolute/task.md \
+  --provider claude_cli \
+  --model claude-opus-5 \
+  --effort xhigh \
   --delegation-mode auto_phased \
   --max-phases 6 \
   --max-phase-seconds 600
@@ -130,6 +133,7 @@ Block form:
 external_ai:
   provider: claude_cli
   model: best_available
+  effort: xhigh
   authPolicy: official_login_only
   apiBilling: forbidden
   web: forbidden
@@ -141,6 +145,9 @@ external_ai:
 
 If no external AI provider is ready, the runner reports
 `external_ai_status: unavailable`. XUUnity can then continue locally.
+Explicit effort is supported by adapters that can prove the corresponding CLI
+flag. The current Claude CLI accepts `low`, `medium`, `high`, `xhigh`, and `max`;
+an unsupported value or provider fails before launch.
 
 ## Worker Report
 

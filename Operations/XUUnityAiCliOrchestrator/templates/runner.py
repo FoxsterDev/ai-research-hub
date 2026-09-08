@@ -25,6 +25,7 @@ from providers.provider_contract import ProviderAdapter, ProviderStatus
 SCHEMA_VERSION = "xuunity.ai-cli-orchestrator.config.v1"
 RESULT_SCHEMA_VERSION = "xuunity.ai-cli-orchestrator.result.v1"
 DELEGATION_MODES = {"auto_phased", "single_run", "phase_plan_only"}
+EFFORT_LEVELS = {"low", "medium", "high", "xhigh", "max"}
 WORKER_REPORT_CONTRACT = [
     "Delegation contract:",
     "The external AI worker owns task execution, evidence collection, first-pass interpretation, and the final worker report.",
@@ -119,6 +120,7 @@ class PromptControl:
     external_ai_allowed: bool
     provider: str = ""
     model: str = "best_available"
+    effort: str = ""
     auth_policy: str = ""
     api_billing: str = "forbidden"
     web: str = "forbidden"
@@ -210,6 +212,13 @@ def normalize_delegation_mode(value: str, default: str = "auto_phased") -> str:
     return normalized if normalized in DELEGATION_MODES else default
 
 
+def normalize_effort(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized and normalized not in EFFORT_LEVELS:
+        raise ValueError("effort must be low, medium, high, xhigh, or max")
+    return normalized
+
+
 def parse_prompt_control(text: str) -> PromptControl:
     lines = text.splitlines()
     metadata_lines: list[str] = []
@@ -259,6 +268,8 @@ def parse_prompt_control(text: str) -> PromptControl:
                 control.provider = value
             elif normalized_key == "model":
                 control.model = value or "best_available"
+            elif normalized_key == "effort":
+                control.effort = normalize_effort(value)
             elif normalized_key == "authpolicy":
                 control.auth_policy = value
             elif normalized_key == "apibilling":
@@ -596,6 +607,11 @@ def run_prompt(args: argparse.Namespace) -> int:
         return 0
 
     requested_model = args.model or control.model or str(default_policy.get("modelPreference") or "best_available")
+    requested_effort = normalize_effort(
+        args.effort or control.effort or str(default_policy.get("effortPreference") or "")
+    )
+    if requested_effort and not adapter.supports_effort():
+        raise ValueError(f"{adapter.provider_id} does not support explicit effort selection")
     delegation_mode = normalize_delegation_mode(
         args.delegation_mode or control.delegation_mode or str(default_policy.get("delegationMode") or "auto_phased")
     )
@@ -627,6 +643,7 @@ def run_prompt(args: argparse.Namespace) -> int:
             prompt=policy_prompt,
             project_root=project_root,
             model=requested_model,
+            effort=requested_effort,
             allow_web=web_allowed,
             allow_writes=writes_allowed,
             timeout_seconds=int(args.timeout_seconds),
@@ -637,6 +654,7 @@ def run_prompt(args: argparse.Namespace) -> int:
             "external_ai_status": "error",
             "selected_provider": adapter.provider_id,
             "selected_model": requested_model,
+            "selected_effort": requested_effort or None,
             "auth_policy": default_policy.get("authPolicy"),
             "cost_mode": status.cost_mode,
             "api_billing_allowed": api_billing_allowed,
@@ -668,6 +686,7 @@ def run_prompt(args: argparse.Namespace) -> int:
         "external_ai_status": result.external_ai_status,
         "selected_provider": adapter.provider_id,
         "selected_model": result.model,
+        "selected_effort": requested_effort or None,
         "auth_policy": default_policy.get("authPolicy"),
         "cost_mode": status.cost_mode,
         "api_billing_allowed": api_billing_allowed,
@@ -720,6 +739,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--external-ai", choices=["allowed", "forbidden"], default="", help="Runtime opt-in override.")
     run.add_argument("--provider", default="", help="Provider override.")
     run.add_argument("--model", default="", help="Model override. Use best_available by default.")
+    run.add_argument("--effort", choices=sorted(EFFORT_LEVELS), default="", help="Provider effort override when supported.")
     run.add_argument("--allow-web", action="store_true", help="Runtime web allowance; prompt must also allow it.")
     run.add_argument("--allow-writes", action="store_true", help="Runtime write allowance; prompt and config must also allow it.")
     run.add_argument("--allow-api-billing", action="store_true", help="Runtime API billing allowance; prompt and config must also allow it.")

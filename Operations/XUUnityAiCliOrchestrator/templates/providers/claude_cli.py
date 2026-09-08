@@ -24,6 +24,9 @@ class ClaudeCliAdapter(ProviderAdapter):
     def can_enforce_access(self, allow_writes: bool) -> bool:
         return True
 
+    def supports_effort(self) -> bool:
+        return True
+
     def doctor(self) -> ProviderStatus:
         command = find_command(self.command_name)
         warnings: list[str] = []
@@ -177,6 +180,7 @@ class ClaudeCliAdapter(ProviderAdapter):
         prompt: str,
         project_root: Path,
         model: str,
+        effort: str,
         allow_web: bool,
         allow_writes: bool,
         timeout_seconds: int,
@@ -190,6 +194,10 @@ class ClaudeCliAdapter(ProviderAdapter):
             prompt,
             "--model",
             resolved_model,
+        ]
+        if effort:
+            args.extend(["--effort", effort])
+        args.extend([
             "--permission-mode",
             str(self.config.get("permissionMode") or "bypassPermissions"),
             "--allowedTools",
@@ -206,7 +214,7 @@ class ClaudeCliAdapter(ProviderAdapter):
             "Bash(git log*)",
             "Bash(git branch*)",
             "Bash(git rev-parse*)",
-        ]
+        ])
 
         if allow_web:
             args.extend(["WebSearch", "WebFetch"])
