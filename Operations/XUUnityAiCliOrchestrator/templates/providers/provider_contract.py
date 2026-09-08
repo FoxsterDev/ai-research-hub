@@ -125,6 +125,7 @@ class ProviderAdapter:
         prompt: str,
         project_root: Path,
         model: str,
+        effort: str,
         allow_web: bool,
         allow_writes: bool,
         timeout_seconds: int,
@@ -132,6 +133,9 @@ class ProviderAdapter:
         raise NotImplementedError
 
     def can_enforce_access(self, allow_writes: bool) -> bool:
+        return False
+
+    def supports_effort(self) -> bool:
         return False
 
     def base_capabilities(self) -> list[str]:
