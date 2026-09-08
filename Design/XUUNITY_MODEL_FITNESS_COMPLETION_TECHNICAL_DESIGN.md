@@ -1,15 +1,15 @@
 # Model Fitness completion: execution decision record
 
-Status: implementation in progress. Evidence date: 2026-09-08 UTC.
+Status: engineering and bounded diagnostic allocation complete; qualification and rollout remain open. Evidence date: 2026-09-08 UTC.
 Authority: `XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`.
 This record distinguishes engineering, diagnostic pilots, qualification, and rollout.
 
 ## Baseline and review checkpoint 1
 
 The public baseline is revision `3fb4b640716641119e5cf28d66a0ef6e9522337a`.
-Fresh validation ran 178 operation tests (two OS-probe skips), 174 module tests
-(no skips), and 67 reference-host tests (three unavailable raw-transcript
-replays). These are test counts, not evidence of live model fitness. The host
+Fresh baseline validation collected 178 operation tests (176 passed, two
+OS-probe skips), 174 module tests (all passed), and 67 reference-host tests
+(64 passed, three unavailable raw-transcript replays). These are test counts, not evidence of live model fitness. The host
 and public operation are separate isolated task checkouts; neither is a link
 to an active source checkout.
 
@@ -25,7 +25,7 @@ to an active source checkout.
 | W8 delivery | partial | Components already have committed history; extend the existing OS CI matrix and pin tested executor revisions. |
 | W9 knowledge | partial | Public ruleset probes and integration instructions exist; add host probes and a durable stale-baseline/pending-smoke hook. |
 
-The reviewed code has four material gaps. First, `evaluate_run` defaults
+At the initial checkpoint, the reviewed code had four material gaps. First, `evaluate_run` defaults
 `f0_calibration_passed=True`, so an omitted argument can authorize scoring.
 Second, its hand-authored fixture groups are evaluated without the public
 derive/check/reconcile pipeline. Third, it supplies empty execution metadata
@@ -39,7 +39,7 @@ Code-review judgment for this integration path: 56/100, 34 below the 90-point
 target, medium confidence. Dimension contributions: correctness 10/20,
 ownership 11/15, resilience 8/15, boundary integrity 8/15, validation 8/15,
 operability 4/10, maintainability 7/10. The deterministic components are useful,
-but no integrated live path currently justifies operator confidence. These are
+but the then-unintegrated live path did not justify operator confidence. These are
 engineering review judgments and must never enter the model-fitness score.
 
 ## Ownership and selected shape
@@ -72,7 +72,9 @@ remain audited even if an outer sandbox passes read/write probes.
 3. Verify fixture document, task, seed and implementation hashes. Copy the seed
    into an attempt-owned directory and reject path aliases, special files and
    workspace/protected-root overlap. Build the task envelope, derive obligations
-   and construct the loader bundle. Bundle construction does not prove delivery.
+   and construct the loader bundle. Freeze host helper bytes in preparation v2;
+   replay validates that archive without executing it, while launch also checks
+   the live helper. Bundle construction does not prove delivery.
 4. Persist a complete schedule before launching: ordered attempt/fixture/profile
    identities, seed allocation, replicate blocks, timeout, aggregate ceiling,
    and stop rule. Create each launch claim exclusively before spawning. A
@@ -81,6 +83,7 @@ remain audited even if an outer sandbox passes read/write probes.
    stdout, stderr, exit status, terminal events, usage and observed mutations.
    Treat missing/truncated/unknown events as measurement limitations. Probe the
    exact supported execution policy; a probe for another policy gives no credit.
+   Declare that the workspace is a source snapshot and the parent owns compilation.
 6. Stop the process group before capturing the final tree. Preserve the full
    tree and base-to-final changes, including committed changes. Keep intermediate
    mutation events; an audited CLI cannot claim unobserved transient writes were
@@ -88,7 +91,10 @@ remain audited even if an outer sandbox passes read/write probes.
 7. Verify and materialize the captured tree independently. Execute blocking
    oracles there. The compile producer must consume that materialization with
    the permitted host Unity route and check source identity before and after.
-   Persist toolchain, target, defines, diagnostics hash and exact tree identity.
+   Bind the full capture and the declared source projection separately; generated
+   caches are excluded only from the compiler copy. Use bounded licensing
+   preflight and the existing host lane fallback. Persist toolchain, targets,
+   defines, diagnostics and source identity before/after compilation.
 8. Score through the existing evaluator with actual execution metadata and
    verified calibration. Unsupported delivery cannot earn numeric credit. Bind
    all evidence to protected provenance after the model process ends. Aggregate
@@ -98,7 +104,10 @@ remain audited even if an outer sandbox passes read/write probes.
 ## Identity, failure and recovery
 
 Comparison identity uses existing content and strict-profile keys, not temporary
-Git commits or directory names. Engine, parser, ruleset, oracle, toolchain and
+Git commits or directory names. Reject workspaces beneath another Git or
+automatic-instruction root; an ordinary nested folder otherwise inherits
+unregistered parent context. This check does not enforce a read namespace.
+Engine, launcher, parser, ruleset, oracle, toolchain and
 protocol drift invalidate the corresponding comparison. Moving aliases and
 unobserved backend revisions cannot be controlled repeats. Preserve requested
 and observed model identity separately.
@@ -119,20 +128,18 @@ a disposable worktree, or the mere presence of a sandbox binary.
 
 ## Pilots, validation and rollout
 
-The installed reference CLI inventory is Codex 0.153.0-alpha.5 and Claude Code
-2.1.147. Codex official account login is confirmed. Claude authentication is
-not yet established: the first check timed out. Both exposed CLI contracts lack
-a verified outbound-request receipt; no new transport mechanism is planned.
+The installed reference inventory is Codex 0.153.0-alpha.5 and Claude Code 2.1.147.
+Both reported local subscription login; the actual secondary request returned
+OAuth 401. Local status is not proof a token remains usable. Both CLI contracts
+lack a verified outbound-request receipt; no transport proxy is planned.
 Installed help and live evidence take precedence over historical model names.
 
-Persist exact host pilot manifests before any launch. Start with one primary
-profile and one canary, then the real host compile path. The bounded primary
-plan targets F1/F2/F4 three times each, one F7 attribution case, and two paired
-protocol A/B replicates. Add three real-ruleset task cases for gate conformance.
-Set explicit launch and wall-time ceilings; never infer a dollar allowance.
-Stop on an evaluator defect, exhausted budget, or attempts that cannot answer
-a new question. Retain affected schedules; fixes require a new engine identity
-and a separately identified schedule, never replacement rows.
+The bounded pilot initially targeted three repeats of F1/F2/F4, a targeted
+incident task and paired A/B. Actual failures required smaller, separately
+identified schedules within twenty total launch claims. Relative-cwd,
+parent-context, compiler-cache and preflight defects retain their original rows.
+Two paired A/B replicates and the final diagnostic allocation completed. Fixed manifests bind every prior launch and stop/censor
+condition. No dollar allowance is inferred, and failed rows are never replaced.
 
 Validation progresses from existing tests and every authored control (including
 all F5 attacks), through the first real vertical slice, to fixed cohorts and
@@ -153,3 +160,25 @@ returns to the prior route; audited blocking additionally requires the declared
 observation window and false-block budget. This task cannot manufacture two
 weeks of telemetry. Local tested commits are authorized; remote publication,
 merging and production application remain distinct actions.
+
+## Implemented checkpoint
+
+The tested public executor is pinned at `cbad984`; calibration also binds launcher
+code. Replay v2 tolerates a later live-helper edit only through its unchanged
+frozen archive; legacy v1 still needs original helper paths. Actual changed F1
+source passed six Unity cells through the corrected producer. The earlier capture's
+publication remains unverified by the current oracle; the final capture passes the
+separate revision-4 check described below. An unchanged-toolchain receipt validated
+the full-capture/source-projection binding. The separate final
+review also caught CRLF fixture drift and an unsupported preflight flag; real Git
+filter and MCP parser controls cover both. Historical results remain traceable.
+Routing controls cover three host cases and an omitted override. A/B is
+inconclusive; holdout qualification and live conformance remain unavailable.
+Current evidence and all 35 criteria live in the host acceptance ledger.
+
+Final evidence review identified a task-oracle false negative for a local capture
+alias with paired volatile publication. The host retains the original fixture and
+adds revision 4 with eight independent controls, consumed-accessor checks and
+explicitly unverified unsupported forms. The final retained tree passes that
+corrected task check and its exact compiler receipt. No original cohort row was
+replaced; a fresh live revision-4 cohort remains a later authorized measurement.

@@ -293,6 +293,13 @@ stays I-JSON integer-only.
   final-tree compile receipts bind toolchain, targets/defines, diagnostics and
   unchanged source identity. A successful compile cannot override a failed task
   oracle. Host validation routes and evidence remain host-owned.
+- Preparation v2 freezes host implementation dependencies for artifact replay.
+  Launch still checks the current helper bytes; replay verifies the frozen bytes
+  without executing them. Historical v1 preparations still require their original
+  host files. The recorded engine revision remains required in both versions.
+- The model receives explicit source-snapshot and allowed-path context. A declared
+  compile oracle belongs to the parent evaluator. The host may compile a declared
+  source projection, but must retain the full captured tree and bind both hashes.
 - The schedule now binds actual exclusive launch claims, per-row seeds, order,
   timeouts and a total launch window. Every row stays counted. Local artifact
   recovery is safe only after process liveness and evidence integrity checks;
