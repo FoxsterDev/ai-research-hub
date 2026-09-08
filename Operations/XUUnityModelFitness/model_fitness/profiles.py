@@ -26,6 +26,18 @@ def environment() -> tuple[dict[str, str], str]:
     return values, identity
 
 
+def verify_workspace_boundary(workspace: Path) -> None:
+    """Avoid inheriting another checkout's Git root or automatic instructions.
+
+    This is routing isolation, not an OS read boundary. Global/runtime context
+    remains unverified and cannot receive delivery or holdout credit.
+    """
+    markers = (".git", "AGENTS.md", "AGENTS.override.md", "CLAUDE.md", "CLAUDE.local.md", ".agents/skills")
+    for parent in Path(workspace).resolve().parents:
+        if any((parent / name).exists() or (parent / name).is_symlink() for name in markers):
+            raise ValueError("workspace_inherits_parent_repository_or_guidance")
+
+
 def engine_identity() -> str:
     paths = sorted((OPERATION_DIR / "model_fitness").glob("*.py"))
     paths += sorted(MODULE_SCRIPTS_DIR.glob("*.py"))

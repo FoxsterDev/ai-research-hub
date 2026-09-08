@@ -51,6 +51,18 @@ def row(identity: str, *, order: int = 0, kind: str = "fixture", input_hash: str
 
 
 class JournalTests(unittest.TestCase):
+    def test_workspace_cannot_inherit_parent_git_or_automatic_guidance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profiles.verify_workspace_boundary(root / "fresh" / "attempt")
+            for marker in (".git", "AGENTS.md", "CLAUDE.md", ".agents/skills"):
+                path = root / marker
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("parent context must not enter the fixture")
+                with self.assertRaisesRegex(ValueError, "workspace_inherits_parent"):
+                    profiles.verify_workspace_boundary(root / "fresh" / "attempt")
+                path.unlink()
+
     @unittest.skipUnless(os.name == "posix", "PID liveness recovery is explicitly unavailable on Windows")
     def test_dead_parent_before_input_publication_is_accounted_without_relaunch(self):
         with tempfile.TemporaryDirectory() as directory:

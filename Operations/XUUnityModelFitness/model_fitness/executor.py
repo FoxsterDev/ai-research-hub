@@ -416,6 +416,7 @@ def run(
 ) -> dict:
     preparation, workspace = Path(preparation).resolve(), Path(workspace).resolve()
     prepared = verify_prepared(preparation)
+    profiles.verify_workspace_boundary(workspace)
     if prepared["fixture"]["family"] == "F6":
         raise ValueError("installed_cli_blinded_f6_unsupported")
     profiles.verify(installed)
@@ -635,6 +636,7 @@ def validate_schedule_inputs(plan: dict) -> None:
         if installed["record_hash"] != row["profile_record_hash"]:
             raise ValueError("scheduled_profile_changed")
         workspace = Path(row["workspace_ref"]).resolve()
+        profiles.verify_workspace_boundary(workspace)
         records.disjoint(workspace, Path(plan["journal_root"]), *workspaces)
         workspaces.append(workspace)
         if row["kind"] == "calibration":

@@ -33,6 +33,7 @@ def identity(installed: dict[str, Any]) -> dict[str, str]:
     return {
         "installed_profile_hash": installed["record_hash"],
         "calibration_code_hash": xc.sha256_file(Path(__file__)),
+        "launcher_code_hash": xc.sha256_file(Path(profiles.__file__)),
         "observer_code_hash": xc.sha256_file(MODULE_SCRIPTS_DIR / "observation_contract.py"),
         "shell_parser_hash": xc.sha256_file(MODULE_SCRIPTS_DIR / "shell_observer.py"),
         "canary_input_hash": input_hash(),
@@ -47,6 +48,7 @@ def identity(installed: dict[str, Any]) -> dict[str, str]:
 def run(installed: dict[str, Any], plan: dict[str, Any], attempt_id: str, *, workspace: Path) -> dict[str, Any]:
     workspace = Path(workspace).resolve()
     profiles.verify(installed)
+    profiles.verify_workspace_boundary(workspace)
     records.disjoint(workspace, Path(plan["journal_root"]))
     if Path(workspace).exists():
         raise ValueError("calibration_workspace_already_exists")
