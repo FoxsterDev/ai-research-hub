@@ -182,8 +182,17 @@ def prepare(
         records.write(output / "semantic-inputs.json", {"inputs": frozen_inputs}, exclusive=True)
     if suite_document is not None:
         records.write(output / "suite.json", suite_document, exclusive=True)
+    dependencies = {}
+    for index, (name, source) in enumerate(sorted((implementation_dependencies or {}).items())):
+        source = Path(source).resolve()
+        digest = xc.sha256_file(source)
+        frozen = output / f"implementation-{index}.py"
+        shutil.copyfile(source, frozen)
+        if xc.sha256_file(frozen) != digest or xc.sha256_file(source) != digest:
+            raise ValueError("implementation_changed_during_preparation")
+        dependencies[name] = {"path": str(source), "sha256": digest, "frozen_ref": frozen.name}
     record = records.seal({
-        "schema_version": "xuunity.prepared-attempt.v1", "fixture_dir": str(fixture_dir),
+        "schema_version": "xuunity.prepared-attempt.v2", "fixture_dir": str(fixture_dir),
         "fixture": fixture, "seed_store": str(output / "seeds"), "seed_identity": identity,
         "ruleset_relative": ruleset_relative, "protocol_content_hash": protocol_hash,
         "ruleset_hash": ruleset["ruleset_hash"], "engine_identity": profiles.engine_identity(),
@@ -192,8 +201,7 @@ def prepare(
             "base": ruleset["ruleset_hash"], "extensions": extension_rows}) if extension_rows else ruleset["ruleset_hash"],
         "suite_identity": {"suite_id": suite_document["suite_id"], "suite_revision": suite_document["revision"],
                            "suite_hash": suites.suite_hash(suite_document)} if suite_document is not None else None,
-        "implementation_dependencies": {name: {"path": str(Path(path).resolve()), "sha256": xc.sha256_file(Path(path))}
-                                         for name, path in (implementation_dependencies or {}).items()},
+        "implementation_dependencies": dependencies,
         "manifest": manifest, "source_artifact_hashes": {
             p.name: xc.sha256_file(p) for p in output.iterdir() if p.is_file()
         },
@@ -202,13 +210,22 @@ def prepare(
     return record
 
 
-def verify_prepared(path: Path) -> dict[str, Any]:
+def verify_prepared(path: Path, *, replay: bool = False) -> dict[str, Any]:
     prepared = records.read(path)
     records.verify(prepared)
     if prepared["engine_identity"] != profiles.engine_identity():
         raise ValueError("prepared_engine_identity_stale")
+    version = prepared["schema_version"]
+    if version not in {"xuunity.prepared-attempt.v1", "xuunity.prepared-attempt.v2"}:
+        raise ValueError("prepared_schema_unsupported")
     for dependency in prepared.get("implementation_dependencies", {}).values():
-        if xc.sha256_file(Path(dependency["path"])) != dependency["sha256"]:
+        if version == "xuunity.prepared-attempt.v2":
+            ref = dependency["frozen_ref"]
+            if "/" in ref or xc.normalize_repo_path(ref) != ref or xc.sha256_file(path.parent / ref) != dependency["sha256"]:
+                raise ValueError("prepared_frozen_implementation_changed")
+        # Historical v1 has no frozen implementation. It still requires its
+        # original host checkout; never invent a missing archival binding.
+        if (not replay or version == "xuunity.prepared-attempt.v1") and xc.sha256_file(Path(dependency["path"])) != dependency["sha256"]:
             raise ValueError("prepared_implementation_dependency_changed")
     fixture = fixtures.verify_fixture(Path(prepared["fixture_dir"]), require_local_payloads=False)
     if fixture != prepared["fixture"]:
@@ -446,7 +463,14 @@ def run(
                       observation_ledger(empty, installed, prepared["manifest"], {}))
         gate(preparation.parent, evidence)
         argv, contract = profiles.command(installed, workspace)
-        prompt = ((preparation.parent / "task.txt").read_bytes() +
+        context = ("\n\nExecution context: this is a disposable source snapshot without Git metadata. "
+                   "Work inside this snapshot and the fixture's allowed mutation paths: " +
+                   json.dumps(prepared["fixture"]["allowed_mutation_paths"]) + ". "
+                   "The parent evaluator runs the declared fixture oracles after your turn. ")
+        if any(row["blocking"] and row["kind"] == "compile" for row in prepared["fixture"]["semantic_oracles"]):
+            context += ("The parent also owns the independent compiler validation; leave compiler execution "
+                        "to that lane and report it as pending. Do not launch an editor or generate compiler caches. ")
+        prompt = ((preparation.parent / "task.txt").read_bytes() + context.encode() +
                   b"\n\nThe following complete guidance bundle applies to this task.\n" +
                   (preparation.parent / "bundle.txt").read_bytes())
         env, _ = profiles.environment()
@@ -556,7 +580,7 @@ def score(evidence: Path, *, require_finished: bool = True) -> dict:
     """Recompute scores from verified captured facts; never launch or write."""
     evidence = Path(evidence).resolve()
     inputs = records.read(evidence / "input.json")
-    prepared = verify_prepared(Path(inputs["preparation"]))
+    prepared = verify_prepared(Path(inputs["preparation"]), replay=True)
     installed = records.read(evidence / "installed-profile.json")
     profiles.verify(installed, check_executable=False, check_environment=False)
     _verify_session(evidence)

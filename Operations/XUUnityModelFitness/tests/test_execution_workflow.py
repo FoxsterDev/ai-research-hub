@@ -162,9 +162,12 @@ class WorkflowTests(unittest.TestCase):
             cli.chmod(0o755)
             installed = profiles.inspect("codex", cli, "scripted-model", "high")
             fixture = OPERATION / "fixtures/f4_minimality_negative_control"
+            helper = root / "host-helper.py"
+            helper.write_text("# owned test dependency\n")
             prepared = executor.prepare(fixture, output=root / "prepared",
                                         ruleset_relative="Modules/Stack/knowledge/reduced_stack_rules.json",
-                                        planned_paths=["src/BuildInfo.cs"])
+                                        planned_paths=["src/BuildInfo.cs"],
+                                        implementation_dependencies={"test_helper": helper})
             attempts = [row("f0", kind="calibration", input_hash=calibration.input_hash()),
                         row("f4", order=1, input_hash=prepared["record_hash"])]
             for attempt in attempts:
@@ -200,6 +203,17 @@ class WorkflowTests(unittest.TestCase):
             before = baseline.content_identity(evidence)
             self.assertEqual(result, executor.score(evidence))
             self.assertEqual(before, baseline.content_identity(evidence), "replay must be read-only")
+            self.assertIn("source snapshot without Git metadata", (evidence / "stdin.txt").read_text())
+            helper.write_text("# later host revision\n")
+            with self.assertRaisesRegex(ValueError, "prepared_implementation_dependency_changed"):
+                executor.verify_prepared(root / "prepared/prepared.json")
+            self.assertEqual(result, executor.score(evidence), "replay uses the frozen helper without executing it")
+            frozen = root / "prepared" / prepared["implementation_dependencies"]["test_helper"]["frozen_ref"]
+            original_helper = frozen.read_bytes()
+            frozen.write_text("# altered archive\n")
+            with self.assertRaisesRegex(ValueError, "prepared_frozen_implementation_changed"):
+                executor.score(evidence)
+            frozen.write_bytes(original_helper)
             diagnostic = reporting.diagnostic_report(plan)
             self.assertEqual(2, diagnostic["scheduled"])
             self.assertEqual(0, diagnostic["model_fitness"]["numeric_results"])
