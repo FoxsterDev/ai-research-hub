@@ -38,6 +38,14 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - When using ordered Unity MCP scenario validation, follow `knowledge/mcp_scenario_authoring.md` for scenario step order and settle boundaries after mutating hooks.
 - If a validation lane can start work but cannot provide trustworthy final accounting for the claim, downgrade that lane's evidence strength and keep the validation gap explicit.
 
+## MCP Recovery Before Unavailable Verdict
+
+- Resolve the exact Unity project before repairing MCP readiness. Never activate every discovered project or guess between project roots.
+- When that project's `Packages/manifest.json` declares `com.xuunity.light-mcp` and `Packages/packages-lock.json`, when present, does not contradict it, treat a missing or disabled project-scoped bridge under `Library` as recoverable generated state, not evidence that MCP is unavailable.
+- If the current task needs Unity MCP and the user has not explicitly opted out of opening or activating Unity, run the supported `ensure-ready --open-editor` route. It may recreate or enable only that project's bridge configuration; it must not install the package or mutate user-level MCP client configuration.
+- After successful recovery, continue through the MCP lane. Do not substitute direct Unity CLI merely because the bridge config was initially missing or disabled.
+- Report MCP as unavailable only when the package is absent or unresolved, the project cannot be resolved uniquely, the required client/server installation is absent, the user opted out, or supported recovery returns a typed non-recoverable blocker such as wrong Unity version, licensing failure, operation timeout, or failed capability/health probe.
+
 ## Claim-To-Proof Routing
 
 - Documentation-only and router-only changes need focused static contract proof;
@@ -78,10 +86,10 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 ## Preflight
 1. Confirm whether the task actually requires validation now, not merely a validation note.
 2. Check the project router and project memory for validation-path constraints.
-3. Check whether MCP or the declared repo-specific integration is available in the current session.
+3. Check whether MCP or the declared repo-specific integration is available in the current session; apply `## MCP Recovery Before Unavailable Verdict` before treating missing generated bridge state as unavailability.
 4. Resolve the project's build-profile source of truth before claiming define-sensitive validation is complete.
-5. If MCP is available, use it first for Unity-aware validation.
-6. If the required validation path is unavailable, keep the validation gap explicit instead of silently substituting a weaker path.
+5. If MCP is available or recovered, use it first for Unity-aware validation.
+6. If the required validation path remains unavailable after the supported recovery, keep the exact blocker explicit instead of silently substituting a weaker path.
 
 ## Allowed Partial Signals
 - source inspection
