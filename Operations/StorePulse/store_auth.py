@@ -123,14 +123,16 @@ class Transport:
         value = requested or self.timeout
         if self.deadline is None:
             return value
-        remaining = self.deadline - time.monotonic()
+        # Wall clock, not time.monotonic(): macOS monotonic is mach_absolute_time() and
+        # freezes while the host sleeps, so a monotonic budget cannot bound a suspended run.
+        remaining = self.deadline - time.time()
         if remaining <= 0:
             raise HttpError(0, url="run", detail="Store Pulse run deadline exceeded")
         return min(value, max(0.1, remaining))
 
     def _wait(self, delay):
         delay = min(30.0, max(0.0, delay))
-        if self.deadline is not None and time.monotonic() + delay >= self.deadline:
+        if self.deadline is not None and time.time() + delay >= self.deadline:
             raise HttpError(0, "run", "Store Pulse run deadline exceeded during retry")
         time.sleep(delay)
 
