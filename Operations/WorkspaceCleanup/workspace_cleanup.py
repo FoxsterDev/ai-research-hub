@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,7 @@ DEFAULT_MODEL_FITNESS_PRUNE_NAMES = {
     "Obj",
     "__pycache__",
 }
+UNITY_VERSION_PATTERN = re.compile(r"^m_EditorVersion:\s*\S+", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,21 @@ def _has_process(commands: Sequence[str], markers: Sequence[str]) -> bool:
     return any(marker in command for command in commands for marker in markers)
 
 
+def _is_unity_project(project_root: Path) -> bool:
+    assets = project_root / "Assets"
+    manifest = project_root / "Packages" / "manifest.json"
+    settings = project_root / "ProjectSettings" / "ProjectSettings.asset"
+    version = project_root / "ProjectSettings" / "ProjectVersion.txt"
+    required_directory = assets.is_dir() and not assets.is_symlink()
+    required_files = all(path.is_file() and not path.is_symlink() for path in (manifest, settings, version))
+    if not required_directory or not required_files:
+        return False
+    try:
+        return bool(UNITY_VERSION_PATTERN.search(version.read_text(encoding="utf-8")))
+    except (OSError, UnicodeError):
+        return False
+
+
 def discover_unity_libraries(scan_roots: Iterable[Path]) -> list[Candidate]:
     candidates: list[Candidate] = []
     prune = {".git", "Library", "Temp", "Logs", "Obj", "Build", "Builds"}
@@ -107,7 +124,7 @@ def discover_unity_libraries(scan_roots: Iterable[Path]) -> list[Candidate]:
             if root_path.name == "ProjectSettings" and "ProjectVersion.txt" in files:
                 project_root = root_path.parent
                 library = project_root / "Library"
-                if library.is_dir() and not library.is_symlink():
+                if _is_unity_project(project_root) and library.is_dir() and not library.is_symlink():
                     candidates.append(
                         Candidate("unity_library", library, project_root, "regenerable Unity import cache")
                     )
@@ -293,7 +310,7 @@ def run_cleanup(
             str(candidate.path) in command for command in commands
         ):
             state = "skipped_live_process_reference"
-        elif candidate.category == "scratch" and _is_tracked_by_parent_repo(candidate):
+        elif candidate.category in {"scratch", "unity_library"} and _is_tracked_by_parent_repo(candidate):
             state = "skipped_tracked_path"
         elif candidate.category in {"temporary", "scratch"} and _contains_dirty_git(candidate.path):
             state = "skipped_dirty_git"
