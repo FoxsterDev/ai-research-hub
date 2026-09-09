@@ -66,6 +66,8 @@ def load_config(path):
     cfg.setdefault("http_timeout", 120)
     cfg.setdefault("http_retries", 3)
     cfg.setdefault("run_timeout", 900)
+    cfg.setdefault("retry_budget", 300)   # extra wall-clock seconds for the failed-project pass
+    cfg.setdefault("retry_backoff", 5)    # settle time before retrying failed projects
     cfg.setdefault("min_dau", 100)
     cfg.setdefault("signals", {})
     cfg.setdefault("operations", [])  # config-driven endpoint/provider health sections
@@ -121,6 +123,12 @@ def load_config(path):
         raise ValueError("config must declare at least one source")
     if cfg["baseline_days"] < 1 or cfg["max_workers"] < 1 or cfg["http_retries"] < 1:
         raise ValueError("baseline_days, max_workers and http_retries must be positive")
+    worst_request = cfg["http_timeout"] * cfg["http_retries"]
+    if worst_request > cfg["run_timeout"] * 0.5:
+        print(f"WARNING: one stuck request can consume {worst_request}s "
+              f"(http_timeout {cfg['http_timeout']} x http_retries {cfg['http_retries']}) of the "
+              f"{cfg['run_timeout']}s run budget; lower http_timeout so a single hung query "
+              f"cannot starve the rest of the portfolio.", file=sys.stderr)
     if th["degraded_pct"] < th["watch_pct"]:
         raise ValueError("thresholds.degraded_pct must be >= thresholds.watch_pct")
     if th["absolute_err_per_user_degraded"] < th["absolute_err_per_user_watch"]:
@@ -153,6 +161,17 @@ class PartialSearchError(RuntimeError):
     """OpenSearch answered HTTP 200 but did not produce a complete result."""
 
 
+class RequestBudgetExceeded(TimeoutError):
+    """One HTTP attempt outran its own timeout budget while the body was still arriving.
+    A TimeoutError on purpose: it is transient and belongs in the retry ladder."""
+
+
+class RunDeadlineExceeded(RuntimeError):
+    """The run's wall-clock budget is gone. Deliberately not a TimeoutError: it must never be
+    caught by the transient-retry ladder, nor laundered into a per-project failure, because an
+    out-of-time run is not the same fact as an unreachable project."""
+
+
 class Client:
     def __init__(self, base, headers, timeout=120, retries=3, backoff=2.0, deadline=None):
         self.base = base.rstrip("/")
@@ -163,12 +182,31 @@ class Client:
         self.deadline = deadline
 
     def _remaining_timeout(self):
+        # Wall clock, not time.monotonic(): on macOS monotonic is mach_absolute_time(), which
+        # freezes while the host sleeps, so a monotonic budget bounds awake seconds instead of
+        # elapsed time and cannot bound a run that is suspended mid-flight.
         if self.deadline is None:
             return self.timeout
-        remaining = self.deadline - time.monotonic()
+        remaining = self.deadline - time.time()
         if remaining <= 0:
-            raise TimeoutError("OpenSearch Pulse run deadline exceeded")
+            raise RunDeadlineExceeded("OpenSearch Pulse run deadline exceeded")
         return min(self.timeout, max(0.1, remaining))
+
+    def _read_body(self, resp, budget_end):
+        """Read in recv-sized chunks so the attempt budget is re-checked while bytes are still
+        arriving. urlopen's timeout is a per-recv idle timeout, not a bound on the request, so a
+        peer that keeps trickling data can otherwise block long past it. read1 (not read) is
+        required: read() loops internally until the buffer is full and no check would run."""
+        parts = []
+        while True:
+            if time.time() > budget_end:
+                raise RequestBudgetExceeded(
+                    "HTTP attempt outran its budget while reading the response body")
+            chunk = resp.read1(65536)
+            if not chunk:
+                break
+            parts.append(chunk)
+        return b"".join(parts)
 
     def _req(self, path, body=None):
         data = json.dumps(body).encode() if body is not None else None
@@ -177,14 +215,20 @@ class Client:
             req = urllib.request.Request(self.base + path, data=data,
                                          method="POST" if body is not None else "GET", headers=self.headers)
             try:
-                with urllib.request.urlopen(req, timeout=self._remaining_timeout()) as resp:
-                    return json.loads(resp.read().decode())
+                attempt_timeout = self._remaining_timeout()
+                budget_end = time.time() + attempt_timeout
+                with urllib.request.urlopen(req, timeout=attempt_timeout) as resp:
+                    return json.loads(self._read_body(resp, budget_end).decode())
             except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
                     socket.timeout, ConnectionError, OSError, json.JSONDecodeError) as e:
                 last = e
                 code = getattr(e, "code", None)
                 transient = code in (408, 425, 429, 500, 502, 503, 504) or not isinstance(
                     e, urllib.error.HTTPError)
+                # Tag at the raise site. Re-deriving this upstairs is a trap: under the
+                # interpreter launchd resolves (3.9) socket.timeout is not TimeoutError, so an
+                # isinstance() classifier tests clean in a shell and misreads production.
+                e.pulse_transient = transient
                 if not transient or attempt == self.retries - 1:
                     raise
                 retry_after = None
@@ -202,9 +246,11 @@ class Client:
                             pass
                 delay = min(30.0, retry_after if retry_after is not None
                             else self.backoff * (2 ** attempt))
-                if self.deadline is not None and time.monotonic() + delay >= self.deadline:
-                    raise TimeoutError("OpenSearch Pulse run deadline exceeded during retry") from e
+                if self.deadline is not None and time.time() + delay >= self.deadline:
+                    raise RunDeadlineExceeded(
+                        "OpenSearch Pulse run deadline exceeded during retry") from e
                 time.sleep(delay)
+        last.pulse_transient = True
         raise last
 
     def cat_indices(self):
@@ -216,9 +262,11 @@ class Client:
         failed = int(shards.get("failed") or 0)
         if result.get("timed_out") or failed or result.get("error"):
             detail = result.get("error") or (shards.get("failures") or [])[:2]
-            raise PartialSearchError(
+            partial = PartialSearchError(
                 safety_redact(f"partial OpenSearch result: timed_out={bool(result.get('timed_out'))}, "
                               f"failed_shards={failed}, detail={detail}")[:500])
+            partial.pulse_transient = True   # a shard/timeout partial is worth another attempt
+            raise partial
         if (body or {}).get("aggs") and "aggregations" not in result:
             raise PartialSearchError("OpenSearch result has no aggregations")
         return result
@@ -1037,6 +1085,7 @@ def build_health(report, snapshot, min_ios_dau=HEALTH_MIN_IOS_DAU):
                                       "name": (failed or {}).get("name")
                                       or (store_apps.get(key) or {}).get("name") or key,
                                       "status": "degraded" if failed else "nodata",
+                                      "log_query_failed": bool(failed),
                                       "funnels": []}
         a = store_apps.get(p["key"]) or {}
         slices = a.get("slices") or {}
@@ -1237,6 +1286,7 @@ def build_health(report, snapshot, min_ios_dau=HEALTH_MIN_IOS_DAU):
             "overview_status": overview_status,
             "overview_triggers": triggers,
             "data_state": "observed" if has_any_data else "no_data",
+            "log_query_failed": bool(p.get("log_query_failed")),
             "data_quality": data_quality,
             "excess_error_events": excess_error_events,
             "time_metric_status": time_metric_status,
@@ -2627,6 +2677,43 @@ def load_prior_reports(out_dir, slug, report_day, max_candidates=21, return_meta
     return result + ({"corrupt_candidates": corrupt},) if return_meta else result
 
 
+def retry_failed_projects(projects, jobs, cfg, attempt, base_client):
+    """Second, bounded pass over the projects whose only problem was a transient error.
+
+    One dead socket on one project must not discard the other eleven and cost the whole day.
+    The pass runs on its own wall-clock budget and a fresh client, so it is not starved by
+    whatever the first pass already spent, and a project that fails twice keeps its original
+    first-pass diagnosis rather than the retry's less informative one.
+
+    This does not soften the trust gate: a day is deliverable only if the retry actually
+    succeeded, because trust.complete still requires zero remaining errors.
+    """
+    retryable = [p for p in projects if "error" in p and p.get("transient")]
+    budget = cfg.get("retry_budget", 300)
+    if not retryable or budget <= 0:
+        return projects
+    by_key = {job[0]: job for job in jobs}
+    delay = cfg.get("retry_backoff", 5)
+    if delay:
+        time.sleep(delay)
+    client = Client(base_client.base, base_client.headers, timeout=base_client.timeout,
+                    retries=1, backoff=base_client.backoff, deadline=time.time() + budget)
+    healed = {}
+    with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
+        futures = {p["key"]: ex.submit(attempt, by_key[p["key"]], client)
+                   for p in retryable if p["key"] in by_key}
+        for key, future in futures.items():
+            try:
+                result = future.result()
+            except Exception:
+                continue            # a retry that dies keeps the first-pass error below
+            if result and "error" not in result:
+                healed[key] = result
+    print(f"  retried {len(retryable)} transient project failure(s); recovered {len(healed)}"
+          + (": " + ", ".join(sorted(healed)) if healed else ""))
+    return [healed.get(p["key"], p) for p in projects]
+
+
 def build_report(client, cfg, report_day, out_dir, slug):
     idx = discover_indices(client)
     n = cfg["baseline_days"]
@@ -2658,18 +2745,23 @@ def build_report(client, cfg, report_day, out_dir, slug):
             key = src.get("key") or prefix.rstrip("-")
             jobs.append((key, src.get("name") or key, prefix, None, os_base_dates, operation_base_dates))
 
-    def run(job):
+    def run(job, active_client=None):
+        active_client = active_client if active_client is not None else client
         key, name, prefix, app_id, os_base_dates, operation_base_dates = job
         try:
             if prefix not in idx or report_day not in idx.get(prefix, []):
                 raise PartialSearchError(f"required source index missing for {report_day}: {prefix}*")
-            return build_project(client, cfg, key, name, prefix, app_id, report_day,
+            return build_project(active_client, cfg, key, name, prefix, app_id, report_day,
                                  os_base_dates, operation_base_dates, prior_by_date, disk_dates_desc, n)
+        except RunDeadlineExceeded:
+            raise                   # out of time is a run-level fact, not a project's failure
         except Exception as e:
-            return {"key": key, "name": name, "error": safe_error(e)}
+            return {"key": key, "name": name, "error": safe_error(e),
+                    "transient": bool(getattr(e, "pulse_transient", False))}
 
     with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
         projects = [p for p in ex.map(run, jobs) if p]
+    projects = retry_failed_projects(projects, jobs, cfg, run, client)
     ok = [p for p in projects if "error" not in p]
     ok.sort(key=lambda p: (1 if p["status"] == "nodata" else 0, -p["dau"]))
     # funnels: app-specific funnels (those with an `apps` scope) are bounded to the top-N
@@ -2706,7 +2798,9 @@ def build_report(client, cfg, report_day, out_dir, slug):
         "errors": errors,
         "trust": {"complete": not errors and not baseline_meta["corrupt_candidates"],
                   "expected_projects": len(jobs), "successful_projects": len(ok),
-                  "failed_projects": len(errors), **baseline_meta},
+                  "failed_projects": len(errors),
+                  "failed_transient": sum(1 for e in errors if e.get("transient")),
+                  **baseline_meta},
     }
 
 
@@ -2743,18 +2837,23 @@ def build_report_window(client, cfg, hours, now_dt):
             key = src.get("key") or prefix.rstrip("-")
             jobs.append((key, src.get("name") or key, prefix, None, win, base_windows))
 
-    def run(job):
+    def run(job, active_client=None):
+        active_client = active_client if active_client is not None else client
         key, name, prefix, app_id, win, base_windows = job
         try:
             if win is None:
                 raise PartialSearchError(f"required source has no index coverage: {prefix}*")
-            return build_project(client, cfg, key, name, prefix, app_id, None, [], [], {}, [], n,
+            return build_project(active_client, cfg, key, name, prefix, app_id, None, [], [], {}, [], n,
                                  win=win, base_windows=base_windows)
+        except RunDeadlineExceeded:
+            raise
         except Exception as e:
-            return {"key": key, "name": name, "error": safe_error(e)}
+            return {"key": key, "name": name, "error": safe_error(e),
+                    "transient": bool(getattr(e, "pulse_transient", False))}
 
     with ThreadPoolExecutor(max_workers=cfg["max_workers"]) as ex:
         projects = [p for p in ex.map(run, jobs) if p]
+    projects = retry_failed_projects(projects, jobs, cfg, run, client)
     ok = [p for p in projects if "error" not in p]
     ok.sort(key=lambda p: (1 if p["status"] == "nodata" else 0, -p["dau"]))
     universal = {fn["key"] for fn in cfg["funnels"] if not fn.get("apps")}
@@ -2786,7 +2885,8 @@ def build_report_window(client, cfg, hours, now_dt):
         "projects": ok, "source": client.base.split("//")[-1].split(".")[0],
         "errors": errors,
         "trust": {"complete": not errors, "expected_projects": len(jobs),
-                  "successful_projects": len(ok), "failed_projects": len(errors)},
+                  "successful_projects": len(ok), "failed_projects": len(errors),
+                  "failed_transient": sum(1 for e in errors if e.get("transient"))},
     }
 
 
@@ -4228,7 +4328,11 @@ def _overview_row(row, compact=False):
             if pdata.get("store_version"):
                 cell += f" v{pdata['store_version']}"
             store_cells.append(cell)
-        return f"{lead} · No production data · " + " · ".join(store_cells)
+        # A project whose query failed is not a project without telemetry. Saying "no data"
+        # for the largest app in the portfolio reads as a real observation, and it is not one.
+        label = ("Log query FAILED — not measured" if row.get("log_query_failed")
+                 else "No production data")
+        return f"{lead} · {label} · " + " · ".join(store_cells)
     time_delta = row.get("time_delta") or {}
     time_status = row.get("time_metric_status") or {}
     time_thresholds = row.get("time_metric_thresholds") or {}
@@ -5050,7 +5154,7 @@ def main():
         cfg["baseline_days"] = args.baseline_days
     client = Client(resolve_base_url(cfg), resolve_headers(cfg),
                     timeout=cfg["http_timeout"], retries=cfg["http_retries"],
-                    deadline=time.monotonic() + cfg["run_timeout"])
+                    deadline=time.time() + cfg["run_timeout"])
 
     rolling = args.hours is not None
     if rolling:
@@ -5142,4 +5246,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except RunDeadlineExceeded as exhausted:
+        # Exit 75 (EX_TEMPFAIL) so the caller retries later instead of publishing, and so an
+        # out-of-time run is never mistaken for a portfolio in which every project failed.
+        print(f"ERROR: {exhausted}. The host was most likely suspended mid-run, or the backend "
+              "was unreachable; no report was written and the day stays queued.", file=sys.stderr)
+        raise SystemExit(75)

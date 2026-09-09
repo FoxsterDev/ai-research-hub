@@ -3686,7 +3686,7 @@ def main():
 
     cfg = apply_mode(load_config(args.config), args.mode)
     transport = Transport(timeout=cfg["http_timeout"], retries=cfg["http_retries"],
-                          deadline=time.monotonic() + cfg["run_timeout"])
+                          deadline=time.time() + cfg["run_timeout"])
     creds = Creds(cfg, transport)
     app_filter = set(args.apps.split(",")) if args.apps else None
 
