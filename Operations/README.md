@@ -34,6 +34,8 @@ These are not part of the host bootstrap path.
 - `XUUnityAiCliOrchestrator/`
   Public subscription-first AI CLI orchestration surface for opt-in XUUnity
   external AI runs.
+- `WorkspaceCleanup/`
+  Tested cleanup engine for regenerable developer caches and scratch artifacts.
 - `XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
   Public-safe report for the `xuunity` task registry surface.
 
