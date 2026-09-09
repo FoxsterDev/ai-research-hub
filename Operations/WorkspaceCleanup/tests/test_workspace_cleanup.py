@@ -32,11 +32,19 @@ class WorkspaceCleanupTests(unittest.TestCase):
         stamp = self.now - hours * 3600
         os.utime(path, (stamp, stamp))
 
-    def test_dry_run_finds_but_preserves_unity_library(self) -> None:
-        project = self.root / "Game"
-        (project / "ProjectSettings").mkdir(parents=True)
-        (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000")
+    def _make_unity_project(self, name: str = "Game") -> Path:
+        project = self.root / name
+        (project / "Assets").mkdir(parents=True)
+        (project / "Packages").mkdir()
+        (project / "Packages" / "manifest.json").write_text("{}")
+        (project / "ProjectSettings").mkdir()
+        (project / "ProjectSettings" / "ProjectSettings.asset").write_text("%YAML 1.1")
+        (project / "ProjectSettings" / "ProjectVersion.txt").write_text("m_EditorVersion: 6000.0.0f1")
         (project / "Library").mkdir()
+        return project
+
+    def test_dry_run_finds_but_preserves_unity_library(self) -> None:
+        project = self._make_unity_project()
         (project / "Library" / "cache.bin").write_bytes(b"cache")
         config = {"unity": {"remove_libraries": True, "scan_roots": [str(self.root)]}}
         report = cleanup.run_cleanup(config, apply=False, now=self.now, commands=[])
@@ -44,11 +52,7 @@ class WorkspaceCleanupTests(unittest.TestCase):
         self.assertTrue((project / "Library").exists())
 
     def test_apply_deletes_library_but_preserves_project(self) -> None:
-        project = self.root / "Game"
-        (project / "ProjectSettings").mkdir(parents=True)
-        (project / "ProjectSettings" / "ProjectVersion.txt").write_text("version")
-        (project / "Assets").mkdir()
-        (project / "Library").mkdir()
+        project = self._make_unity_project()
         config = {"unity": {"remove_libraries": True, "scan_roots": [str(self.root)]}}
         report = cleanup.run_cleanup(config, apply=True, now=self.now, commands=[])
         self.assertEqual(report["entries"][0]["state"], "deleted")
@@ -56,10 +60,7 @@ class WorkspaceCleanupTests(unittest.TestCase):
         self.assertTrue((project / "Assets").exists())
 
     def test_unity_process_blocks_library_deletion(self) -> None:
-        project = self.root / "Game"
-        (project / "ProjectSettings").mkdir(parents=True)
-        (project / "ProjectSettings" / "ProjectVersion.txt").write_text("version")
-        (project / "Library").mkdir()
+        project = self._make_unity_project()
         config = {"unity": {"remove_libraries": True, "scan_roots": [str(self.root)]}}
         report = cleanup.run_cleanup(
             config,
@@ -69,6 +70,34 @@ class WorkspaceCleanupTests(unittest.TestCase):
         )
         self.assertEqual(report["entries"][0]["state"], "skipped_active_process")
         self.assertTrue((project / "Library").exists())
+
+    def test_unity_library_requires_complete_project_identity(self) -> None:
+        fake = self.root / "NotUnity"
+        (fake / "ProjectSettings").mkdir(parents=True)
+        (fake / "ProjectSettings" / "ProjectVersion.txt").write_text("unrelated version file")
+        (fake / "Library").mkdir()
+        config = {"unity": {"remove_libraries": True, "scan_roots": [str(self.root)]}}
+        report = cleanup.run_cleanup(config, apply=True, now=self.now, commands=[])
+        self.assertEqual(report["entries"], [])
+        self.assertTrue((fake / "Library").exists())
+
+    def test_tracked_unity_library_is_preserved(self) -> None:
+        repository = self.root / "repo"
+        repository.mkdir()
+        subprocess.run(["git", "init", str(repository)], check=True, capture_output=True)
+        original_root = self.root
+        self.root = repository
+        try:
+            project = self._make_unity_project()
+        finally:
+            self.root = original_root
+        tracked = project / "Library" / "keep.txt"
+        tracked.write_text("keep")
+        subprocess.run(["git", "-C", str(repository), "add", str(tracked)], check=True)
+        config = {"unity": {"remove_libraries": True, "scan_roots": [str(repository)]}}
+        report = cleanup.run_cleanup(config, apply=True, now=self.now, commands=[])
+        self.assertEqual(report["entries"][0]["state"], "skipped_tracked_path")
+        self.assertTrue(tracked.exists())
 
     def test_derived_data_children_are_deleted_without_removing_root(self) -> None:
         derived = self.root / "DerivedData"
