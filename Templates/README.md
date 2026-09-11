@@ -26,6 +26,9 @@ Use placeholders such as `<host-output-root>`, `<incident-report-path>`, and
   shape.
 - `XUUNITY_GIT_CHANGE_REVIEW_TEMPLATE.md` - public-safe git-change review
   shape.
+- `XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md` - implementation-task
+  prompt for completing the public Model Fitness harness while preserving its
+  host-local evidence boundary.
 - `XUUNITY_KNOWLEDGE_EXTRACTION_CASE_TEMPLATE.yaml` - knowledge-extraction
   evaluation case shape.
 - `XUUNITY_KNOWLEDGE_EXTRACTION_REPORT_TEMPLATE.md` - knowledge-extraction

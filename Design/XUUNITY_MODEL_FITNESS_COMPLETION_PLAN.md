@@ -7,7 +7,7 @@ parent design; the execution goal separates engineering from qualification and
 staged rollout.
 
 - Parent contract: `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md`
-- Execution authority: `XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`
+- Execution authority: `Templates/XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`
 - As-built decisions: `XUUNITY_MODEL_FITNESS_COMPLETION_TECHNICAL_DESIGN.md`
 - Operator interface: `Operations/XUUnityModelFitness/README.md`
 - Confidential acceptance ledger, worked commands and raw receipts: the active

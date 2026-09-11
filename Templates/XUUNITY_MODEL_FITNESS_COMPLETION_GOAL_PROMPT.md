@@ -1,4 +1,4 @@
-# XUUnity Model Fitness: Technical Design and Completion Goal
+# XUUnity Model Fitness Completion Goal Template
 
 Use this prompt as the goal of a new implementation task in an isolated host-repository worktree with its own AIRoot checkout. It covers review, technical design, implementation, validation, and bounded real pilots.
 
