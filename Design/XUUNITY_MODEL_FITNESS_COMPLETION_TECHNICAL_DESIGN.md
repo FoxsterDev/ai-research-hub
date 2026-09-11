@@ -1,7 +1,7 @@
 # Model Fitness completion: execution decision record
 
 Status: engineering and bounded diagnostic allocation complete; qualification and rollout remain open. Evidence date: 2026-09-08 UTC.
-Authority: `XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`.
+Authority: `Templates/XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`.
 This record distinguishes engineering, diagnostic pilots, qualification, and rollout.
 
 ## Baseline and review checkpoint 1
