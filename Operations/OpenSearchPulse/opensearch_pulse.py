@@ -63,6 +63,7 @@ def load_config(path):
         cfg = json.load(f)
     cfg.setdefault("baseline_days", cfg.get("window_days", 3))
     cfg.setdefault("max_workers", 8)
+    cfg.setdefault("max_aggs_per_search", 2)  # top-level aggs per request; see search_aggs
     cfg.setdefault("http_timeout", 120)
     cfg.setdefault("http_retries", 3)
     cfg.setdefault("run_timeout", 900)
@@ -123,6 +124,8 @@ def load_config(path):
         raise ValueError("config must declare at least one source")
     if cfg["baseline_days"] < 1 or cfg["max_workers"] < 1 or cfg["http_retries"] < 1:
         raise ValueError("baseline_days, max_workers and http_retries must be positive")
+    if cfg["max_aggs_per_search"] < 1:
+        raise ValueError("max_aggs_per_search must be at least 1")
     worst_request = cfg["http_timeout"] * cfg["http_retries"]
     if worst_request > cfg["run_timeout"] * 0.5:
         print(f"WARNING: one stuck request can consume {worst_request}s "
@@ -1999,9 +2002,50 @@ def cat_list(agg):
     return [{"cat": b["key"], "total": b["doc_count"]} for b in agg.get("buckets", [])]
 
 
+def split_agg_body(body, max_aggs):
+    """One search body carrying N top-level aggregations becomes ceil(N/max_aggs) bodies over
+    the same query. OpenSearch search backpressure — enforced by default on managed domains —
+    cancels a SearchShardTask once its elapsed time passes 30s while the node is in duress,
+    and one measured high-volume app took ~105s per shard task to run eleven aggregations
+    over ~24M documents.
+    Collectors are per-request, so the split both keeps each task far under the cancellation bar
+    and costs less wall clock in total than the single wide request it replaces."""
+    aggs = (body or {}).get("aggs") or {}
+    if len(aggs) <= max_aggs:
+        return [body]
+    keys = list(aggs)
+    parts = []
+    for i in range(0, len(keys), max_aggs):
+        part = dict(body)
+        part["aggs"] = {k: aggs[k] for k in keys[i:i + max_aggs]}
+        parts.append(part)
+    return parts
+
+
+def search_aggs(client, cfg, index, body):
+    """Aggregations for one query, split across requests small enough to survive. Key sets are
+    disjoint by construction, so merging is a plain update. A group that is still cancelled
+    re-runs one aggregation at a time before the failure is allowed to stand. Parts are
+    sequential, so on a window that ends at "now" the later ones can see a few more seconds
+    of ingest; the daily model's closed window is unaffected."""
+    parts = split_agg_body(body, cfg.get("max_aggs_per_search", 2))
+    if len(parts) == 1:
+        return client.search(index, body)["aggregations"]
+    merged = {}
+    for part in parts:
+        try:
+            merged.update(client.search(index, part)["aggregations"])
+        except PartialSearchError:
+            if len(part["aggs"]) == 1:
+                raise
+            for single in split_agg_body(part, 1):
+                merged.update(client.search(index, single)["aggregations"])
+    return merged
+
+
 def collect_day(client, cfg, prefix, app_id, day, win=None, project_key=None):
     index = win["index"] if win else prefix + day
-    a = client.search(index, day_query(cfg, app_id, day, win, project_key))["aggregations"]
+    a = search_aggs(client, cfg, index, day_query(cfg, app_id, day, win, project_key))
     dau = a["dau"]["value"]
     versions_detail = []
     for b in a["versions"]["buckets"]:

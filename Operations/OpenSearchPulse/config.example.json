@@ -5,6 +5,7 @@
   "api_key_header": "x-api-key",
   "window_days": 3,
   "max_workers": 8,
+  "max_aggs_per_search": 2,
   "min_dau": 100,
   "server_type": { "field": "ServerType.keyword", "value": "Prod" },
   "levels": { "error": "Error", "warn": "Warn" },

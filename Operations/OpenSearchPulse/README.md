@@ -36,6 +36,7 @@ Key fields:
 | `base_url` / `base_url_env` | Endpoint inline, or the env var to read it from. |
 | `api_key_env` / `api_key_header` | Optional auth; value comes from the env, header name defaults to `x-api-key`. |
 | `window_days` | Comparison window length; current = last N complete days, baseline = the N before. |
+| `max_aggs_per_search` | Top-level aggregations per search request (default 2). A wide aggregation over a high-volume index can outrun the domain's search-backpressure cancellation bar (30s of SearchShardTask elapsed time); the engine splits the query into this many aggregations per request and merges the results. Lower it if shard tasks are still cancelled. |
 | `server_type` | Filter to prod traffic only (`{field, value}`); set `value` to `""` to disable. |
 | `fields` | Map of logical field → OpenSearch field (use `.keyword` for aggregations). |
 | `projects` | Explicit `{prefix, name}` list. |

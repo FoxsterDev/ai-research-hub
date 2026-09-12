@@ -241,5 +241,61 @@ class FailedQueryIsNotNoDataTests(unittest.TestCase):
         self.assertIn("No production data", pulse._overview_row(row, compact=True))
 
 
+class ShardTaskBudgetTests(unittest.TestCase):
+    """The 2026-09-11 incident: the largest app's day query ran eleven aggregations over ~24M docs
+    in ~105s per shard task, and OpenSearch search backpressure (enforced, 30s elapsed-time bar)
+    cancelled two shards. HTTP 200 with failed shards is a partial result, so the project failed,
+    the trust envelope stayed incomplete, and ten healthy projects went unposted twice in a row."""
+
+    def test_a_wide_aggregation_is_split_into_requests_that_fit_the_bar(self):
+        body = {"size": 0, "query": {"bool": {"filter": [{"term": {"AppId.keyword": "BZ"}}]}},
+                "aggs": {f"a{i}": {"cardinality": {"field": "UUID.keyword"}} for i in range(7)}}
+        parts = pulse.split_agg_body(body, 2)
+        self.assertEqual([list(part["aggs"]) for part in parts],
+                         [["a0", "a1"], ["a2", "a3"], ["a4", "a5"], ["a6"]])
+        for part in parts:
+            self.assertEqual(part["query"], body["query"], "every part must scope the same docs")
+        self.assertEqual(body["aggs"].keys(), {f"a{i}" for i in range(7)},
+                         "splitting must not mutate the caller's body")
+
+    def test_a_body_already_within_the_bar_is_issued_unchanged(self):
+        body = {"size": 0, "aggs": {"dau": {}, "errors": {}}}
+        self.assertEqual(pulse.split_agg_body(body, 2), [body])
+        self.assertEqual(pulse.split_agg_body({"size": 100}, 2), [{"size": 100}])
+
+    def test_split_results_are_merged_into_one_aggregation_set(self):
+        client = mock.Mock()
+        client.search.side_effect = lambda index, body: {
+            "aggregations": {k: {"value": k} for k in body["aggs"]}}
+        body = {"size": 0, "aggs": {"dau": {}, "errors": {}, "funnels": {}}}
+        merged = pulse.search_aggs(client, {"max_aggs_per_search": 2}, "idx", body)
+        self.assertEqual(sorted(merged), ["dau", "errors", "funnels"])
+        self.assertEqual(client.search.call_count, 2)
+
+    def test_a_group_that_is_still_cancelled_falls_back_to_one_agg_per_request(self):
+        calls = []
+
+        def search(index, body):
+            calls.append(list(body["aggs"]))
+            if len(body["aggs"]) > 1:
+                raise pulse.PartialSearchError("partial OpenSearch result: failed_shards=2")
+            return {"aggregations": {k: {"value": k} for k in body["aggs"]}}
+
+        client = mock.Mock()
+        client.search.side_effect = search
+        body = {"size": 0, "aggs": {"dau": {}, "errors": {}, "funnels": {}, "versions": {}}}
+        merged = pulse.search_aggs(client, {"max_aggs_per_search": 2}, "idx", body)
+        self.assertEqual(sorted(merged), ["dau", "errors", "funnels", "versions"])
+        self.assertEqual(calls, [["dau", "errors"], ["dau"], ["errors"],
+                                 ["funnels", "versions"], ["funnels"], ["versions"]])
+
+    def test_a_single_aggregation_that_still_fails_is_reported_not_swallowed(self):
+        client = mock.Mock()
+        client.search.side_effect = pulse.PartialSearchError("failed_shards=2")
+        with self.assertRaises(pulse.PartialSearchError):
+            pulse.search_aggs(client, {"max_aggs_per_search": 1}, "idx",
+                              {"size": 0, "aggs": {"dau": {}, "errors": {}}})
+
+
 if __name__ == "__main__":
     unittest.main()
