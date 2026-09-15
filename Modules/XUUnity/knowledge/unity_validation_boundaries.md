@@ -46,6 +46,20 @@ Use this file when validation strategy depends on whether Unity-aware evidence m
 - After successful recovery, continue through the MCP lane. Do not substitute direct Unity CLI merely because the bridge config was initially missing or disabled.
 - Report MCP as unavailable only when the package is absent or unresolved, the project cannot be resolved uniquely, the required client/server installation is absent, the user opted out, or supported recovery returns a typed non-recoverable blocker such as wrong Unity version, licensing failure, operation timeout, or failed capability/health probe.
 
+## Command Discovery and Handoff Evidence
+
+- Before authoring custom editor automation, read the supported MCP command list
+  once and map the phase's required evidence to scene assertions/snapshots,
+  screenshots, tests, scenarios or batch builds. Record justified omissions;
+  capability availability alone is not executed evidence.
+- Prefer the supported project-hook scaffold and project-action route when a
+  custom action is needed. Do not run long work inline in `[InitializeOnLoad]`;
+  it blocks the editor update loop, heartbeat and request pump. Background
+  execution settings are supporting evidence, not proof a callback ran.
+- Before presenting a build as a deliverable, verify the structured result and
+  the current non-empty artifact on disk. Record artifact identity and size;
+  historical build success does not establish present artifact availability.
+
 ## Claim-To-Proof Routing
 
 - Documentation-only and router-only changes need focused static contract proof;
