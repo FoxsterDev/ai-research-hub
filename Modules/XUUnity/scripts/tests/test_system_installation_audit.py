@@ -325,7 +325,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
         self.assertEqual(list(output.parent.glob("*.tmp")), [])
 
     def test_cli_loads_default_denylist_without_exposing_values(self) -> None:
-        denylist = self.air_root / ".xuunity-public-safety-denylist"
+        denylist = self.host / ".xuunity-public-safety-denylist"
         denylist.write_text("PrivateProject\n", encoding="utf-8")
         target = self.air_root / "Modules" / "XUUnity" / "README.md"
         target.write_text(target.read_text(encoding="utf-8") + "\nPrivateProject\n")

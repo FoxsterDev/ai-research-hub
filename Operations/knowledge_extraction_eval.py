@@ -175,6 +175,7 @@ def summarize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     critical_omissions = 0
     wrong_critical_destinations = 0
     unsafe_shared_leaks = 0
+    conflict_flattening = 0
     duplicate_proposals = 0
     for case in bundle["cases"]:
         outcome, weighted_total, _ = classify_case(case)
@@ -185,6 +186,7 @@ def summarize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         critical_omissions += gates["critical_omissions"]
         wrong_critical_destinations += gates["wrong_critical_destinations"]
         unsafe_shared_leaks += gates["unsafe_shared_leaks"]
+        conflict_flattening += gates["conflict_flattening"]
         duplicate_proposals += max(case["evaluation"]["scores"]["duplication_safety"] < 3, 0)
         if outcome == "pass":
             passed += 1
@@ -194,7 +196,12 @@ def summarize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             failed += 1
     case_count = len(bundle["cases"])
     average_weighted = round(total_weighted / case_count, 2) if case_count else 0.0
-    blocking = critical_omissions > 0 or wrong_critical_destinations > 0 or unsafe_shared_leaks > 0
+    blocking = (
+        critical_omissions > 0
+        or wrong_critical_destinations > 0
+        or unsafe_shared_leaks > 0
+        or conflict_flattening > 0
+    )
     return {
         "cases_run": case_count,
         "passed": passed,
@@ -204,6 +211,7 @@ def summarize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         "critical_omissions": critical_omissions,
         "wrong_critical_destinations": wrong_critical_destinations,
         "unsafe_shared_leaks": unsafe_shared_leaks,
+        "conflict_flattening": conflict_flattening,
         "duplicate_proposals": duplicate_proposals,
         "blocking_regressions": blocking,
     }
@@ -270,6 +278,7 @@ def build_health_summary(
         "critical_omissions": summary["critical_omissions"],
         "wrong_critical_destinations": summary["wrong_critical_destinations"],
         "unsafe_shared_leaks": summary["unsafe_shared_leaks"],
+        "conflict_flattening": summary["conflict_flattening"],
         "duplicate_proposals": summary["duplicate_proposals"],
         "blocking_regressions": summary["blocking_regressions"],
     }
@@ -298,6 +307,7 @@ def render_report(bundle: dict[str, Any], summary: dict[str, Any]) -> str:
         f"- Critical omissions: {summary['critical_omissions']}",
         f"- Wrong critical destinations: {summary['wrong_critical_destinations']}",
         f"- Unsafe shared leaks: {summary['unsafe_shared_leaks']}",
+        f"- Conflict flattening: {summary['conflict_flattening']}",
         f"- Duplicate proposals: {summary['duplicate_proposals']}",
         "",
         "## Hard-Fail Result",
@@ -403,7 +413,11 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--case-pack", default=str(DEFAULT_CASE_PACK))
     init_parser.add_argument("--output-dir")
     init_parser.add_argument("--run-type", choices=["authoritative", "smoke", "demo"], default="authoritative")
-    init_parser.add_argument("--evidence-level", choices=["human_scored", "synthetic", "demo"], default="human_scored")
+    init_parser.add_argument(
+        "--evidence-level",
+        choices=["pending_human_approval", "human_scored", "synthetic", "demo"],
+        default="pending_human_approval",
+    )
     init_parser.add_argument("--protocol-fingerprint", default="", help="Fingerprint of the evaluated protocol corpus")
     init_parser.set_defaults(func=cmd_init)
 

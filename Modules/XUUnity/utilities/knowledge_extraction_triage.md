@@ -86,6 +86,8 @@ Use narrower utilities only when the user already knows the exact target:
    - `skills/` for repeatable implementation workflows, task playbooks, or domain-specific engineering practice
    - review artifacts for findings, risks, decision history, and review-specific guardrails
    - project memory for project truth, local constraints, and project-specific overrides
+   - when the source explicitly labels a concern, check, blocker, rejected alternative, or concrete test sequence as reviewer material, preserve it as a review-artifact candidate even when a related implementation rule also belongs in a skill or knowledge file; do not absorb the reviewer obligation into the reusable rule
+   - route a concrete repeatable runtime guard that belongs to a recognizable subsystem lifecycle to that subsystem's nearest skill owner; use root `knowledge/` only when the extracted item is a cross-subsystem decision heuristic rather than a domain implementation practice
    - never use `codestyle/` as a fallback destination for generic reusable guidance just because it affects code indirectly
 5. For each candidate, decide:
    - is it reusable outside the current project

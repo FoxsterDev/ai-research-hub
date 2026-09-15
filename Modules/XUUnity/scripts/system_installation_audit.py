@@ -856,7 +856,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--forbidden-token-file",
         help=(
             "Host-private newline-delimited denylist. Defaults to "
-            "<air-root>/.xuunity-public-safety-denylist when present."
+            "<host-root>/.xuunity-public-safety-denylist when present."
         ),
     )
     parser.add_argument(
@@ -917,7 +917,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     token_file = (
         Path(args.forbidden_token_file).resolve()
         if args.forbidden_token_file
-        else air_root / ".xuunity-public-safety-denylist"
+        else host_root / ".xuunity-public-safety-denylist"
     )
     file_tokens: tuple[str, ...] = ()
     token_source_id: str | None = None

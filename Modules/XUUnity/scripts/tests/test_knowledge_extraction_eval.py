@@ -37,12 +37,20 @@ SUMMARY = {
     "critical_omissions": 0,
     "wrong_critical_destinations": 0,
     "unsafe_shared_leaks": 0,
+    "conflict_flattening": 0,
     "duplicate_proposals": 0,
     "blocking_regressions": False,
 }
 
 
 class KnowledgeExtractionFreshnessTests(unittest.TestCase):
+    def test_init_defaults_to_pending_human_approval(self) -> None:
+        parser = knowledge_extraction_eval.build_parser()
+
+        args = parser.parse_args(["init", "--run-name", "candidate"])
+
+        self.assertEqual("pending_human_approval", args.evidence_level)
+
     def test_current_requires_fresh_matching_fingerprint(self) -> None:
         result = knowledge_extraction_eval.build_health_summary(
             bundle(str(date.today())), SUMMARY, False,
@@ -60,6 +68,24 @@ class KnowledgeExtractionFreshnessTests(unittest.TestCase):
         self.assertIn("age_limit_exceeded", result["freshness_reasons"])
         self.assertIn("protocol_fingerprint_changed", result["freshness_reasons"])
         self.assertEqual("legacy_presence_only", result["baseline_marker_role"])
+
+    def test_conflict_flattening_is_a_blocking_regression(self) -> None:
+        evaluation = {
+            "critical_gate": {
+                "critical_omissions": 0,
+                "wrong_critical_destinations": 0,
+                "unsafe_shared_leaks": 0,
+                "conflict_flattening": 1,
+            },
+            "scores": {name: 5 for name in knowledge_extraction_eval.ALL_SCORES},
+        }
+        result = knowledge_extraction_eval.summarize_bundle(
+            {"cases": [{"id": "conflict", "evaluation": evaluation}]}
+        )
+
+        self.assertEqual(1, result["conflict_flattening"])
+        self.assertEqual(1, result["failed"])
+        self.assertTrue(result["blocking_regressions"])
 
 
 if __name__ == "__main__":
