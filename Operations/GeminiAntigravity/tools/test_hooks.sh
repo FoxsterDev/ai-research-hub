@@ -83,7 +83,7 @@ check "allows rm -rf inside scratch" '"decision":"allow"' "$OUT"
 
 # A scratch prefix followed by `..` escapes the directory the prefix names. Two live
 # sessions independently walked out of scratch this way before the guard existed.
-OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/../Users/someone/work')")
+OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /private/tmp/../private/var/work')")
 check "asks on rm -rf traversing out of scratch" '"decision":"force_ask"' "$OUT"
 
 OUT=$(run pre_tool_gate.sh "$(cmd_payload 'rm -rf /tmp/../nonexistent-target')")

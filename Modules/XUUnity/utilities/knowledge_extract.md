@@ -1,5 +1,10 @@
 # XUUnity Utility: Knowledge Extract
 
+Compatibility note: this narrow legacy route is retained for callers that need
+the five-field output below. New general extraction requests route through
+`knowledge_extraction_triage.md`, which owns destination selection, review, and
+approval workflow.
+
 ## Goal
 Turn a validated implementation or review insight into a reusable rule.
 

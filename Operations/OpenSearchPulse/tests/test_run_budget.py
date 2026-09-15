@@ -136,7 +136,7 @@ class FailedProjectRetryPassTests(unittest.TestCase):
     incomplete afterwards must still fail closed."""
 
     JOBS = [("BZ", "Blingz (Hub)", "bz-", "BZ", [], []),
-            ("BS", "***REMOVED***", "bs-", "BS", [], [])]
+            ("BS", "ExampleGame", "bs-", "BS", [], [])]
 
     def _cfg(self, **over):
         cfg = {"max_workers": 4, "retry_budget": 300, "retry_backoff": 0}
@@ -147,7 +147,7 @@ class FailedProjectRetryPassTests(unittest.TestCase):
         projects = [
             {"key": "BZ", "name": "Blingz (Hub)",
              "error": "timeout: The read operation timed out", "transient": True},
-            {"key": "BS", "name": "***REMOVED***", "status": "healthy", "dau": 7435},
+            {"key": "BS", "name": "ExampleGame", "status": "healthy", "dau": 7435},
         ]
 
         def attempt(job, client):
@@ -164,7 +164,7 @@ class FailedProjectRetryPassTests(unittest.TestCase):
     def test_a_project_that_fails_twice_keeps_the_first_pass_diagnosis_and_fails_closed(self):
         first = {"key": "BZ", "name": "Blingz (Hub)",
                  "error": "timeout: The read operation timed out", "transient": True}
-        projects = [first, {"key": "BS", "name": "***REMOVED***", "status": "healthy", "dau": 1}]
+        projects = [first, {"key": "BS", "name": "ExampleGame", "status": "healthy", "dau": 1}]
 
         def attempt(job, client):
             return {"key": job[0], "name": job[1], "error": "TimeoutError: something vaguer"}

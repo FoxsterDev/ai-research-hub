@@ -101,6 +101,9 @@ Every delegated task must state:
 - Use one writer per repository or overlapping file set.
 - Serialize tools that contend for a shared editor, simulator, license, package
   cache, derived-data directory, port, device, or deployment target.
+- Never run two Unity sessions against the same project. Serialize the Unity
+  editor/license, project locks, `Library`, `PackageCache`, and shared MCP server
+  state; isolated parallel projects must use unique logs and artifacts.
 - Parallelize read-only checks or isolated project lanes only when their
   resources and outputs do not collide.
 - Never let two agents independently decide the same final mutation.

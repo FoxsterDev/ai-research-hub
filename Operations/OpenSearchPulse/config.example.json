@@ -36,6 +36,13 @@
     "http_429": { "phrase": "429 Too Many Requests", "label": "HTTP 429 rate-limit" },
     "timeout": { "phrase": "Request timed out", "label": "Request timeout" }
   },
+  "overview": {
+    "source_labels": {
+      "loading": "configured login-ready signal",
+      "home_ready": "configured home-ready signal",
+      "popups_settled": "configured popup-settled signal"
+    }
+  },
   "funnels": [
     {
       "key": "signup",

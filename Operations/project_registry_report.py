@@ -324,7 +324,7 @@ def main() -> int:
     if args.json:
         print(json.dumps({"registry": registry_path.as_posix(), "projects": rows}, indent=2, ensure_ascii=False, default=str))
     else:
-        report = render_markdown(registry_path, rows, rubric)
+        report = render_markdown(Path(args.registry), rows, rubric)
         print(report)
         if args.out:
             (repo_root / args.out).resolve().write_text(report, encoding="utf-8")

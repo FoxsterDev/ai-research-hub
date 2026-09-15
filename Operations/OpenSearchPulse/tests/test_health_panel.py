@@ -343,11 +343,11 @@ class PortfolioOverviewTests(unittest.TestCase):
 
     def test_every_project_uses_one_fixed_row_and_missing_cells_are_visible(self):
         report = self._overview(
-            projects=[_project(), _project(key="BS", name="***REMOVED***")],
+            projects=[_project(), _project(key="BS", name="ExampleGame")],
             apps=[_store_app(), _store_app(key="BS")])
         text = pulse.render_status_slack(report)
         self.assertEqual(text.count("Example App"), 1)
-        self.assertEqual(text.count("***REMOVED***"), 1)
+        self.assertEqual(text.count("ExampleGame"), 1)
         self.assertNotIn("Needs attention", text)
         self.assertNotIn("Healthy (", text)
         self.assertNotIn("🟢 *Example App*", text)
@@ -363,7 +363,7 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertIn("App Store: Live v2.5.0 · Rating 4.25★ (1.2k)", text)
         self.assertIn("Google Play: — · Rating —", text)
         self.assertIn("Stability: Crash rate 0.30% all versions · ANR rate —", text)
-        self.assertIn("• ****REMOVED****", text)
+        self.assertIn("• *ExampleGame*", text)
 
     def test_start_game_is_not_inferred_from_a_server_boot_stage(self):
         project = _project()
@@ -776,6 +776,11 @@ class PortfolioOverviewTests(unittest.TestCase):
         })
         project["funnel_applicability"] = {"loading": True, "hub_loading_ux": True}
         report = _report([project])
+        report["overview"]["source_labels"] = {
+            "loading": "api/core/Login SUCCEEDED",
+            "home_ready": "APP_READY",
+            "popups_settled": "APP_POPUPS_SETTLED",
+        }
         report["overview"]["secondary_metrics"] += [
             {"key": "home_ready", "label": "Home ready", "display_label": "Home ready",
              "kind": "funnel_rate", "funnel": "hub_loading_ux", "rate": "home ready reach"},
@@ -1032,10 +1037,10 @@ class HealthRenderTests(unittest.TestCase):
     def test_a_mixed_pending_state_is_marked_on_the_row_that_is_waiting(self):
         report = self._report_with_health(
             projects=[_project(status="watch"),
-                      _project(key="BS", name="***REMOVED***", status="watch")],
+                      _project(key="BS", name="ExampleGame", status="watch")],
             apps=[_store_app(), _store_app(key="BS", sessions=None)])
         panel = "\n".join(pulse.render_health_slack(report))
-        self.assertIn("iOS crash pending", panel)          # only ***REMOVED*** is waiting
+        self.assertIn("iOS crash pending", panel)          # only ExampleGame is waiting
         self.assertIn("iOS crash 3.00/1k sess", panel)     # the other has real data
 
     def test_the_missing_store_reason_reaches_the_reader(self):
@@ -1048,17 +1053,17 @@ class HealthRenderTests(unittest.TestCase):
 
     def test_healthy_projects_collapse_into_one_line_with_their_numbers(self):
         report = self._report_with_health(
-            projects=[_project(status="healthy"), _project(key="BS", name="***REMOVED***",
+            projects=[_project(status="healthy"), _project(key="BS", name="ExampleGame",
                                                           dau=6617, status="healthy")],
             apps=[_store_app()])
         panel = "\n".join(pulse.render_health_slack(report))
         self.assertIn("*Healthy (2):*", panel)
-        self.assertIn("***REMOVED*** (6,617 DAU", panel)
+        self.assertIn("ExampleGame (6,617 DAU", panel)
         self.assertNotIn("users hit an error", panel)   # the detail is in the .md
 
     def test_a_uniform_analytics_wait_is_stated_once_not_per_row(self):
         report = self._report_with_health(
-            projects=[_project(status="watch"), _project(key="BS", name="***REMOVED***",
+            projects=[_project(status="watch"), _project(key="BS", name="ExampleGame",
                                                         status="watch")],
             apps=[_store_app(sessions=None), _store_app(key="BS", sessions=None)])
         panel = "\n".join(pulse.render_health_slack(report))

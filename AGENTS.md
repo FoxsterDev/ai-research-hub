@@ -14,7 +14,8 @@ routing base. When AIRoot is mounted below a host repository, the host router ma
 augment this contract with topology and project context, but standalone AIRoot
 work must not require that augmentation.
 
-For Unity protocol work, route through `Modules/XUUnity/` and load its selected
+For Unity protocol work, use `Modules/XUUnity/README.md` as the structural index,
+route through `Modules/XUUnity/`, and load its selected
 entrypoint from first line through EOF. For work under `Operations/`, load the
 nearest operation router when present. Missing host overlays or project memory
 are explicit optional-context gaps, not reasons to invent a replacement runtime.

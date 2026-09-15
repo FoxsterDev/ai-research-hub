@@ -19,8 +19,11 @@ Refresh `AIOutput/Registry/project_registry.yaml` from the current monorepo stru
 - current `AIOutput/Registry/project_registry.yaml` if present
 
 ## Process
-1. Discover projects that have an active project router.
-2. Verify whether each routed project has `Assets/AIOutput/ProjectMemory/`.
+1. Discover Unity project roots independently from routing state by requiring
+   both `Assets/` and `ProjectSettings/` under a direct host child directory.
+2. Add the standard project router for any unambiguous Unity root before
+   refreshing registry membership, then verify whether each project has
+   `Assets/AIOutput/ProjectMemory/`.
 3. Verify whether each routed project has any host-declared gameplay bridge entry artifact under `Assets/AIOutput/` if the host registry schema expects that field.
 4. Update only evidence-backed metadata fields:
    - project path

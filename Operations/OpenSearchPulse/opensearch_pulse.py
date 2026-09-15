@@ -80,6 +80,7 @@ def load_config(path):
     overview.setdefault("default_family", cfg.get("brand", {}).get("org", "Portfolio"))
     overview.setdefault("family_by_app", {})
     overview.setdefault("secondary_metrics", [])
+    overview.setdefault("source_labels", {})
     overview.setdefault("rollout_min_cohort_dau", 100)
     overview.setdefault("rollout_min_pct", 1.0)
     overview.setdefault("rollout_err_watch_absolute", 0.5)
@@ -4858,12 +4859,16 @@ def render_slack(report):
 def render_status_md(report):
     """Work-ready companion to the single Slack grid, with no duplicated project lists."""
     b = report["brand"]
+    source_labels = (report.get("overview") or {}).get("source_labels") or {}
+    login_source = source_labels.get("loading", "configured login-ready signal")
+    home_source = source_labels.get("home_ready", "configured home-ready signal")
+    popups_source = source_labels.get("popups_settled", "configured popup-settled signal")
     L = [f"# {b['org']} — portfolio overview {report['report_day']}", "",
          f"- Generated: {report['generated_utc']}",
          f"- `Trend`: report day versus the average of {report.get('baseline_days') or 0} prior complete days.",
          "- `Errors vs prior version`: released/live cohort versus the previous production cohort on the same platform; store release order is used when available.",
          "- `StartGame`: emitted canonical StartGame activity events in the window. It is not DAU or server sessions; distinct-user reach is reported separately.",
-         "- `Loading`: unique-user reach from the technical boot marker. `Login reached` is available portfolio-wide; Blingz additionally reports `Home ready` (`APP_READY`) and `Popups settled` (`APP_POPUPS_SETTLED`). These are reach proxies, not correlated launch conversions or TTI.",
+         f"- `Loading`: unique-user reach from the technical boot marker. `Login reached` is available portfolio-wide; {b['org']} additionally reports `Home ready` (`{home_source}`) and `Popups settled` (`{popups_source}`). These are reach proxies, not correlated launch conversions or TTI.",
          "- `—`: the cell is part of the contract, but data or instrumentation is absent. It is never hidden.",
          "- Red overview status is possible only when a metric printed in the overview crosses its alert "
          "threshold. Ratings, reviews and release workflow are context in the experience report.", "",
@@ -4934,9 +4939,9 @@ def render_status_md(report):
                 else:
                     L.append(f"- {platform} Loading denominator: **—**.")
                 for key, label, event_name in (
-                        ("loading", "Login reached", "api/core/Login SUCCEEDED"),
-                        ("home_ready", "Home ready", "APP_READY"),
-                        ("popups_settled", "Popups settled", "APP_POPUPS_SETTLED")):
+                        ("loading", "Login reached", login_source),
+                        ("home_ready", "Home ready", home_source),
+                        ("popups_settled", "Popups settled", popups_source)):
                     metric = by_key.get(key)
                     if metric and metric.get("available"):
                         delta = metric.get("delta_pp")

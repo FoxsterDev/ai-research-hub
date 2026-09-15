@@ -28,6 +28,19 @@ def find_project_routers(root: Path) -> list[Path]:
     return sorted(routers)
 
 
+def find_unity_project_roots(root: Path) -> list[Path]:
+    """Discover project candidates independently of router presence."""
+    ignored = {".git", "AIRoot", "AIPromts", "AIModules"}
+    return sorted(
+        child
+        for child in root.iterdir()
+        if child.is_dir()
+        and child.name not in ignored
+        and (child / "Assets").is_dir()
+        and (child / "ProjectSettings").is_dir()
+    )
+
+
 def load_repo_contract(repo_router: Path) -> tuple[bool, bool]:
     text = repo_router.read_text()
     has_project_memory_rule = "Durable project-local guidance belongs in `<Project>/Assets/AIOutput/ProjectMemory/`." in text
@@ -76,7 +89,18 @@ def main() -> int:
         print("FAIL: repo-level storage contract in AGENTS.md is incomplete")
         return 2
 
+    unity_roots = find_unity_project_roots(root)
     routers = find_project_routers(root)
+    routed_roots = {router.parent.resolve() for router in routers}
+    missing_routers = [
+        project for project in unity_roots if project.resolve() not in routed_roots
+    ]
+    if missing_routers:
+        for project in missing_routers:
+            print(f"{project.relative_to(root)}:")
+            print("  - Unity project root has no exact AGENTS.md router")
+        print(f"FAIL: {len(missing_routers)} Unity project(s) are unrouted")
+        return 1
     if not routers:
         print("WARN: no project routers found")
         return 0

@@ -63,6 +63,11 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `reviews/native_plugin_review.md`
 - `reviews/architecture_review.md`
 - `reviews/release_readiness_review.md`
+- `reviews/module_pack_review.md`
+- `reviews/review_artifact_contract.md`
+- `reviews/review_artifact_metadata.md`
+- `reviews/review_artifact_naming.md`
+- `reviews/test_quality_review.md`
 - `reviews/policy_packs/sdk_changes.md`
 - `reviews/policy_packs/startup_changes.md`
 - `reviews/policy_packs/manifest_native_changes.md`
@@ -112,6 +117,15 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `utilities/external_promotion_checklist.md`
 - `utilities/protocol_consistency_checklist.md`
 - `utilities/report_export.md`
+- `utilities/knowledge_intake_review_report_template.md`
+- `utilities/module_commercialization.md`
+- `utilities/module_mcp_api.md`
+- `utilities/module_paid_skill_authoring.md`
+- `utilities/module_registry.md`
+- `utilities/module_rollsync.md`
+- `utilities/module_session_routing.md`
+- `utilities/review_scoring_output_template.md`
+- `utilities/routing_debug_template.md`
 
 ## Product Coverage
 - `product/README.md`
@@ -146,6 +160,16 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/sdk_stability_scoring.md`
 - `knowledge/vendors/appsflyer.md`
 - `knowledge/vendors/applovin_max.md`
+- `knowledge/vendors/applovin/README.md`
+- `knowledge/vendors/applovin/mediators/bidmachine.md`
+- `knowledge/vendors/applovin/mediators/facebook_meta.md`
+- `knowledge/vendors/applovin/mediators/google_admob.md`
+- `knowledge/vendors/applovin/mediators/ironsource.md`
+- `knowledge/vendors/applovin/mediators/mintegral.md`
+- `knowledge/vendors/applovin/mediators/moloco.md`
+- `knowledge/vendors/applovin/mediators/pangle_bytedance.md`
+- `knowledge/vendors/applovin/mediators/unity_ads.md`
+- `knowledge/vendors/applovin/mediators/vungle_liftoff.md`
 - `knowledge/review_quality_scoring.md`
 - `knowledge/review_evidence_provenance.md`
 - `knowledge/request_recovery.md`
@@ -154,6 +178,19 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/unity_validation_boundaries.md`
 - `knowledge/validation_contract.md`
 - `knowledge/validation_lanes.md`
+- `knowledge/assetbundle_compatibility.md`
+- `knowledge/cache_lifetime_ownership.md`
+- `knowledge/cross_platform_shell_portability.md`
+- `knowledge/detached_callback_attribution.md`
+- `knowledge/execution_contract.md`
+- `knowledge/fail_closed_gate_ordering.md`
+- `knowledge/file_ipc_atomicity.md`
+- `knowledge/lazy_singleton_with_config.md`
+- `knowledge/mcp_scenario_authoring.md`
+- `knowledge/reduced_stack_gate_contract.md`
+- `knowledge/remote_only_failure_bisection.md`
+- `knowledge/response_field_gating.md`
+- `knowledge/routing_trigger_matrix.md`
 
 Some reusable SDK version-comparison methodology is intentionally stored in `knowledge/` instead of `skills/` because it is decision support, not direct implementation behavior.
 Shared risk classification is also stored in `knowledge/` because it is routing doctrine for task assembly, not a code-style or implementation skill by itself.
@@ -185,6 +222,8 @@ Any AI work using XUUnity should load the relevant code style guidance from `cod
 
 ## Roles
 - `role/base_role.md`
+- `role/communication_style.md`
+- `role/output_format.md`
 - `role/product_owner.md`
 - `role/senior_unity_developer.md`
 - `role/architect.md`

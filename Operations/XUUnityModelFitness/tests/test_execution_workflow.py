@@ -115,6 +115,20 @@ class JournalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "schedule_stopped"):
                 schedule.claim(plan, "two", profile_hash="a" * 64, input_hash="b" * 64)
 
+    def test_accounting_preserves_declared_model_surface_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            attempt = row("one")
+            attempt["model_surface_identity"] = {
+                "adapter_id": "codex",
+                "requested_model": "test-model",
+                "inference_parameters": {"effort": "high"},
+            }
+            plan = schedule.build([attempt], schedule_id="identity", journal_root=Path(directory), max_wall_seconds=100)
+            self.assertEqual(
+                attempt["model_surface_identity"],
+                schedule.accounting(plan)[0]["model_surface_identity"],
+            )
+
     def test_two_os_processes_cannot_claim_the_same_attempt(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

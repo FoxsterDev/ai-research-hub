@@ -4,10 +4,10 @@ Status: engineering and bounded diagnostic allocation complete; qualification an
 Authority: `Templates/XUUNITY_MODEL_FITNESS_COMPLETION_GOAL_PROMPT.md`.
 This record distinguishes engineering, diagnostic pilots, qualification, and rollout.
 
-## Baseline and review checkpoint 1
+## Pre-integration baseline and review checkpoint 1
 
 The public baseline is revision `3fb4b640716641119e5cf28d66a0ef6e9522337a`.
-Fresh baseline validation collected 178 operation tests (176 passed, two
+The pre-integration baseline validation collected 178 operation tests (176 passed, two
 OS-probe skips), 174 module tests (all passed), and 67 reference-host tests
 (64 passed, three unavailable raw-transcript replays). These are test counts, not evidence of live model fitness. The host
 and public operation are separate isolated task checkouts; neither is a link
@@ -163,9 +163,15 @@ merging and production application remain distinct actions.
 
 ## Implemented checkpoint
 
-The tested public executor is pinned at `cbad984`; calibration also binds launcher
-code. Replay v2 tolerates a later live-helper edit only through its unchanged
-frozen archive; legacy v1 still needs original helper paths. Actual changed F1
+The historical tested public executor checkpoint `cbad984` is retained only as
+the frozen archive identity for its evidence and is not an ancestor of the
+current public line. Post-integration validation on public checkout base
+`1fe35ea` and host checkout base `1f398fb37`, plus the 2026-09-15 repair delta,
+collected 195 public-operation tests (two explicit skips), 183 public-module
+tests, and 86 host tests, all passing.
+Calibration binds launcher code rather than relying on a moving branch label.
+Replay v2 tolerates a later live-helper edit only through its unchanged frozen
+archive; legacy v1 still needs original helper paths. Actual changed F1
 source passed six Unity cells through the corrected producer. The earlier capture's
 publication remains unverified by the current oracle; the final capture passes the
 separate revision-4 check described below. An unchanged-toolchain receipt validated

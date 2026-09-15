@@ -188,7 +188,12 @@ def accounting(plan: dict[str, Any]) -> list[dict[str, Any]]:
         status = ("finished" if (directory / "finished.json").exists()
                   else "interrupted_or_running" if (directory / "launch.json").exists()
                   else "censored" if (root / "stopped.json").exists() else "unlaunched")
-        rows.append({"attempt_id": attempt["attempt_id"], "order": attempt["order"], "status": status})
+        rows.append({
+            "attempt_id": attempt["attempt_id"],
+            "order": attempt["order"],
+            "status": status,
+            "model_surface_identity": attempt.get("model_surface_identity"),
+        })
     return rows
 
 

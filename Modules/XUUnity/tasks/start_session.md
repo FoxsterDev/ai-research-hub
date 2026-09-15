@@ -359,6 +359,12 @@ Interpret short commands by intent:
 - `xuunity sdk breakage review ...` -> `reviews/sdk_breakage_review.md`
 - `xuunity sdk ...` -> `tasks/sdk_integration.md` or `reviews/sdk_code_review.md` based on whether the user asks to build, update, or review
 - `xuunity plugin ...` or `xuunity native ...` -> `tasks/native_plugin_work.md` or `reviews/native_plugin_review.md` based on intent
+- `xuunity paid skill author ...` -> `utilities/module_paid_skill_authoring.md`
+- `xuunity module pack review ...` -> `reviews/module_pack_review.md`
+- `xuunity module validate installer ...` -> `utilities/module_commercialization.md`
+- `xuunity module scan ...` or `xuunity module validate ...` -> `utilities/module_registry.md`
+- `xuunity module rollsync ...` -> `utilities/module_rollsync.md`
+- `xuunity module session plan ...` -> `utilities/module_session_routing.md`
 - `xuunity system extract review artifact ...` -> `utilities/review_artifact_extract.md`
 - `xuunity system merge review artifacts ...` -> `utilities/review_artifact_merge.md`
 - `xuunity system integrate review artifacts ...` -> `utilities/review_artifact_merge.md`

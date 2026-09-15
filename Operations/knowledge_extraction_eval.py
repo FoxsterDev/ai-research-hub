@@ -209,19 +209,41 @@ def summarize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_health_summary(bundle: dict[str, Any], summary: dict[str, Any], baseline_exists: bool) -> dict[str, Any]:
+def build_health_summary(
+    bundle: dict[str, Any],
+    summary: dict[str, Any],
+    baseline_exists: bool,
+    *,
+    current_protocol_fingerprint: str = "",
+    max_age_days: int = 30,
+) -> dict[str, Any]:
     meta = bundle["run_metadata"]
     run_type = meta.get("run_type", "authoritative")
     evidence_level = meta.get("evidence_level", "unknown")
     authoritative = run_type == "authoritative" and evidence_level == "human_scored" and bool(meta.get("approver")) and bool(meta.get("approval_date"))
+    run_date = date.fromisoformat(meta["date"])
+    age_days = (date.today() - run_date).days
+    recorded_fingerprint = meta.get("protocol_fingerprint", "")
+    fingerprint_matches = bool(
+        current_protocol_fingerprint
+        and recorded_fingerprint
+        and current_protocol_fingerprint == recorded_fingerprint
+    )
+    freshness_reasons = []
+    if age_days > max_age_days:
+        freshness_reasons.append("age_limit_exceeded")
+    if current_protocol_fingerprint and not fingerprint_matches:
+        freshness_reasons.append(
+            "protocol_fingerprint_missing" if not recorded_fingerprint else "protocol_fingerprint_changed"
+        )
     if not authoritative:
         status = "non_authoritative"
     elif summary["blocking_regressions"]:
         status = "failing"
-    elif baseline_exists:
-        status = "current"
-    else:
+    elif freshness_reasons:
         status = "stale"
+    else:
+        status = "current"
     return {
         "status": status,
         "run_type": run_type,
@@ -230,6 +252,13 @@ def build_health_summary(bundle: dict[str, Any], summary: dict[str, Any], baseli
         "approver": meta.get("approver", ""),
         "approval_date": meta.get("approval_date", ""),
         "baseline_exists": baseline_exists,
+        "baseline_marker_role": "legacy_presence_only",
+        "age_days": age_days,
+        "max_age_days": max_age_days,
+        "protocol_fingerprint": recorded_fingerprint or None,
+        "current_protocol_fingerprint": current_protocol_fingerprint or None,
+        "protocol_fingerprint_matches": fingerprint_matches if current_protocol_fingerprint else None,
+        "freshness_reasons": freshness_reasons,
         "last_run_date": meta["date"],
         "workflow_version": meta["workflow_version"],
         "scope": meta["scope"],
@@ -325,6 +354,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     bundle = make_run_bundle(case_pack, args.evaluator, args.workflow_version, args.scope)
     bundle["run_metadata"]["run_type"] = args.run_type
     bundle["run_metadata"]["evidence_level"] = args.evidence_level
+    bundle["run_metadata"]["protocol_fingerprint"] = args.protocol_fingerprint
     write_json(paths.run_json, bundle)
     write_prompts(bundle, paths.prompts_dir)
     print(f"Created run bundle: {paths.run_json}")
@@ -342,7 +372,13 @@ def cmd_report(args: argparse.Namespace) -> None:
     report_root = run_json.parent
     baseline_exists = (report_root / "knowledge_extraction_eval_baseline_v1.md").exists()
     summary_path = Path(args.output_summary) if args.output_summary else run_json.with_name(f"{run_json.stem}_summary.json")
-    health_summary = build_health_summary(bundle, summary, baseline_exists)
+    health_summary = build_health_summary(
+        bundle,
+        summary,
+        baseline_exists,
+        current_protocol_fingerprint=args.current_protocol_fingerprint,
+        max_age_days=args.max_age_days,
+    )
     write_json(summary_path, health_summary)
     latest_summary_path = report_root / "knowledge_extraction_eval_latest_summary.json"
     if health_summary["authoritative"]:
@@ -368,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--output-dir")
     init_parser.add_argument("--run-type", choices=["authoritative", "smoke", "demo"], default="authoritative")
     init_parser.add_argument("--evidence-level", choices=["human_scored", "synthetic", "demo"], default="human_scored")
+    init_parser.add_argument("--protocol-fingerprint", default="", help="Fingerprint of the evaluated protocol corpus")
     init_parser.set_defaults(func=cmd_init)
 
     report_parser = subparsers.add_parser("report", help="Score a completed run bundle and render markdown")
@@ -375,6 +412,8 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--output-md")
     report_parser.add_argument("--output-summary")
     report_parser.add_argument("--write-back", action="store_true")
+    report_parser.add_argument("--current-protocol-fingerprint", default="", help="Fingerprint of the current protocol corpus")
+    report_parser.add_argument("--max-age-days", type=int, default=30)
     report_parser.set_defaults(func=cmd_report)
     return parser
 

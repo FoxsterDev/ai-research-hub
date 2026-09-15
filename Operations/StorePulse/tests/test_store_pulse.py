@@ -590,7 +590,7 @@ def _report(apps=None, overall="degraded", gaps=None):
 class RenderTests(unittest.TestCase):
     def setUp(self):
         cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A"}]})
-        bad = _app_block(key="A", name="***REMOVED***", ios_avg=1.17, ios_count=6)
+        bad = _app_block(key="A", name="ExampleGame", ios_avg=1.17, ios_count=6)
         bad["rating"] = {"ios": {"avg": 1.17, "count": 6, "d_avg": -0.2, "d_avg_7d": None, "d_count": 1},
                          "play": {"avg": 3.9, "count": 400, "d_avg": 0.01, "d_avg_7d": None, "d_count": 4}}
         pulse.score_app(bad, cfg)
@@ -607,7 +607,7 @@ class RenderTests(unittest.TestCase):
     def test_slack_digest_leads_with_attention_and_lists_apps(self):
         text = pulse.render_slack(self.report)
         self.assertIn("Needs attention", text)
-        self.assertIn("***REMOVED***", text)
+        self.assertIn("ExampleGame", text)
         self.assertIn("1.17★", text)
         self.assertIn("credentials pending", text)
         self.assertIn("Not on the store:", text)

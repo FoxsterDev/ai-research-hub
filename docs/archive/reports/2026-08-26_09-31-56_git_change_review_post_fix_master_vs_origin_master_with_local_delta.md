@@ -10,7 +10,7 @@
 - Review scope: remediation of the three Medium findings in the preceding local-delta review
 - Comparison base: `origin/master` at `e8f792865b8d4cb2c4df799cc1a3da62e642489e`
 - Included local delta: `no for the reviewed source files; the validated content is commit fb9684ac74abf8edf46bffebb4ef8d89b000dafa`
-- Pre-fix artifact: `AIOutput/Reports/ReviewArtifacts/2026-08-26_08-58-58_git_change_review_master_vs_origin_master_with_local_delta.md`
+- Pre-fix artifact: `2026-08-26_08-58-58_git_change_review_master_vs_origin_master_with_local_delta.md`
 - Independent approval: explicit user request to fix the review findings
 - Unresolved evidence conflicts: `none in the reviewed scope`
 

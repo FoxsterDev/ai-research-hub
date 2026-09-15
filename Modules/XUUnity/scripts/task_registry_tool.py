@@ -347,15 +347,59 @@ def command_validate(args: argparse.Namespace) -> int:
     schema = load_schema(repo_root)
     events, parse_errors = parse_jsonl_events(repo_root / EVENTS_PATH)
     violations: list[str] = list(parse_errors)
+    warnings: list[str] = []
+
+    # The event log is append-only. Two events written before the canonical
+    # enums stabilized used legacy spellings. A later canonical event for the
+    # same task is the correction record; retain the original evidence while
+    # treating only those explicitly corrected enum errors as historical.
+    legacy_values = {
+        "task_kind": {"bug_fix"},
+        "acceptance_state": {"partially_accepted"},
+    }
+    canonical_values = {
+        field: set(schema["properties"][field]["enum"])
+        for field in legacy_values
+    }
+
+    def is_explicit_correction(candidate: dict[str, Any]) -> bool:
+        return (
+            candidate.get("event_type") == "audit_saved"
+            and candidate.get("actor") == "system"
+            and candidate.get("origin_type") == "manual"
+            and str(candidate.get("summary", "")).startswith(
+                "Append-only metadata correction:"
+            )
+        )
 
     for index, event in enumerate(events, start=1):
-        violations.extend(validate_against_schema(event, schema, f"event[{index}]"))
+        event_errors = validate_against_schema(event, schema, f"event[{index}]")
+        later_events = [
+            candidate
+            for candidate in events[index:]
+            if candidate.get("task_id") == event.get("task_id")
+        ]
+        for field, accepted_legacy_values in legacy_values.items():
+            if event.get(field) not in accepted_legacy_values:
+                continue
+            if not any(
+                is_explicit_correction(candidate)
+                and candidate.get(field) in canonical_values[field]
+                for candidate in later_events
+            ):
+                continue
+            prefix = f"event[{index}].{field}:"
+            event_errors = [error for error in event_errors if not error.startswith(prefix)]
+            warnings.append(
+                f"event[{index}].{field}: retained legacy value {event[field]!r}; "
+                "a later canonical event is the append-only correction"
+            )
+        violations.extend(event_errors)
 
     snapshots = snapshot_from_events(events)
     expected_index_text = "\n".join(emit_yaml({"tasks": snapshots})) + "\n"
     actual_index_text = read_text(repo_root / INDEX_PATH) if (repo_root / INDEX_PATH).exists() else ""
 
-    warnings: list[str] = []
     if actual_index_text != expected_index_text:
         warnings.append("task_index.yaml differs from the derived snapshot and should be reconciled")
 

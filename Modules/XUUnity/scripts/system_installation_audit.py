@@ -28,8 +28,8 @@ from typing import Iterable, Sequence
 from urllib.parse import unquote
 
 
-SCHEMA_VERSION = "xuunity.system-installation-audit.v1"
-AUDITED_SUFFIXES = {".json", ".md", ".py", ".sh", ".yaml", ".yml"}
+SCHEMA_VERSION = "xuunity.system-installation-audit.v2"
+AUDITED_SUFFIXES = {".html", ".json", ".md", ".py", ".sh", ".yaml", ".yml"}
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 SKILL_FAMILY_RE = re.compile(r"(?:Skill family|Skill): `([^`/]+)/")
 DESIGN_ROW_RE = re.compile(r"^\|\s*`([^`]+\.md)`\s*\|", re.MULTILINE)
@@ -56,7 +56,8 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def iter_public_files(air_root: Path) -> list[Path]:
+def iter_filesystem_public_files(air_root: Path) -> list[Path]:
+    """Return candidate text files before publishability filtering."""
     return sorted(
         path
         for path in air_root.rglob("*")
@@ -65,6 +66,38 @@ def iter_public_files(air_root: Path) -> list[Path]:
         and ".git" not in path.parts
         and "__pycache__" not in path.parts
     )
+
+
+def iter_public_files(air_root: Path) -> list[Path]:
+    """Return tracked and unignored pending files, excluding vendored/ignored output.
+
+    A checkout may legitimately contain large ignored dependency trees. They are
+    neither installed protocol content nor publishable pending changes, so they
+    must not affect links, reachability, fingerprints, or inventory counts.
+    When git metadata is unavailable (for example a copied test fixture), fall
+    back to the filesystem candidates so the audit remains usable.
+    """
+    candidates = iter_filesystem_public_files(air_root)
+    try:
+        completed = subprocess.run(
+            [
+                "git", "-C", str(air_root), "ls-files", "--cached", "--others",
+                "--exclude-standard", "-z",
+            ],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return candidates
+    if completed.returncode != 0:
+        return candidates
+    selected = {
+        (air_root / raw.decode("utf-8", errors="surrogateescape")).resolve()
+        for raw in completed.stdout.split(b"\0")
+        if raw
+    }
+    return [path for path in candidates if path.resolve() in selected]
 
 
 def is_test_content(path: Path, module_root: Path) -> bool:
@@ -420,6 +453,34 @@ def inspect_protected_headings(
         )
 
 
+def inspect_module_index(
+    module_root: Path,
+    host_root: Path,
+    air_root: Path,
+    findings: list[dict[str, str]],
+) -> None:
+    """Require the structural index to enumerate every routed owner document."""
+    index_path = module_root / "README.md"
+    if not index_path.is_file():
+        return
+    index_text = read_text(index_path)
+    for directory_name in ("role", "knowledge", "reviews", "utilities"):
+        directory = module_root / directory_name
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.rglob("*.md")):
+            relative = path.relative_to(module_root).as_posix()
+            if relative in index_text:
+                continue
+            add_finding(
+                findings,
+                kind="module_index_entry_missing",
+                severity="medium" if directory_name == "utilities" else "low",
+                path=display_path(path, host_root, air_root),
+                message=f"Public module owner is missing from Modules/XUUnity/README.md: {relative}",
+            )
+
+
 def parse_design_rows(text: str) -> tuple[set[str], set[str]]:
     archived_marker = "\n## Archived"
     if archived_marker in text:
@@ -515,6 +576,11 @@ def run_composed_checks(
             module_scripts / "check_entrypoint_kernel.py",
             [str(air_root / "Modules" / "XUUnity" / "tasks" / "start_session.md")],
         ),
+        (
+            "task_registry",
+            module_scripts / "task_registry_tool.py",
+            ["validate", "--repo-root", str(host_root)],
+        ),
     ]
     results: list[dict[str, object]] = []
     for check_id, script, arguments in checks:
@@ -574,10 +640,12 @@ def finalize_findings(findings: list[dict[str, str]]) -> list[dict[str, str]]:
             finding["message"],
         ),
     )
-    return [
-        {"id": f"SIA{index:03d}", **finding}
-        for index, finding in enumerate(ordered, start=1)
-    ]
+    finalized = []
+    for finding in ordered:
+        identity = json.dumps(finding, sort_keys=True, separators=(",", ":"))
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
+        finalized.append({"id": f"SIA-{digest}", **finding})
+    return finalized
 
 
 def audit_installation(
@@ -585,6 +653,7 @@ def audit_installation(
     air_root: Path,
     *,
     forbidden_tokens: Sequence[str] = (),
+    forbidden_token_source_id: str | None = None,
     run_composed: bool = True,
 ) -> dict[str, object]:
     host_root = host_root.resolve()
@@ -593,6 +662,18 @@ def audit_installation(
     start_session = module_root / "tasks" / "start_session.md"
     findings: list[dict[str, str]] = []
     invalid = False
+
+    if not forbidden_tokens:
+        add_finding(
+            findings,
+            kind="boundary_scan_unarmed",
+            severity="medium",
+            path=display_path(air_root, host_root, air_root),
+            message=(
+                "Private-identifier boundary scanning is unarmed; provide the "
+                "host denylist or at least one --forbidden-token value."
+            ),
+        )
 
     for required, label in (
         (host_root, "host root"),
@@ -616,14 +697,11 @@ def audit_installation(
         path for path in public_files
         if module_root == path.parent or module_root in path.parents
     ]
+    boundary_text: dict[Path, str] = {}
     public_text: dict[Path, str] = {}
-    for path in (
-        item
-        for item in public_files
-        if not is_test_content(item, module_root)
-    ):
+    for path in public_files:
         try:
-            public_text[path] = read_text(path)
+            boundary_text[path] = read_text(path)
         except (OSError, UnicodeError):
             invalid = True
             add_finding(
@@ -633,6 +711,13 @@ def audit_installation(
                 path=display_path(path, host_root, air_root),
                 message="Audited public text file could not be decoded as UTF-8.",
             )
+    for path in (
+        item
+        for item in public_files
+        if not is_test_content(item, module_root)
+    ):
+        if path in boundary_text:
+            public_text[path] = boundary_text[path]
     markdown = {
         path: text
         for path, text in public_text.items()
@@ -654,6 +739,7 @@ def audit_installation(
         inspect_reachability(
             module_root, markdown, host_root, air_root, findings
         )
+        inspect_module_index(module_root, host_root, air_root, findings)
         inspect_command_ownership(
             start_session, host_root, air_root, findings
         )
@@ -662,7 +748,7 @@ def audit_installation(
         )
     inspect_markdown_links(markdown, host_root, air_root, findings)
     inspect_private_path_leaks(
-        public_text, host_root, air_root, forbidden_tokens, findings
+        boundary_text, host_root, air_root, forbidden_tokens, findings
     )
     if air_root.is_dir():
         live_designs, archived_designs = inspect_design_registry(
@@ -712,6 +798,18 @@ def audit_installation(
             if air_root.is_dir()
             else None
         ),
+        "boundaryScan": {
+            "armed": bool(forbidden_tokens),
+            "sourceId": forbidden_token_source_id or (
+                "inline:sha256:"
+                + hashlib.sha256(
+                    "\0".join(sorted(set(forbidden_tokens))).encode("utf-8")
+                ).hexdigest()
+                if forbidden_tokens
+                else None
+            ),
+            "tokenCount": len(set(forbidden_tokens)),
+        },
         "inventory": {
             "markdown": len(markdown),
             "roles": count_markdown(role_root),
@@ -755,6 +853,13 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--forbidden-token-file",
+        help=(
+            "Host-private newline-delimited denylist. Defaults to "
+            "<air-root>/.xuunity-public-safety-denylist when present."
+        ),
+    )
+    parser.add_argument(
         "--output",
         help=(
             "Atomically replace this file with the JSON evidence. "
@@ -789,6 +894,16 @@ def write_json_atomic(path: Path, rendered: str) -> None:
         raise
 
 
+def load_forbidden_token_file(path: Path) -> tuple[tuple[str, ...], str]:
+    data = path.read_bytes()
+    tokens = tuple(
+        line.strip()
+        for line in data.decode("utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+    return tokens, f"sha256:{hashlib.sha256(data).hexdigest()}"
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     host_root = Path(args.host_root).resolve()
@@ -799,10 +914,25 @@ def main(argv: Sequence[str] | None = None) -> int:
         air_root = default_air_root
     else:
         air_root = Path(__file__).resolve().parents[3]
+    token_file = (
+        Path(args.forbidden_token_file).resolve()
+        if args.forbidden_token_file
+        else air_root / ".xuunity-public-safety-denylist"
+    )
+    file_tokens: tuple[str, ...] = ()
+    token_source_id: str | None = None
+    if token_file.is_file():
+        try:
+            file_tokens, token_source_id = load_forbidden_token_file(token_file)
+        except (OSError, UnicodeError):
+            print("ERROR: could not read forbidden-token file.", file=sys.stderr)
+            return 2
+    all_tokens = tuple(dict.fromkeys((*file_tokens, *args.forbidden_token)))
     payload = audit_installation(
         host_root,
         air_root,
-        forbidden_tokens=tuple(args.forbidden_token),
+        forbidden_tokens=all_tokens,
+        forbidden_token_source_id=token_source_id,
         run_composed=not args.skip_composed_checks,
     )
     rendered = json.dumps(payload, indent=2, sort_keys=True) + "\n"

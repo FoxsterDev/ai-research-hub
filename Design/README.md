@@ -60,9 +60,9 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 | `XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md` | implemented | 5 | ✅ 100% (25/25 tests) | — done | Sets the commercial + security invariants for paid modules (entitlement-provider contract, license ≠ local flag, redaction boundary, capability tags). Errors here become product and security debt. |
 | `XUUNITY_LOW_RISK_AUTONOMY_DESIGN.md` | planned | 5 | ⬜ ~5% (est.) | S · ~1d · Low | Parent safety policy (allowlist, deny-by-default, runtime-critical denylist, mandatory artifact + human gate) that makes *safe* autonomy possible — the most strategically important unbuilt direction.<br>**Left to 100%:** trim to a thin "policy north-star" after the 3 plans land; drop duplicated level/allowlist/gate detail. |
 | `XUUNITY_ROOT_CAUSE_ROUTING_95_DESIGN.md` | active | 5 | 🟡 ~85% (est.) | S · ~1–2d · Med | Lifts routing reliability from prompt-discipline to an enforceable, testable contract. The reliability core and the only path from ~82 to 95+. Executable layer built 2026-06-16: canonical `knowledge/execution_contract.md`, `knowledge/routing_trigger_matrix.md`, `scripts/tests/routing_fixtures/`, and the `scripts/routing_gate_check.py` gate (8/8 routing-gate tests pass).<br>**Left to 100%:** host-local matrix rows; broader fixture/bug-family coverage; optional CI wiring of the gate. |
-| `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | active | 5 | Audited execution and bounded diagnostics delivered | Remaining: conformance, qualification and rollout | Public resolver/loader/gate, audited CLI executor, exact host compile receipts, durable schedules, reports, F6 authoring/exposure and experiment journals are integrated. Primary diagnostics, paired A/B and exact F1 compilation ran; a versioned task-oracle correction is validated retrospectively. Numeric fitness and advisory remain unavailable on hookless CLIs. See the completion decision record and plan for tested evidence and external gates. |
-| `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md` | active | 5 | Engineering integrated; remaining evidence gates explicit | Bounded pilots, then later qualification | Current W1–W9 state and links to the as-built decision record. Separates engineering, real diagnostics, model qualification and the fourteen-day observation window; the host ledger maps all 35 original criteria. |
-| `XUUNITY_MODEL_FITNESS_COMPLETION_TECHNICAL_DESIGN.md` | active | 5 | Engineering and bounded diagnostic allocation complete | Qualification and rollout gates remain | Current as-built execution decision record. It records the reviewed implementation, bounded diagnostic evidence, and the remaining requirements for qualification, advisory routing, and rollout. |
+| `XUUNITY_MODEL_FITNESS_AND_REDUCED_STACK_GATE_DESIGN.md` | active | 5 | 🟡 ~90% (est.; 195 operation / 183 module / 86 host tests) | L · external evidence window · High | Public resolver/loader/gate, audited CLI executor, exact host compile receipts, durable schedules, reports, F6 authoring/exposure and experiment journals are integrated. Primary diagnostics, paired A/B and exact F1 compilation ran; a versioned task-oracle correction is validated retrospectively.<br>**Left to 100%:** exact outbound conformance on a supported surface, qualified blinded F6 exposure, preregistered repeats, supported-profile/host regression evidence, remote CI and the staged observation window. |
+| `XUUNITY_MODEL_FITNESS_COMPLETION_PLAN.md` | active | 5 | 🟡 ~90% (est.; engineering integrated) | L · external evidence window · High | Current W1–W9 state and links to the as-built decision record. Separates engineering, real diagnostics, model qualification and the fourteen-day observation window; the host ledger maps all 35 original criteria.<br>**Left to 100%:** complete the remaining conformance, qualification, remote-CI and rollout-observation gates; do not convert unavailable evidence into a passing score. |
+| `XUUNITY_MODEL_FITNESS_COMPLETION_TECHNICAL_DESIGN.md` | active | 5 | 🟡 ~90% (est.; bounded allocation complete) | L · external evidence window · High | Current as-built execution decision record. It records the reviewed implementation and bounded diagnostic evidence.<br>**Left to 100%:** a qualified current-surface cohort, F6 exposure, supported-host matrix, advisory telemetry and blocking false-positive budget. |
 | `XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md` | active | 4 | 🟡 ~75% (est.) | S · ~1–2d · Low | Product-facing protocol layer for PMs/producers (explainers, change impact, rollout readiness, dependency maps). Product-critical, but a layer above the engineering core.<br>**Left to 100%:** build `protocols/flow_explainer.md` + `delivery_scope.md` (+ note formats), or trim them from the design. |
 | `XUUNITY_LOW_RISK_AUTONOMY_LEVEL_MODEL_PLAN.md` | planned | 4 | ⬜ ~5% (est.) | M · ~2–3d · Med | The executable L0–L4 ladder (act alone vs. need approval vs. stays human). Operationalizes the parent policy; the concrete next slice.<br>**Left to 100%:** `knowledge/autonomy_levels.md` (L0–L4) + autonomy hook/fields in `start_session.md`. |
 | `XUUNITY_LOW_RISK_CHANGE_CATEGORIES_AND_EXCLUSIONS_PLAN.md` | planned | 4 | ⬜ ~3% (est.) | M · ~2–3d · Med | The allowlist (A–F) + denylist that decides what is *actually* safe. Without it the level model is empty.<br>**Left to 100%:** `knowledge/low_risk_change_categories.md` (allowlist A–F) + `autonomy_exclusions.md` (denylist). |
@@ -75,8 +75,10 @@ their own table below; for the actionable-only ordering see the [Priority Backlo
 
 What is **active and still needs doing**, ordered by leverage (impact × what it unblocks). `implemented`
 docs are intentionally absent (done, reference only), as are `archived` docs (retired). The
-2026-07-29 observer audit moved measurement validity to the front: model ranking and gate adoption
-cannot be trusted until item 1's P0 is complete.
+2026-07-29 observer audit moved measurement validity to the front. Engineering
+integration is complete; model ranking and gate adoption remain blocked by the
+explicit conformance, qualification, repeat-count, host-matrix and observation
+gates in item 1.
 
 | # | Design | Status · Imp. · Impl. | What is left / next action |
 | :---: | --- | --- | --- |
@@ -254,6 +256,12 @@ Do not turn an unsupported measurement into either a passing number or a low
 model score.
 
 ## Analysis Provenance & Review Notes
+
+- **2026-09-15 post-integration validation:** on public checkout base `1fe35ea`
+  and host checkout base `1f398fb37`, plus the current repair delta, 195
+  public-operation tests passed with two explicit skips, 183 public-module
+  tests passed, and 86 host tests passed. This is deterministic engineering
+  evidence, not a current model-surface baseline.
 
 - **2026-09-08 targeted completion refresh:** replaced stale Model Fitness readiness percentages and missing-runner claims with the integrated execution path and explicit evidence gates. Unrelated design assessments retain their original scope.
 

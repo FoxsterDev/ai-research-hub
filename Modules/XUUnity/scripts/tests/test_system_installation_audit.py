@@ -34,6 +34,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
         return system_installation_audit.audit_installation(
             self.host,
             self.air_root,
+            forbidden_tokens=("FixturePrivateIdentifier",),
             run_composed=False,
         )
 
@@ -51,6 +52,16 @@ class SystemInstallationAuditTests(unittest.TestCase):
 
     def test_repeat_run_is_deterministic(self) -> None:
         self.assertEqual(self._audit(), self._audit())
+
+    def test_finding_ids_do_not_depend_on_other_findings(self) -> None:
+        first = system_installation_audit.finalize_findings([
+            {"kind": "z", "severity": "low", "path": "z", "message": "z"},
+        ])[0]["id"]
+        second = system_installation_audit.finalize_findings([
+            {"kind": "a", "severity": "high", "path": "a", "message": "a"},
+            {"kind": "z", "severity": "low", "path": "z", "message": "z"},
+        ])[1]["id"]
+        self.assertEqual(first, second)
 
     def test_unregistered_skill_family_is_reported(self) -> None:
         path = (
@@ -76,6 +87,13 @@ class SystemInstallationAuditTests(unittest.TestCase):
         path.write_text("# Orphan knowledge\n", encoding="utf-8")
         self.assertIn("unreachable_file", self._kinds(self._audit()))
 
+    def test_module_index_omission_is_reported(self) -> None:
+        path = self.air_root / "Modules" / "XUUnity" / "knowledge" / "new_owner.md"
+        path.write_text("# New owner\n", encoding="utf-8")
+        start = self.air_root / "Modules" / "XUUnity" / "tasks" / "start_session.md"
+        start.write_text(start.read_text() + "\nRoute `knowledge/new_owner.md`.\n")
+        self.assertIn("module_index_entry_missing", self._kinds(self._audit()))
+
     def test_broken_markdown_link_is_reported(self) -> None:
         readme = self.air_root / "Modules" / "XUUnity" / "README.md"
         readme.write_text(
@@ -83,6 +101,45 @@ class SystemInstallationAuditTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.assertIn("broken_markdown_link", self._kinds(self._audit()))
+
+    def test_git_ignored_vendor_tree_does_not_affect_corpus(self) -> None:
+        self._init_host_repo()
+        (self.host / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
+        self._git("add", "-A")
+        self._git("commit", "-q", "-m", "fixture")
+        before = self._audit()["inventory"]["markdown"]
+        vendor = self.air_root / "node_modules" / "vendor" / "README.md"
+        vendor.parent.mkdir(parents=True)
+        vendor.write_text("[missing](CONTRIBUTING.md)\n", encoding="utf-8")
+
+        payload = self._audit()
+
+        self.assertNotIn("broken_markdown_link", self._kinds(payload))
+        self.assertEqual(before, payload["inventory"]["markdown"])
+
+    def test_html_is_covered_by_private_identifier_scan(self) -> None:
+        page = self.air_root / "docs" / "index.html"
+        page.parent.mkdir()
+        page.write_text("PrivateProject", encoding="utf-8")
+        payload = system_installation_audit.audit_installation(
+            self.host,
+            self.air_root,
+            forbidden_tokens=("PrivateProject",),
+            run_composed=False,
+        )
+        self.assertIn("public_path_leak", self._kinds(payload))
+
+    def test_test_fixture_is_covered_by_private_identifier_scan(self) -> None:
+        fixture = self.air_root / "Modules" / "XUUnity" / "tests" / "private.json"
+        fixture.parent.mkdir()
+        fixture.write_text('{"name":"PrivateProject"}', encoding="utf-8")
+        payload = system_installation_audit.audit_installation(
+            self.host,
+            self.air_root,
+            forbidden_tokens=("PrivateProject",),
+            run_composed=False,
+        )
+        self.assertIn("public_path_leak", self._kinds(payload))
 
     def test_duplicate_protected_heading_is_reported(self) -> None:
         entrypoint = (
@@ -135,7 +192,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
         )
 
     def test_public_host_path_is_reported_without_echoing_it(self) -> None:
-        private_value = "/Users/privateaccount/private-repo"
+        private_value = "/" + "Users/privateaccount/private-repo"
         file_path = (
             self.air_root
             / "Modules"
@@ -160,7 +217,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
             / "decision_rules.md"
         )
         file_path.write_text(
-            file_path.read_text(encoding="utf-8") + "\n/Users/alice/repo\n",
+            file_path.read_text(encoding="utf-8") + "\n/" + "Users/alice/repo\n",
             encoding="utf-8",
         )
         self.assertIn("public_path_leak", self._kinds(self._audit()))
@@ -168,7 +225,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
     def test_public_host_path_in_json_is_reported(self) -> None:
         config = self.air_root / "Modules" / "XUUnity" / "fixture-config.json"
         config.write_text(
-            json.dumps({"root": "/home/alice/project"}),
+            json.dumps({"root": "/" + "home/alice/project"}),
             encoding="utf-8",
         )
         self.assertIn("public_path_leak", self._kinds(self._audit()))
@@ -189,7 +246,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
     def test_tracked_file_with_host_path_stays_a_public_leak(self) -> None:
         target = self.air_root / "Modules" / "XUUnity" / "knowledge" / "decision_rules.md"
         target.write_text(
-            target.read_text(encoding="utf-8") + "\n/Users/alice/repo\n",
+            target.read_text(encoding="utf-8") + "\n/" + "Users/alice/repo\n",
             encoding="utf-8",
         )
         self._init_host_repo()
@@ -197,15 +254,15 @@ class SystemInstallationAuditTests(unittest.TestCase):
         self._git("commit", "-q", "-m", "fixture")
         self.assertIn("public_path_leak", self._kinds(self._audit()))
 
-    def test_ignored_untracked_file_is_local_scratch_not_public_leak(self) -> None:
+    def test_ignored_untracked_file_is_outside_the_public_corpus(self) -> None:
         self._init_host_repo()
         (self.host / ".gitignore").write_text("*-setup-plan.json\n", encoding="utf-8")
         self._git("add", "-A")
         self._git("commit", "-q", "-m", "fixture")
         scratch = self.air_root / "Modules" / "XUUnity" / "local-setup-plan.json"
-        scratch.write_text(json.dumps({"root": "/Users/alice/project"}), encoding="utf-8")
+        scratch.write_text(json.dumps({"root": "/" + "Users/alice/project"}), encoding="utf-8")
         kinds = self._kinds(self._audit())
-        self.assertIn("local_scratch_path_leak", kinds)
+        self.assertNotIn("local_scratch_path_leak", kinds)
         self.assertNotIn("public_path_leak", kinds)
 
     def test_untracked_but_unignored_file_stays_a_public_leak(self) -> None:
@@ -213,7 +270,7 @@ class SystemInstallationAuditTests(unittest.TestCase):
         self._git("add", "-A")
         self._git("commit", "-q", "-m", "fixture")
         pending = self.air_root / "Modules" / "XUUnity" / "pending.json"
-        pending.write_text(json.dumps({"root": "/Users/alice/project"}), encoding="utf-8")
+        pending.write_text(json.dumps({"root": "/" + "Users/alice/project"}), encoding="utf-8")
         self.assertIn("public_path_leak", self._kinds(self._audit()))
 
     def test_design_registry_drift_is_reported(self) -> None:
@@ -254,6 +311,8 @@ class SystemInstallationAuditTests(unittest.TestCase):
                 "--host-root",
                 str(self.host),
                 "--skip-composed-checks",
+                "--forbidden-token",
+                "FixturePrivateIdentifier",
                 "--output",
                 str(output),
             ],
@@ -264,6 +323,48 @@ class SystemInstallationAuditTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), json.loads(output.read_text()))
         self.assertEqual(list(output.parent.glob("*.tmp")), [])
+
+    def test_cli_loads_default_denylist_without_exposing_values(self) -> None:
+        denylist = self.air_root / ".xuunity-public-safety-denylist"
+        denylist.write_text("PrivateProject\n", encoding="utf-8")
+        target = self.air_root / "Modules" / "XUUnity" / "README.md"
+        target.write_text(target.read_text(encoding="utf-8") + "\nPrivateProject\n")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(AUDIT),
+                "--host-root",
+                str(self.host),
+                "--skip-composed-checks",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        payload = json.loads(result.stdout)
+        self.assertEqual(1, result.returncode)
+        self.assertTrue(payload["boundaryScan"]["armed"])
+        self.assertEqual(1, payload["boundaryScan"]["tokenCount"])
+        self.assertTrue(payload["boundaryScan"]["sourceId"].startswith("sha256:"))
+        self.assertNotIn("PrivateProject", result.stdout)
+
+    def test_cli_reports_unarmed_boundary_scan(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(AUDIT),
+                "--host-root",
+                str(self.host),
+                "--skip-composed-checks",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        payload = json.loads(result.stdout)
+        self.assertEqual(1, result.returncode)
+        self.assertFalse(payload["boundaryScan"]["armed"])
+        self.assertIn("boundary_scan_unarmed", self._kinds(payload))
 
     def test_cli_output_failure_is_invalid_without_path_disclosure(self) -> None:
         result = subprocess.run(

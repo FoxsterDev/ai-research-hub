@@ -68,7 +68,7 @@ Workspace/
         XUUnity/
     AIModules/
       XUUnityInternal/
-      ***REMOVED***/
+      <HostLocalModule>/
       XCNT-P -> <private-module-root>/XCNT-P
     <UnityProject>/
 
@@ -84,8 +84,8 @@ Workspace/
 ```
 
 The preferred discovery surface is `AIModules/` because the host router already
-uses it for private/local modules such as `XUUnityInternal` and non-Unity
-modules such as `***REMOVED***`.
+uses it for private/local modules such as `XUUnityInternal` and other
+host-local protocol modules.
 
 For personal paid modules, the `AIModules/XCNT-P` entry may be a symlink to a
 folder outside the company project checkout. That keeps development convenient
@@ -441,9 +441,9 @@ Example:
       "resolution": "in_scope"
     },
     {
-      "id": "explore_the_game",
-      "root": "/path/to/CompanyProject/AIModules/***REMOVED***",
-      "protocolScopes": ["explore_the_game"],
+      "id": "host_local_protocol",
+      "root": "/path/to/CompanyProject/AIModules/HostLocalProtocol",
+      "protocolScopes": ["host_local_protocol"],
       "resolution": "ignored_protocol_scope"
     }
   ],

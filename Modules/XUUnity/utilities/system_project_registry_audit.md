@@ -19,8 +19,10 @@ Audit `AIOutput/Registry/project_registry.yaml` against the current monorepo str
 - current `AIOutput/Registry/project_registry.yaml`
 
 ## Process
-1. Discover projects that currently have an active project router.
-2. Compare the discovered set against the registry entries.
+1. Discover Unity project roots independently from routing state by requiring
+   both `Assets/` and `ProjectSettings/` under a direct host child directory.
+2. Classify roots without an exact project `AGENTS.md` as unrouted, then compare
+   the complete discovered set against the registry entries.
 3. Verify low-risk source-of-truth header fields:
    - `shared_protocol_modules`
    - `xuunity_public_core`
@@ -45,6 +47,7 @@ Audit `AIOutput/Registry/project_registry.yaml` against the current monorepo str
 - current entries
 - stale entries
 - missing entries
+- unrouted Unity roots
 - ambiguous entries
 - recommended next action
 
