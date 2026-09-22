@@ -27,6 +27,9 @@ if (!token || !allowedChannelId) {
 }
 
 let inputBuffer = Buffer.alloc(0);
+// Wire framing of the peer. Codex-style clients send `Content-Length` headers; Claude Code and
+// the MCP stdio spec send one JSON object per line. Replies mirror whatever was last received.
+let framing = "content-length";
 
 process.stdin.on("data", (chunk) => {
   inputBuffer = Buffer.concat([inputBuffer, chunk]);
@@ -41,6 +44,30 @@ process.stdin.on("end", () => {
 
 function processBuffer() {
   while (true) {
+    let start = 0;
+    while (start < inputBuffer.length && (inputBuffer[start] === 0x0a || inputBuffer[start] === 0x0d || inputBuffer[start] === 0x20 || inputBuffer[start] === 0x09)) {
+      start += 1;
+    }
+    if (start > 0) {
+      inputBuffer = inputBuffer.slice(start);
+    }
+    if (inputBuffer.length === 0) {
+      return Promise.resolve();
+    }
+
+    if (inputBuffer[0] === 0x7b) {
+      // Newline-delimited JSON-RPC (MCP stdio transport).
+      const lineEnd = inputBuffer.indexOf("\n");
+      if (lineEnd === -1) {
+        return Promise.resolve();
+      }
+      const line = inputBuffer.slice(0, lineEnd).toString("utf8").trim();
+      inputBuffer = inputBuffer.slice(lineEnd + 1);
+      framing = "ndjson";
+      void handleMessage(JSON.parse(line));
+      continue;
+    }
+
     const headerEnd = inputBuffer.indexOf("\r\n\r\n");
     if (headerEnd === -1) {
       return Promise.resolve();
@@ -60,6 +87,7 @@ function processBuffer() {
 
     const body = inputBuffer.slice(headerEnd + 4, messageEnd).toString("utf8");
     inputBuffer = inputBuffer.slice(messageEnd);
+    framing = "content-length";
     const message = JSON.parse(body);
     void handleMessage(message);
   }
@@ -497,6 +525,11 @@ function toolResult(payload) {
 
 function sendMessage(message) {
   const body = Buffer.from(JSON.stringify(message), "utf8");
+  if (framing === "ndjson") {
+    process.stdout.write(body);
+    process.stdout.write("\n");
+    return;
+  }
   process.stdout.write(`Content-Length: ${body.length}\r\n\r\n`);
   process.stdout.write(body);
 }
