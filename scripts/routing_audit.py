@@ -155,11 +155,6 @@ def check_repo_router_links(root: Path, errors: list[str]) -> None:
     for link in sorted(root.rglob("AGENTS.repo.md")):
         if ".git" in link.parts:
             continue
-        if not link.is_symlink():
-            errors.append(f"AGENTS.repo.md is not a symlink: {link}")
-            fail(f"AGENTS.repo.md is not a symlink: {link}")
-            continue
-
         project_dir = link.parent
         workspace_router = project_dir.parent / "AGENTS.md"
         if project_dir.parent != root and exact_file_exists(workspace_router):
@@ -167,8 +162,19 @@ def check_repo_router_links(root: Path, errors: list[str]) -> None:
         else:
             expected = os.path.relpath(root / "AGENTS.md", project_dir)
 
-        actual = os.readlink(link)
-        if actual == expected:
+        expected = expected.replace("\\", "/")
+        if link.is_symlink():
+            actual = os.readlink(link).replace("\\", "/")
+        else:
+            lines = link.read_text(encoding="utf-8").splitlines()
+            marker = "<!-- Managed by AIRoot/scripts/init_ai_project.sh alias-fallback -->"
+            targets = [line[len("target: "):] for line in lines if line.startswith("target: ")]
+            if not lines or lines[0] != marker or len(targets) != 1:
+                errors.append(f"Invalid managed alias fallback: {link}")
+                fail(f"Invalid managed alias fallback: {link}")
+                continue
+            actual = targets[0].replace("\\", "/")
+        if actual == expected and (link.parent / actual).is_file():
             ok(f"{link.relative_to(root)} -> {actual}")
         else:
             errors.append(f"{link} points to {actual}, expected {expected}")
