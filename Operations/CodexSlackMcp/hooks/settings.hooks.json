@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "permission_prompt|idle_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog|agent_completed",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.codex-tools/slack-single-channel-mcp/hooks/slack_work_notify.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.codex-tools/slack-single-channel-mcp/hooks/slack_work_notify.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

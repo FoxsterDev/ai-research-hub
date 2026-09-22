@@ -11,6 +11,7 @@ const ALLOWED_UPLOAD_EXTENSIONS = new Set([
   ".md", ".markdown", ".txt", ".json", ".csv", ".log",
   ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
   ".html", ".htm", ".pdf",
+  ".apk", ".aab", ".ipa", ".zip",
 ]);
 
 const token = process.env.SLACK_BOT_TOKEN ?? "";
