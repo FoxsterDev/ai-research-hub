@@ -51,7 +51,7 @@
     {
       "id": "f8_review_source_unchanged",
       "severity": "high",
-      "implementation_sha256": "6cb5a3218cb06833a0f53825ec680858807ff7f3e2ba1150c4f982849cc38710"
+      "implementation_sha256": "daa2277b31cc00a2c916835d73b0c3bfede43adfdee3fcbaafe37e9fa4728bdd"
     }
   ],
   "dimension_weights": {
@@ -62,5 +62,5 @@
     "truthful_gaps": 5
   },
   "hard_gates": [],
-  "fixture_hash": "9e933d610b932a0c8b5cc4cc94b7c67c27dc9efdc6a3ec0f6a47ea7ae7468808"
+  "fixture_hash": "0f4f4165f09b5d8633a75ddce744bfff639405db1453563a07e9c4b0d7fa1ff2"
 }

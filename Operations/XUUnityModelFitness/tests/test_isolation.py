@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -185,7 +186,7 @@ class HermeticMaterializationTests(unittest.TestCase):
             base_env={"PATH": "/usr/bin:/bin", "LEAKED_SECRET": "token"},
         )
         self.assertEqual(0, record["returncode"])
-        self.assertEqual(xc.sha256_bytes(b"None\n"), record["stdout_sha256"])
+        self.assertEqual(xc.sha256_bytes(("None" + os.linesep).encode("utf-8")), record["stdout_sha256"])
 
 
 _BACKEND_AVAILABLE, _BACKEND_REASON = isolation.detect_backend().available()

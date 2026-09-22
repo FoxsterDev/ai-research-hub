@@ -11,7 +11,8 @@ EXPECTED_SOURCE_SHA256 = (
 
 def _source_tree_sha256(root):
     digest = hashlib.sha256()
-    files = sorted(path for path in root.rglob("*") if path.is_file())
+    files = sorted((path for path in root.rglob("*") if path.is_file()),
+                   key=lambda path: path.relative_to(root).as_posix())
     for path in files:
         data = path.read_bytes()
         digest.update(path.relative_to(root).as_posix().encode("utf-8"))

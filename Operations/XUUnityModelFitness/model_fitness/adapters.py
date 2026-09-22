@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import posixpath
 import re
 import shlex
 from dataclasses import dataclass
@@ -125,6 +126,13 @@ def normalize_path(path: str, cwd: str | None) -> str:
     if not value:
         return ""
     value = value.replace("\\", "/")
+    # Transcript paths may describe a POSIX host even when analyzed on Windows.
+    if value.startswith("/") and cwd and cwd.startswith("/"):
+        value = posixpath.normpath(value)
+        base = posixpath.normpath(cwd)
+        if posixpath.commonpath([base, value]) == base:
+            return posixpath.relpath(value, base)
+        return value
     canonical_cwd = _canonical(cwd)
     if os.path.isabs(value):
         canonical_value = _canonical(value)

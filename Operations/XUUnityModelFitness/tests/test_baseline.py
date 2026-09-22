@@ -221,6 +221,7 @@ class GitContentIdentityTests(BaselineHarness):
         script.chmod(0o755)
         os.symlink("one.txt", self.repo / "Sub/link.txt")
         self._git("init", "-q")
+        self._git("config", "core.autocrlf", "false")
         self._git("add", "-A")
         self._git("commit", "-q", "-m", "seed")
 

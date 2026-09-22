@@ -257,9 +257,12 @@ ensure_alias_path() {
     fail "Refusing to replace unmanaged alias path: $link_path"
   fi
 
-  if ln -s "$target" "$link_path" 2>/dev/null; then
+  # MSYS may report ln success after copying instead of creating a symlink.
+  if ln -s "$target" "$link_path" 2>/dev/null && [ -L "$link_path" ]; then
     log "Configured symlink: $link_path -> $target"
   else
+    # Only remove the path just created here; existing unmanaged paths were refused.
+    if [ -e "$link_path" ]; then rm -rf "$link_path"; fi
     write_alias_fallback "$target" "$link_path"
     log "Configured portable alias fallback: $link_path -> $target"
   fi
