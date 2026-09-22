@@ -33,11 +33,11 @@ Re-state the Required output contract.
 
 class EntrypointKernelTests(unittest.TestCase):
     def _check(self, text: str) -> bool:
-        with tempfile.NamedTemporaryFile("w", suffix=".md", encoding="utf-8") as handle:
-            handle.write(text)
-            handle.flush()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "entrypoint.md"
+            path.write_text(text, encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()):
-                return check_entrypoint_kernel.check(handle.name)
+                return check_entrypoint_kernel.check(path)
 
     def test_valid_head_and_tail_pass(self) -> None:
         self.assertTrue(self._check(HEAD + ("padding\n" * 1400) + TAIL))

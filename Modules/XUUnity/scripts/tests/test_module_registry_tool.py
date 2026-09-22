@@ -200,7 +200,7 @@ class ModuleRegistryToolTests(unittest.TestCase):
         self.assertFalse(payload["entitlementVerified"])
         self.assertEqual(payload["loaded_pack_count"], 1)
         self.assertEqual(payload["loadedPacks"][0]["id"], "xcntp.game_qa_paid_skill")
-        self.assertIn("AIModules/XCNT-P", payload["loadedPacks"][0]["root"])
+        self.assertIn("AIModules/XCNT-P", Path(payload["loadedPacks"][0]["root"]).as_posix())
         self.assertTrue(Path(payload["cache_path"]).is_file())
         registry = json.loads(Path(payload["cache_path"]).read_text(encoding="utf-8"))
         self.assertEqual(registry["outputBoundary"], "private_runtime")
@@ -225,7 +225,7 @@ class ModuleRegistryToolTests(unittest.TestCase):
         self.assertEqual(payload["status"], "passed")
         self.assertEqual(match["id"], "xcntp.game_qa_paid_skill")
         self.assertFalse(match["publicPathLeakDetected"])
-        self.assertIn("AIModules/XCNT-P", match["root"])
+        self.assertIn("AIModules/XCNT-P", Path(match["root"]).as_posix())
         all_paths = "\n".join(path for group in match["entrypoints"].values() for path in group)
         self.assertNotIn("Modules/XUUnity/skills/game_qa", all_paths)
 
