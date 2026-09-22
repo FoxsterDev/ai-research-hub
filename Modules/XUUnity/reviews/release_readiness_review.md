@@ -1,6 +1,7 @@
 # XUUnity Review: Release Readiness
 
 ## Check
+- Apply `knowledge/github_ci_release_gate.md`: verify live GitHub CI for the exact candidate SHA and all required jobs before release/publication readiness; local PASS or successful push is insufficient.
 - Critical bug risk
 - crash and ANR exposure
 - store compliance blockers

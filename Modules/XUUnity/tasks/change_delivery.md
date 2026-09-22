@@ -105,6 +105,7 @@ If the command specifically says `publish the work`, treat change delivery as th
    - confirm the required remote commits exist
    - then create or push the root repo commit that advances submodule pointers
    - if the root repo has only pointer updates, keep that as its own root-repo commit
+   - After an authorized push, apply `knowledge/github_ci_release_gate.md`; report GitHub CI for the exact SHA separately from push success and block release/publication readiness until required runs pass.
 8. Close with an explicit remainder:
    - clean surfaces
    - intentionally uncommitted surfaces
