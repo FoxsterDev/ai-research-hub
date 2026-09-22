@@ -31,3 +31,10 @@ or has no material net gain, continue in the current agent without it.
 AIRoot instructions must remain reusable and public-safe. Host-private paths,
 credentials, project identities, release evidence, and model-specific operating
 preferences belong in the host repository or agent-private configuration.
+
+## Optional Host Harness
+
+When mounted, load `../AIOutput/Harness/KERNEL.md` if present. After runtime
+implementation, use `Modules/XUUnity/reviews/post_implementation_impact_review.md`.
+The standalone fallback is this router plus the selected module or operation;
+a missing host kernel does not block standalone work.
