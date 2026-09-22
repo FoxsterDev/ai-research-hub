@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -110,6 +110,19 @@ function splitText(text, limit = SLACK_TEXT_LIMIT) {
   return chunks;
 }
 
+// A tools/call that uploads files must outlive the transfer: Slack ingests build artifacts of tens
+// of MB, and the tunnel on an unattended host is not fast. Budget 1 s per 128 KiB on top of the
+// 2-minute floor, or take SLACK_POSTER_CALL_TIMEOUT_MS verbatim.
+async function callTimeoutMs(toolArgs) {
+  const override = Number.parseInt(process.env.SLACK_POSTER_CALL_TIMEOUT_MS ?? "", 10);
+  if (Number.isFinite(override) && override > 0) return override;
+  let bytes = 0;
+  for (const p of toolArgs?.paths ?? []) {
+    try { bytes += (await stat(p)).size; } catch { /* the server reports a missing file */ }
+  }
+  return 120000 + Math.ceil(bytes / (128 * 1024)) * 1000;
+}
+
 async function runOnServer(runSh, toolName, toolArgs) {
   await access(runSh);
 
@@ -128,7 +141,7 @@ async function runOnServer(runSh, toolName, toolArgs) {
     const response = await client.call("tools/call", {
       name: toolName,
       arguments: toolArgs,
-    }, 120000);
+    }, await callTimeoutMs(toolArgs));
 
     return response.structuredContent ?? response;
   } finally {
