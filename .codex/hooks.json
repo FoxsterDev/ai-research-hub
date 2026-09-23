@@ -1,0 +1,54 @@
+{
+  "description": "Read-only automatic project routing and pre-edit reminders.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'route_dir=\"$PWD\"; while :; do for route_script in \"$route_dir/Operations/CodexHooks/context.py\" \"$route_dir/AIRoot/Operations/CodexHooks/context.py\"; do if [ -f \"$route_script\" ]; then exec /usr/bin/python3 \"$route_script\"; fi; done; [ \"$route_dir\" = / ] && break; route_dir=$(dirname \"$route_dir\"); done; echo \"Codex routing hook: helper missing; load AGENTS.md\" >&2; exit 1'",
+            "timeout": 3,
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'route_dir=\"$PWD\"; while :; do for route_script in \"$route_dir/Operations/CodexHooks/context.py\" \"$route_dir/AIRoot/Operations/CodexHooks/context.py\"; do if [ -f \"$route_script\" ]; then exec /usr/bin/python3 \"$route_script\"; fi; done; [ \"$route_dir\" = / ] && break; route_dir=$(dirname \"$route_dir\"); done; echo \"Codex routing hook: helper missing; load AGENTS.md\" >&2; exit 1'",
+            "timeout": 3,
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'route_dir=\"$PWD\"; while :; do for route_script in \"$route_dir/Operations/CodexHooks/context.py\" \"$route_dir/AIRoot/Operations/CodexHooks/context.py\"; do if [ -f \"$route_script\" ]; then exec /usr/bin/python3 \"$route_script\"; fi; done; [ \"$route_dir\" = / ] && break; route_dir=$(dirname \"$route_dir\"); done; echo \"Codex routing hook: helper missing; load AGENTS.md\" >&2; exit 1'",
+            "timeout": 3,
+            "additionalContextLimit": 1500
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'route_dir=\"$PWD\"; while :; do for route_script in \"$route_dir/Operations/CodexHooks/context.py\" \"$route_dir/AIRoot/Operations/CodexHooks/context.py\"; do if [ -f \"$route_script\" ]; then exec /usr/bin/python3 \"$route_script\"; fi; done; [ \"$route_dir\" = / ] && break; route_dir=$(dirname \"$route_dir\"); done; echo \"Codex routing hook: helper missing; load AGENTS.md\" >&2; exit 1'",
+            "timeout": 3,
+            "additionalContextLimit": 1500
+          }
+        ],
+        "matcher": "^(Bash|apply_patch|Edit|Write|mcp__.*)$"
+      }
+    ]
+  }
+}

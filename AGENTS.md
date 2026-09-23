@@ -1,5 +1,17 @@
 # AIRoot Agent Router
 
+## Automatic Routing — Every Task
+
+Apply this router to ordinary requests and follow-ups without requiring an
+`xuunity` prefix or a request to load instructions. For Unity implementation,
+review, or architecture work, read `Modules/XUUnity/tasks/start_session.md` fully
+and derive its minimum stack, pre-edit check, and execution contract before acting.
+For protocol/tooling work, use the matching module or operation guidance; do not
+load unrelated Unity runtime packs. Restore the route after compaction and report
+only files actually read and validation actually performed. Codex lifecycle
+reminders are configured in `.codex/hooks.json`; setup and limits are documented
+in `Operations/CodexHooks/README.md`.
+
 ## Purpose
 
 AIRoot contains reusable public-safe agent modules and standalone operations.
