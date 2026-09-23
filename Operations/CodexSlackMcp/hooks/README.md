@@ -10,7 +10,7 @@ human or finishes a turn:
 | `Notification` | `agent_needs_input`, `elicitation_*dialog` | ❓ has a question for you |
 | `Notification` | `idle_prompt` | ⏳ idle and waiting for you |
 | `Notification` | `agent_completed` | 🏁 background agent completed |
-| `Stop` | — | ✅ (or ❌ when the text reads like a failure) finished a turn + the last assistant message, clipped |
+| `Stop` | — | ✅ (or ❌ when the text reads like a failure) finished a turn + the last assistant message, paragraphs kept, clipped at 3000 chars |
 
 Every line is prefixed with `host · project · session` so several sessions can share one channel.
 The hook always exits 0 and never blocks the agent; a failed post is logged to
@@ -59,7 +59,8 @@ printf '%s' '{"hook_event_name":"Stop","last_assistant_message":"Build finished,
 ## Switch off / tune
 
 - `touch ~/.codex/slack-work-notify.off` silences it without touching settings.
-- `SLACK_WORK_NOTIFY_MAX_CHARS` (default 700) clips the relayed text.
+- `SLACK_WORK_NOTIFY_MAX_CHARS` (default 3000) clips the relayed text at a paragraph boundary;
+  paragraph breaks are kept so headings and lists stay readable.
 - Drop the `Stop` block from settings if only human-needed events should reach the channel.
 - A second channel later: point another env file at it and call the hook with
   `SLACK_SINGLE_CHANNEL_ENV_FILE=<file>` in the hook `command` — the poster's wrapper honours it.

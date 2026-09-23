@@ -14,7 +14,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 POSTER="$HERE/../post_fixed_channel_message.mjs"
 STATE_DIR="${SLACK_WORK_NOTIFY_STATE:-$HOME/.codex/slack-work-notify}"
 LOG="$STATE_DIR/notify.log"
-MAX_CHARS="${SLACK_WORK_NOTIFY_MAX_CHARS:-700}"
+MAX_CHARS="${SLACK_WORK_NOTIFY_MAX_CHARS:-3000}"  # Slack renders ~3500 per message; the poster splits beyond that
 mkdir -p "$STATE_DIR"
 
 INPUT="$(cat)"
@@ -39,8 +39,24 @@ host = socket.gethostname().split(".")[0]
 tag = f"`{host} · {project} · {session}`"
 
 def clip(text):
-    text = " ".join((text or "").split())
-    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+    # Keep the paragraph structure the agent wrote (headings, lists), collapse only the whitespace
+    # inside each paragraph, and cut at a paragraph boundary when the budget runs out.
+    paragraphs = ["\n".join(" ".join(l.split()) for l in p.split("\n") if l.strip()) for p in (text or "").split("\n\n")]
+    paragraphs = [p for p in paragraphs if p]
+    out, used = [], 0
+    for p in paragraphs:
+        cost = len(p) + (2 if out else 0)
+        if used + cost > limit:
+            room = limit - used - (2 if out else 0) - 1
+            if room > 40:
+                out.append(p[:room].rstrip() + "…")
+            elif out:
+                out[-1] = out[-1] + " …"
+            else:
+                out.append(p[: limit - 1].rstrip() + "…")
+            break
+        out.append(p); used += cost
+    return "\n\n".join(out)
 
 if event == "Notification":
     kind = data.get("notification_type") or ""
