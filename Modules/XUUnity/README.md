@@ -63,6 +63,7 @@ In this monorepo, `xuunity` may also load `AIModules/XUUnityInternal/` after the
 - `reviews/native_plugin_review.md`
 - `reviews/architecture_review.md`
 - `reviews/release_readiness_review.md`
+- `reviews/post_implementation_impact_review.md`
 - `reviews/module_pack_review.md`
 - `reviews/review_artifact_contract.md`
 - `reviews/review_artifact_metadata.md`
@@ -184,6 +185,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/detached_callback_attribution.md`
 - `knowledge/execution_contract.md`
 - `knowledge/fail_closed_gate_ordering.md`
+- `knowledge/github_ci_release_gate.md`
 - `knowledge/file_ipc_atomicity.md`
 - `knowledge/lazy_singleton_with_config.md`
 - `knowledge/mcp_scenario_authoring.md`
