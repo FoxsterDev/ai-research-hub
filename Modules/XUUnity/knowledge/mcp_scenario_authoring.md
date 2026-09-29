@@ -14,6 +14,8 @@ Use this file when authoring, reviewing, or debugging Unity MCP scenario JSON or
   - asset database refreshes or asset imports
   - project settings or generated dependency artifact changes
 - Prefer a settle-aware operation such as `project_refresh` when available. Use fixed-duration waits only as a last resort and label the remaining validation weakness.
+- After a build profile or environment hook that may change scripting defines, do not settle through `project_refresh` (it can lose domain-reload accounting); mark the hook step `mutationSettlePolicy: apply_then_gate` and follow it with `status` and `compile_player_scripts`. A runner whose compile step gates on editor idle before it dispatches makes that compile step the settle primitive; a blind `wait` in between is optional.
+- A mutating hook should report the editor state it changed in its result payload, for example the resulting scripting defines per platform and a changed flag after a profile apply, so the scenario result proves what was applied without a second inspection round.
 - For async project-defined UI flows, prefer a first-class `project_defined_hook_poll_until` step over repeated wait/snapshot/assert ladders. If that primitive is unavailable, treat the fallback as a capability gap and keep the scenario bounded.
 - Do not start `compile_player_scripts`, `playmode_set`, screenshot capture, or state assertions immediately after a mutating hook unless the hook itself explicitly waits for Unity compile/update/domain-reload settle.
 - Keep scenario steps narrow:
@@ -31,6 +33,7 @@ Use this file when authoring, reviewing, or debugging Unity MCP scenario JSON or
 - If a blind sleep remains, is the reason explicit and is the evidence downgraded accordingly?
 - Does the scenario restore any project profile or editor state that it mutates?
 - Does the final result include enough evidence for the claim, such as compile output, scene snapshot, console tail, screenshot, or generated artifact inspection?
+- Does every mutating hook report the state it changed, and does each `console_grep` evidence step bound itself to the current session (for example `since: playmode_start`) so a match cannot come from an earlier play session?
 
 ## Routing Triggers
 
