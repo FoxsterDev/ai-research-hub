@@ -278,6 +278,182 @@ class SystemInstallationAuditTests(unittest.TestCase):
         registry.write_text("# Fixture Design Registry\n", encoding="utf-8")
         self.assertIn("design_file_unregistered", self._kinds(self._audit()))
 
+    def _write_router(self, size: int) -> None:
+        (self.host / "AGENTS.md").write_bytes(b"x" * size)
+
+    def _router_findings(self, payload: dict[str, object]) -> list[dict[str, str]]:
+        return [
+            finding
+            for finding in payload["findings"]  # type: ignore[union-attr]
+            if finding["path"] == "AGENTS.md"
+        ]
+
+    def test_router_with_headroom_beyond_margin_is_clean(self) -> None:
+        window = system_installation_audit.ROUTER_READ_WINDOW_BYTES
+        margin = system_installation_audit.ROUTER_HEADROOM_MARGIN_BYTES
+        self._write_router(window - margin - 1)
+        payload = self._audit()
+        self.assertEqual(payload["status"], "clean")
+        self.assertEqual(self._router_findings(payload), [])
+
+    def test_router_within_headroom_margin_is_reported(self) -> None:
+        window = system_installation_audit.ROUTER_READ_WINDOW_BYTES
+        margin = system_installation_audit.ROUTER_HEADROOM_MARGIN_BYTES
+        size = window - margin
+        self._write_router(size)
+        [finding] = self._router_findings(self._audit())
+        self.assertEqual(finding["kind"], "router_read_window_headroom_low")
+        self.assertEqual(finding["severity"], "medium")
+        self.assertIn(f"{size} bytes", finding["message"])
+        self.assertIn(f"{window}-byte", finding["message"])
+        self.assertIn(f"headroom {margin} bytes", finding["message"])
+
+    def test_router_larger_than_read_window_is_reported(self) -> None:
+        window = system_installation_audit.ROUTER_READ_WINDOW_BYTES
+        size = window + 10
+        self._write_router(size)
+        [finding] = self._router_findings(self._audit())
+        self.assertEqual(finding["kind"], "router_exceeds_read_window")
+        self.assertEqual(finding["severity"], "high")
+        self.assertIn(f"{size} bytes", finding["message"])
+        self.assertIn(f"{window}-byte", finding["message"])
+        self.assertIn("headroom -10 bytes", finding["message"])
+
+    def _audit_composed(self) -> dict[str, object]:
+        return system_installation_audit.audit_installation(
+            self.host,
+            self.air_root,
+            forbidden_tokens=("FixturePrivateIdentifier",),
+            run_composed=True,
+        )
+
+    def _composed(self, payload: dict[str, object], check_id: str) -> dict[str, object]:
+        return next(
+            check
+            for check in payload["composedChecks"]  # type: ignore[union-attr]
+            if check["id"] == check_id
+        )
+
+    def _install_task_registry(self) -> None:
+        scripts = self.air_root / "Modules" / "XUUnity" / "scripts"
+        scripts.mkdir(exist_ok=True)
+        shutil.copy2(SCRIPTS_DIR / "task_registry_tool.py", scripts)
+        shutil.copytree(
+            SCRIPTS_DIR / "templates" / "task_registry",
+            scripts / "templates" / "task_registry",
+        )
+        for command in ("bootstrap", "reconcile"):
+            self._registry(command)
+
+    def _registry(self, *arguments: str) -> str:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(self.air_root / "Modules" / "XUUnity" / "scripts" / "task_registry_tool.py"),
+                *arguments,
+                "--repo-root",
+                str(self.host),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+
+    def test_valid_task_registry_is_a_clean_pass(self) -> None:
+        self._install_task_registry()
+        payload = self._audit_composed()
+        check = self._composed(payload, "task_registry")
+        self.assertEqual(check["status"], "pass")
+        self.assertIsNone(check["warningCount"])
+        self.assertEqual(payload["status"], "clean")
+
+    def test_task_registry_warnings_are_not_a_clean_pass(self) -> None:
+        self._install_task_registry()
+        index = self.host / "AIOutput" / "Registry" / "task_index.yaml"
+        index.write_text(index.read_text(encoding="utf-8") + "# drift\n", encoding="utf-8")
+        payload = self._audit_composed()
+        check = self._composed(payload, "task_registry")
+        self.assertEqual(check["status"], "pass_with_warnings")
+        self.assertEqual(check["exitCode"], 0)
+        self.assertEqual(check["warningCount"], 1)
+        self.assertIn("1 warning(s)", str(check["summary"]))
+        [finding] = [
+            finding
+            for finding in payload["findings"]  # type: ignore[union-attr]
+            if finding["kind"] == "composed_check_warnings"
+        ]
+        self.assertEqual(finding["severity"], "low")
+        self.assertEqual(finding["path"], "task_registry")
+        self.assertEqual(payload["status"], "findings")
+
+    def test_corrected_legacy_registry_values_stay_a_clean_pass(self) -> None:
+        self._install_task_registry()
+        self._registry(
+            "start", "--project-id", "fixture", "--repo-id", "fixture",
+            "--origin-ref", "fixture", "--task-kind", "bug", "--severity", "low",
+            "--summary", "Fixture task",
+        )
+        events = self.host / "AIOutput" / "Registry" / "task_events.jsonl"
+        started = json.loads(events.read_text(encoding="utf-8").splitlines()[-1])
+        legacy = {**started, "task_kind": "bug_fix"}
+        correction = {
+            **started,
+            "event_type": "audit_saved",
+            "actor": "system",
+            "origin_type": "manual",
+            "summary": "Append-only metadata correction: fixture",
+        }
+        with events.open("a", encoding="utf-8") as handle:
+            for event in (legacy, correction):
+                handle.write(json.dumps(event) + "\n")
+        self._registry("reconcile")
+        self.assertIn("retained legacy value", self._registry("validate"))
+
+        payload = self._audit_composed()
+        check = self._composed(payload, "task_registry")
+        self.assertEqual(check["status"], "pass")
+        self.assertIsNone(check["warningCount"])
+        self.assertEqual(payload["status"], "clean")
+
+    def test_warning_status_is_parsed_only_for_warning_reporting_checks(self) -> None:
+        stub = self.air_root / "scripts" / "routing_audit.py"
+        stub.parent.mkdir()
+        stub.write_text(
+            "print('STATUS: valid_with_warnings')\n"
+            "print('WARNINGS:')\n"
+            "print('  - stub warning')\n",
+            encoding="utf-8",
+        )
+        payload = self._audit_composed()
+        check = self._composed(payload, "routing_audit")
+        self.assertEqual(check["status"], "pass")
+        self.assertIsNone(check["warningCount"])
+        self.assertNotIn("composed_check_warnings", self._kinds(payload))
+
+    def test_warning_count_reads_only_the_warnings_block(self) -> None:
+        count = system_installation_audit.count_validation_warnings(
+            "STATUS: valid_with_warnings\n"
+            "VIOLATIONS:\n"
+            "  - not a warning\n"
+            "WARNINGS:\n"
+            "  - first\n"
+            "  - event[1].task_kind: retained legacy value 'old'; corrected\n"
+            "  - second\n"
+            "OK: trailer\n"
+            "  - not a warning\n"
+        )
+        self.assertEqual(count, 2)
+        self.assertIsNone(
+            system_installation_audit.count_validation_warnings("STATUS: valid\nOK: 0 event(s)\n")
+        )
+        self.assertIsNone(
+            system_installation_audit.count_validation_warnings(
+                "STATUS: valid_with_warnings\n"
+                "WARNINGS:\n"
+                "  - event[1].task_kind: retained legacy value 'old'; corrected\n"
+            )
+        )
+
     def test_cli_emits_json_and_findings_exit_code(self) -> None:
         path = (
             self.air_root

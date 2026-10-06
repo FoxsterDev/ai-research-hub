@@ -37,6 +37,10 @@ COMMAND_RE = re.compile(r"`(xuunity [^`]+)`", re.IGNORECASE)
 OWNER_RE = re.compile(r"->\s*`([^`]+\.md)`")
 PROTECTED_HEADING = "## Skill Routing Hints"
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+ROUTER_READ_WINDOW_BYTES = 16384
+ROUTER_HEADROOM_MARGIN_BYTES = 64
+WARNINGS_STATUS_LINE = "STATUS: valid_with_warnings"
+ACKNOWLEDGED_WARNING_MARKER = ": retained legacy value "
 
 
 def display_path(path: Path, host_root: Path, air_root: Path) -> str:
@@ -453,6 +457,46 @@ def inspect_protected_headings(
         )
 
 
+def inspect_router_headroom(
+    host_root: Path,
+    air_root: Path,
+    findings: list[dict[str, str]],
+) -> None:
+    """Keep the host router inside the head+tail read window some harnesses use."""
+    router = host_root / "AGENTS.md"
+    if not router.is_file():
+        return
+    size = router.stat().st_size
+    headroom = ROUTER_READ_WINDOW_BYTES - size
+    measurement = (
+        f"{size} bytes against a {ROUTER_READ_WINDOW_BYTES}-byte head+tail "
+        f"read window; headroom {headroom} bytes"
+    )
+    if headroom < 0:
+        add_finding(
+            findings,
+            kind="router_exceeds_read_window",
+            severity="high",
+            path=display_path(router, host_root, air_root),
+            message=(
+                f"Host router is {measurement}. A sheared read drops "
+                f"{-headroom} bytes from its middle."
+            ),
+        )
+    elif headroom <= ROUTER_HEADROOM_MARGIN_BYTES:
+        add_finding(
+            findings,
+            kind="router_read_window_headroom_low",
+            severity="medium",
+            path=display_path(router, host_root, air_root),
+            message=(
+                f"Host router is {measurement}, within the "
+                f"{ROUTER_HEADROOM_MARGIN_BYTES}-byte margin. The next growth "
+                "drops content from its middle."
+            ),
+        )
+
+
 def inspect_module_index(
     module_root: Path,
     host_root: Path,
@@ -555,6 +599,24 @@ def inspect_design_registry(
     return len(live_files), len(archived_files)
 
 
+def count_validation_warnings(stdout: str) -> int | None:
+    """Return the unacknowledged WARNINGS count of a valid_with_warnings run, else None."""
+    lines = stdout.splitlines()
+    if WARNINGS_STATUS_LINE not in lines:
+        return None
+    count = 0
+    in_warnings = False
+    for line in lines:
+        if line == "WARNINGS:":
+            in_warnings = True
+        elif in_warnings and line.startswith("  - "):
+            if ACKNOWLEDGED_WARNING_MARKER not in line:
+                count += 1
+        else:
+            in_warnings = False
+    return count or None
+
+
 def run_composed_checks(
     host_root: Path,
     air_root: Path,
@@ -565,25 +627,29 @@ def run_composed_checks(
             "routing_audit",
             air_root / "scripts" / "routing_audit.py",
             ["--host-root", str(host_root)],
+            False,
         ),
         (
             "router_storage_audit",
             air_root / "Operations" / "router_storage_audit.py",
             ["--repo-root", str(host_root)],
+            False,
         ),
         (
             "entrypoint_kernel",
             module_scripts / "check_entrypoint_kernel.py",
             [str(air_root / "Modules" / "XUUnity" / "tasks" / "start_session.md")],
+            False,
         ),
         (
             "task_registry",
             module_scripts / "task_registry_tool.py",
             ["validate", "--repo-root", str(host_root)],
+            True,
         ),
     ]
     results: list[dict[str, object]] = []
-    for check_id, script, arguments in checks:
+    for check_id, script, arguments, reports_warnings in checks:
         if not script.is_file():
             results.append(
                 {
@@ -591,6 +657,7 @@ def run_composed_checks(
                     "status": "not_applicable",
                     "exitCode": None,
                     "summary": "Public owner check is not installed.",
+                    "warningCount": None,
                 }
             )
             continue
@@ -610,10 +677,21 @@ def run_composed_checks(
                     "status": "invalid",
                     "exitCode": None,
                     "summary": "Public owner check could not complete.",
+                    "warningCount": None,
                 }
             )
             continue
-        if completed.returncode == 0:
+        warning_count = (
+            count_validation_warnings(completed.stdout)
+            if reports_warnings and completed.returncode == 0
+            else None
+        )
+        if warning_count is not None:
+            status, summary = (
+                "pass_with_warnings",
+                f"Public owner check passed with {warning_count} warning(s).",
+            )
+        elif completed.returncode == 0:
             status, summary = "pass", "Public owner check passed."
         elif completed.returncode == 1:
             status, summary = "finding", "Public owner check reported findings."
@@ -625,6 +703,7 @@ def run_composed_checks(
                 "status": status,
                 "exitCode": completed.returncode,
                 "summary": summary,
+                "warningCount": warning_count,
             }
         )
     return results
@@ -746,6 +825,7 @@ def audit_installation(
         inspect_protected_headings(
             start_session, host_root, air_root, findings
         )
+    inspect_router_headroom(host_root, air_root, findings)
     inspect_markdown_links(markdown, host_root, air_root, findings)
     inspect_private_path_leaks(
         boundary_text, host_root, air_root, forbidden_tokens, findings
@@ -764,6 +844,17 @@ def audit_installation(
                 severity="medium",
                 path=str(check["id"]),
                 message=f"Composed public check reported findings: {check['id']}",
+            )
+        elif check["status"] == "pass_with_warnings":
+            add_finding(
+                findings,
+                kind="composed_check_warnings",
+                severity="low",
+                path=str(check["id"]),
+                message=(
+                    f"Composed public check passed with {check['warningCount']} "
+                    f"warning(s): {check['id']}"
+                ),
             )
         elif check["status"] == "invalid":
             invalid = True
