@@ -106,6 +106,14 @@ thresholds to colour it green / amber / red (direction from `good: "high"|"low"`
 rates **without** thresholds render neutral, so reach / volume / expected-noise
 rates are never mislabelled good-or-bad.
 
+A stage emitted only inside a client-side debug sample (for example a `Debug`-level line that
+the logger ships for a percentage of sessions) is flagged `"debug_sampled": true`. The engine
+then matches it only on documents whose `fields.debug_mode` boolean (default `DebugMode`) is
+`true`, reports its users as a share of those sampled sessions instead of DAU, appends
+`debug-sampled` to its label, and lets a rate use it only together with other sampled stages
+(or `"dau"`, which then means the sampled sessions). A rate that mixes a sampled stage with an
+unsampled one, or a sampled stage inside a `split_by_tag` funnel, is rejected at config load.
+
 ```jsonc
 "funnels": [{
   "key": "signup", "label": "Signup", "apps": ["APP1"],

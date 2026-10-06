@@ -118,6 +118,7 @@ def load_config(path):
     F.setdefault("stacktrace", "Stacktrace")
     F.setdefault("device", "DeviceModel")
     F.setdefault("time", "TimeUTC")  # timestamp field; bounds the report day to exact UTC 00:00–24:00
+    F.setdefault("debug_mode", "DebugMode")  # boolean envelope flag: the session was in the logger's debug sample
     st = cfg.setdefault("server_type", {})
     st.setdefault("field", "ServerType.keyword")
     st.setdefault("value", "")
@@ -139,7 +140,39 @@ def load_config(path):
         raise ValueError("absolute error degraded threshold must be >= watch threshold")
     if th["dau_drop_degraded_pct"] < th["dau_drop_watch_pct"]:
         raise ValueError("DAU-drop degraded threshold must be >= watch threshold")
+    validate_funnel_sampling(cfg["funnels"])
     return cfg
+
+
+def sampled_stage_keys(fn):
+    return {st["key"] for st in fn.get("stages", []) if st.get("debug_sampled")}
+
+
+def rate_stages(rt):
+    den = rt.get("den")
+    den_stages = den if isinstance(den, list) else ([] if den == "dau" else [den])
+    return [rt["num"]] + den_stages
+
+
+def validate_funnel_sampling(funnels):
+    """A `debug_sampled` stage counts only sessions inside the logger's debug sample.
+
+    Its users are a share of the sampled sessions, not of DAU, so a rate may combine
+    it only with other sampled stages (or with `dau`, which then means the sampled
+    sessions). Mixing a sampled stage with an unsampled one would divide a 2 %
+    sample by the whole population and report a false drop-off.
+    """
+    for fn in funnels:
+        sampled = sampled_stage_keys(fn)
+        if not sampled:
+            continue
+        if fn.get("split_by_tag"):
+            raise ValueError(f"funnel {fn.get('key')}: debug_sampled stages cannot be combined with split_by_tag")
+        for rt in fn.get("rates", []):
+            hits = [stage in sampled for stage in rate_stages(rt)]
+            if any(hits) and not all(hits):
+                raise ValueError(f"funnel {fn.get('key')} rate {rt.get('label')!r} mixes debug-sampled "
+                                 "and unsampled stages")
 
 
 def resolve_base_url(cfg):
@@ -1518,6 +1551,11 @@ def day_query(cfg, app_id=None, day=None, win=None, project_key=None):
     if cfg["funnels"]:
         funnel_stages = [(fn, mapped) for fn in cfg["funnels"] for st in fn["stages"]
                           for mapped in [project_funnel_stage(fn, st, project_key)] if mapped]
+        if any(st.get("debug_sampled") for _, st in funnel_stages):
+            aggs["debug_users"] = {"filter": {"term": {F.get("debug_mode", "DebugMode"): True}},
+                                   "aggs": {"u": {"cardinality": {"field": U}},
+                                            "by_platform": {"terms": {"field": F["platform"], "size": 6},
+                                                            "aggs": {"u": {"cardinality": {"field": U}}}}}}
         aggs["funnels"] = {"filters": {"filters": {
             f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn, st in funnel_stages}},
             "aggs": {"u": {"cardinality": {"field": U}},
@@ -1559,6 +1597,8 @@ def stage_filter(F, st):
         must.append({"term": {F["category"]: st["category"]}})
     if st.get("level"):
         must.append({"term": {F["level"]: st["level"]}})
+    if st.get("debug_sampled"):
+        must.append({"term": {F.get("debug_mode", "DebugMode"): True}})
     return {"bool": {"must": must}}
 
 
@@ -2099,6 +2139,9 @@ def collect_day(client, cfg, prefix, app_id, day, win=None, project_key=None):
                               for k, v in a.get("funnel_breakdowns", {}).get("buckets", {}).items()},
         "fresh_users": a.get("fresh", {}).get("u", {}).get("value", 0),
         "nonfresh_users": a.get("nonfresh", {}).get("u", {}).get("value", 0),
+        "debug_users": a.get("debug_users", {}).get("u", {}).get("value", 0),
+        "debug_platform_users": {plat_label(b["key"]): b.get("u", {}).get("value", 0)
+                                 for b in a.get("debug_users", {}).get("by_platform", {}).get("buckets", [])},
         "funnels_split": {k: {"fresh": v.get("fresh", {}).get("u", {}).get("value", 0),
                               "nonfresh": v.get("nonfresh", {}).get("u", {}).get("value", 0)}
                           for k, v in a.get("funnels_split", {}).get("buckets", {}).items()},
@@ -2318,28 +2361,38 @@ def build_hygiene(sigs):
     return out
 
 
-def _funnel_rates(fn, su, dau, se=None):
-    """Config-defined conversion rates using unique users or explicit event counts."""
+def _funnel_rates(fn, su, dau, se=None, debug_dau=None, sampled=None):
+    """Config-defined conversion rates using unique users or explicit event counts.
+
+    A rate over `debug_sampled` stages lives inside the logger's debug sample: `dau`
+    then means the sampled sessions and the label says so.
+    """
     se = se or {}
+    sampled = sampled or set()
     rates = []
     for rt in fn.get("rates", []):
         count_unit = rt.get("count", "users")
         counts = se if count_unit == "events" and se else su
         num = counts.get(rt["num"], 0)
         d = rt.get("den")
+        hits = [stage in sampled for stage in rate_stages(rt)]
+        is_sampled = any(hits)
+        mixed = is_sampled and not all(hits)
         if d == "dau":
-            den = dau
+            den = (debug_dau or 0) if is_sampled else dau
         elif isinstance(d, list):        # sum of stages, e.g. success/(success+failed)
             den = sum(counts.get(k, 0) for k in d)
         else:
             den = counts.get(d, 0)
-        pct = round(num / den * 100.0, 1) if den else None
-        quality = ("numerator_exceeds_denominator" if pct is not None and pct > 100.0 else
+        pct = round(num / den * 100.0, 1) if den and not mixed else None
+        quality = ("mixed_sampling" if mixed else
+                   "numerator_exceeds_denominator" if pct is not None and pct > 100.0 else
                    "denominator_missing" if den == 0 and num > 0 else None)
-        rates.append({"label": rt["label"], "num": num, "den": den,
+        rates.append({"label": rt["label"] + (" (debug-sampled)" if is_sampled else ""),
+                      "num": num, "den": den,
                       "num_stage": rt["num"], "den_stage": d,
                       "count_unit": count_unit if counts is se else "users",
-                      "pct": pct, "data_quality": quality,
+                      "pct": pct, "data_quality": quality, "sampled": is_sampled,
                       "good": rt.get("good", "high"), "business": rt.get("business"),
                       "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at")})
     return rates
@@ -2353,19 +2406,25 @@ def assemble_funnels(cfg, today, dau, key):
     funnels_platform_raw = today.get("funnels_platform_raw", {})
     fresh_dau = today.get("fresh_users", 0)
     nonfresh_dau = today.get("nonfresh_users", 0)
+    debug_dau = today.get("debug_users", 0)
+    debug_platform_users = today.get("debug_platform_users") or {}
     out = []
     for fn in cfg["funnels"]:
         apps = fn.get("apps")
         if apps and key not in apps:
             continue
+        sampled = sampled_stage_keys(fn)
         stages = []
         breakdowns = []
         for st in fn["stages"]:
             r = funnels_raw.get(f'{fn["key"]}::{st["key"]}', {})
             u = r.get("users", 0)
-            stages.append({"key": st["key"], "label": st["label"], "users": u,
-                           "total": r.get("total", 0),
-                           "pct": round(min(100.0, u / dau * 100.0), 1) if dau else 0.0})
+            is_sampled = st["key"] in sampled
+            stage_dau = debug_dau if is_sampled else dau
+            stages.append({"key": st["key"],
+                           "label": st["label"] + (" · debug-sampled" if is_sampled else ""),
+                           "users": u, "total": r.get("total", 0), "sampled": is_sampled,
+                           "pct": round(min(100.0, u / stage_dau * 100.0), 1) if stage_dau else 0.0})
             bd = st.get("breakdown")
             if bd:
                 rows = funnel_breakdowns.get(f'{fn["key"]}::{st["key"]}', [])
@@ -2385,26 +2444,30 @@ def assemble_funnels(cfg, today, dau, key):
             continue  # funnel not applicable to this app
         su = {s["key"]: s["users"] for s in stages}
         se = {s["key"]: s["total"] for s in stages}
-        rates = _funnel_rates(fn, su, dau, se)
+        rates = _funnel_rates(fn, su, dau, se, debug_dau, sampled)
         platforms = {}
         for platform in ("iOS", "Android"):
             platform_dau = (today.get("platform_users") or {}).get(platform) or 0
+            platform_debug_dau = debug_platform_users.get(platform) or 0
             platform_stages = []
             for st in fn["stages"]:
                 raw = (funnels_platform_raw.get(f'{fn["key"]}::{st["key"]}', {})
                        .get(platform, {}))
+                is_sampled = st["key"] in sampled
+                stage_dau = platform_debug_dau if is_sampled else platform_dau
                 platform_stages.append({
-                    "key": st["key"], "label": st["label"],
-                    "users": raw.get("users", 0), "total": raw.get("total", 0),
-                    "pct": (round(min(100.0, raw.get("users", 0) / platform_dau * 100.0), 1)
-                            if platform_dau else None),
+                    "key": st["key"],
+                    "label": st["label"] + (" · debug-sampled" if is_sampled else ""),
+                    "users": raw.get("users", 0), "total": raw.get("total", 0), "sampled": is_sampled,
+                    "pct": (round(min(100.0, raw.get("users", 0) / stage_dau * 100.0), 1)
+                            if stage_dau else None),
                 })
             psu = {s["key"]: s["users"] for s in platform_stages}
             pse = {s["key"]: s["total"] for s in platform_stages}
             platforms[platform] = {
                 "dau": platform_dau, "stages": platform_stages,
                 "has_events": any(s["total"] for s in platform_stages),
-                "rates": _funnel_rates(fn, psu, platform_dau, pse),
+                "rates": _funnel_rates(fn, psu, platform_dau, pse, platform_debug_dau, sampled),
             }
         splits = []
         if fn.get("split_by_tag"):
