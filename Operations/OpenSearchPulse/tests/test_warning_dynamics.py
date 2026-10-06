@@ -137,9 +137,39 @@ class WarningDynamicsTests(unittest.TestCase):
             client, cfg, "logs-", "BZ", "2026-07-12", {}, flow, 1000,
             include_detail=False)
         self.assertEqual(810, result["start"]["events"])
+        self.assertEqual("terminal", result["terminal_basis"])
         self.assertEqual(1.235, result["terminal_failure_rate_pct"])
         failure_filter = client.body["aggs"]["outcomes"]["filters"]["filters"]["failure"]
         self.assertEqual(2, len(failure_filter["bool"]["must"][-1]["bool"]["should"]))
+
+    def test_operation_flow_uses_start_as_terminal_basis_when_success_is_not_logged(self):
+        class Client:
+            def search(self, _index, _body):
+                return {"aggregations": {"dau": {"value": 1000}, "outcomes": {"buckets": {
+                    "start": {"doc_count": 2000, "users": {"value": 900}},
+                    "failure": {"doc_count": 10, "users": {"value": 8}},
+                    "retry": {"doc_count": 30, "users": {"value": 12}},
+                }}}}
+
+        cfg = {
+            "fields": {"time": "TimeUTC", "user": "UUID.keyword", "app_id": "AppId.keyword",
+                       "message_text": "Message", "attributes": "Attributes",
+                       "version": "GameVersion.keyword", "platform": "Platform.keyword",
+                       "category": "Category.keyword"},
+            "server_type": {"field": "ServerType.keyword", "value": "Prod"},
+        }
+        flow = {"key": "catalog", "label": "Catalog", "scope": {"message_phrase": "endpoint"},
+                "start": "endpoint request", "failure": "FAILED", "retry": "RETRY SCHEDULED",
+                "thresholds": {"terminal_failure_watch_pct": 1, "terminal_failure_alert_pct": 2}}
+        result = pulse.collect_operation_flow(
+            Client(), cfg, "logs-", "BZ", "2026-07-12", {}, flow, 1000, include_detail=False)
+        self.assertEqual("start", result["terminal_basis"])
+        self.assertEqual(2000, result["terminal_events"])
+        self.assertEqual(0.5, result["terminal_failure_rate_pct"])
+        self.assertEqual("healthy", result["status"])
+        html = pulse.operation_section({"operations": [{"key": "tango", "label": "Tango", "flows": [result]}]})
+        self.assertIn("2,000 started", html)
+        self.assertNotIn("0 success", html)
 
     def test_funnel_rate_can_use_event_counts_for_per_ad_conversion(self):
         fn = {"rates": [{"label": "completion", "num": "finish", "den": "show",

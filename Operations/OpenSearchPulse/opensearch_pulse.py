@@ -1717,7 +1717,9 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
     result.setdefault("success", {"events": 0, "users": 0})
     result.setdefault("failure", {"events": 0, "users": 0})
     result.setdefault("retry", {"events": 0, "users": 0})
-    terminal = result["success"]["events"] + result["failure"]["events"]
+    terminal_basis = "start" if "start" in outcomes and "success" not in outcomes else "terminal"
+    terminal = (result["start"]["events"] if terminal_basis == "start"
+                else result["success"]["events"] + result["failure"]["events"])
     failure_rate = round(result["failure"]["events"] / terminal * 100, 3) if terminal else None
     retry_reach = round(result["retry"]["users"] / effective_dau * 100, 3) if effective_dau else 0.0
 
@@ -1767,6 +1769,7 @@ def collect_operation_flow(client, cfg, prefix, app_id, day, profile, flow, dau=
         "key": flow["key"], "label": flow.get("label", flow["key"]),
         "start": result["start"], "success": result["success"],
         "failure": result["failure"], "retry": result["retry"],
+        "terminal_basis": terminal_basis, "terminal_events": terminal,
         "terminal_failure_rate_pct": failure_rate, "retry_reach_pct_dau": retry_reach,
         "retry_events_per_user": round(result["retry"]["events"] / result["retry"]["users"], 2) if result["retry"]["users"] else 0.0,
         "classes": {bucket: {label: count for (kind, label), count in classes.items() if kind == bucket}
@@ -3432,6 +3435,12 @@ def operation_delta(flow, key):
     return f" {arrow}{abs(delta):.0f}% vs {days}d"
 
 
+def operation_basis_text(flow):
+    if flow.get("terminal_basis") == "start":
+        return f"{fmt_int((flow.get('start') or {}).get('events', 0))} started"
+    return f"{fmt_int((flow.get('success') or {}).get('events', 0))} success"
+
+
 def operation_section(p):
     """Endpoint/provider health: terminal outcome, retry friction, ownership, drilldown."""
     cards = []
@@ -3469,11 +3478,11 @@ def operation_section(p):
                 extra.append("Class scan capped; aggregate outcomes remain exact")
             cards.append(
                 '<div class="op-card %s"><div class="op-title">%s <span class="op-status">%s</span></div>'
-                '<div class="op-metrics">Terminal: <b>%s failed</b> · %s success · %s failure%s</div>'
+                '<div class="op-metrics">Terminal: <b>%s failed</b> · %s · %s failure%s</div>'
                 '%s</div>'
                 % (flow.get("status", "healthy"), html.escape(profile.get("label", "Operation") + " — " + flow.get("label", flow.get("key", ""))),
                    html.escape(flow.get("status", "healthy")), failure_text,
-                   fmt_int(flow.get("success", {}).get("events", 0)), fmt_int(flow.get("failure", {}).get("events", 0)),
+                   operation_basis_text(flow), fmt_int(flow.get("failure", {}).get("events", 0)),
                    retry_text, ('<div class="op-detail">' + "<br>".join(html.escape(x) for x in extra) + "</div>") if extra else ""))
     if not cards:
         return ""
@@ -5118,7 +5127,10 @@ def render_md(report, samples):
                 fr = flow.get("terminal_failure_rate_pct")
                 terminal = "n/a" if fr is None else f"{fr:.3f}%{operation_delta(flow, 'terminal_failure_delta_pct')}"
                 retry = flow.get("retry") or {}
-                terminal_total = flow["success"]["events"] + flow["failure"]["events"]
+                terminal_total = flow.get("terminal_events")
+                if terminal_total is None:
+                    terminal_total = flow["success"]["events"] + flow["failure"]["events"]
+                terminal_word = "started" if flow.get("terminal_basis") == "start" else "terminal"
                 if flow.get("users_affected") is not None:
                     reach_clause = (f"reach **{fmt_int(flow['users_affected'])}u ({flow.get('problem_pct_dau', 0):.3f}% DAU)**; "
                                     f"sessions **{fmt_int(flow.get('sessions_with_problem', 0))}/{fmt_int(flow.get('total_sessions', 0))}**; ")
@@ -5126,7 +5138,7 @@ def render_md(report, samples):
                     reach_clause = (f"retry reach **{flow.get('retry_reach_pct_dau', 0):.3f}% DAU{operation_delta(flow, 'retry_reach_delta_pct')}** "
                                     f"({fmt_int(retry.get('events', 0))} events; {flow.get('retry_events_per_user', 0):.2f}/affected user); ")
                 L.append(f"- **{flow['label']}** — terminal failure **{terminal}** "
-                         f"({fmt_int(flow['failure']['events'])} failed / {fmt_int(terminal_total)} terminal); "
+                         f"({fmt_int(flow['failure']['events'])} failed / {fmt_int(terminal_total)} {terminal_word}); "
                          f"{reach_clause}"
                          f"status **{flow.get('status', 'healthy').upper()}**.")
                 class_text = []
