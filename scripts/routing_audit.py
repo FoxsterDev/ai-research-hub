@@ -399,6 +399,39 @@ def check_optional_projects(root: Path, topology: Path, errors: list[str]) -> No
             ok(f"Optional local project absent is allowed: {rel}")
 
 
+def is_unity_project_root(path: Path) -> bool:
+    try:
+        return (path / "Assets").is_dir() and (path / "ProjectSettings").is_dir()
+    except OSError:
+        return False
+
+
+def discover_unity_project_roots(root: Path) -> list[Path]:
+    return sorted(child for child in root.iterdir() if child.is_dir() and is_unity_project_root(child))
+
+
+def check_unity_roots_listed(root: Path, topology: Path, errors: list[str]) -> None:
+    routed = {(root / rel).resolve() for rel in parse_yaml_list(topology, "routed_projects")}
+    optional = {
+        (root / block["path"]).resolve()
+        for block in parse_yaml_path_blocks(topology, "optional_local_projects")
+    }
+    for project_dir in discover_unity_project_roots(root):
+        rel = project_dir.name
+        resolved = project_dir.resolve()
+        if resolved in routed:
+            ok(f"Unity project root is routed: {rel}")
+        elif resolved in optional:
+            ok(f"Unity project root is an optional local project: {rel}")
+        else:
+            message = (
+                f"Unity project root is not listed in routed_projects or "
+                f"optional_local_projects: {rel}"
+            )
+            errors.append(message)
+            fail(message)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Audit AIRoot AI routing metadata.")
     parser.add_argument("--host-root", default=Path.cwd(), type=Path)
@@ -427,6 +460,7 @@ def main() -> int:
         check_project_kinds(projects, root, errors)
         check_unity_baselines(projects, root, errors)
         check_optional_projects(root, topology, errors)
+        check_unity_roots_listed(root, topology, errors)
         check_operation_routes(root, topology, errors)
         check_markdown_mirrors(root, topology, errors)
 
