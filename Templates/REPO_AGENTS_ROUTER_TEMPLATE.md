@@ -26,6 +26,14 @@ Use this when the repo has one routed Unity project and no need for a reusable i
 ### B. Monorepo / multi-project host
 Use this when the repo has multiple routed Unity projects and wants reusable internal shared knowledge across them.
 
+## Placeholder substitution
+
+Before saving either router skeleton, replace every `<host-output-root>` with
+the host output directory defined by the existing host storage contract. Bundled
+AIRoot setup uses `AIOutput` relative to the host repo root. A custom output root
+requires compatible host tooling; changing this template alone does not redirect
+the setup scripts.
+
 ## Single-project repo router skeleton
 
 ```md
