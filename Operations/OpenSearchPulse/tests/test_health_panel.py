@@ -1081,3 +1081,41 @@ class HealthRenderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class RemovedAppStoreStateTests(unittest.TestCase):
+    """StorePulse marks an app the store account no longer serves; the overview says so."""
+
+    def _overview_with(self, app):
+        report = _report()
+        snapshot = {"day": "2026-10-06", "age_days": 0,
+                    "report": {"apps": [app], "thresholds": {}}}
+        report["health"] = pulse.build_health(report, snapshot)
+        return report
+
+    def test_removed_app_reads_removed_not_a_dash(self):
+        app = _store_app()
+        app["slices"] = {"ios_rating": {"listed": False, "avg": None, "count": None}}
+        app["removed"] = {"ios": {"statuses": [403, 404], "slices": ["ios_release"],
+                                  "last_readable": "2026-10-05"}}
+        platforms = self._overview_with(app)["health"]["rows"][0]["platform_overview"]
+        self.assertEqual("Removed", platforms["iOS"]["store_state"])
+        self.assertEqual("REMOVED_FROM_ACCOUNT", platforms["iOS"]["store_state_raw"])
+        self.assertIsNone(platforms["iOS"]["store_version"])
+        self.assertEqual("—", platforms["Android"]["store_state"])
+
+    def test_removed_app_line_in_the_overview(self):
+        app = _store_app()
+        app["slices"] = {"ios_rating": {"listed": False, "avg": None, "count": None}}
+        app["removed"] = {"ios": {"statuses": [404], "slices": [], "last_readable": None}}
+        report = self._overview_with(app)
+        row = report["health"]["rows"][0]
+        row["data_state"] = "no_data"
+        row["overview_status"] = "nodata"
+        row["name"] = "Gone Project"
+        text = pulse.render_status_slack(report)
+        self.assertIn("◻ *Gone Project* · No production data · App Store: Removed · Google Play: —", text)
+
+    def test_store_state_without_a_removal_is_unchanged(self):
+        state = pulse._store_state(_store_app()["slices"], "iOS", removed={"play": {"statuses": [404]}})
+        self.assertEqual("Live", state["label"])

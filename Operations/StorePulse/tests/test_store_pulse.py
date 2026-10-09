@@ -1853,3 +1853,197 @@ class BackfillGoogleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# -------------------------------------------------------------------- removed apps
+
+ASC = "api.appstoreconnect.apple.com"
+PLAY_PUB = "androidpublisher.googleapis.com"
+PLAY_REP = "playdeveloperreporting.googleapis.com"
+
+
+def _gone_ios_app(key="GONE", listed=False):
+    """What collect_app records for an app App Store Connect no longer serves."""
+    return {"key": key, "name": "Gone", "ios": "com.example.gone", "ios_app_id": "99",
+            "android": None,
+            "slices": {"ios_rating": {"listed": listed, "avg": None, "count": None}},
+            "errors": {"ios_reviews": f"HttpError: HTTP 403 for https://{ASC}/… forbidden",
+                       "ios_release": f"HttpError: HTTP 404 for https://{ASC}/… not found",
+                       "ios_analytics": f"HttpError: HTTP 403 for https://{ASC}/… forbidden",
+                       "ios_perf": f"HttpError: HTTP 404 for https://{ASC}/… not found"},
+            "errors_http": {"ios_reviews": {"status": 403, "host": ASC},
+                            "ios_release": {"status": 404, "host": ASC},
+                            "ios_analytics": {"status": 403, "host": ASC},
+                            "ios_perf": {"status": 404, "host": ASC}},
+            "skipped": {}}
+
+
+def _live_ios_app(key="LIVE"):
+    return {"key": key, "name": "Live", "ios": "com.example.live", "ios_app_id": "1",
+            "android": None,
+            "slices": {"ios_rating": {"listed": True, "avg": 4.5, "count": 10},
+                       "ios_reviews": {}, "ios_release": {"current": {"state": "READY_FOR_DISTRIBUTION"}},
+                       "ios_analytics": {}, "ios_perf": {}},
+            "errors": {}, "errors_http": {}, "skipped": {}}
+
+
+class RemovedAppTests(unittest.TestCase):
+    def test_asc_403_404_on_every_slice_with_others_answering_is_a_coverage_gap(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        removed = pulse.mark_removed_apps([gone, live])
+        self.assertEqual({}, gone["errors"])
+        self.assertEqual(sorted(pulse.STORE_API_SLICES["ios"]), sorted(gone["skipped"]))
+        self.assertIn("App Store Connect", gone["skipped"]["ios_release"])
+        self.assertIn("HTTP 403/404", gone["skipped"]["ios_release"])
+        self.assertEqual([403, 404], gone["removed"]["ios"]["statuses"])
+        self.assertEqual([{"app": "Gone", "key": "GONE", "store": "ios", "statuses": [403, 404],
+                           "slices": ["ios_reviews", "ios_release", "ios_analytics", "ios_perf"],
+                           "last_readable": None}], removed)
+        self.assertEqual({}, live["skipped"])
+
+    def test_the_skips_make_the_run_delivery_safe(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        pulse.mark_removed_apps([gone, live])
+        state = {}
+        for name in pulse.STORE_API_SLICES["ios"]:
+            ok = sum(1 for a in (gone, live) if name in a["slices"])
+            failed = sum(1 for a in (gone, live) if name in a["errors"])
+            skipped = sum(1 for a in (gone, live) if name in a["skipped"])
+            state[name] = {"ok": ok, "failed": failed, "skipped_count": skipped, "expected": 2,
+                           "complete": ok == 2}
+        self.assertTrue(pulse.slice_state_delivery_safe(state))
+        self.assertFalse(all(s["complete"] for s in state.values()))
+
+    def test_a_listed_app_answering_404_stays_a_failure(self):
+        gone, live = _gone_ios_app(listed=True), _live_ios_app()
+        self.assertEqual([], pulse.mark_removed_apps([gone, live]))
+        self.assertEqual(4, len(gone["errors"]))
+        self.assertNotIn("removed", gone)
+
+    def test_every_app_failing_is_an_outage_not_a_removal(self):
+        a, b = _gone_ios_app("A"), _gone_ios_app("B")
+        self.assertEqual([], pulse.mark_removed_apps([a, b]))
+        self.assertEqual(4, len(a["errors"]))
+        self.assertEqual(4, len(b["errors"]))
+
+    def test_a_partially_answering_app_stays_a_failure(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        gone["slices"]["ios_reviews"] = {"scanned": 3}
+        del gone["errors"]["ios_reviews"]
+        del gone["errors_http"]["ios_reviews"]
+        self.assertEqual([], pulse.mark_removed_apps([gone, live]))
+        self.assertEqual(3, len(gone["errors"]))
+
+    def test_a_5xx_or_a_foreign_host_is_not_removal_evidence(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        gone["errors_http"]["ios_perf"] = {"status": 503, "host": ASC}
+        self.assertEqual([], pulse.mark_removed_apps([gone, live]))
+        gone = _gone_ios_app()
+        gone["errors_http"]["ios_perf"] = {"status": 404, "host": "proxy.example.net"}
+        self.assertEqual([], pulse.mark_removed_apps([gone, live]))
+
+    def test_a_single_app_run_cannot_prove_a_removal(self):
+        gone = _gone_ios_app()
+        self.assertEqual([], pulse.mark_removed_apps([gone]))
+        self.assertEqual(4, len(gone["errors"]))
+
+    def test_bundle_lookup_miss_counts_as_the_account_not_serving_the_app(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        gone["ios_app_id"] = None
+        for name in pulse.STORE_API_SLICES["ios"]:
+            gone["errors"][name] = "AppNotInAccount: bundle id not found in the App Store Connect account"
+            gone["errors_http"][name] = {"status": 404, "host": ASC}
+        removed = pulse.mark_removed_apps([gone, live])
+        self.assertEqual(1, len(removed))
+        self.assertIn("this app", gone["skipped"]["ios_release"])
+
+    def test_play_api_403_404_on_every_api_slice_is_a_coverage_gap(self):
+        gone = {"key": "G", "name": "Gone", "ios": None, "android": "com.example.gone",
+                "slices": {"play_installs": {"installs": 3}},   # the bucket still has a report
+                "errors": {n: f"HttpError: HTTP 404 for https://{PLAY_PUB}/… not found"
+                           for n in pulse.STORE_API_SLICES["play"]},
+                "errors_http": {"play_vitals": {"status": 404, "host": PLAY_REP},
+                                "play_issues": {"status": 403, "host": PLAY_REP},
+                                "play_anomalies": {"status": 404, "host": PLAY_REP},
+                                "play_release_catalog": {"status": 404, "host": PLAY_PUB},
+                                "play_reviews": {"status": 403, "host": PLAY_PUB}},
+                "skipped": {}}
+        live = {"key": "L", "name": "Live", "ios": None, "android": "com.example.live",
+                "slices": {n: {} for n in pulse.STORE_API_SLICES["play"]},
+                "errors": {}, "errors_http": {}, "skipped": {}}
+        removed = pulse.mark_removed_apps([gone, live])
+        self.assertEqual("play", removed[0]["store"])
+        self.assertEqual({}, gone["errors"])
+        self.assertIn("Google Play Console", gone["skipped"]["play_vitals"])
+        self.assertIn("play_installs", gone["slices"])
+
+    def test_last_readable_comes_from_the_newest_snapshot_that_still_read_the_app(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        history = [("2026-10-06", {"apps": [{"key": "GONE", "slices": {"ios_rating": {}}}]}),
+                   ("2026-10-05", {"apps": [{"key": "GONE", "slices": {"ios_release": {}}}]}),
+                   ("2026-10-04", {"apps": [{"key": "GONE", "slices": {"ios_release": {}}}]})]
+        removed = pulse.mark_removed_apps([gone, live], history)
+        self.assertEqual("2026-10-05", removed[0]["last_readable"])
+        self.assertIn("last readable 2026-10-05", gone["skipped"]["ios_perf"])
+
+    def test_coverage_gap_names_the_removal_for_both_stores(self):
+        gone, live = _gone_ios_app(), _live_ios_app()
+        gone["android"] = "com.example.gone"
+        gone["removed"] = {"ios": {"statuses": [403, 404], "slices": [], "last_readable": "2026-10-05"},
+                           "play": {"statuses": [404], "slices": [], "last_readable": None}}
+        gaps = pulse.build_coverage_gaps([gone, live])
+        self.assertEqual(["App Store", "Google Play"], [g["store"] for g in gaps])
+        self.assertEqual("REMOVED_FROM_ACCOUNT", gaps[0]["state"])
+        self.assertIn("app id 99", gaps[0]["text"])
+        self.assertIn("last readable 2026-10-05", gaps[0]["text"])
+        self.assertIn("Google Play Console", gaps[1]["text"])
+
+    def test_coverage_gap_wording_for_unlisted_apps_is_unchanged(self):
+        rejected = _live_ios_app("R")
+        rejected["slices"]["ios_rating"]["listed"] = False
+        rejected["slices"]["ios_release"] = {"current": {"state": "REJECTED", "version": "2.2.0"}}
+        pre = _live_ios_app("P")
+        pre["slices"]["ios_rating"]["listed"] = False
+        pre["slices"]["ios_release"] = {"current": {"state": "PREPARE_FOR_SUBMISSION", "version": "1.0"}}
+        bare = _live_ios_app("B")
+        bare["slices"] = {"ios_rating": {"listed": False}}
+        gaps = pulse.build_coverage_gaps([rejected, pre, bare, _live_ios_app()])
+        self.assertEqual(["listing is down — version 2.2.0 is REJECTED",
+                          "not on the store yet — version 1.0 is PREPARE_FOR_SUBMISSION",
+                          "configured bundle id is not on the App Store"], [g["text"] for g in gaps])
+
+    def test_collect_app_records_status_and_host_beside_the_redacted_error(self):
+        class Creds:
+            reasons = {}
+            def missing_for(self, name): return []
+            def apple_headers(self): return {}
+        cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A", "name": "App",
+                                                      "ios": "com.example.app", "android": None,
+                                                      "ios_app_id": "7"}]})
+        cfg["slices"] = {"ios_release": True}
+        app = dict(cfg["apps"][0], slices={})
+        url = f"https://{ASC}/v1/apps/7/appStoreVersions?limit=1&token=secret"
+        ctx = {"cfg": cfg, "creds": Creds(),
+               "transport": FakeTransport({"appStoreVersions": auth.HttpError(404, url, "not found")}),
+               "day": dt.date(2026, 10, 6), "now": "2026-10-06T00:00:00+00:00",
+               "window_start": "2026-10-05"}
+        out = pulse.collect_app(ctx, app)
+        self.assertEqual({"status": 404, "host": ASC}, out["errors_http"]["ios_release"])
+        self.assertIn("ios_release", out["errors"])
+
+    def test_bundle_lookup_miss_is_typed_and_recorded_as_404(self):
+        class Creds:
+            reasons = {}
+            def missing_for(self, name): return []
+            def apple_headers(self): return {}
+        cfg = pulse._merge(pulse.DEFAULTS, {"apps": [{"key": "A", "name": "App",
+                                                      "ios": "com.example.app", "android": None}]})
+        cfg["slices"] = {"ios_release": True}
+        app = dict(cfg["apps"][0], slices={}, ios_app_id=None)
+        ctx = {"cfg": cfg, "creds": Creds(),
+               "transport": FakeTransport({"apps?filter": {"data": []}}),
+               "day": dt.date(2026, 10, 6), "now": "2026-10-06T00:00:00+00:00",
+               "window_start": "2026-10-05"}
+        out = pulse.collect_app(ctx, app)
+        self.assertTrue(out["errors"]["ios_release"].startswith("AppNotInAccount"))
+        self.assertEqual({"status": 404, "host": ASC}, out["errors_http"]["ios_release"])

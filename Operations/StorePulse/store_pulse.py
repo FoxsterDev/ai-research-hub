@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,6 +36,10 @@ from report_safety import atomic_write_json, atomic_write_text, redact as safety
 class SliceUnavailable(Exception):
     """The source is reachable but publishes nothing for this app — a coverage gap,
     not a failure: an app with no installs gets no bulk report at all."""
+
+
+class AppNotInAccount(RuntimeError):
+    """The store account has no app for the configured id: the lookup found nothing."""
 
 
 STATUS_ORDER = {"healthy": 0, "nodata": 1, "watch": 2, "degraded": 3}
@@ -56,6 +61,20 @@ SLICE_NEEDS = {
     "play_store_perf": ("google", "bucket"),
     "play_installs": ("google", "bucket"),
 }
+
+# Slices that read a store account's own API, as opposed to a public lookup (ios_rating) or
+# the bulk-report bucket. When every one of them answers 403/404 for one app while they answer
+# for the other apps, the account no longer serves that app — see mark_removed_apps.
+STORE_API_SLICES = {
+    "ios": ("ios_reviews", "ios_release", "ios_analytics", "ios_perf"),
+    "play": ("play_vitals", "play_issues", "play_anomalies", "play_release_catalog",
+             "play_reviews"),
+}
+STORE_API_HOSTS = {
+    "ios": ("api.appstoreconnect.apple.com",),
+    "play": ("androidpublisher.googleapis.com", "playdeveloperreporting.googleapis.com"),
+}
+STORE_ACCOUNT_LABEL = {"ios": "App Store Connect", "play": "Google Play Console"}
 
 DEFAULTS = {
     "storefronts": ["us"],
@@ -373,7 +392,7 @@ def _ios_app_id(ctx, app):
         return app["ios_app_id"]
     found = src.asc_app_by_bundle(ctx["transport"], ctx["creds"].apple_headers(), app["ios"])
     if not found:
-        raise RuntimeError(f"bundle id not found in the App Store Connect account")
+        raise AppNotInAccount("bundle id not found in the App Store Connect account")
     app["ios_app_id"] = found["id"]
     return app["ios_app_id"]
 
@@ -853,6 +872,16 @@ COLLECTORS = {
 PLATFORM_FIELD = {"ios": "ios", "play": "android"}
 
 
+def _note_http(out, name, exc):
+    """Structured evidence beside the redacted error text: the status and the host, nothing
+    else, so a later pass can tell an account that no longer serves the app from an outage."""
+    if isinstance(exc, AppNotInAccount):
+        out.setdefault("errors_http", {})[name] = {"status": 404, "host": STORE_API_HOSTS["ios"][0]}
+    elif isinstance(exc, HttpError) and exc.status:
+        host = urllib.parse.urlsplit(str(exc.url)).netloc.lower()
+        out.setdefault("errors_http", {})[name] = {"status": int(exc.status), "host": host}
+
+
 def collect_app(ctx, app, only=None):
     out = {"key": app["key"], "name": app["name"], "android": app.get("android"),
            "ios": app.get("ios"), "family": app.get("family"),
@@ -876,8 +905,10 @@ def collect_app(ctx, app, only=None):
             out["skipped"][name] = safe_error(exc, 160)
         except (HttpError, AuthError) as exc:
             out["errors"][name] = safe_error(exc)
+            _note_http(out, name, exc)
         except Exception as exc:  # a broken slice must not take the report down
             out["errors"][name] = safe_error(exc)
+            _note_http(out, name, exc)
     out["ios_app_id"] = app.get("ios_app_id")
     return out
 
@@ -1585,6 +1616,118 @@ def slice_state_delivery_safe(slice_state, corrupt_candidates=None):
         for state in slice_state.values()))
 
 
+def _last_readable(history, key, store):
+    """The newest earlier snapshot in which a store-API slice of this app was still collected."""
+    for stamp, report in history or []:
+        for app in report.get("apps") or []:
+            if app.get("key") == key:
+                if any(name in (app.get("slices") or {}) for name in STORE_API_SLICES[store]):
+                    return stamp
+                break
+    return None
+
+
+def _removed_text(store, info, app):
+    codes = "/".join(str(c) for c in info.get("statuses") or [])
+    subject = (f"app id {app['ios_app_id']}" if store == "ios" and app.get("ios_app_id")
+               else "this app")
+    text = (f"removed from {STORE_ACCOUNT_LABEL[store]} — the account no longer serves {subject} "
+            f"(HTTP {codes} while the other apps answer)")
+    if info.get("last_readable"):
+        text += f"; last readable {info['last_readable']}"
+    return text
+
+
+def mark_removed_apps(apps, history=None):
+    """A store account that no longer serves one app is a coverage gap, not a failed measurement.
+
+    Apps get removed from App Store Connect and Play Console as a matter of course, and the
+    portfolio report must absorb that on its own instead of blocking every delivery until a
+    human edits the config. All of this must hold, per store, before an app's failures turn
+    into explicit skips:
+      - every store-API slice that ran for the app failed with HTTP 403 or 404 from the store's
+        own API host (or the bundle lookup found no app in the account), and none succeeded;
+      - each of those slices succeeded for at least one other app in the same run, so the
+        credential, its role and the provider demonstrably work;
+      - App Store only: the public lookup says the bundle is not listed.
+    Anything weaker stays a failure and keeps blocking publication: a key that lost its role
+    fails every app, and a listed app that answers 404 is an anomaly a human must see. The skip
+    reason names the store, the statuses and the last snapshot that could still read the app.
+    Returns the removals so the report and the run log can say them out loud.
+    """
+    removed = []
+    for app in apps:
+        errors = app.get("errors") or {}
+        evidence = app.get("errors_http") or {}
+        slices = app.get("slices") or {}
+        for store, api_slices in STORE_API_SLICES.items():
+            failed = [name for name in api_slices if name in errors]
+            if not failed or any(name in slices for name in api_slices):
+                continue
+            statuses, consistent = set(), True
+            for name in failed:
+                info = evidence.get(name) or {}
+                if (info.get("status") not in (403, 404)
+                        or info.get("host") not in STORE_API_HOSTS[store]):
+                    consistent = False
+                    break
+                if not any(name in (other.get("slices") or {})
+                           for other in apps if other is not app):
+                    consistent = False
+                    break
+                statuses.add(int(info["status"]))
+            if not consistent:
+                continue
+            if store == "ios" and (slices.get("ios_rating") or {}).get("listed") is not False:
+                continue
+            info = {"statuses": sorted(statuses), "slices": failed,
+                    "last_readable": _last_readable(history, app.get("key"), store)}
+            app.setdefault("removed", {})[store] = info
+            reason = _removed_text(store, info, app)
+            for name in failed:
+                app.setdefault("skipped", {})[name] = reason
+                del errors[name]
+            removed.append({"app": app.get("name"), "key": app.get("key"), "store": store,
+                            **info})
+    return removed
+
+
+PRE_RELEASE_STATES = ("PREPARE_FOR_SUBMISSION", "WAITING_FOR_REVIEW", "IN_REVIEW",
+                      "PENDING_DEVELOPER_RELEASE", "PROCESSING_FOR_DISTRIBUTION",
+                      "READY_FOR_REVIEW", "WAITING_FOR_EXPORT_COMPLIANCE")
+
+
+def build_coverage_gaps(apps):
+    """Apps a store does not serve to users: unlisted, pre-release, rejected, or — per
+    mark_removed_apps — no longer in the account at all."""
+    coverage = []
+    for a in apps:
+        removed = a.get("removed") or {}
+        ios = a["slices"].get("ios_rating") or {}
+        if a.get("ios") and removed.get("ios"):
+            coverage.append({"app": a["name"], "store": "App Store", "id": a["ios"],
+                             "state": "REMOVED_FROM_ACCOUNT",
+                             "text": _removed_text("ios", removed["ios"], a)})
+        elif a.get("ios") and ios and not ios.get("listed"):
+            cur = ((a["slices"].get("ios_release") or {}).get("current")) or {}
+            state = (cur.get("state") or "").upper()
+            if any(bad in state for bad in ("REJECT", "INVALID", "REMOVED")):
+                why = f"listing is down — version {cur.get('version')} is {state}"
+            elif state in PRE_RELEASE_STATES:
+                why = f"not on the store yet — version {cur.get('version')} is {state}"
+            elif state:
+                why = f"no listing on this storefront while the version reads {state}"
+            else:
+                why = "configured bundle id is not on the App Store"
+            coverage.append({"app": a["name"], "store": "App Store", "id": a["ios"],
+                             "state": state or None, "text": why})
+        if a.get("android") and removed.get("play"):
+            coverage.append({"app": a["name"], "store": "Google Play", "id": a["android"],
+                             "state": "REMOVED_FROM_ACCOUNT",
+                             "text": _removed_text("play", removed["play"], a)})
+    return coverage
+
+
 def _weighted_rate(rows, rate_metric):
     num = den = 0.0
     for row in rows:
@@ -1692,26 +1835,8 @@ def build_report(cfg, creds, transport, day, out_dir, slug, only=None, app_filte
         block["rollout_diff"] = build_rollout_diff(block, cfg["thresholds"])
         apps.append(block)
 
-    PRE_RELEASE = ("PREPARE_FOR_SUBMISSION", "WAITING_FOR_REVIEW", "IN_REVIEW",
-                   "PENDING_DEVELOPER_RELEASE", "PROCESSING_FOR_DISTRIBUTION",
-                   "READY_FOR_REVIEW", "WAITING_FOR_EXPORT_COMPLIANCE")
-    coverage = []
-    for a in apps:
-        ios = a["slices"].get("ios_rating") or {}
-        if not (a.get("ios") and ios and not ios.get("listed")):
-            continue
-        cur = ((a["slices"].get("ios_release") or {}).get("current")) or {}
-        state = (cur.get("state") or "").upper()
-        if any(bad in state for bad in ("REJECT", "INVALID", "REMOVED")):
-            why = f"listing is down — version {cur.get('version')} is {state}"
-        elif state in PRE_RELEASE:
-            why = f"not on the store yet — version {cur.get('version')} is {state}"
-        elif state:
-            why = f"no listing on this storefront while the version reads {state}"
-        else:
-            why = "configured bundle id is not on the App Store"
-        coverage.append({"app": a["name"], "store": "App Store", "id": a["ios"],
-                         "state": state or None, "text": why})
+    removed = mark_removed_apps(apps, history)
+    coverage = build_coverage_gaps(apps)
     order = {"degraded": 0, "watch": 1, "healthy": 2, "nodata": 3}
     apps.sort(key=lambda a: (order[a["status"]], -((a.get("rating", {}).get("ios") or {}).get("count") or 0)))
     scored = [a for a in apps if a["status"] != "nodata"]
@@ -1788,6 +1913,7 @@ def build_report(cfg, creds, transport, day, out_dir, slug, only=None, app_filte
         "attention": [dict(a, app=app["name"]) for app in apps for a in app["attention"]],
         "slice_state": slice_state,
         "coverage_gaps": coverage,
+        "removed_apps": removed,
         "overall_by_store": overall_by_store,
         "overall_by_nature": overall_by_nature,
         "store_summaries": store_summaries,
@@ -1797,7 +1923,8 @@ def build_report(cfg, creds, transport, day, out_dir, slug, only=None, app_filte
                              for k in ("google", "apple", "bucket")},
         "trust": {"complete": trust_complete, "delivery_safe": delivery_safe,
                   "expected_apps": len(apps_cfg),
-                  "collected_apps": len(apps), **baseline_meta},
+                  "collected_apps": len(apps),
+                  "removed_apps": [r["app"] for r in removed], **baseline_meta},
     }
 
 
@@ -3777,6 +3904,10 @@ def main():
     pending = [f"{k} ({v})" for k, v in report["credential_state"].items() if v is not True]
     if pending:
         print("  credentials pending: " + "; ".join(pending))
+    for r in report.get("removed_apps") or []:
+        print(f"  removed: {r['app']} — {STORE_ACCOUNT_LABEL[r['store']]} answers HTTP "
+              f"{'/'.join(str(c) for c in r['statuses'])} while the other apps answer"
+              + (f"; last readable {r['last_readable']}" if r.get("last_readable") else ""))
     for nature in ("technical", "experience"):
         state = STATUS_LABEL[(report.get("overall_by_nature") or {}).get(nature, "nodata")]
         print(f"  {nature:11} {state}")

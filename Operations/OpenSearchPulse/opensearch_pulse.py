@@ -670,8 +670,12 @@ def _decision_error_trend_status(project, thresholds, overview_cfg):
     return "healthy", round(excess)
 
 
-def _store_state(slices, platform):
+def _store_state(slices, platform, removed=None):
     """Human store lifecycle state; never infer Android production state from log traffic."""
+    if (removed or {}).get("ios" if platform == "iOS" else "play"):
+        # StorePulse established that the store account no longer serves the app; the listing
+        # state is unknowable and must not read as "—" beside a live sibling platform.
+        return {"label": "Removed", "raw": "REMOVED_FROM_ACCOUNT", "version": None, "phased": None}
     if platform == "iOS":
         release = slices.get("ios_release") or {}
         current = release.get("current") or {}
@@ -950,7 +954,7 @@ def _platform_overview(project, store_app, slices, platform, thresholds, overvie
         "excluded_newer_versions": cohort.get("excluded_newer_versions") or [],
     }
     out.update(_start_game_activity(project, platform))
-    store_state = _store_state(slices, platform)
+    store_state = _store_state(slices, platform, (store_app or {}).get("removed"))
     store_key = "ios" if platform == "iOS" else "play"
     rating = ((store_app.get("rating") or {}).get(store_key) or {})
     out.update({

@@ -143,6 +143,18 @@ Per app, from explicit config thresholds — never an invented severity:
   without guessing whether Google's value was a fraction or an already formatted percentage.
 - An app with no store signal at all is `nodata` and is excluded from the overall verdict,
   which is the worst app verdict.
+- **Removed apps** are absorbed, not escalated. Apps leave App Store Connect and Play Console as
+  a matter of course, and one such app must not block the whole portfolio until a human edits
+  the config. When every store-API slice of one app answers HTTP 403/404 from the store's own
+  host (or the bundle lookup finds no app in the account), none of them succeeded for that app,
+  each of them succeeded for at least one other app in the same run (so the credential, its
+  role and the provider demonstrably work), and — App Store — the public lookup says the bundle
+  is not listed, the failures become explicit skips: `removed from App Store Connect — the
+  account no longer serves app id … (HTTP 403/404 while the other apps answer); last readable
+  <day>`. The app is listed in `removed_apps`, in `trust.removed_apps`, as a `coverage_gaps`
+  entry with state `REMOVED_FROM_ACCOUNT`, and on the run log; `delivery_safe` stays true. Any
+  weaker evidence stays a failure: a key that lost its role fails every app, a listed app that
+  answers 404 is an anomaly a human must see, and a single-app run cannot prove a removal.
 
 ## Outputs (never posted anywhere by this tool)
 
