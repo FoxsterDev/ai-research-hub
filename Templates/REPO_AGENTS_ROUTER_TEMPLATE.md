@@ -38,7 +38,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 
 ## Load Order
 1. This repo-level `AGENTS.md`
-2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+2. Optional compact host kernel at `<host-output-root>/Harness/KERNEL.md` when the host owns it
 3. Shared protocol modules from `AIRoot/Modules/`
 4. Project-level `AGENTS.md`
 5. Project-local memory from `<Project>/Assets/AIOutput/ProjectMemory/`
@@ -67,7 +67,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 ## Storage Rule
 - Durable project-local guidance belongs in `<Project>/Assets/AIOutput/ProjectMemory/`.
 - Project reports and drafts belong in `<Project>/Assets/AIOutput/`.
-- Host-level setup and reports belong in `AIOutput/`.
+- Host-level setup and reports belong under `<host-output-root>`.
 - Public reusable `xuunity` guidance belongs in `AIRoot/Modules/XUUnity/`.
 ```
 
@@ -83,7 +83,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 
 ## Load Order
 1. This repo-level `AGENTS.md`
-2. Optional compact host kernel at `AIOutput/Harness/KERNEL.md` when the host owns it
+2. Optional compact host kernel at `<host-output-root>/Harness/KERNEL.md` when the host owns it
 3. Shared protocol modules from `AIRoot/Modules/`, with `xuunity` loading public core from `AIRoot/Modules/XUUnity/`
 4. Optional monorepo-internal overlay from `AIModules/XUUnityInternal/` when the host uses it
 5. Other host-local prompt families from `AIModules/` when the selected protocol is host-local
@@ -114,7 +114,7 @@ Use it to select shared prompt families, define load order, and route project-lo
 ## Storage Rule
 - Durable project-local guidance belongs in `<Project>/Assets/AIOutput/ProjectMemory/`.
 - Project reports and drafts belong in `<Project>/Assets/AIOutput/`.
-- Host-level setup and reports belong in `AIOutput/`.
+- Host-level setup and reports belong under `<host-output-root>`.
 - Public reusable `xuunity` guidance belongs in `AIRoot/Modules/XUUnity/`.
 - Monorepo-internal shared `xuunity` guidance belongs in `AIModules/XUUnityInternal/`.
 ```
