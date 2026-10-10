@@ -80,5 +80,23 @@
     "watch_pct": 15,
     "new_release_min_share": 0.02
   },
-  "brand": { "org": "Your Org", "product": "Production Pulse" }
+  "brand": { "org": "Your Org", "product": "Production Pulse" },
+  "durations": [
+    {
+      "key": "time_to_ready", "label": "Time to ready", "short_label": "Load time",
+      "phrase": "StartupSummary", "category": "Loading", "attribute": "durationMs",
+      "divisor": 1000, "unit": "s", "percentiles": [50, 90], "min_samples": 30,
+      "cohorts": [
+        { "key": "new",       "label": "new install", "attributes_phrase": "sessionNumber 1 durationMs" },
+        { "key": "returning", "label": "existing",    "exclude_attributes_phrase": "sessionNumber 1 durationMs" }
+      ],
+      "thresholds": { "returning": { "p50": { "watch": 3, "alert": 6 }, "p90": { "watch": 6, "alert": 10 } } },
+      "note": "shown under the per-project table"
+    }
+  ],
+  "incidents": [
+    { "key": "backend_5xx", "label": "Backend HTTP 5xx",
+      "phrases": ["HTTP/1.1 500", "HTTP/1.1 502", "HTTP/1.1 503", "HTTP/1.1 504"], "require_phrases": ["ServerError"],
+      "category": "Network", "interval_minutes": 5, "min_users": 40, "spike_factor": 5, "endpoint_regex": "'([^']+)'" }
+  ]
 }

@@ -352,17 +352,16 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertNotIn("Healthy (", text)
         self.assertNotIn("🟢 *Example App*", text)
         self.assertNotIn("VideoGrid", text)
-        self.assertIn("Loading: StartGame 2.4k events (100% ref) · load 97.0%", text)
-        self.assertIn("Loading: StartGame 1.5k events (100% ref) · load 99.0%", text)
+        self.assertIn("Now: crash 0.30% all versions · load 97.0% Δ—", text)
+        self.assertIn("Now: crash — · load 99.0% Δ—", text)
         self.assertIn("*iOS* · DAU 600 · App Store", text)
         self.assertIn("*Android* · DAU 400 · Google Play", text)
-        self.assertIn("Loading: StartGame 2.4k events (100% ref) · load 97.0%", text)
-        self.assertIn("Loading: StartGame 1.5k events (100% ref) · load 99.0%", text)
+        self.assertNotIn("StartGame", text)
         self.assertNotIn("DAU 600 · StartGame", text)
         self.assertNotIn("Traffic", text)
         self.assertIn("App Store: Live v2.5.0 · Rating 4.25★ (1.2k)", text)
         self.assertIn("Google Play: — · Rating —", text)
-        self.assertIn("Stability: Crash rate 0.30% all versions · ANR rate —", text)
+        self.assertIn("release: no observed version", text)
         self.assertIn("• *ExampleGame*", text)
 
     def test_start_game_is_not_inferred_from_a_server_boot_stage(self):
@@ -370,8 +369,10 @@ class PortfolioOverviewTests(unittest.TestCase):
         project["funnels"] = [f for f in project["funnels"] if f.get("key") != "startup"]
         report = self._overview(projects=[project], apps=[_store_app()])
         text = pulse.render_status_slack(report)
-        self.assertEqual(2, text.count("Loading: StartGame —"))
-        self.assertNotIn("DAU 600 · StartGame", text)
+        self.assertNotIn("StartGame", text)
+        ios = report["health"]["rows"][0]["platform_overview"]["iOS"]
+        self.assertIsNone(ios["start_game_events"])
+        self.assertIn("StartGame events", pulse.render_status_md(report))
 
     def test_start_game_events_and_users_are_distinct_denominators(self):
         report = self._overview(apps=[_store_app()])
@@ -389,8 +390,8 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertIn("◻ *New Project* · No production data · "
                       "App Store: Live v2.5.0 · Google Play: —", text)
         self.assertNotIn("DAU —", text)
-        self.assertNotIn("Loading: StartGame —", text)
-        self.assertNotIn("Stability: Crash rate", text)
+        self.assertNotIn("Now: crash", text)
+        self.assertNotIn("release:", text)
 
     def test_rewarded_funnel_names_every_stage_and_end_to_end_rate(self):
         text = pulse._platform_flows({"flows": [
@@ -399,9 +400,8 @@ class PortfolioOverviewTests(unittest.TestCase):
             {"key": "reward_grant", "available": True, "value": 94.9,
              "status": "watch", "denominator": 21432, "numerator": 20335},
         ]}, compact=True)
-        self.assertIn("Rewarded: 23.6k started → 21.4k completed (91% Δ—)", text)
-        self.assertIn("→ 20.3k rewarded (*95%* Δ—) · End-to-end: 86% Δ—", text)
-        self.assertNotIn("\n    End-to-end", text)
+        self.assertIn("Now: crash — · RV 91% Δ— · grant *95%* Δ—", text)
+        self.assertNotIn("End-to-end", text)
 
     def test_a_platform_threshold_marks_the_project_and_the_exact_metric(self):
         app = _store_app()
@@ -414,8 +414,7 @@ class PortfolioOverviewTests(unittest.TestCase):
                                     "watch_fraction": 0.6})
         text = pulse.render_status_slack(report)
         self.assertIn("🔴 *Example App*", text)
-        self.assertIn("Stability: Crash rate *1.00% 🔴* all versions · "
-                      "ANR rate 0.20% all versions", text)
+        self.assertIn("Now: crash *1.00% all versions 🔴* · ANR 0.20%", text)
         self.assertNotIn("*0.20%", text)
 
     def test_store_state_is_platform_context_and_android_is_not_inferred_from_traffic(self):
@@ -455,13 +454,12 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertEqual(3.0, platform["crash_rate"])
         self.assertEqual("/1k sessions", platform["crash_rate_unit"])
         self.assertEqual(0.3, platform["crash_rate_pct"])
-        self.assertIn("Stability: Crash rate 0.30% all versions · ANR rate —",
-                      pulse.render_status_slack(report))
+        self.assertIn("Now: crash 0.30% all versions", pulse.render_status_slack(report))
 
     def test_stability_line_is_always_present_when_store_metrics_are_missing(self):
         report = self._overview(apps=[])
         text = pulse.render_status_slack(report)
-        self.assertEqual(2, text.count("Stability: Crash rate — · ANR rate —"))
+        self.assertEqual(2, text.count("Now: crash —"))
 
     def test_ios_stability_falls_back_to_latest_measured_release_while_focus_is_pending(self):
         app = _store_app(sessions=None)
@@ -471,9 +469,8 @@ class PortfolioOverviewTests(unittest.TestCase):
         report = self._overview(
             projects=[self._with_ios_focus(_project())], apps=[app])
         text = pulse.render_status_slack(report)
-        self.assertIn(
-            "Stability: Crash rate 0.24% @ v2.4.0 (v2.5.0 pending) · ANR rate —",
-            text)
+        self.assertIn("Now: crash 0.24% (v2.5.0 pending)", text)
+        self.assertIn("v2.5.0 (80%) vs 2.4.0: not enough comparable metrics yet — err =", text)
         self.assertNotIn("🔴 *Example App*", text)
 
     def test_ios_stability_compares_sampled_focus_with_weighted_previous_release_average(self):
@@ -486,9 +483,8 @@ class PortfolioOverviewTests(unittest.TestCase):
         report = self._overview(
             projects=[self._with_ios_focus(_project())], apps=[app])
         text = pulse.render_status_slack(report)
-        self.assertIn(
-            "Crash rate 0.40% @ v2.5.0 vs 0.17% previous 2-version avg (*↑140% 🔴*)",
-            text)
+        self.assertIn("Now: crash 0.40%", text)
+        self.assertIn("v2.5.0 (80%) vs 2.4.0: *WORSE 🔴* — err = · crash *↑140% 🔴*", text)
         self.assertIn("🔴 *Example App*", text)
 
     def test_android_stability_uses_newest_sampled_version_code_and_previous_average(self):
@@ -521,8 +517,10 @@ class PortfolioOverviewTests(unittest.TestCase):
             "play_anr_alert_pct": 0.47, "watch_fraction": 0.6,
         })
         text = pulse.render_status_slack(report)
-        self.assertIn("Crash rate *0.60% 🔴* @ build 205 vs 0.30% prod avg ", text)
-        self.assertIn("ANR rate 0.10% @ build 205 vs 0.08% prod avg", text)
+        self.assertIn("Now: crash *0.60% 🔴* · ANR 0.10%", text)
+        stability = report["health"]["rows"][0]["platform_overview"]["Android"]["crash_stability"]
+        self.assertEqual("205", stability["version"])
+        self.assertAlmostEqual(0.30, stability["baseline_pct"])
 
     def test_android_store_state_comes_from_the_release_catalog(self):
         app = _store_app()
@@ -580,10 +578,8 @@ class PortfolioOverviewTests(unittest.TestCase):
             "min_vitals_users": 100, "play_crash_alert_pct": 1.09,
             "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
         text = pulse.render_status_slack(report)
-        self.assertIn("Crash rate 0.00% @ v0.37.2 (build 52059486) "
-                      "vs 0.00% prod avg (+0.00 pp)", text)
-        self.assertIn("ANR rate *0.77% 🔴* @ v0.37.2 (build 52059486) "
-                      "vs 0.00% prod avg (+0.77 pp)", text)
+        self.assertIn("Now: crash 0.00% · ANR *0.77% 🔴*", text)
+        self.assertIn("v0.37.2 (90%) vs 0.36.1: *WATCH* — err *↑33%* · crash =", text)
         self.assertNotIn("(v0.37.2 pending)", text)
 
     def test_a_named_build_still_waiting_on_the_focus_reads_as_one_parenthesis(self):
@@ -606,7 +602,7 @@ class PortfolioOverviewTests(unittest.TestCase):
             "min_vitals_users": 100, "play_crash_alert_pct": 1.09,
             "play_anr_alert_pct": 0.47, "watch_fraction": 0.6})
         text = pulse.render_status_slack(report)
-        self.assertIn("Crash rate 0.20% @ v2.5.0 (build 205, v2.6.0 pending)", text)
+        self.assertIn("Now: crash 0.20% (v2.6.0 pending)", text)
         self.assertNotIn(") (v2.6.0 pending)", text)
 
     def test_a_test_track_build_is_never_the_focus_nor_in_the_prod_pool(self):
@@ -633,7 +629,7 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertEqual(["204"], stability["baseline_versions"])
         self.assertEqual(["206"], stability["non_production_builds"])
         text = pulse.render_status_slack(report)
-        self.assertIn("Crash rate 0.60% @ v2.5.0 (build 205) vs 0.30% prod avg", text)
+        self.assertIn("Now: crash 0.60%", text)
         self.assertIn("non-prod build sampled: 206", text)
 
     def test_android_all_versions_rate_moves_against_the_prior_days_average(self):
@@ -657,7 +653,7 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertAlmostEqual(0.10, platform["crash_period"]["delta_pp"])
         self.assertIsNone(platform["anr_period"]["delta_pp"])
         text = pulse.render_status_slack(report)
-        self.assertIn("all versions: crash 0.30% ↑0.10 pp · ANR 0.50% Δ—", text)
+        self.assertIn("Now: crash 0.30% all versions · ANR *0.50% 🔴*", text)
 
     def test_temporal_trigger_prints_the_exact_breached_bar(self):
         project = _project(status="degraded", err_per_user=1.0)
@@ -732,7 +728,7 @@ class PortfolioOverviewTests(unittest.TestCase):
         self.assertTrue(all(pulse.slack_len(part) <= pulse.SLACK_ONE_MESSAGE_BUDGET
                             for part in parts))
         text = "\n".join(parts)
-        self.assertIn("err ↑worse/↓better", text)
+        self.assertIn("Release: current prod version vs previous", text)
         self.assertNotIn("Decisions now", text)
         self.assertNotIn(" → _", text)
         self.assertNotIn("investigate", text.lower())
@@ -748,8 +744,8 @@ class PortfolioOverviewTests(unittest.TestCase):
         loading.update({"value": 99.7, "numerator": 14862, "denominator": 14904})
         slack = pulse.render_status_slack(report)
         markdown = pulse.render_status_md(report)
-        self.assertIn("Loading: StartGame 2.4k events (100% ref) · load 99.7%", slack)
-        self.assertNotIn("· load 100%", slack)
+        self.assertIn("load 99.7%", slack)
+        self.assertNotIn("load 100%", slack)
         self.assertIn("14,904 boot users", markdown)
         self.assertIn("Login reached: **14,862 users**", markdown)
         self.assertIn("not correlated launch conversions or TTI", markdown)
@@ -790,8 +786,7 @@ class PortfolioOverviewTests(unittest.TestCase):
         report["health"] = pulse.build_health(report, {"day": "2026-08-26", "age_days": 0,
                                                         "report": {"apps": []}})
         slack = pulse.render_status_slack(report)
-        self.assertIn("Loading: StartGame 2.4k events (100% ref) · load 97.0% Δ— · "
-                      "Home ready 94.1% Δ— · Popups settled 92.8% Δ—", slack)
+        self.assertIn("Now: crash — · load 97.0% Δ— · home 94.1% Δ— · popups 92.8% Δ—", slack)
         self.assertNotIn("APP_READY", slack)
         markdown = pulse.render_status_md(report)
         self.assertIn("source `APP_READY`", markdown)

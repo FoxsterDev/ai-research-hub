@@ -89,6 +89,9 @@ def load_config(path):
     overview.setdefault("rollout_excess_events_alert", 1000)
     overview.setdefault("stability_regression_watch_pct", 25.0)
     overview.setdefault("stability_regression_alert_pct", 50.0)
+    rc = overview.setdefault("release_compare", {})   # release-vs-previous verdict (see release_comparison)
+    for k, v in RELEASE_COMPARE_DEFAULTS.items():
+        rc.setdefault(k, v)
     hy = cfg.setdefault("hygiene", {})     # shared issue rule table (log-sanitation + impact bar)
     hy.setdefault("rules", [])
     hy.setdefault("default", {"verdict": "review"})
@@ -141,7 +144,66 @@ def load_config(path):
     if th["dau_drop_degraded_pct"] < th["dau_drop_watch_pct"]:
         raise ValueError("DAU-drop degraded threshold must be >= watch threshold")
     validate_funnel_sampling(cfg["funnels"])
+    cfg["durations"] = normalize_durations(cfg.get("durations") or [])
+    cfg["incidents"] = normalize_incidents(cfg.get("incidents") or [])
     return cfg
+
+
+def normalize_durations(specs):
+    """Duration metrics: a numeric attribute regexed out of the attributes blob of one message
+    phrase, summarised as percentiles per platform and cohort (see `collect_durations`)."""
+    out = []
+    for spec in specs:
+        if not spec.get("key") or not spec.get("attribute"):
+            raise ValueError("every durations entry needs 'key' and 'attribute'")
+        if not (spec.get("phrase") or spec.get("phrases")):
+            raise ValueError(f"durations entry {spec['key']} needs 'phrase' or 'phrases'")
+        s = dict(spec)
+        s.setdefault("label", s["key"])
+        s.setdefault("short_label", s["label"])
+        s.setdefault("divisor", 1.0)
+        s.setdefault("unit", "")
+        s.setdefault("percentiles", [50, 90])
+        s.setdefault("min_samples", 30)
+        s.setdefault("thresholds", {})
+        s["percentiles"] = [int(p) for p in s["percentiles"]]
+        cohorts = s.get("cohorts") or [{"key": "all", "label": "all"}]
+        norm = []
+        for c in cohorts:
+            if not c.get("key"):
+                raise ValueError(f"durations entry {s['key']}: every cohort needs a key")
+            c = dict(c)
+            c.setdefault("label", c["key"])
+            c.setdefault("short_label", c["label"].split()[0] if c["label"].split() else c["key"])
+            norm.append(c)
+        s["cohorts"] = norm
+        out.append(s)
+    return out
+
+
+def normalize_incidents(specs):
+    """Portfolio-wide incident detectors: a phrase family bucketed by time; a run of buckets
+    whose affected users exceed both an absolute floor and a multiple of the window's typical
+    level is one incident window (see `detect_incident_windows`)."""
+    out = []
+    for spec in specs:
+        if not spec.get("key"):
+            raise ValueError("every incidents entry needs a key")
+        if not (spec.get("phrases") or spec.get("require_phrases")):
+            raise ValueError(f"incidents entry {spec['key']} needs 'phrases' or 'require_phrases'")
+        s = dict(spec)
+        s.setdefault("label", s["key"])
+        s.setdefault("interval_minutes", 5)
+        s.setdefault("min_users", 50)
+        s.setdefault("spike_factor", 4.0)
+        s.setdefault("max_gap_buckets", 1)
+        s.setdefault("endpoint_regex", None)
+        s.setdefault("top_messages", 8)
+        s.setdefault("apps_shown", 6)
+        if int(s["interval_minutes"]) < 1 or int(s["min_users"]) < 1:
+            raise ValueError(f"incidents entry {s['key']}: interval_minutes and min_users must be >= 1")
+        out.append(s)
+    return out
 
 
 def sampled_stage_keys(fn):
@@ -919,6 +981,198 @@ def _start_game_activity(project, platform):
     }
 
 
+RELEASE_VERDICT_STATUS = {"WORSE": "degraded", "WATCH": "watch", "BETTER": "improved", "SAME": "healthy"}
+RELEASE_COMPARE_DEFAULTS = {
+    "err_same_pct": 10.0, "err_better_pct": 25.0,       # errors/user, relative to the previous version
+    "crash_same_pct": 10.0, "crash_better_pct": 25.0,   # crash rate, relative to the previous release
+    "rate_same_pp": 0.5,                                # funnel rates: noise band in percentage points
+    "duration_key": None, "duration_cohort": None, "duration_percentile": None,
+    "duration_same_delta": 0.3, "duration_watch_delta": 0.5, "duration_alert_delta": 1.5,
+    "min_metrics": 2,                                   # comparable metrics needed for a verdict
+}
+
+
+def _release_spec(overview_cfg, key, project_key):
+    spec = next((s for s in overview_cfg.get("secondary_metrics") or []
+                 if s.get("key") == key and s.get("kind") == "funnel_rate"), None)
+    if not spec:
+        return None
+    override = (spec.get("overrides") or {}).get(project_key) or {}
+    return {**spec, **override}
+
+
+def _version_rate(project, platform, spec, ver):
+    funnel = next((f for f in project.get("funnels", []) if f.get("key") == spec.get("funnel")), None)
+    if not funnel:
+        return None
+    vdata = ((((funnel.get("platforms") or {}).get(platform) or {}).get("versions") or {})
+             .get(ver) or {})
+    name = (spec.get("rate") or "").casefold()
+    rate = next((r for r in vdata.get("rates", []) if (r.get("label") or "").casefold() == name), None)
+    if not rate or rate.get("data_quality") or rate.get("pct") is None or rate["pct"] > 100.0:
+        return None
+    return rate["pct"]
+
+
+def _cmp_metric(key, label, current, previous, delta_text, status):
+    return {"key": key, "label": label, "current": current, "previous": previous,
+            "delta_text": delta_text, "status": status}
+
+
+def _rate_compare(key, label, cur, prev, spec, rc, good="high"):
+    if cur is None or prev is None:
+        return _cmp_metric(key, label, cur, prev, "—", "nodata")
+    delta = cur - prev
+    signed = delta if good == "high" else -delta       # positive = better
+    watch = spec.get("delta_watch_pp") or 1.0
+    alert = spec.get("delta_alert_pp") or 3.0
+    if abs(delta) < rc["rate_same_pp"]:
+        status = "same"
+    elif signed <= -alert:
+        status = "degraded"
+    elif signed <= -watch:
+        status = "watch"
+    elif signed >= watch:
+        status = "better"
+    else:
+        status = "minor"
+    arrow = "▲" if delta > 0 else "▼"
+    text = "=" if status == "same" else f"{arrow}{abs(delta):.1f}".replace(".0", "")
+    return _cmp_metric(key, label, cur, prev, text, status)
+
+
+def release_comparison(project, pdata, platform, overview_cfg):
+    """Current production version vs the previous one on the printed metrics, one verdict.
+
+    Errors/user and crash come from the already selected release cohorts; startup/login,
+    rewarded completion and load time are read from the per-version splits. A metric moves
+    only beyond its noise band; the verdict is WORSE on any alert-level regression or two
+    watch-level ones, WATCH on one, BETTER when something improved and nothing regressed,
+    SAME otherwise. Under the sample gates there is no verdict, only the reason."""
+    rc = {**RELEASE_COMPARE_DEFAULTS, **(overview_cfg.get("release_compare") or {})}
+    cur, prev = pdata.get("version"), pdata.get("previous_version")
+    out = {"current": cur, "previous": prev, "rollout_pct": pdata.get("rollout_pct"),
+           "metrics": [], "verdict": None, "status": "nodata", "note": None}
+    if not cur:
+        out["note"] = "no observed version"
+        return out
+    if not prev:
+        out["note"] = "no previous version to compare"
+        return out
+    if not pdata.get("version_sample_sufficient"):
+        out["note"] = f"v{cur} not sampled enough yet"
+        return out
+    metrics = []
+    # 1. errors per user (relative)
+    d = pdata.get("version_err_delta_pct")
+    cur_err, prev_err = pdata.get("version_err_per_user"), pdata.get("previous_version_err_per_user")
+    if d is None and cur_err is not None and prev_err:
+        d = round((cur_err - prev_err) / prev_err * 100.0, 1)
+    if d is None:
+        metrics.append(_cmp_metric("err", "err", None, None, "—", "nodata"))
+    else:
+        st = (pdata.get("metric_status") or {}).get("rollout")
+        if st not in ("watch", "degraded"):
+            st = ("same" if abs(d) < rc["err_same_pct"] else
+                  "better" if d <= -rc["err_better_pct"] else
+                  "degraded" if d >= overview_cfg.get("rollout_err_alert_pct", 50.0) else
+                  "watch" if d >= overview_cfg.get("rollout_err_watch_pct", 25.0) else "minor")
+        text = "=" if st == "same" else ("↑" if d > 0 else "↓") + f"{abs(d):.0f}%"
+        metrics.append(_cmp_metric("err", "err", pdata.get("version_err_per_user"),
+                                   pdata.get("previous_version_err_per_user"), text, st))
+    # 2. crash rate (store, per release)
+    stab = pdata.get("crash_stability") or {}
+    base = stab.get("baseline_pct")
+    if stab.get("value_pct") is not None and base is not None and stab.get("scope") in ("focus", "latest_measured"):
+        value = stab["value_pct"]
+        rel = stab.get("delta_pct")
+        st = stab.get("delta_status")
+        if rel is None:                     # zero baseline: absolute move in pp
+            diff = value - base
+            st = "same" if abs(diff) < 0.05 else (st if st in ("watch", "degraded") else "better" if diff < 0 else "same")
+            text = "=" if st == "same" else f"{diff:+.2f}pp"
+        else:
+            if st not in ("watch", "degraded"):
+                st = ("same" if abs(rel) < rc["crash_same_pct"] else
+                      "better" if rel <= -rc["crash_better_pct"] else "minor")
+            text = "=" if st == "same" else ("↑" if rel > 0 else "↓") + f"{abs(rel):.0f}%"
+        metrics.append(_cmp_metric("crash", "crash", value, base, text, st))
+    else:
+        metrics.append(_cmp_metric("crash", "crash", None, None, "—", "nodata"))
+    # 3. startup / login rate (the project's configured loading metric)
+    spec = _release_spec(overview_cfg, "loading", project.get("key"))
+    if spec:
+        label = (spec.get("display_label") or spec.get("label") or "startup").lower()
+        metrics.append(_rate_compare("startup", label, _version_rate(project, platform, spec, cur),
+                                     _version_rate(project, platform, spec, prev), spec, rc))
+    # 4. load time (duration metric, one cohort, one percentile)
+    durations = [d for d in project.get("durations") or [] if not d.get("error")]
+    item = next((d for d in durations if d.get("key") == rc.get("duration_key")), durations[0] if durations else None)
+    if item:
+        cohorts = list((item.get("cohort_labels") or {}).keys())
+        ck = rc.get("duration_cohort") or (cohorts[-1] if cohorts else None)
+        pct = rc.get("duration_percentile") or max(item.get("percentiles") or [90])
+        pv = (item.get("platforms") or {}).get(platform) or {}
+        def _v(ver):
+            c = ((pv.get("versions") or {}).get(ver) or {}).get("cohorts", {}).get(ck) or {}
+            return c.get(f"p{pct}") if c.get("enough_samples") else None
+        cv, pvv = _v(cur), _v(prev)
+        unit = item.get("unit", "")
+        if cv is None or pvv is None:
+            metrics.append(_cmp_metric("load", "load", cv, pvv, "—", "nodata"))
+        else:
+            diff = cv - pvv
+            st = ("same" if abs(diff) < rc["duration_same_delta"] else
+                  "degraded" if diff >= rc["duration_alert_delta"] else
+                  "watch" if diff >= rc["duration_watch_delta"] else
+                  "better" if diff <= -rc["duration_watch_delta"] else "minor")
+            text = "=" if st == "same" else f"{diff:+.1f}{unit}"
+            metrics.append(_cmp_metric("load", f"load p{pct}", cv, pvv, text, st))
+    # 5. rewarded completion
+    spec = _release_spec(overview_cfg, "reward_complete", project.get("key"))
+    if spec:
+        metrics.append(_rate_compare("rv", "RV", _version_rate(project, platform, spec, cur),
+                                     _version_rate(project, platform, spec, prev), spec, rc))
+    out["metrics"] = metrics
+    measured = [m for m in metrics if m["status"] != "nodata"]
+    if len(measured) < int(rc.get("min_metrics") or 1):
+        out["note"] = "not enough comparable metrics yet"
+        return out
+    statuses = [m["status"] for m in measured]
+    if "degraded" in statuses or statuses.count("watch") >= 2:
+        verdict = "WORSE"
+    elif "watch" in statuses:
+        verdict = "WATCH"
+    elif "better" in statuses:
+        verdict = "BETTER"
+    else:
+        verdict = "SAME"
+    out["verdict"] = verdict
+    out["status"] = RELEASE_VERDICT_STATUS[verdict]
+    return out
+
+
+def release_row_text(release, compact=False, rollout_pct=None):
+    """`v1.64.4 (81%) vs 1.64.3: *WORSE 🔴* — err ↑71% 🔴 · crash = · startup ▼0.4 · load +0.2s · RV ▲1.5`"""
+    cur, prev = release.get("current"), release.get("previous")
+    head = f"v{cur}" if cur else "release"
+    if cur and rollout_pct is not None:
+        head += f" ({rollout_pct:.0f}%)"
+    if prev:
+        head += f" vs {prev}"
+    cells = []
+    for m in release.get("metrics") or []:
+        st = m["status"]
+        wrap = {"degraded": "degraded", "watch": "watch", "better": "improved"}.get(st, "healthy")
+        cells.append(f"{m['label']} {_overview_value(m['delta_text'], wrap)}")
+    if not release.get("verdict"):
+        text = f"{head}: {release.get('note') or 'not comparable'}"
+        measured = [c for c, m in zip(cells, release.get("metrics") or []) if m["status"] != "nodata"]
+        return text + (" — " + " · ".join(measured) if measured else "")
+    verdict_text = {"WORSE": "*WORSE 🔴*", "WATCH": "*WATCH*", "BETTER": "BETTER 🟢", "SAME": "SAME"}[release["verdict"]]
+    return f"{head}: {verdict_text} — " + " · ".join(cells)
+
+
 def _platform_overview(project, store_app, slices, platform, thresholds, overview_cfg):
     users = (project.get("platform_users") or {}).get(platform)
     total = project.get("dau")
@@ -954,6 +1208,7 @@ def _platform_overview(project, store_app, slices, platform, thresholds, overvie
         "excluded_newer_versions": cohort.get("excluded_newer_versions") or [],
     }
     out.update(_start_game_activity(project, platform))
+    out["durations"] = platform_durations(project, platform)
     store_state = _store_state(slices, platform, (store_app or {}).get("removed"))
     store_key = "ios" if platform == "iOS" else "play"
     rating = ((store_app.get("rating") or {}).get(store_key) or {})
@@ -1072,6 +1327,11 @@ def _platform_overview(project, store_app, slices, platform, thresholds, overvie
         elif delta >= overview_cfg.get("rollout_err_watch_pct", 25.0) and watch_impact:
             rollout_status = "watch"
     out["metric_status"]["rollout"] = rollout_status
+    for metric in out["durations"]:
+        out["metric_status"][f"duration:{metric['key']}"] = metric.get("status", "nodata")
+    out["release"] = release_comparison(project, out, platform, overview_cfg)
+    release_status = out["release"].get("status", "nodata")
+    out["metric_status"]["release"] = "healthy" if release_status == "improved" else release_status
     out["metric_thresholds"]["rollout"] = {
         "watch": overview_cfg.get("rollout_err_watch_pct", 25.0),
         "alert": overview_cfg.get("rollout_err_alert_pct", 50.0),
@@ -1250,6 +1510,23 @@ def build_health(report, snapshot, min_ios_dau=HEALTH_MIN_IOS_DAU):
                                      if m.get("key") == flow_key), {})
                         trigger.update({"metric": flow_key, "value": flow.get("value"),
                                         "label": flow.get("label")})
+                    elif metric == "release":
+                        rel = pdata.get("release") or {}
+                        trigger.update({"label": "release", "value": rel.get("verdict"),
+                                        "version": rel.get("current"),
+                                        "previous_version": rel.get("previous"),
+                                        "regressed": [m["key"] for m in rel.get("metrics") or []
+                                                      if m.get("status") in ("watch", "degraded")]})
+                    elif metric.startswith("duration:"):
+                        dur_key = metric.split(":", 1)[1]
+                        dur = next((m for m in pdata.get("durations", [])
+                                    if m.get("key") == dur_key), {})
+                        worst = max(((c.get("status"), ck, c) for ck, c in (dur.get("cohorts") or {}).items()),
+                                    key=lambda x: -SEVERITY_RANK.get(x[0], 9), default=(None, None, {}))
+                        trigger.update({"metric": dur_key, "label": dur.get("label"),
+                                        "cohort": worst[1],
+                                        "value": duration_cohort_text(worst[2], dur.get("percentiles") or [],
+                                                                      dur.get("unit") or "")})
                     triggers.append(trigger)
         for metric in ([primary_flow] if primary_spec else []) + secondary_metrics:
             if metric.get("status") in ("degraded", "watch"):
@@ -1481,6 +1758,20 @@ def apply_overview_context(report, history=None):
         systemic.append(f"funnel telemetry mismatch in {coverage['data_quality']} project(s)")
     if coverage["no_data"]:
         systemic.append(f"{coverage['no_data']} projects have no production telemetry")
+    incidents = incident_items(report)
+    if incidents:
+        ongoing = sum(1 for w in incidents if w.get("status") == "ongoing")
+        systemic.insert(0, f"{len(incidents)} backend incident{'s' if len(incidents) > 1 else ''}"
+                           + (f" ({ongoing} ongoing)" if ongoing else " (resolved)"))
+    slow = Counter()
+    for row in rows:
+        for pdata in (row.get("platform_overview") or {}).values():
+            for metric in pdata.get("durations") or []:
+                if metric.get("status") in ("watch", "degraded"):
+                    slow[metric.get("short_label") or metric.get("key")] += 1
+    for label, count in slow.most_common(1):
+        if count >= 2:
+            systemic.append(f"{label} over bar on {count} platform rows")
     health["systemic_signals"] = systemic[:4]
     return report
 
@@ -1565,6 +1856,12 @@ def day_query(cfg, app_id=None, day=None, win=None, project_key=None):
             "aggs": {"u": {"cardinality": {"field": U}},
                      "by_platform": {"terms": {"field": F["platform"], "size": 6},
                                      "aggs": {"u": {"cardinality": {"field": U}}}}}}
+        # The same stages per (platform, version): what the release comparison reads.
+        aggs["funnels_version"] = {"filters": {"filters": {
+            f'{fn["key"]}::{st["key"]}': stage_filter(F, st) for fn, st in funnel_stages}},
+            "aggs": {"by_platform": {"terms": {"field": F["platform"], "size": 4},
+                                     "aggs": {"by_version": {"terms": {"field": F["version"], "size": 6},
+                                                             "aggs": {"u": {"cardinality": {"field": U}}}}}}}}
         breakdown_stages = [(fn, st) for fn, st in funnel_stages if st.get("breakdown")]
         if breakdown_stages:
             aggs["funnel_breakdowns"] = {"filters": {"filters": {
@@ -1604,6 +1901,500 @@ def stage_filter(F, st):
     if st.get("debug_sampled"):
         must.append({"term": {F.get("debug_mode", "DebugMode"): True}})
     return {"bool": {"must": must}}
+
+
+# ------------------------------------------------------------------ duration metrics
+
+def _attribute_percentile_script(attributes_field, attribute):
+    """Painless: pull one numeric attribute out of the stringified attributes blob. The blob is
+    text (not aggregatable), so the percentile has to be computed from `_source` per document;
+    the regex keeps it independent of the blob's quoting dialect (`true` / `True`)."""
+    return {"source": (f"def a = params._source['{attributes_field}']; if (a == null) return null; "
+                       f"def m = /\"{re.escape(attribute)}\":\\s*(-?\\d+(?:\\.\\d+)?)/.matcher(a); "
+                       "if (m.find()) return Double.parseDouble(m.group(1)); return null;")}
+
+
+def _duration_cohort_filter(F, cohort):
+    phrase = cohort.get("attributes_phrase")
+    exclude = cohort.get("exclude_attributes_phrase")
+    must, must_not = [], []
+    if phrase:
+        must.append({"match_phrase": {F["attributes"]: phrase}})
+    if exclude:
+        must_not.append({"match_phrase": {F["attributes"]: exclude}})
+    if not must and not must_not:
+        return {"match_all": {}}
+    return {"bool": {"must": must, "must_not": must_not}}
+
+
+def duration_query(cfg, spec, app_id=None, day=None, win=None):
+    F = cfg["fields"]
+    U = F["user"]
+    filt = server_filter(cfg) + (time_bounds_filter(cfg, win["lo"], win["hi"]) if win else time_filter(cfg, day))
+    if app_id:
+        filt.append({"term": {F["app_id"]: app_id}})
+    filt.append(stage_filter(F, spec))
+    cohort_aggs = {
+        "coh": {"filters": {"filters": {c["key"]: _duration_cohort_filter(F, c) for c in spec["cohorts"]}},
+                "aggs": {"p": {"percentiles": {"percents": spec["percentiles"],
+                                               "script": _attribute_percentile_script(F["attributes"], spec["attribute"])}},
+                         "u": {"cardinality": {"field": U}}}}}
+    return {"size": 0, "track_total_hits": False,
+            "query": {"bool": {"filter": filt}},
+            "aggs": {"plat": {"terms": {"field": F["platform"], "size": 6},
+                              "aggs": {**cohort_aggs,
+                                       "ver": {"terms": {"field": F["version"], "size": 6}, "aggs": cohort_aggs}}},
+                     "all": {"filter": {"match_all": {}}, "aggs": cohort_aggs}}}
+
+
+def _duration_status(values, thresholds):
+    """Worst status over the configured percentile bars (higher is worse)."""
+    statuses = []
+    for pkey, bar in (thresholds or {}).items():
+        v = values.get(pkey)
+        if v is None:
+            continue
+        statuses.append(_bar_status(v, bar.get("watch"), bar.get("alert")))
+    return _worst_status(statuses)
+
+
+def _duration_cohort_result(bucket, spec, cohort):
+    n = bucket.get("doc_count", 0)
+    out = {"n": n, "users": (bucket.get("u") or {}).get("value", 0)}
+    values = {}
+    for pct in spec["percentiles"]:
+        raw = ((bucket.get("p") or {}).get("values") or {}).get(f"{float(pct)}")
+        value = None
+        if isinstance(raw, (int, float)) and raw == raw:  # NaN-safe
+            value = round(raw / float(spec["divisor"] or 1.0), 2)
+        values[f"p{pct}"] = value
+    out.update(values)
+    enough = n >= int(spec.get("min_samples") or 0)
+    out["enough_samples"] = enough
+    out["thresholds"] = (spec.get("thresholds") or {}).get(cohort["key"]) or {}
+    out["status"] = _duration_status(values, out["thresholds"]) if enough else "nodata"
+    return out
+
+
+def collect_durations(client, cfg, prefix, app_id, day, win=None, project_key=None):
+    """One request per duration spec: percentiles of the attribute per platform × cohort, plus
+    the all-platform total. A failed spec is reported as such, never as zeros."""
+    out = []
+    index = win["index"] if win else prefix + day
+    for spec in cfg.get("durations") or []:
+        if spec.get("apps") and project_key not in spec["apps"]:
+            continue
+        item = {"key": spec["key"], "label": spec["label"], "short_label": spec["short_label"],
+                "unit": spec["unit"], "percentiles": spec["percentiles"],
+                "attribute": spec["attribute"], "note": spec.get("note"),
+                "cohort_labels": {c["key"]: c["label"] for c in spec["cohorts"]},
+                "cohort_short_labels": {c["key"]: c["short_label"] for c in spec["cohorts"]},
+                "min_samples": spec["min_samples"], "platforms": {}, "all": {}}
+        try:
+            a = client.search(index, duration_query(cfg, spec, app_id, day, win))["aggregations"]
+        except Exception as e:  # noqa: BLE001 - the project report must survive a script-agg failure
+            item["error"] = safe_error(e)
+            out.append(item)
+            continue
+        for pb in a["plat"]["buckets"]:
+            platform = plat_label(pb["key"])
+            cohorts = {c["key"]: _duration_cohort_result(pb["coh"]["buckets"][c["key"]], spec, c)
+                       for c in spec["cohorts"]}
+            versions = {}
+            for vb in (pb.get("ver") or {}).get("buckets", []):
+                versions[vb["key"]] = {"cohorts": {
+                    c["key"]: _duration_cohort_result(vb["coh"]["buckets"][c["key"]], spec, c)
+                    for c in spec["cohorts"]}}
+            item["platforms"][platform] = {
+                "cohorts": cohorts, "versions": versions,
+                "status": _worst_status([c["status"] for c in cohorts.values()])}
+        all_cohorts = {c["key"]: _duration_cohort_result(a["all"]["coh"]["buckets"][c["key"]], spec, c)
+                       for c in spec["cohorts"]}
+        item["all"] = {"cohorts": all_cohorts,
+                       "status": _worst_status([c["status"] for c in all_cohorts.values()])}
+        item["status"] = _worst_status([item["all"]["status"]]
+                                       + [p["status"] for p in item["platforms"].values()])
+        out.append(item)
+    return out
+
+
+def attach_duration_baselines(durations, prior_projects, source):
+    """Baseline = mean of each percentile over the prior saved reports (disk-first, like the
+    funnel rates). Written beside the value as `baseline_pNN` / `delta_pNN` in the same unit."""
+    for item in durations:
+        if item.get("error"):
+            continue
+        samples = {}
+        for prior in prior_projects:
+            prior_item = next((d for d in prior.get("durations", []) if d.get("key") == item["key"]), None)
+            if not prior_item:
+                continue
+            scopes = dict(prior_item.get("platforms") or {})
+            scopes["__all__"] = prior_item.get("all") or {}
+            for scope, data in scopes.items():
+                for ck, cohort in (data.get("cohorts") or {}).items():
+                    if not cohort.get("enough_samples"):
+                        continue
+                    for pct in item["percentiles"]:
+                        v = cohort.get(f"p{pct}")
+                        if v is not None:
+                            samples.setdefault((scope, ck, pct), []).append(v)
+        scopes = dict(item.get("platforms") or {})
+        scopes["__all__"] = item.get("all") or {}
+        for scope, data in scopes.items():
+            for ck, cohort in (data.get("cohorts") or {}).items():
+                for pct in item["percentiles"]:
+                    xs = samples.get((scope, ck, pct))
+                    base = round(mean(xs), 2) if xs else None
+                    cohort[f"baseline_p{pct}"] = base
+                    v = cohort.get(f"p{pct}")
+                    cohort[f"delta_p{pct}"] = (round(v - base, 2) if base is not None and v is not None else None)
+        item["baseline_source"] = source if samples else "none"
+    return durations
+
+
+def platform_durations(project, platform):
+    """The per-platform slice of every duration metric, shaped for the overview renderers."""
+    out = []
+    for item in project.get("durations") or []:
+        if item.get("error"):
+            out.append({"key": item["key"], "label": item["label"], "short_label": item["short_label"],
+                        "unit": item["unit"], "percentiles": item["percentiles"], "available": False,
+                        "availability": "query_failed", "status": "nodata", "cohorts": {},
+                        "cohort_labels": item.get("cohort_labels") or {},
+                        "cohort_short_labels": item.get("cohort_short_labels") or {}})
+            continue
+        data = (item.get("platforms") or {}).get(platform) or {}
+        cohorts = data.get("cohorts") or {}
+        measured = any(c.get("enough_samples") for c in cohorts.values())
+        out.append({"key": item["key"], "label": item["label"], "short_label": item["short_label"],
+                    "unit": item["unit"], "percentiles": item["percentiles"],
+                    "available": measured,
+                    "availability": "measured" if measured else ("low_sample" if cohorts else "missing_telemetry"),
+                    "status": data.get("status", "nodata") if measured else "nodata",
+                    "cohorts": cohorts, "cohort_labels": item.get("cohort_labels") or {},
+                    "cohort_short_labels": item.get("cohort_short_labels") or {}})
+    return out
+
+
+def duration_cohort_text(cohort, percentiles, unit, status_wrap=None, compact=False):
+    """`11.6s/31.0s` for p50/p90 (unit once in compact mode); `—` below the sample floor."""
+    if not cohort or not cohort.get("enough_samples"):
+        return "—"
+    values = [cohort.get(f"p{p}") for p in percentiles]
+    if any(v is None for v in values):
+        return "—"
+    if compact:
+        text = "/".join(f"{v:.1f}" for v in values) + unit
+    else:
+        text = "/".join(f"{v:.1f}{unit}" for v in values)
+    return status_wrap(text, cohort.get("status")) if status_wrap else text
+
+
+def duration_line(metric, compact=False, status_wrap=None):
+    """One overview line: `Load time (p50/p90): new 11.6s/31.0s · existing 1.5s/3.8s`."""
+    pct_label = "/".join(f"p{p}" for p in metric.get("percentiles") or [])
+    label = metric.get("short_label") or metric.get("label") or metric.get("key")
+    if not metric.get("available"):
+        reason = {"query_failed": "query failed", "low_sample": "low sample"}.get(metric.get("availability"))
+        return f"{label}: —" + (f" ({reason})" if reason and not compact else "")
+    cells = []
+    for ck, cohort in (metric.get("cohorts") or {}).items():
+        clabel = ((metric.get("cohort_short_labels") if compact else metric.get("cohort_labels")) or {}).get(ck, ck)
+        cells.append(f"{clabel} {duration_cohort_text(cohort, metric['percentiles'], metric['unit'], status_wrap, compact)}")
+    head = f"{label}:" if compact else f"{label} ({pct_label}):"
+    return head + " " + " · ".join(cells)
+
+
+# ------------------------------------------------------------------ incidents (portfolio-wide)
+
+def incident_filter(F, spec):
+    phrases = spec.get("phrases") or []
+    require = spec.get("require_phrases") or []
+    must = [{"match_phrase": {F["message_text"]: p}} for p in require]
+    if phrases:
+        must.append({"bool": {"should": [{"match_phrase": {F["message_text"]: p}} for p in phrases],
+                              "minimum_should_match": 1}})
+    if spec.get("category"):
+        must.append({"term": {F["category"]: spec["category"]}})
+    if spec.get("level"):
+        must.append({"term": {F["level"]: spec["level"]}})
+    return {"bool": {"must": must}}
+
+
+def _parse_iso_z(text):
+    return dt.datetime.strptime(text, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=dt.timezone.utc)
+
+
+def _incident_bounds(cfg, day=None, win=None):
+    lo, hi = (win["lo"], win["hi"]) if win else _day_bounds(day)
+    return _parse_iso_z(lo), _parse_iso_z(hi)
+
+
+def _incident_time_filter(cfg, lo, hi):
+    tf = cfg.get("time_field") or cfg["fields"].get("time")
+    return [{"range": {tf: {"gte": _iso_z(lo), "lt": _iso_z(hi)}}}]
+
+
+def incident_query(cfg, spec, day=None, win=None):
+    F = cfg["fields"]
+    U = F["user"]
+    lo, hi = _incident_bounds(cfg, day, win)
+    filt = server_filter(cfg) + _incident_time_filter(cfg, lo, hi) + [incident_filter(F, spec)]
+    return {"size": 0, "track_total_hits": False,
+            "query": {"bool": {"filter": filt}},
+            "aggs": {"h": {"date_histogram": {"field": cfg.get("time_field") or F["time"],
+                                              "fixed_interval": f"{int(spec['interval_minutes'])}m",
+                                              "min_doc_count": 0,
+                                              "extended_bounds": {"min": _iso_z(lo), "max": _iso_z(hi - dt.timedelta(seconds=1))}},
+                           "aggs": {"u": {"cardinality": {"field": U}}}}}}
+
+
+def incident_detail_query(cfg, spec, lo, hi):
+    F = cfg["fields"]
+    U = F["user"]
+    filt = server_filter(cfg) + _incident_time_filter(cfg, lo, hi) + [incident_filter(F, spec)]
+    return {"size": 0, "track_total_hits": False,
+            "query": {"bool": {"filter": filt}},
+            "aggs": {"u": {"cardinality": {"field": U}},
+                     "apps": {"terms": {"field": F["app_id"], "size": 20},
+                              "aggs": {"u": {"cardinality": {"field": U}}}},
+                     "msgs": {"terms": {"field": F["message_keyword"], "size": int(spec["top_messages"])},
+                              "aggs": {"u": {"cardinality": {"field": U}}}}}}
+
+
+def _median(xs):
+    xs = sorted(xs)
+    if not xs:
+        return 0.0
+    mid = len(xs) // 2
+    return float(xs[mid]) if len(xs) % 2 else (xs[mid - 1] + xs[mid]) / 2.0
+
+
+def detect_incident_windows(buckets, spec, window_hi):
+    """`buckets` = [(start datetime, users)] in time order covering the whole window.
+
+    A bucket is "hot" when its users reach both `min_users` and `spike_factor` × the window's
+    median bucket (the typical quiet level, zeros included). Hot buckets separated by at most
+    `max_gap_buckets` quiet ones form one incident. The incident is `ongoing` when its last
+    hot bucket touches the end of the window, `resolved` otherwise."""
+    interval = dt.timedelta(minutes=int(spec["interval_minutes"]))
+    users = [u for _, u in buckets]
+    # The typical level is the median of the quiet buckets (below the absolute floor), so a
+    # long outage inside a short rolling window cannot raise its own bar and hide.
+    quiet = [u for u in users if u < float(spec["min_users"])]
+    typical = _median(quiet) if quiet else 0.0
+    threshold = max(float(spec["min_users"]), float(spec["spike_factor"]) * typical)
+    hot = [i for i, u in enumerate(users) if u >= threshold]
+    windows = []
+    run = []
+    for i in hot:
+        if run and i - run[-1] - 1 > int(spec["max_gap_buckets"]):
+            windows.append(run)
+            run = []
+        run.append(i)
+    if run:
+        windows.append(run)
+    out = []
+    for run in windows:
+        start = buckets[run[0]][0]
+        end = buckets[run[-1]][0] + interval
+        peak_i = max(run, key=lambda i: users[i])
+        touching_end = (window_hi - end) < interval
+        out.append({"start": start, "end": end,
+                    "duration_min": int((end - start).total_seconds() // 60),
+                    "peak_users": users[peak_i], "peak_at": buckets[peak_i][0],
+                    "hot_buckets": len(run),
+                    "status": "ongoing" if touching_end else "resolved",
+                    "threshold_users": round(threshold, 1), "typical_users": round(typical, 1)})
+    return out
+
+
+def collect_incidents(client, cfg, prefix, index, day=None, win=None, app_names=None):
+    """Portfolio-wide incident windows for one source, every configured detector."""
+    app_names = app_names or {}
+    out = []
+    lo, hi = _incident_bounds(cfg, day, win)
+    for spec in cfg.get("incidents") or []:
+        item = {"key": spec["key"], "label": spec["label"], "source": prefix,
+                "interval_minutes": int(spec["interval_minutes"]),
+                "min_users": int(spec["min_users"]), "spike_factor": float(spec["spike_factor"]),
+                "windows": []}
+        try:
+            a = client.search(index, incident_query(cfg, spec, day, win))["aggregations"]
+            buckets = []
+            for b in a["h"]["buckets"]:
+                start = dt.datetime.fromtimestamp(b["key"] / 1000.0, tz=dt.timezone.utc)
+                if start < lo or start >= hi:
+                    continue
+                buckets.append((start, int((b.get("u") or {}).get("value", 0))))
+            windows = detect_incident_windows(buckets, spec, hi)
+            endpoint_re = re.compile(spec["endpoint_regex"]) if spec.get("endpoint_regex") else None
+            for w in windows:
+                d = client.search(index, incident_detail_query(cfg, spec, w["start"], w["end"]))["aggregations"]
+                apps = [{"app": b["key"], "name": app_names.get(b["key"], b["key"]),
+                         "events": b["doc_count"], "users": (b.get("u") or {}).get("value", 0)}
+                        for b in d["apps"]["buckets"]]
+                apps.sort(key=lambda a: (-a["users"], -a["events"]))
+                endpoints = {}
+                messages = []
+                for b in d["msgs"]["buckets"]:
+                    msg = redact(b["key"])
+                    users = (b.get("u") or {}).get("value", 0)
+                    messages.append({"msg": msg[:140], "events": b["doc_count"], "users": users})
+                    name = None
+                    if endpoint_re:
+                        m = endpoint_re.search(msg)
+                        name = m.group(1) if m else None
+                    name = name or msg[:60]
+                    e = endpoints.setdefault(name, {"endpoint": name, "events": 0, "users": 0})
+                    e["events"] += b["doc_count"]
+                    e["users"] = max(e["users"], users)
+                w.update({"users": (d.get("u") or {}).get("value", 0), "apps": apps,
+                          "endpoints": sorted(endpoints.values(), key=lambda e: -e["events"]),
+                          "messages": messages,
+                          "start": _iso_z(w["start"]), "end": _iso_z(w["end"]),
+                          "peak_at": _iso_z(w["peak_at"])})
+                item["windows"].append(w)
+        except Exception as e:  # noqa: BLE001 - an incident scan must not take the report down
+            item["error"] = safe_error(e)
+        out.append(item)
+    return out
+
+
+def _hhmm(iso, with_date=False):
+    try:
+        t = _parse_iso_z(iso)
+    except (TypeError, ValueError):
+        return iso or "—"
+    return t.strftime("%m-%d %H:%M") if with_date else t.strftime("%H:%M")
+
+
+def incident_items(report):
+    """Flat list of incident windows across detectors, newest-severity first."""
+    items = []
+    for det in report.get("incidents") or []:
+        for w in det.get("windows") or []:
+            items.append({**w, "detector": det["key"], "label": det["label"],
+                          "interval_minutes": det.get("interval_minutes", 5)})
+    items.sort(key=lambda w: (0 if w.get("status") == "ongoing" else 1, -(w.get("users") or 0)))
+    return items
+
+
+def incident_text(w, compact=False, max_endpoints=3, max_apps=4, total_apps=None):
+    """`HTTP 5xx · 22:10–22:55 UTC (45 min) · 1,391 users · peak 333/5min · api/core/Login +4
+    · portfolio-wide (10 apps: BZ 1.2k, OB 213 …) · resolved`."""
+    cross_day = (w.get("start") or "")[:10] != (w.get("end") or "")[:10]
+    span = f"{_hhmm(w.get('start'), cross_day)}–{_hhmm(w.get('end'), cross_day)} UTC"
+    bits = [w.get("label") or w.get("detector"), f"{span} ({w.get('duration_min', 0)} min)",
+            f"{fmt_int(w.get('users'))} users",
+            f"peak {fmt_int(w.get('peak_users'))}/{w.get('interval_minutes', 5)}min"]
+    eps = w.get("endpoints") or []
+    if eps:
+        names = [e["endpoint"] for e in eps[:max_endpoints]]
+        more = f" +{len(eps) - max_endpoints}" if len(eps) > max_endpoints else ""
+        bits.append(", ".join(names) + more)
+    apps = w.get("apps") or []
+    if apps:
+        shown = ", ".join(f"{a['name'] if not compact else a['app']} {_short_number(a['users'])}"
+                          for a in apps[:max_apps])
+        more = f" …" if len(apps) > max_apps else ""
+        scope = ("portfolio-wide" if (total_apps and len(apps) >= max(2, int(total_apps * 0.5)))
+                 or len(apps) >= 3 else f"{len(apps)} app{'s' if len(apps) > 1 else ''}")
+        bits.append(f"{scope} ({len(apps)} apps: {shown}{more})" if scope == "portfolio-wide"
+                    else f"{scope}: {shown}{more}")
+    status = w.get("status")
+    bits.append("ONGOING at window end — check the next report" if status == "ongoing" else "resolved")
+    return " · ".join(bits)
+
+
+def incident_section_md(report, detailed=False):
+    """Markdown block for the incident windows (overview.md: summary; technical md: detail)."""
+    dets = report.get("incidents") or []
+    if not dets:
+        return []
+    items = incident_items(report)
+    total_apps = len(report.get("projects") or [])
+    L = ["## Backend incidents", ""]
+    seen = {}
+    for d in dets:
+        seen.setdefault(d["key"], d)
+    scan = "; ".join(f"`{d['label']}` ≥{d.get('min_users')} users/{d.get('interval_minutes')}min and ≥{d.get('spike_factor'):g}× the window's typical bucket"
+                     for d in seen.values())
+    L.append(f"- Detectors: {scan}.")
+    failed = [d for d in dets if d.get("error")]
+    for d in failed:
+        L.append(f"- ⚠ `{d['label']}` scan failed — not measured ({d['error'][:120]}).")
+    if not items:
+        L += ["- None detected in this window.", ""]
+        return L
+    L += ["", "| Incident | Window (UTC) | Duration | Users | Peak | Endpoints | Apps | Status |",
+          "|---|---|--:|--:|--:|---|---|---|"]
+    for w in items:
+        cross_day = (w.get("start") or "")[:10] != (w.get("end") or "")[:10]
+        span = f"{_hhmm(w.get('start'), True)} → {_hhmm(w.get('end'), cross_day or True)}"
+        eps = ", ".join(e["endpoint"] for e in (w.get("endpoints") or [])[:5]) or "—"
+        apps = ", ".join(f"{a['name']} {fmt_int(a['users'])}u" for a in (w.get("apps") or [])[:8]) or "—"
+        status = "**ONGOING at window end**" if w.get("status") == "ongoing" else "resolved"
+        L.append(f"| {w.get('label')} | {span} | {w.get('duration_min')} min | {fmt_int(w.get('users'))} "
+                 f"| {fmt_int(w.get('peak_users'))}/{w.get('interval_minutes')}min | {eps} | {apps} | {status} |")
+    L.append("")
+    if detailed:
+        for w in items:
+            L.append(f"- **{w.get('label')} {_hhmm(w.get('start'), True)}–{_hhmm(w.get('end'))} UTC** — "
+                     f"threshold {w.get('threshold_users')} users/bucket (typical {w.get('typical_users')}); "
+                     f"{len(w.get('apps') or [])}/{total_apps or '?'} apps touched.")
+            for m in (w.get("messages") or [])[:6]:
+                L.append(f"  - `{m['msg'][:110]}` — {fmt_int(m['events'])} events / {fmt_int(m['users'])} users")
+        L.append("")
+    return L
+
+
+def duration_md_line(metric):
+    """overview.md line: `Time to lobby (p50/p90): new 11.6s/31.0s (n=693, Δ +0.3s) · existing …`."""
+    label = metric.get("label") or metric.get("key")
+    pct = "/".join(f"p{p}" for p in metric.get("percentiles") or [])
+    if metric.get("availability") == "query_failed":
+        return f"{label}: **—** (query failed)."
+    cells = []
+    for ck, cohort in (metric.get("cohorts") or {}).items():
+        clabel = (metric.get("cohort_labels") or {}).get(ck, ck)
+        if not cohort.get("enough_samples"):
+            cells.append(f"{clabel} — (n={cohort.get('n', 0)})")
+            continue
+        deltas = []
+        for p in metric.get("percentiles") or []:
+            d = cohort.get(f"delta_p{p}")
+            if d is not None:
+                deltas.append(f"p{p} {d:+.1f}{metric.get('unit', '')}")
+        delta_text = f", Δ {' / '.join(deltas)}" if deltas else ", baseline unavailable"
+        cells.append(f"{clabel} **{duration_cohort_text(cohort, metric['percentiles'], metric.get('unit', ''))}** "
+                     f"(n={fmt_int(cohort.get('n'))}{delta_text}, {STATUS_LABEL.get(cohort.get('status'), 'Low data')})")
+    return f"{label} ({pct}): " + " · ".join(cells) + "."
+
+
+def duration_table_md(project):
+    """Technical md: one table per duration metric, platform × cohort, with baselines."""
+    L = []
+    for item in project.get("durations") or []:
+        L.append("")
+        if item.get("error"):
+            L.append(f"**{item['label']}:** query failed — {item['error'][:120]}")
+            continue
+        pcts = item.get("percentiles") or []
+        unit = item.get("unit", "")
+        head = "| " + f"{item['label']} ({item.get('attribute')}) | Cohort | n | users | " + " | ".join(f"p{p}" for p in pcts) + " | Δ vs baseline | Status |"
+        L += [f"**{item['label']}** — {item.get('note') or 'percentiles of the measured attribute'}", "",
+              head, "|---|---|--:|--:|" + "--:|" * len(pcts) + "---|---|"]
+        scopes = list((item.get("platforms") or {}).items()) + [("All", item.get("all") or {})]
+        for scope, data in scopes:
+            for ck, cohort in (data.get("cohorts") or {}).items():
+                clabel = (item.get("cohort_labels") or {}).get(ck, ck)
+                vals = " | ".join("—" if cohort.get(f"p{p}") is None else f"{cohort[f'p{p}']:.1f}{unit}" for p in pcts)
+                deltas = [f"{cohort[f'delta_p{p}']:+.1f}" for p in pcts if cohort.get(f"delta_p{p}") is not None]
+                L.append(f"| {scope} | {clabel} | {fmt_int(cohort.get('n'))} | {fmt_int(cohort.get('users'))} | {vals} "
+                         f"| {' / '.join(deltas) if deltas else '—'} | {STATUS_LABEL.get(cohort.get('status'), 'Low data')} |")
+    return L
 
 
 # ------------------------------------------------------------------ operational endpoint health
@@ -2140,6 +2931,12 @@ def collect_day(client, cfg, prefix, app_id, day, win=None, project_key=None):
                                          "users": pb.get("u", {}).get("value", 0)}
                 for pb in v.get("by_platform", {}).get("buckets", [])}
             for k, v in a.get("funnels", {}).get("buckets", {}).items()},
+        "funnels_version_raw": {
+            k: {plat_label(pb["key"]): {vb["key"]: {"total": vb["doc_count"],
+                                                    "users": vb.get("u", {}).get("value", 0)}
+                                        for vb in pb.get("by_version", {}).get("buckets", [])}
+                for pb in v.get("by_platform", {}).get("buckets", [])}
+            for k, v in a.get("funnels_version", {}).get("buckets", {}).items()},
         "funnel_breakdowns": {k: [{"msg": bb["key"], "total": bb["doc_count"],
                                    "users": bb.get("u", {}).get("value", 0)}
                                   for bb in v.get("reasons", {}).get("buckets", [])]
@@ -2411,6 +3208,7 @@ def assemble_funnels(cfg, today, dau, key):
     funnel_breakdowns = today.get("funnel_breakdowns", {})
     funnels_split = today.get("funnels_split", {})
     funnels_platform_raw = today.get("funnels_platform_raw", {})
+    funnels_version_raw = today.get("funnels_version_raw", {})
     fresh_dau = today.get("fresh_users", 0)
     nonfresh_dau = today.get("nonfresh_users", 0)
     debug_dau = today.get("debug_users", 0)
@@ -2476,6 +3274,21 @@ def assemble_funnels(cfg, today, dau, key):
                 "has_events": any(s["total"] for s in platform_stages),
                 "rates": _funnel_rates(fn, psu, platform_dau, pse, platform_debug_dau, sampled),
             }
+            versions = {}
+            for v in today.get("versions_detail", []):
+                if plat_label(v.get("plat")) != platform or not v.get("ver"):
+                    continue
+                vsu, vse = {}, {}
+                for st in fn["stages"]:
+                    raw = ((funnels_version_raw.get(f'{fn["key"]}::{st["key"]}', {})
+                            .get(platform) or {}).get(v["ver"]) or {})
+                    vsu[st["key"]] = raw.get("users", 0)
+                    vse[st["key"]] = raw.get("total", 0)
+                if not any(vse.values()):
+                    continue
+                versions[v["ver"]] = {"dau": v.get("dau") or 0,
+                                      "rates": _funnel_rates(fn, vsu, v.get("dau") or 0, vse, 0, sampled)}
+            platforms[platform]["versions"] = versions
         splits = []
         if fn.get("split_by_tag"):
             for cohort, cdau in (("Fresh launch", fresh_dau), ("Returning (warm)", nonfresh_dau)):
@@ -2677,6 +3490,13 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         operations = collect_operations(client, cfg, key, prefix, app_id, report_day, today["dau"])
         operations = attach_operation_baselines(client, cfg, key, prefix, app_id, operations,
                                                  prior_by_date, disk_dates_desc, operation_base_dates)
+    if win is not None:
+        durations = attach_duration_baselines(
+            collect_durations(client, cfg, prefix, app_id, None, win=win, project_key=key), [], "none")
+    else:
+        durations = attach_duration_baselines(
+            collect_durations(client, cfg, prefix, app_id, report_day, project_key=key),
+            [prior_by_date[d][key] for d in prior_days], "saved reports")
 
     # Per-release rollout share inside its own platform + error rate. This used to divide
     # a dominant-platform label by portfolio DAU, so a shared iOS/Android version looked
@@ -2754,7 +3574,7 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
             for fn in cfg.get("funnels", [])
             if (fn.get("telemetry_notes_by_app") or {}).get(key)
         },
-        "impact": impact, "operations": operations,
+        "impact": impact, "operations": operations, "durations": durations,
     }
 
 
@@ -2896,10 +3716,17 @@ def build_report(client, cfg, report_day, out_dir, slug):
             overall = p["status"]
     used_dates = sorted({d for p in ok for d in p.get("baseline_dates_used", [])})
     from_disk = any(p["baseline_source"] == "saved reports" for p in ok)
+    incidents = []
+    for src in cfg["sources"]:
+        prefix = src["index_prefix"]
+        if prefix in idx and report_day in idx[prefix]:
+            incidents += collect_incidents(client, cfg, prefix, prefix + report_day, day=report_day,
+                                           app_names=src.get("app_names", {}))
     return {
         "schema": 3,
         "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "report_day": report_day, "baseline_dates": used_dates, "baseline_days": n,
+        "incidents": incidents,
         "window_utc": window_label(report_day),
         "is_last_complete": report_day == (dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)).isoformat(),
         "baseline_source": "saved reports" if from_disk else ("OpenSearch" if used_dates else "none"),
@@ -2984,8 +3811,15 @@ def build_report_window(client, cfg, hours, now_dt):
         if SEVERITY_RANK.get(p["status"], 9) < SEVERITY_RANK.get(overall, 9):
             overall = p["status"]
     label = f"{lo_dt.strftime('%Y-%m-%d %H:%M')} → {hi_dt.strftime('%Y-%m-%d %H:%M')} UTC"
+    incidents = []
+    for src in cfg["sources"]:
+        prefix = src["index_prefix"]
+        win = make_window(cfg, prefix, idx, lo_dt, hi_dt)
+        if win:
+            incidents += collect_incidents(client, cfg, prefix, win["index"], win=win,
+                                           app_names=src.get("app_names", {}))
     return {
-        "schema": 3, "kind": "rolling", "window_hours": hours,
+        "schema": 3, "kind": "rolling", "window_hours": hours, "incidents": incidents,
         "generated_utc": now_dt.strftime("%Y-%m-%d %H:%M UTC"),
         "report_day": hi_dt.strftime("%Y-%m-%dT%H%MZ"),
         "window_label": f"last {hours}h", "baseline_dates": [], "baseline_days": n,
@@ -3031,7 +3865,37 @@ def build_attention(report):
     for e in report.get("errors", []):
         items.append({"sev": "degraded", "proj": e["name"],
                       "text": f"query failed — project missing from this report ({e['error'][:60]})"})
+    total_apps = len(report.get("projects") or [])
+    for w in incident_items(report):
+        items.append({"sev": "degraded", "proj": "Backend",
+                      "text": incident_text(w, total_apps=total_apps), "kind": "incident"})
+    for det in report.get("incidents") or []:
+        if det.get("error"):
+            items.append({"sev": "watch", "proj": "Backend",
+                          "text": f"incident scan '{det.get('label')}' failed — not measured ({det['error'][:60]})",
+                          "kind": "incident"})
     for p in report["projects"]:
+        for item in p.get("durations") or []:
+            if item.get("error"):
+                continue
+            for platform, data in (item.get("platforms") or {}).items():
+                for ck, cohort in (data.get("cohorts") or {}).items():
+                    st = cohort.get("status")
+                    if st in ("watch", "degraded"):
+                        unit = item.get("unit", "")
+                        breached = []
+                        for pk, bar in (cohort.get("thresholds") or {}).items():
+                            v = cohort.get(pk)
+                            bs = _bar_status(v, bar.get("watch"), bar.get("alert"))
+                            if bs in ("watch", "degraded"):
+                                limit = bar.get("alert") if bs == "degraded" else bar.get("watch")
+                                breached.append(f"{pk} {v:.1f}{unit} > {bs} {limit:g}{unit}")
+                        clabel = (item.get("cohort_labels") or {}).get(ck, ck)
+                        items.append({"sev": st, "proj": p["name"],
+                                      "text": (f"{item['label']} {platform} · {clabel}: "
+                                               f"{duration_cohort_text(cohort, item['percentiles'], unit)}"
+                                               f" ({'/'.join('p' + str(x) for x in item['percentiles'])})"
+                                               + (" — " + "; ".join(breached) if breached else ""))})
         st = p["status"]
         if st in ("degraded", "watch"):
             d = p.get("err_per_user_delta_pct")
@@ -4189,57 +5053,78 @@ def _flow_delta_text(metric):
     return _overview_value(raw, metric.get("delta_status"))
 
 
-def _platform_flows(data, compact=False):
-    by_key = {m.get("key"): m for m in data.get("flows", [])}
-    lines = []
-    loading = by_key.get("loading")
-    start_game_events = data.get("start_game_events")
-    start_game_cell = ("StartGame —" if start_game_events is None else
-                       f"StartGame {_overview_number(start_game_events)} events (100% ref)")
-    if loading:
-        cell = _metric_availability_text(
-            loading, loading.get("display_label") or "Login reached", compact, decimals=1)
-        loading_cells = [start_game_cell]
-        if cell:
-            loading_cells.append(cell)
-            for key, fallback in (("home_ready", "Home ready"),
-                                  ("popups_settled", "Popups settled")):
-                metric = by_key.get(key)
-                if metric:
-                    extra = _metric_availability_text(
-                        metric, metric.get("display_label") or fallback, compact, decimals=1)
-                    if extra:
-                        loading_cells.append(extra)
-        lines.append("Loading: " + " · ".join(loading_cells))
-    completed, granted = by_key.get("reward_complete"), by_key.get("reward_grant")
-    end_metric = by_key.get("reward_end_to_end")
-    if any(m and m.get("status") == "data_quality" for m in (completed, granted)):
-        lines.append("RV DQ" if compact else "Rewarded telemetry incomplete")
-    elif (completed and granted and completed.get("available") and granted.get("available")
-          and completed.get("value") is not None and granted.get("value") is not None):
-        completion = _overview_value(
-            f"{completed['value']:.0f}%", completed.get("absolute_status") or completed.get("status"))
-        grant = _overview_value(
-            f"{granted['value']:.0f}%", granted.get("absolute_status") or granted.get("status"))
-        started_raw = completed.get("denominator")
-        granted_raw = granted.get("numerator")
-        started = _overview_number(started_raw)
-        finished = _overview_number(completed.get("numerator"))
-        granted_count = _overview_number(granted_raw)
-        end_to_end = (end_metric.get("value") if end_metric and end_metric.get("available") else
-                      granted_raw / started_raw * 100.0
-                      if started_raw not in (None, 0) and granted_raw is not None else None)
-        end_text = "—" if end_to_end is None else f"{end_to_end:.0f}%"
-        end_delta = _flow_delta_text(end_metric or {})
-        lines.append(f"Rewarded: {started} started → {finished} completed "
-                     f"({completion} {_flow_delta_text(completed)}) → {granted_count} rewarded "
-                     f"({grant} {_flow_delta_text(granted)}) · End-to-end: {end_text} {end_delta}")
-    elif completed or granted:
-        availability = (completed or granted).get("availability")
-        if availability != "not_applicable":
-            lines.append("RV —" if compact else "Rewarded —")
-    return "\n    " + "\n    ".join(lines) if lines else ""
 
+def _duration_now_text(metric, compact=False):
+    """`load existing 1.5/3.8s, new 11.6/31.0s` — one cell, bars applied per cohort."""
+    label = (metric.get("short_label") or metric.get("label") or "load").lower()
+    if not metric.get("available"):
+        return f"{label} —"
+    parts = []
+    for ck, cohort in (metric.get("cohorts") or {}).items():
+        clabel = ((metric.get("cohort_short_labels") if compact else metric.get("cohort_labels")) or {}).get(ck, ck)
+        parts.append(f"{clabel} {duration_cohort_text(cohort, metric['percentiles'], metric['unit'], _overview_value, True)}")
+    return f"{label} " + ", ".join(parts)
+
+
+def _now_cells(data, compact=False):
+    """The 'Now' row: this window's value of every printed metric, in one fixed order —
+    crash, ANR, loading stages, load time, rewarded — each with its temporal delta."""
+    statuses = data.get("metric_status") or {}
+    cells = []
+    crash = data.get("crash_stability") or {}
+    crash_val = crash.get("value_pct") if crash.get("value_pct") is not None else data.get("crash_rate_pct")
+    if crash_val is None:
+        cells.append("crash —")
+    else:
+        focus, version = crash.get("focus_version"), crash.get("version")
+        name = crash.get("version_name")
+        pending = (crash.get("scope") == "latest_measured" and focus and version
+                   and _clean_version(focus) != _clean_version(name or version))
+        text = f"{crash_val:.2f}%"
+        if crash.get("scope") == "all_versions" and not compact:
+            text += " all versions"
+        elif pending:
+            text += f" (v{focus} pending)" if not compact else " (pending)"
+        cells.append("crash " + _overview_value(text, statuses.get("crash")))
+    anr = data.get("anr_stability") or {}
+    anr_val = anr.get("value_pct") if anr.get("value_pct") is not None else data.get("anr_rate_pct")
+    if anr_val is not None:
+        cells.append("ANR " + _overview_value(f"{anr_val:.2f}%", statuses.get("anr")))
+    by_key = {m.get("key"): m for m in data.get("flows", [])}
+    for key, fallback in (("loading", "startup"), ("home_ready", "home"), ("popups_settled", "popups")):
+        m = by_key.get(key)
+        if not m:
+            continue
+        label = (m.get("display_label") or fallback).lower() if key == "loading" else fallback
+        if m.get("availability") == "data_quality":
+            cells.append(f"{label} DQ")
+        elif m.get("available") and m.get("value") is not None:
+            value = _overview_value(f"{m['value']:.1f}%", m.get("absolute_status") or m.get("status"))
+            cells.append(f"{label} {value} {_flow_delta_text(m)}")
+        elif key == "loading":
+            cells.append(f"{label} —")
+    for metric in data.get("durations") or []:
+        cells.append(_duration_now_text(metric, compact))
+    completed, granted = by_key.get("reward_complete"), by_key.get("reward_grant")
+    if any(m and m.get("status") == "data_quality" for m in (completed, granted)):
+        cells.append("RV DQ")
+    elif completed and completed.get("available") and completed.get("value") is not None:
+        value = _overview_value(f"{completed['value']:.0f}%", completed.get("absolute_status") or completed.get("status"))
+        cells.append(f"RV {value} {_flow_delta_text(completed)}")
+        if granted and granted.get("available") and granted.get("value") is not None \
+                and (granted.get("absolute_status") or granted.get("status")) in ("watch", "degraded"):
+            gvalue = _overview_value(f"{granted['value']:.0f}%", granted.get("absolute_status") or granted.get("status"))
+            cells.append(f"grant {gvalue} {_flow_delta_text(granted)}")
+    elif completed or granted:
+        if (completed or granted).get("availability") != "not_applicable":
+            cells.append("RV —")
+    return cells
+
+
+def _platform_flows(data, compact=False):
+    """Kept for callers of the old name: the 'Now' row as one line."""
+    cells = _now_cells(data, compact)
+    return "\n    Now: " + " · ".join(cells) if cells else ""
 
 def _stability_metric_text(metric, fallback_value=None, fallback_status="nodata",
                            compact=False):
@@ -4288,87 +5173,48 @@ def _stability_metric_text(metric, fallback_value=None, fallback_status="nodata"
     return value_text
 
 
+
 def _readable_platform_line(label, data, compact=False):
-    """Platform DAU, release comparison, health and platform-owned funnels."""
-    statuses = data.get("metric_status") or {}
-    thresholds = data.get("metric_thresholds") or {}
-    version = data.get("version") or "—"
-    flows = _platform_flows(data, compact=compact)
-    rollout = data.get("rollout_pct")
-    rollout_text = "—" if rollout is None else f"{rollout:.0f}%"
-    previous_version = data.get("previous_version") or "—"
-    current_err = data.get("version_err_per_user")
-    previous_err = data.get("previous_version_err_per_user")
-    delta_value = data.get("version_err_delta_pct") if data.get("version_sample_sufficient") else None
-    version_watch = abs(((thresholds.get("rollout") or {}).get("watch") or 0)) or None
-    version_delta = _error_delta(delta_value, statuses.get("rollout"), version_watch)
-    if current_err is not None and previous_err is not None and data.get("version_sample_sufficient"):
-        error_text = (version_delta if compact else
-                      f"{previous_err:.2f}→{current_err:.2f} ({version_delta})")
-    elif current_err is not None:
-        error_text = "low sample" if compact else f"{current_err:.2f} (not enough data)"
-    else:
-        error_text = "—"
-    crash_text = _stability_metric_text(
-        data.get("crash_stability"), data.get("crash_rate_pct"), statuses.get("crash"),
-        compact=compact)
-    anr_text = _stability_metric_text(
-        data.get("anr_stability"), data.get("anr_rate_pct"), statuses.get("anr"),
-        compact=compact)
+    """Platform card: header (DAU, store, rating), the Now row and the Release row."""
     dau = _overview_number(data.get("dau"))
-    store_text = f"{data.get('store_name') or 'Store'}: {data.get('store_state') or '—'}"
-    if data.get("store_version"):
-        store_text += f" v{data['store_version']}"
-    if data.get("store_phased"):
-        store_text += f" · {data['store_phased']}"
+    store_name = data.get("store_name") or "Store"
+    store_state = data.get("store_state") or "—"
     rating = data.get("store_rating")
     rating_text = "—" if rating is None else f"{rating:.2f}★"
-    if rating is not None and data.get("store_rating_count") is not None:
+    if rating is not None and data.get("store_rating_count") is not None and not compact:
         rating_text += f" ({_overview_number(data['store_rating_count'])})"
-    store_text += f" · Rating {rating_text}"
     if compact:
-        version_compare = (f"v{version} {rollout_text} ← {previous_version}"
-                           if previous_version != "—" else f"v{version} {rollout_text}")
-        line = (f"  *{label}* · DAU {dau} · {store_text} · "
-                f"{version_compare} · "
-                f"err {error_text}")
+        store_text = f"{store_name} {store_state}"
+        if data.get("store_version"):
+            store_text += f" v{data['store_version']}"
+        line = f"  *{label}* {dau} · {store_text} · {rating_text}"
     else:
-        line = (f"  *{label}* · DAU {dau} · {store_text} · "
-                f"v{version} rollout {rollout_text} ← v{previous_version} · "
-                f"version errors/user {error_text}")
-    line += f"\n    Stability: Crash rate {crash_text} · ANR rate {anr_text}"
-    period_bits = []
-    for key, label in (("crash_period", "crash"), ("anr_period", "ANR")):
-        period = data.get(key)
-        if period and period.get("value_pct") is not None:
-            move = period.get("delta_pp")
-            if move is None:
-                move_text = "Δ—"
-            elif move > 0:
-                move_text = f"↑{move:.2f} pp"
-            elif move < 0:
-                move_text = f"↓{abs(move):.2f} pp"
-            else:
-                move_text = "0.00 pp"
-            period_bits.append(f"{label} {period['value_pct']:.2f}% {move_text}")
-    if period_bits:
-        line += " · all versions: " + " · ".join(period_bits)
-    non_prod = sorted({b for key in ("crash_stability", "anr_stability")
-                       for b in ((data.get(key) or {}).get("non_production_builds") or [])})
-    if non_prod:
-        line += (f" · non-prod build{'s' if len(non_prod) > 1 else ''} sampled: "
-                 + ", ".join(non_prod))
-    if flows:
-        line += flows
+        store_text = f"{store_name}: {store_state}"
+        if data.get("store_version"):
+            store_text += f" v{data['store_version']}"
+        if data.get("store_phased"):
+            store_text += f" · {data['store_phased']}"
+        line = f"  *{label}* · DAU {dau} · {store_text} · Rating {rating_text}"
+    cells = _now_cells(data, compact)
+    line += "\n    Now: " + (" · ".join(cells) if cells else "—")
+    release = data.get("release") or {}
+    rollout = data.get("rollout_pct")
+    line += "\n    " + release_row_text(release, compact, rollout)
+    extras = []
     excluded_newer = data.get("excluded_newer_versions") or []
     if excluded_newer:
         sample = excluded_newer[0]
-        sample_text = f"v{sample.get('ver') or '—'} {_overview_number(sample.get('dau'))} DAU"
+        text = f"v{sample.get('ver') or '—'} {_overview_number(sample.get('dau'))} DAU"
         if len(excluded_newer) > 1:
-            sample_text += f" +{len(excluded_newer) - 1}"
-        line += f" · newer sample {sample_text}"
+            text += f" +{len(excluded_newer) - 1}"
+        extras.append(f"newer sample {text}")
+    non_prod = sorted({b for key in ("crash_stability", "anr_stability")
+                       for b in ((data.get(key) or {}).get("non_production_builds") or [])})
+    if non_prod and not compact:
+        extras.append(f"non-prod build{'s' if len(non_prod) > 1 else ''} sampled: " + ", ".join(non_prod))
+    if extras:
+        line += " · " + " · ".join(extras)
     return line
-
 
 def _readable_flow_cell(metric):
     labels = {
@@ -4490,6 +5336,29 @@ def _overview_row(row, compact=False):
     return "\n".join((lead, total_line, ios, android))
 
 
+def incident_head_lines(report, limit=3):
+    """Backend incidents go at the very top of the overview: what, when, how many, resolved or
+    not. Nothing is printed when no detector fired and none failed."""
+    items = incident_items(report)
+    failed = [d for d in (report.get("incidents") or []) if d.get("error")]
+    if not items and not failed:
+        return []
+    total_apps = len(report.get("projects") or [])
+    lines = [""]
+    if items:
+        ongoing = sum(1 for w in items if w.get("status") == "ongoing")
+        title = (f"*🔴 Backend incidents ({len(items)}" + (f", {ongoing} ongoing" if ongoing else ", all resolved") + ")*")
+        lines.append(title)
+        for w in items[:limit]:
+            marker = "🔴" if w.get("status") == "ongoing" else "🟠"
+            lines.append(f"{marker} {incident_text(w, compact=True, total_apps=total_apps)}")
+        if len(items) > limit:
+            lines.append(f"  _+{len(items) - limit} more in the technical report_")
+    for det in failed:
+        lines.append(f"⚠ incident scan '{det.get('label')}' failed — backend incidents not measured")
+    return lines
+
+
 def render_status_slack_parts(report):
     """Render one or more Slack-safe messages without splitting a project card."""
     health = report.get("health") or {}
@@ -4513,14 +5382,16 @@ def render_status_slack_parts(report):
         f"*{portfolio_name} · {report['report_day']}*",
         f"_🔴{critical} critical · {watch} watch · {stable} stable · "
         f"{no_data} no data · logs {coverage.get('logs', 0)}/{len(rows)}_",
-        f"_Δ vs {baseline} · flow Δ pp · v←prior · err ↑worse/↓better_",
-        "_🟢 better · 🔴 critical · DQ_",
+        f"_Now: value + Δ vs {baseline} (▲▼ pp, ↑↓ %) · Release: current prod version vs previous (= within noise)_",
+        "_🟢 better · 🔴 critical · bold = watch · DQ = telemetry mismatch_",
     ]
+    incident_lines = incident_head_lines(report)
 
     def pack_cards(cards, show_family=False):
         """Greedily fill the fewest ordered parts while keeping every card atomic."""
         def assemble_part(part_cards, part_number, part_total):
-            lines = list(head) + ["", f"*Projects · part {part_number}/{part_total}*"]
+            lines = (list(head) + (incident_lines if part_number == 1 else [])
+                     + ["", f"*Projects · part {part_number}/{part_total}*"])
             previous_family = object()
             for index, (family, card, _) in enumerate(part_cards):
                 if index:
@@ -4596,7 +5467,7 @@ def render_status_slack_parts(report):
     # fixed overview schema. Keep every project visible without pretending absent cells were
     # collected; regenerated reports always take the structured path below.
     if not any("primary_flow" in row for row in rows):
-        legacy = list(head) + [""]
+        legacy = list(head) + incident_lines + [""]
         legacy_cards = []
         for index, row in enumerate(rows):
             marker = "🔴" if row.get("status") == "degraded" else "•"
@@ -4636,7 +5507,7 @@ def render_status_slack_parts(report):
         return lines
 
     def assemble(compact=False, include_changes=True):
-        lines = list(head) + context_lines(compact=compact, include_changes=include_changes)
+        lines = list(head) + incident_lines + context_lines(compact=compact, include_changes=include_changes)
         lines += ["", "*Projects*"]
         first_card = True
         for family in families:
@@ -4953,6 +5824,7 @@ def render_status_md(report):
          "- `*.md` — client logs, stage-by-stage funnels, signatures and representative stacktraces.",
          "- `store_pulse_*.technical.md` — crashes, ANRs, sessions, device metrics and version comparisons.",
          "- `store_pulse_*.experience.md` — ratings, reviews, listings and release workflow.", ""]
+    L += incident_section_md(report)
     rows = (report.get("health") or {}).get("rows") or []
     families = []
     for row in rows:
@@ -5029,6 +5901,18 @@ def render_status_md(report):
                                  f"{comparison} · source `{event_name}`.")
                     elif key == "loading" or (metric and metric.get("availability") != "not_applicable"):
                         L.append(f"  - {label}: **—** · source `{event_name}`.")
+                for metric in p.get("durations") or []:
+                    L.append(f"  - {duration_md_line(metric)}")
+                release = p.get("release") or {}
+                if release.get("verdict"):
+                    cells = "; ".join(
+                        f"{m['label']} {m['delta_text']} ({'—' if m.get('previous') is None else m['previous']} → "
+                        f"{'—' if m.get('current') is None else m['current']}, {m['status']})"
+                        for m in release.get("metrics") or [])
+                    L.append(f"- {platform} Release v{release['current']} vs v{release['previous']}: "
+                             f"**{release['verdict']}** — {cells}.")
+                else:
+                    L.append(f"- {platform} Release: {release.get('note') or 'not comparable'}.")
                 completed = by_key.get("reward_complete")
                 granted = by_key.get("reward_grant")
                 end_to_end = by_key.get("reward_end_to_end")
@@ -5103,6 +5987,7 @@ def render_md(report, samples):
         for a in att:
             L.append(f"- **{a['proj']}** ({a['sev']}): {a['text']}")
         L.append("")
+    L += incident_section_md(report, detailed=True)
     for p in report["projects"]:
         L.append(f"## {p['name']} — {STATUS_LABEL[p['status']]}")
         d = p["err_per_user_delta_pct"]
@@ -5124,6 +6009,7 @@ def render_md(report, samples):
                 total, users = _sig_tu(v)
                 sg.append(f"{report['signals_meta'].get(k, k)}={fmt_int(total)}" + (f"/{fmt_int(users)}u" if users else ""))
             L.append("- Signals: " + ", ".join(sg))
+        L += duration_table_md(p)
         for profile in p.get("operations", []):
             L.append("")
             L.append(f"### {profile['label']} — daily endpoint health")
