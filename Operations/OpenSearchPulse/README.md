@@ -43,7 +43,7 @@ Key fields:
 | `auto_discover` + `discover_contains` | Also pick up any index prefix containing this substring. |
 | `signals` | Named `match_phrase` counters over the message text (`{phrase, label}`); each reports events **and** affected users. |
 | `funnels` | Business-metric funnels: ordered stages counted by message phrase with `cardinality(user)`, plus conversion `rates`. See below. |
-| `overview` | Optional fixed portfolio surface: family mapping and ordered supporting metrics. Per-platform store state, stability, versions and configured flows use fixed positions; missing values render explicitly rather than being inferred. |
+| `overview` | Optional fixed portfolio surface: family mapping and ordered supporting metrics. Per-platform store state, stability, versions and configured flows use fixed positions; missing values render explicitly rather than being inferred. A `funnel_rate` secondary metric with `"now_cell": "on_breach"` is appended to the platform *Now* row (as `<display_label> <value>`) only while it is at watch or alert, so a rarely-firing alarm costs no space on healthy rows yet is printed whenever it changes the status. |
 | `durations` | Duration metrics: percentiles of a numeric attribute carried by one message phrase, per platform × cohort (e.g. time to lobby for new vs existing users). See below. |
 | `incidents` | Portfolio-wide incident detectors over a phrase family (e.g. backend HTTP 5xx), bucketed by time; each incident window reports start/end, users, peak, endpoints, apps and whether it is resolved or still ongoing at the end of the window. See below. |
 | `hygiene` | Ordered issue rule table shared by the log-sanitation view and the per-issue impact bar. See below. |
@@ -107,6 +107,16 @@ for a project are dropped automatically. Give a rate optional `good_at` / `bad_a
 thresholds to colour it green / amber / red (direction from `good: "high"|"low"`);
 rates **without** thresholds render neutral, so reach / volume / expected-noise
 rates are never mislabelled good-or-bad.
+
+A rate with `"attention": "platform"` is judged only per platform, against that platform's own
+denominator, and never at project level (where one platform's breach is diluted by the other's
+traffic); `min_den` skips a platform whose denominator is too small to judge. A funnel whose
+signal exists only when something is wrong (a warning that is logged only when a feature is
+switched off) declares `"zero_when_absent": true`: an app with no matching events then gets the
+funnel with zero counts, so its `"dau"`-denominated rates read 0% and feed real zeros into the
+baseline, and the zero-filled funnel stays out of the funnel sections. `"exclude_apps": ["KEY", …]`
+marks projects where the signal cannot exist (a client without the feature) as not applicable
+instead of a measured zero.
 
 A stage emitted only inside a client-side debug sample (for example a `Debug`-level line that
 the logger ships for a percentage of sessions) is flagged `"debug_sampled": true`. The engine

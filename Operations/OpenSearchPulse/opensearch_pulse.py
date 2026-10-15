@@ -144,6 +144,9 @@ def load_config(path):
     if th["dau_drop_degraded_pct"] < th["dau_drop_watch_pct"]:
         raise ValueError("DAU-drop degraded threshold must be >= watch threshold")
     validate_funnel_sampling(cfg["funnels"])
+    for spec in overview["secondary_metrics"]:
+        if spec.get("now_cell") not in (None, "on_breach"):
+            raise ValueError(f"overview metric {spec.get('key')}: now_cell must be 'on_breach'")
     cfg["durations"] = normalize_durations(cfg.get("durations") or [])
     cfg["incidents"] = normalize_incidents(cfg.get("incidents") or [])
     return cfg
@@ -600,7 +603,8 @@ def _configured_overview_metric(project, spec, platform=None):
     base = {"key": spec.get("key"), "label": spec.get("label") or spec.get("key"),
             "display_label": spec.get("display_label") or spec.get("label") or spec.get("key"),
             "kind": kind, "platform": platform, "available": False,
-            "availability": "missing_telemetry", "status": "nodata"}
+            "availability": "missing_telemetry", "status": "nodata",
+            **({"now_cell": spec["now_cell"]} if spec.get("now_cell") else {})}
     if kind == "funnel_rate":
         applicability = (project.get("funnel_applicability") or {}).get(spec.get("funnel"))
         if applicability is False:
@@ -638,6 +642,10 @@ def _configured_overview_metric(project, spec, platform=None):
             spec.get("delta_alert_pp"))
         absolute_status = ("degraded" if tone == "bad" else
                            "watch" if tone == "watch" else "healthy")
+        # A platform-scoped rate is diluted at project level, and a thin denominator is noise.
+        if ((platform is None and rate.get("attention") == "platform")
+                or (rate.get("den") or 0) < (rate.get("min_den") or 0)):
+            absolute_status = delta_status = "nodata"
         status = _worst_status([absolute_status, delta_status])
         return {**base, "available": True, "availability": "measured",
                 "value": rate["pct"], "unit": "%",
@@ -3199,9 +3207,13 @@ def _funnel_rates(fn, su, dau, se=None, debug_dau=None, sampled=None):
                       "pct": pct, "data_quality": quality, "sampled": is_sampled,
                       "good": rt.get("good", "high"), "business": rt.get("business"),
                       "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at"),
-                      **({"attention": rt["attention"], "min_den": rt.get("min_den", 0)}
-                         if rt.get("attention") else {})})
+                      **{k: rt[k] for k in ("attention", "min_den") if k in rt}})
     return rates
+
+
+def funnel_applies(fn, key):
+    apps = fn.get("apps")
+    return (not apps or key in apps) and key not in (fn.get("exclude_apps") or [])
 
 
 def assemble_funnels(cfg, today, dau, key):
@@ -3217,8 +3229,7 @@ def assemble_funnels(cfg, today, dau, key):
     debug_platform_users = today.get("debug_platform_users") or {}
     out = []
     for fn in cfg["funnels"]:
-        apps = fn.get("apps")
-        if apps and key not in apps:
+        if not funnel_applies(fn, key):
             continue
         sampled = sampled_stage_keys(fn)
         stages = []
@@ -3247,7 +3258,8 @@ def assemble_funnels(cfg, today, dau, key):
                 reasons.sort(key=lambda x: -x["users"])
                 breakdowns.append({"stage": st["key"], "label": bd.get("breakdown_label", st["label"]),
                                    "reasons": reasons[:bd.get("top", 5)]})
-        if not any(s["users"] for s in stages):
+        zero_filled = not any(s["users"] for s in stages)
+        if zero_filled and not fn.get("zero_when_absent"):
             continue  # funnel not applicable to this app
         su = {s["key"]: s["users"] for s in stages}
         se = {s["key"]: s["total"] for s in stages}
@@ -3305,7 +3317,8 @@ def assemble_funnels(cfg, today, dau, key):
                                "rates": _funnel_rates(fn, csu, cdau)})
         out.append({"key": fn["key"], "label": fn["label"], "stages": stages,
                     "rates": rates, "note": fn.get("note"), "breakdowns": breakdowns,
-                    "splits": splits, "platforms": platforms})
+                    "splits": splits, "platforms": platforms,
+                    **({"zero_filled": True} if zero_filled else {})})
     return out
 
 
@@ -3568,8 +3581,7 @@ def build_project(client, cfg, key, name, prefix, app_id, report_day, os_base_da
         "new_releases": new_releases,
         "hygiene": hygiene_buckets, "funnels": funnels,
         "funnel_applicability": {
-            fn["key"]: (not fn.get("apps") or key in fn.get("apps", []))
-            for fn in cfg.get("funnels", [])
+            fn["key"]: funnel_applies(fn, key) for fn in cfg.get("funnels", [])
         },
         "funnel_telemetry_notes": {
             fn["key"]: (fn.get("telemetry_notes_by_app") or {}).get(key)
@@ -4175,7 +4187,7 @@ def funnels_summary(report):
         fns = []
         for fn in p["funnels"]:
             rates = [r for r in fn["rates"] if r["pct"] is not None]
-            if not rates:
+            if not rates or fn.get("zero_filled"):
                 continue
             chips = "".join(
                 '<span class="fs-rate %s" title="%s"><b>%.0f%%</b> %s</span>'
@@ -4268,7 +4280,7 @@ def impact_section(p):
 
 def funnels_section(p):
     """Business funnels (item 3): users reaching each stage + config-defined conversion rates."""
-    fns = p.get("funnels") or []
+    fns = [fn for fn in p.get("funnels") or [] if not fn.get("zero_filled")]
     if not fns:
         return ""
     blocks = []
@@ -5107,7 +5119,8 @@ def _duration_now_text(metric, compact=False):
 
 def _now_cells(data, compact=False):
     """The 'Now' row: this window's value of every printed metric, in one fixed order —
-    crash, ANR, loading stages, load time, rewarded — each with its temporal delta."""
+    crash, ANR, loading stages, load time, rewarded — each with its temporal delta, then any
+    `now_cell: on_breach` metric, printed only while it is over its watch or alert bar."""
     statuses = data.get("metric_status") or {}
     cells = []
     crash = data.get("crash_stability") or {}
@@ -5157,6 +5170,11 @@ def _now_cells(data, compact=False):
     elif completed or granted:
         if (completed or granted).get("availability") != "not_applicable":
             cells.append("RV —")
+    for m in data.get("flows", []):
+        if (m.get("now_cell") == "on_breach" and m.get("value") is not None
+                and m.get("status") in ("watch", "degraded")):
+            value = _overview_value(f"{m['value']:.1f}%", m["status"])
+            cells.append(f"{m.get('display_label') or m.get('label')} {value}")
     return cells
 
 
@@ -5778,6 +5796,8 @@ def render_slack(report):
                      f"{fmt_int(p['err_total'])} err ({p['err_per_user']:.1f}/user{ed}, worst {p['top_error_reach']:.1f}% DAU) · "
                      f"{fmt_int(p['warn_total'])} warn ({p['warn_per_user']:.1f}/user{wd}, worst {p['top_warn_reach']:.1f}% DAU)")
         for fn in p.get("funnels", []):
+            if fn.get("zero_filled"):
+                continue
             rates = [r for r in fn["rates"] if r["pct"] is not None]
             if rates:
                 rl = ", ".join(f"{r['label']} {r['pct']:.0f}%" for r in rates[:3])
@@ -5975,6 +5995,13 @@ def render_status_md(report):
                 elif any(m and m.get("availability") != "not_applicable"
                          for m in (completed, granted, end_to_end)):
                     L.append(f"- {platform} Rewarded: **—**.")
+                for metric in p.get("flows", []):
+                    if (metric.get("now_cell") == "on_breach" and metric.get("value") is not None
+                            and metric.get("status") in ("watch", "degraded")):
+                        L.append(f"- {platform} {metric.get('label')}: "
+                                 f"**{fmt_int(metric.get('numerator'))} {metric.get('count_unit', 'users')}** "
+                                 f"of {fmt_int(metric.get('denominator'))} ({metric['value']:.1f}%) · "
+                                 f"{metric['status']} · source `{metric.get('source')}`.")
             metrics = [_flow_cell(m).replace("*", "").replace("_", "")
                        for m in r.get("secondary_metrics", [])]
             L += ["", "- Secondary flow cells: " + ("; ".join(metrics) or "none configured") + "."]
@@ -6119,9 +6146,10 @@ def render_md(report, samples):
                 if act:
                     L.append(f"  - Action: {act}")
         # business funnels (item 3)
-        if p.get("funnels"):
+        shown_funnels = [fn for fn in p.get("funnels") or [] if not fn.get("zero_filled")]
+        if shown_funnels:
             L.append("")
-            for fn in p["funnels"]:
+            for fn in shown_funnels:
                 stages = " → ".join(f"{s['label']} {fmt_int(s['users'])}u ({s['pct']:.1f}%)" for s in fn["stages"])
                 L.append(f"**Funnel — {fn['label']}:** {stages}")
                 for r in fn.get("rates", []):
