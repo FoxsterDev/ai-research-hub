@@ -3198,7 +3198,9 @@ def _funnel_rates(fn, su, dau, se=None, debug_dau=None, sampled=None):
                       "count_unit": count_unit if counts is se else "users",
                       "pct": pct, "data_quality": quality, "sampled": is_sampled,
                       "good": rt.get("good", "high"), "business": rt.get("business"),
-                      "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at")})
+                      "good_at": rt.get("good_at"), "bad_at": rt.get("bad_at"),
+                      **({"attention": rt["attention"], "min_den": rt.get("min_den", 0)}
+                         if rt.get("attention") else {})})
     return rates
 
 
@@ -3917,7 +3919,10 @@ def build_attention(report):
                                            f"{flow.get('label', flow.get('key', ''))} — terminal failure {frt}, "
                                            f"retry {flow.get('retry_reach_pct_dau', 0):.2f}% DAU [{fst.upper()}]")})
         for fn in p.get("funnels", []):
+            items += platform_rate_attention(p["name"], fn)
             for r in fn.get("rates", []):
+                if r.get("attention") == "platform":
+                    continue
                 if rate_tone(r) == "bad":
                     lim = f"limit ≤{r['bad_at']}%" if r.get("good") == "low" else f"target ≥{r['good_at']}%"
                     items.append({"sev": "watch", "proj": p["name"],
@@ -3926,11 +3931,45 @@ def build_attention(report):
                 if not sp.get("dau"):
                     continue
                 for r in sp["rates"]:
-                    if rate_tone(r) == "bad":
+                    if r.get("attention") != "platform" and rate_tone(r) == "bad":
                         lim = f"limit ≤{r['bad_at']}%" if r.get("good") == "low" else f"target ≥{r['good_at']}%"
                         items.append({"sev": "watch", "proj": p["name"],
                                       "text": f"{fn['label']} · {sp['cohort']}: {r['label']} {r['pct']:.0f}% ({lim})"})
     return sorted(items, key=lambda a: 0 if a["sev"] == "degraded" else 1)
+
+
+def platform_rate_attention(project_name, fn, max_versions=3):
+    """Attention items for funnel rates declared `"attention": "platform"`: judged per platform
+    against that platform's own denominator (skipped below `min_den`), so one platform's release
+    cannot be diluted by the other platform's DAU; out-of-zone version cohorts are named."""
+    items = []
+    for platform, pdata in (fn.get("platforms") or {}).items():
+        for r in pdata.get("rates", []):
+            if r.get("attention") != "platform" or r.get("pct") is None:
+                continue
+            if (r.get("den") or 0) < (r.get("min_den") or 0):
+                continue
+            tone = rate_tone(r)
+            if tone not in ("bad", "watch"):
+                continue
+            low = r.get("good") == "low"
+            if tone == "bad":
+                bar = f"{'≥' if low else '≤'} alert {r['bad_at']:g}%"
+            else:
+                bar = f"{'>' if low else '<'} watch {r['good_at']:g}%"
+            cohorts = []
+            for ver, vdata in (pdata.get("versions") or {}).items():
+                vr = next((x for x in vdata.get("rates", []) if x.get("label") == r["label"]), None)
+                if vr and vr.get("pct") is not None and rate_tone(vr) in ("bad", "watch"):
+                    cohorts.append((vr.get("den") or 0, ver, vr))
+            cohorts.sort(key=lambda c: -c[0])
+            where = "; ".join(f"v{ver} {vr['pct']:.0f}% ({vr['num']}/{vr['den']})"
+                              for _, ver, vr in cohorts[:max_versions])
+            items.append({"sev": "degraded" if tone == "bad" else "watch", "proj": project_name,
+                          "text": (f"{fn['label']} · {platform}: {r['label']} {r['pct']:.1f}% "
+                                   f"({r['num']}/{r['den']} {r.get('count_unit', 'users')}) — {bar}"
+                                   + (f"; {where}" if where else ""))})
+    return items
 
 
 def attention_section(report):
