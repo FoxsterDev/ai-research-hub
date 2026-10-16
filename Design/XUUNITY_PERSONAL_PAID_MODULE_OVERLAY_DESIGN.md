@@ -307,7 +307,7 @@ Example:
 ```json
 {
   "schemaVersion": "xuunity.entitlements.v1",
-  "subject": "siarhei-local",
+  "subject": "example-user",
   "mode": "personal_dev",
   "source": "local_user_grant",
   "provider": {

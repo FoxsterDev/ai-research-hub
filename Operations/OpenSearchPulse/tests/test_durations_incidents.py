@@ -92,9 +92,9 @@ def _window(status="resolved", users=1391):
                           {"endpoint": "api/core/GetClientProperties", "events": 459, "users": 325},
                           {"endpoint": "api/core/GetUIElements", "events": 408, "users": 304},
                           {"endpoint": "api/core/GetShare", "events": 156, "users": 106}],
-            "apps": [{"app": "BZ", "name": "Blingz (Hub)", "events": 2145, "users": 1100},
-                     {"app": "OB", "name": "OceanBlast", "events": 213, "users": 180},
-                     {"app": "BS", "name": "BallSort", "events": 187, "users": 160}],
+            "apps": [{"app": "APP1", "name": "Example App One", "events": 2145, "users": 1100},
+                     {"app": "APP2", "name": "Example App Two", "events": 213, "users": 180},
+                     {"app": "APP3", "name": "Example App Three", "events": 187, "users": 160}],
             "messages": [{"msg": "<Server> >> 'api/core/Login' RETRY SCHEDULED ServerError: HTTP/1.1 500",
                           "events": 2861, "users": 1391}]}
 
