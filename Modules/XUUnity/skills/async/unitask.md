@@ -10,6 +10,7 @@
 - Keep `UniTask` boundaries explicit when interacting with `.NET Task` or SDK callbacks.
 - If outer coordination already owns multi-caller semantics, keep inner callback latches on `UniTask` primitives too unless a `Task` boundary is truly required.
 - For shared single-flight work, a caller's cancellation must stop only that caller's wait; only the owning coordinator may cancel the shared operation.
+- A `UniTask` built from an `async` method accepts exactly one awaiter. `Preserve()` only makes a *completed* task awaitable again: while it is still pending, every `OnCompleted` is forwarded to the single-continuation source, so a second concurrent awaiter throws `InvalidOperationException: Already continuation registered`. Use `Preserve()` only when one awaiter at a time is guaranteed (a single await, or re-awaits that happen strictly after completion). Any task that can be awaited by two parties while pending — a cached in-flight request, an "already running, await the existing task" path, a task awaited inside `WhenAny`/`WhenAll` and again later, a shared lazy-init task — must be backed by a multi-awaiter source: `task.ToAsyncLazy().Task` (one subscription to the inner task, then a `UniTaskCompletionSource<T>` that accepts many continuations, keeps the result, and marks a failure observed on the first `GetResult`) or an explicit `UniTaskCompletionSource<T>`. The failure is silent in the common shape: the losing awaiter is usually a detached watcher whose `catch` logs a warning, so the feature simply never completes.
 - Use `Forget` only when the flow is intentionally detached and exception handling is explicit.
 - Avoid unnecessary conversions between `UniTask` and `.NET Task`.
 - A `.Timeout()` on a scoped/`using` `UnityWebRequest` `ToUniTask` does not cancel the inner operation. On timeout the method returns and disposes the request while the poller is still registered, which then reads `.result`/`Abort()` on a disposed request (NRE). Drive the timeout from a linked `CancellationTokenSource` that cancels the awaited op, so the request aborts while still alive.
@@ -18,6 +19,7 @@
 
 ## Review Focus
 - correct use of `UniTask`
+- every `Preserve()`: list its awaiters and prove they can never overlap while the task is pending; otherwise require `ToAsyncLazy().Task`
 - `Forget` safety
 - conversion boundaries
 - allocation discipline
