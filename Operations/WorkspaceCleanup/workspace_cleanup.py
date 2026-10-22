@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic cleanup for reproducible developer caches and scratch data."""
+"""Inventory and recoverable quarantine for explicitly approved developer caches."""
 
 from __future__ import annotations
 
@@ -379,11 +379,24 @@ def _write_report(report: dict, destination: Path | None) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--apply", action="store_true", help="perform deletion; omission is dry-run")
+    parser.add_argument("--apply", action="store_true", help="move approved cache to recoverable quarantine; omission is dry-run")
     parser.add_argument("--report", type=Path)
     parser.add_argument("--lock", type=Path, default=Path("/private/tmp/workspace-cleanup.lock"))
+    parser.add_argument("--restore", type=Path, help="restore one recoverable quarantine manifest")
     args = parser.parse_args(argv)
     config = _load_config(args.config)
+    if args.apply or args.restore or "recoverable" in config:
+        if "recoverable" not in config:
+            print("Legacy destructive apply disabled; configure reviewed recoverable allowlist.", file=sys.stderr)
+            return 2
+        from recoverable_cleanup import run
+        try:
+            report = run(config["recoverable"], apply=args.apply, restore_path=args.restore)
+            _write_report(report, args.report)
+            return 1 if report.get("deferred_categories") else 0
+        except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+            print(f"Recoverable cleanup failed; preserve source and quarantine: {error}", file=sys.stderr)
+            return 1
     args.lock.parent.mkdir(parents=True, exist_ok=True)
     with args.lock.open("w", encoding="utf-8") as lock:
         try:
