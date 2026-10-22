@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -18,7 +19,7 @@ class RecoverableTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
-        self.cache = self.root/'caches'/'ModuleCache.noindex'
+        self.cache = self.root/'DerivedData'/'ModuleCache.noindex'
         self.cache.mkdir(parents=True)
         (self.cache/'data.bin').write_bytes(b'regenerable fixture')
         self.quarantine = self.root/'quarantine'
@@ -32,9 +33,9 @@ class RecoverableTests(unittest.TestCase):
         self.owner.write_text(json.dumps({'observed_at':time.time(),'coverage':'complete',
              'maintenance_thread_id':'test','active_tasks':[], 'unavailable_hosts':[], 'unavailable_sources':[]}))
         self.policy = {'allowed_roots':[str(self.cache.parent)], 'allowlist':[
-            {'path':str(self.cache),'category':'xcode_derived_data','minimum_age_hours':168}],
+            {'path':str(self.cache),'category':'xcode_derived_data','minimum_age_hours':168,'ownership':{'kind':'shared_xcode'}}],
             'quarantine_root':str(self.quarantine),'broker_state_dir':str(self.broker),
-            'ownership_snapshot':str(self.owner),'maintenance_thread_id':'test','protected_paths':[]}
+            'derived_data_root':str(self.cache.parent),'protected_paths':[]}
         self.age()
         self.process = patch.object(safe, 'process_idle').start()
         self.addCleanup(patch.stopall)
@@ -68,12 +69,65 @@ class RecoverableTests(unittest.TestCase):
     def test_new_build_at_final_check_preserves(self):
         self.process.side_effect=[None,safe.Deferred('new xcodebuild')]
         self.deferred()
-    def test_live_cloud_task_preserves(self):
-        d=json.loads(self.owner.read_text());d['active_tasks']=[{'id':'cloud-writer'}]
-        self.owner.write_text(json.dumps(d));self.deferred()
-    def test_stale_unknown_owner_preserves(self):
-        d=json.loads(self.owner.read_text());d['observed_at']-=121
-        self.owner.write_text(json.dumps(d));self.deferred()
+    def test_unknown_owner_preserves(self):
+        del self.policy['allowlist'][0]['ownership'];self.deferred()
+    def test_incorrect_shared_root_preserves(self):
+        self.policy['derived_data_root']=str(self.root);self.deferred()
+    def test_malformed_or_relative_workspace_root_preserves(self):
+        for root in [None,[],42,'relative-project']:
+            self.policy['allowlist'][0]['ownership']={'kind':'workspace','root':root}
+            self.deferred()
+    def test_missing_chat_snapshot_is_not_a_gate(self):
+        self.owner.unlink()
+        self.assertEqual(self.run_safe(False)['entries'][0]['state'],'eligible')
+    def test_malformed_binding_defers_only_bad_candidate(self):
+        import copy
+        for binding in [None,[],42]:
+            with self.subTest(binding=binding):
+                valid=copy.deepcopy(self.policy['allowlist'][0]);bad=copy.deepcopy(valid)
+                bad['ownership']=binding;self.policy['allowlist']=[bad,valid]
+                result=self.run_safe(False)
+                self.assertEqual([r['state'] for r in result['entries']],['deferred','eligible'])
+                self.policy['allowlist']=[valid]
+    def bind_workspace(self):
+        workspace=self.root/'workspace';workspace.mkdir()
+        subprocess.run(['git','init',str(workspace)],check=True,capture_output=True)
+        self.policy['allowlist'][0]['ownership']={'kind':'workspace','root':str(workspace)}
+        return workspace
+    def test_workspace_without_cache_connection_is_unknown(self):
+        self.bind_workspace();self.deferred()
+    def test_malformed_plist_binding_defers_only_bad_candidate(self):
+        import copy
+        valid=copy.deepcopy(self.policy['allowlist'][0]);self.bind_workspace()
+        self.policy['allowlist'].append(valid)
+        for data in [[],{'WorkspacePath':42}]:
+            (self.cache.parent/'info.plist').write_bytes(plistlib.dumps(data))
+            result=self.run_safe(False)
+            self.assertEqual([r['state'] for r in result['entries']],['deferred','eligible'])
+    def test_derived_data_plist_binds_exact_workspace(self):
+        workspace=self.bind_workspace();project=workspace/'Example.xcodeproj';project.mkdir()
+        (self.cache.parent/'info.plist').write_bytes(plistlib.dumps({'WorkspacePath':str(project)}))
+        self.assertEqual(self.run_safe(False)['entries'][0]['ownership']['root'],str(workspace))
+        self.assertIn(((workspace,),),[(call.args,) for call in self.process.call_args_list])
+    def test_workspace_path_cannot_be_claimed_by_another_root(self):
+        workspace=self.bind_workspace();project=self.root/'Other.xcodeproj';project.mkdir()
+        (self.cache.parent/'info.plist').write_bytes(plistlib.dumps({'WorkspacePath':str(project)}))
+        self.deferred()
+    def test_deleted_workspace_is_unknown(self):
+        self.bind_workspace()
+        self.policy['allowlist'][0]['ownership']['root']=str(self.root/'missing')
+        self.deferred()
+    def test_workspace_activity_preserves(self):
+        workspace=self.bind_workspace();project=workspace/'Example.xcodeproj';project.mkdir()
+        (self.cache.parent/'info.plist').write_bytes(plistlib.dumps({'WorkspacePath':str(project)}))
+        def check(path):
+            if path==workspace:raise safe.Deferred('workspace has active open files')
+        self.process.side_effect=check;self.deferred()
+    def test_legacy_restore_requires_current_reviewed_binding(self):
+        row=self.run_safe()['entries'][0];receipt=Path(row['manifest'])
+        record=json.loads(receipt.read_text());record.pop('entry');record.pop('ownership');record['schema_version']=1
+        receipt.write_text(json.dumps(record))
+        safe.restore(receipt,self.policy);self.assertTrue(self.cache.exists())
     def test_recent_descendant_preserves(self):
         os.utime(self.cache/'data.bin',None);self.deferred()
     def test_protected_evidence_xcresult_archive_signed_app(self):
@@ -120,13 +174,33 @@ class RecoverableTests(unittest.TestCase):
         row=self.run_safe()['entries'][0];self.cache.mkdir();(self.cache/'new').write_text('new')
         with self.assertRaises(safe.Deferred):safe.restore(Path(row['manifest']),self.policy)
         self.assertEqual((self.cache/'new').read_text(),'new');self.assertTrue(Path(row['destination']).exists())
+    def test_restore_respects_new_owner_hold(self):
+        row=self.run_safe()['entries'][0];receipt=Path(row['manifest'])
+        for p in [self.cache,self.cache.parent,self.cache/'retained-evidence']:
+            self.policy['protected_paths']=[str(p)]
+            with self.assertRaises(safe.Deferred):safe.restore(receipt,self.policy)
+            self.assertFalse(self.cache.exists());self.assertTrue(Path(row['destination']).exists())
+    def test_restore_respects_allowlist_revocation(self):
+        row=self.run_safe()['entries'][0];receipt=Path(row['manifest'])
+        self.policy['allowlist']=[]
+        with self.assertRaises(safe.Deferred):safe.restore(receipt,self.policy)
+        self.assertFalse(self.cache.exists());self.assertTrue(Path(row['destination']).exists())
     def test_atomic_destination_collision_refuses(self):
         target=self.root/'target';target.mkdir()
         with self.assertRaises(OSError):safe.rename_exclusive(self.cache,target)
         self.assertTrue(self.cache.exists());self.assertTrue(target.exists())
-    def test_category_deferred_after_uncertainty(self):
-        self.policy['allowlist']*=2;self.process.side_effect=safe.Deferred('busy')
-        result=self.run_safe();self.assertEqual(result['entries'][1]['reason'],'category already deferred')
+    def test_unknown_candidate_does_not_skip_independently_safe_same_category(self):
+        import copy
+        unknown=copy.deepcopy(self.policy['allowlist'][0]);unknown.pop('ownership')
+        self.policy['allowlist'].insert(0,unknown)
+        result=self.run_safe(False)
+        self.assertEqual([r['state'] for r in result['entries']],['deferred','eligible'])
+    def test_active_candidate_does_not_skip_next_candidate(self):
+        import copy
+        self.policy['allowlist'].append(copy.deepcopy(self.policy['allowlist'][0]))
+        self.process.side_effect=[safe.Deferred('candidate is open'),None]
+        result=self.run_safe(False)
+        self.assertEqual([r['state'] for r in result['entries']],['deferred','eligible'])
     def test_process_inventory_build_and_open_file_fail_closed(self):
         patch.stopall()
         for process in ['xcodebuild -test','/Applications/Xcode.app/Contents/MacOS/Xcode','/usr/bin/swiftc foo']:
@@ -162,26 +236,22 @@ class RecoverableTests(unittest.TestCase):
         self.age();protected.chmod(0)
         try:self.deferred()
         finally:protected.chmod(0o700)
-    def test_owner_expires_during_final_hash(self):
+    def test_owner_binding_changes_during_final_hash(self):
         real=safe.snapshot;calls=0
         def expiring(*args,**kw):
             nonlocal calls
             calls+=1
             result=real(*args,**kw)
             if calls==3:
-                d=json.loads(self.owner.read_text());d['observed_at']-=121
-                self.owner.write_text(json.dumps(d))
+                self.policy['allowlist'][0]['ownership']['kind']='unknown'
             return result
         with patch.object(safe,'snapshot',side_effect=expiring):self.deferred()
     def test_arbitrary_process_reference_blocks(self):
         patch.stopall()
         with patch.object(safe.subprocess,'run',return_value=subprocess.CompletedProcess([],0,f'custom-worker --cache {self.cache}','')):
             with self.assertRaises(safe.Deferred):safe.process_idle(self.cache)
-    def test_nan_cannot_bypass_retention_or_freshness(self):
+    def test_nan_cannot_bypass_retention(self):
         self.policy['allowlist'][0]['minimum_age_hours']=float('nan');self.deferred()
-        self.policy['allowlist'][0]['minimum_age_hours']=168
-        d=json.loads(self.owner.read_text());d['observed_at']=float('nan')
-        self.owner.write_text(json.dumps(d));self.deferred()
     def test_private_var_tmp_process_aliases_block(self):
         patch.stopall()
         for physical,alias in [('/private/var/folders/cache','/var/folders/cache'),('/private/tmp/cache','/tmp/cache')]:

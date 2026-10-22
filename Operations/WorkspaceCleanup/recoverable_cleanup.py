@@ -8,6 +8,7 @@ import json
 import math
 import os
 from pathlib import Path
+import plistlib
 import re
 import stat
 import subprocess
@@ -15,7 +16,7 @@ import time
 import uuid
 
 class Deferred(RuntimeError):
-    """Preserve the category when ownership or recovery is uncertain."""
+    """Preserve this candidate when ownership or recovery is uncertain."""
 
 PROTECTED = {'.git', 'archives', 'evidence', 'screenshots', 'logs', 'test', 'tests',
              '_codesignature', 'release', 'receipts'}
@@ -26,6 +27,8 @@ BUILD = re.compile(r'(?:^|[/\s])(?:Xcode|xcodebuild|xctest|Unity|Simulator|clang
 CATEGORIES = {'temporary', 'scratch', 'unity_library', 'xcode_derived_data', 'model_fitness_workspace'}
 
 def canonical(path):
+    if not isinstance(path, (str, os.PathLike)) or not os.path.isabs(path):
+        raise Deferred('path must be an explicit absolute filesystem path')
     path = Path(os.path.abspath(path))
     if any(p.is_symlink() for p in [path, *path.parents]) or path.resolve() != path:
         raise Deferred(f'non-canonical or symlink path: {path}')
@@ -112,18 +115,53 @@ def rename_exclusive(source, destination):
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error), str(source))
 
-def owners_idle(policy):
-    data = json.loads(canonical(policy['ownership_snapshot']).read_text())
-    age = time.time() - float(data['observed_at'])
-    if not math.isfinite(age) or age < 0 or age > 120 or data.get('coverage') != 'complete':
-        raise Deferred('owner inventory must be complete and fresh (120s maximum)')
-    if data.get('unavailable_hosts') or data.get('unavailable_sources'):
-        raise Deferred('owner inventory has unavailable hosts or sources')
-    if data.get('maintenance_thread_id') != policy['maintenance_thread_id']:
-        raise Deferred('maintenance owner mismatch')
-    for task in data['active_tasks']:
-        if task['id'] != policy['maintenance_thread_id']:
-            raise Deferred(f"active local/cloud task: {task['id']}")
+def owner_scope(entry, policy):
+    """Bind an approved cache to its actual host-wide or workspace scope.
+
+    Chat history is neither a producer lock nor a complete current-owner registry.
+    Policy supplies reviewed provenance; filesystem/Git/Xcode validate the binding.
+    Missing provenance is a per-candidate defer, never inferred from inactivity.
+    """
+    path = canonical(entry['path'])
+    binding = entry.get('ownership', {})
+    if not isinstance(binding, dict):
+        raise Deferred('malformed cache ownership binding')
+    kind = binding.get('kind')
+    if kind == 'shared_xcode':
+        root = canonical(policy['derived_data_root'])
+        if (entry['category'] != 'xcode_derived_data' or path.parent != root
+                or root.name != 'DerivedData' or not root.is_dir()
+                or path.name not in {'ModuleCache.noindex', 'CompilationCache.noindex'}):
+            raise Deferred('shared Xcode cache does not match reviewed DerivedData root')
+        return {'kind': kind, 'root': str(root)}
+    if kind == 'workspace':
+        root = canonical(binding['root'])
+        result = subprocess.run(['git', '-c', 'core.fsmonitor=false', '-C', str(root),
+                                 'rev-parse', '--show-toplevel'], capture_output=True, text=True, timeout=15)
+        if result.returncode or canonical(result.stdout.strip()) != root:
+            raise Deferred('workspace binding is not an existing Git worktree root')
+        if path != root and within(path, root):
+            return {'kind': kind, 'root': str(root)}
+        if entry['category'] == 'xcode_derived_data':
+            info = canonical(path.parent / 'info.plist')
+            data = plistlib.loads(info.read_bytes())
+            if not isinstance(data, dict) or not isinstance(data.get('WorkspacePath'), str):
+                raise Deferred('malformed Xcode workspace binding')
+            project = canonical(data['WorkspacePath'])
+            if project.is_dir() and within(project, root) and project.suffix in {'.xcodeproj', '.xcworkspace'}:
+                return {'kind': kind, 'root': str(root), 'project': str(project)}
+        raise Deferred('cache has no verified containment or Xcode workspace binding')
+    raise Deferred('unknown cache ownership; explicit reviewed binding required')
+
+def owners_idle(entry, policy, expected):
+    path = canonical(entry['path'])
+    if any(within(path, canonical(p)) or within(canonical(p), path)
+           for p in policy.get('protected_paths', [])):
+        raise Deferred('current protected path overlaps candidate')
+    if owner_scope(entry, policy) != expected:
+        raise Deferred('cache ownership binding changed before action')
+    if expected['kind'] == 'workspace':
+        process_idle(Path(expected['root']))
 
 def process_idle(path):
     commands = subprocess.run(['ps', '-axo', 'command='], check=True, capture_output=True, text=True, timeout=15).stdout
@@ -135,6 +173,9 @@ def process_idle(path):
         raise Deferred('live process command references candidate')
     if any(BUILD.search(line) for line in commands.splitlines()):
         raise Deferred('active build/test/editor/Simulator process')
+    open_files_idle(path)
+
+def open_files_idle(path):
     result = subprocess.run(['/usr/sbin/lsof', '-nP', '+D', str(path)], capture_output=True, text=True, timeout=30)
     if result.returncode not in (0, 1) or result.stderr.strip():
         raise Deferred('open-file inventory unavailable')
@@ -142,7 +183,7 @@ def process_idle(path):
         raise Deferred('candidate has open files')
 
 @contextlib.contextmanager
-def idle_lease(policy, path):
+def idle_lease(policy, path, entry, ownership):
     state = canonical(policy['broker_state_dir'])
     contract = json.loads((state / 'contract.json').read_text())
     if contract.get('schemaVersion') != 1 or contract.get('contractVersion') != 1 or contract.get('capacity') != 2:
@@ -156,7 +197,7 @@ def idle_lease(policy, path):
                 fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 raise Deferred('active local/cloud broker lease') from error
-        owners_idle(policy)
+        owners_idle(entry, policy, ownership)
         process_idle(path)
         yield
     finally:
@@ -204,10 +245,11 @@ def eligible(entry, policy):
 
 def quarantine(entry, policy, apply):
     path, minimum, protected = eligible(entry, policy)
+    ownership = owner_scope(entry, policy)
     git_untracked(path)
     before = snapshot(path, protected, minimum)
-    result = {'path': str(path), 'category': entry['category'], **before, 'state': 'eligible'}
-    with idle_lease(policy, path):
+    result = {'path': str(path), 'category': entry['category'], 'ownership': ownership, **before, 'state': 'eligible'}
+    with idle_lease(policy, path, entry, ownership):
         if snapshot(path, protected, minimum) != before:
             raise Deferred('candidate changed after inventory')
         if not apply:
@@ -221,16 +263,17 @@ def quarantine(entry, policy, apply):
         slot.mkdir(mode=0o700)
         fsync_directory(root)
         destination, receipt = slot / 'payload', slot / 'manifest.json'
-        record = {'schema_version': 1, 'source': str(path), 'destination': str(destination),
+        record = {'schema_version': 2, 'source': str(path), 'destination': str(destination),
+                  'entry': entry, 'ownership': ownership,
                   'snapshot': before, 'state': 'intent', 'created_at': time.time()}
         write_json(receipt, record)
-        owners_idle(policy)
+        owners_idle(entry, policy, ownership)
         process_idle(path)
         if snapshot(path, protected, minimum) != before:
             raise Deferred('candidate changed immediately before move')
         git_untracked(path)
         process_idle(path)
-        owners_idle(policy)
+        owners_idle(entry, policy, ownership)
         try:
             rename_exclusive(path, destination)
             fsync_directory(path.parent)
@@ -256,11 +299,22 @@ def restore(receipt, policy):
         raise Deferred('original parent missing or different filesystem')
     if not any(source != canonical(p) and within(source, canonical(p)) for p in policy['allowed_roots']):
         raise Deferred('restore source outside allowed roots')
-    with idle_lease(policy, destination):
+    matches = [e for e in policy['allowlist'] if canonical(e['path']) == source]
+    if len(matches) != 1:
+        raise Deferred('restore needs one current reviewed source ownership binding')
+    entry = matches[0]
+    if record.get('entry') and canonical(record['entry']['path']) != source:
+        raise Deferred('receipt source and ownership entry differ')
+    ownership = owner_scope(entry, policy)
+    if record.get('ownership', ownership) != ownership:
+        raise Deferred('restore ownership binding changed')
+    with idle_lease(policy, destination, entry, ownership):
         if snapshot(destination) != record['snapshot']:
             raise Deferred('quarantine payload changed; inspect before restoring')
         process_idle(destination)
-        owners_idle(policy)
+        # Original path may have been recreated/opened since the collision check.
+        process_idle(source.parent)
+        owners_idle(entry, policy, ownership)
         rename_exclusive(destination, source)
         fsync_directory(destination.parent)
         fsync_directory(source.parent)
@@ -274,9 +328,6 @@ def run(policy, *, apply=False, restore_path=None):
     entries, deferred_categories = [], set()
     for entry in policy['allowlist']:
         category = entry.get('category', 'unknown')
-        if category in deferred_categories:
-            entries.append({**entry, 'state': 'deferred', 'reason': 'category already deferred'})
-            continue
         try:
             entries.append(quarantine(entry, policy, apply))
         except (Deferred, OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
