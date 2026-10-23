@@ -12,6 +12,8 @@
 - Treat iOS focus loss as an early save-sensitive signal. Do not rely on `OnApplicationQuit` as the main persistence boundary on mobile.
 - Centralize mobile persistence heuristics behind a lifecycle-owned save signal instead of repeating platform branches across consumers.
 - Keep `Application.lowMemory` handling bounded through dirty-state awareness and repeated-call suppression when heavy persistence would otherwise spam.
+- Do not rely on the relative order of `OnApplicationPause` / `OnApplicationFocus` across unrelated MonoBehaviours, such as third-party or vendor scripts you do not control. A consumer that reacts in its own callback and reads another component's lifecycle-derived state can see it before or after that component's update; subscribe consumers to the lifecycle owner's events instead.
+- Publish transition facts, such as how long the app was away and whether it was backgrounded, as the payload of a lifecycle event raised at the transition, rather than as queryable "last value" state that later readers must validate for freshness.
 
 ## Review Focus
 - lifecycle contract clarity
