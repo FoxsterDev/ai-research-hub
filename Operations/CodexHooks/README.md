@@ -5,6 +5,15 @@ The hooks reinforce that contract at SessionStart (including resume/compaction),
 UserPromptSubmit, SubagentStart, and PreToolUse. The pre-tool reminder covers shell,
 patch, and MCP calls; read-only discovery does not require an edit gate.
 
+PreToolUse uses a conservative stateless shell filter to return quiet output for
+recognized read-only `Bash`/`exec_command` inputs. It accepts `cat`, `head`, `tail`,
+`wc`, `pwd`, `rg` without executable preprocessors, numeric `sed -n` print ranges,
+and selected read-only Git subcommands. Pipelines, `;`, and `&&` are quiet only
+when every command qualifies. Redirections, substitutions, environment assignments,
+unknown commands, malformed inputs, and potentially mutating options retain the
+reminder. This is a context filter, not a permission decision or shell sandbox.
+SessionStart, SubagentStart, and UserPromptSubmit routing reminders remain intact.
+
 `context.py` uses only Python's standard library, reads the event from stdin,
 and returns Codex `additionalContext` JSON. It does not read transcripts, retain
 prompts, write state, use the network, grant permissions, or block tools. It points
@@ -26,8 +35,10 @@ These are context guardrails, not proof or hard enforcement of agent compliance.
 - Hooks are enabled by default in the documented runtime. If disabled by local
   or managed configuration, the repository's AGENTS.md still supplies routing.
 - When both host and public config layers load, Codex runs both hooks. Repeated
-  reminders are harmless and intentionally stateless; do not infer that the host
-  hook ran merely because its file exists.
+  hooks remain intentionally stateless; each returns quiet output for recognized
+  read-only shell discovery. Duplicate hooks may still run and may still repeat
+  mutation reminders. Do not infer that the host hook ran merely because its
+  file exists.
 
 ## Validation
 

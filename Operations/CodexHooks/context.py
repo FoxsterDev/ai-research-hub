@@ -3,13 +3,64 @@
 
 import json
 from pathlib import Path
+import re
+import shlex
 import sys
+
+
+def _read_only_command(words):
+    if not words:
+        return False
+    if words[0] in {"cat", "head", "tail", "wc", "pwd"}:
+        return True
+    if words[0] == "rg":
+        return not any(word.startswith(("--pre", "--hostname-bin")) for word in words[1:])
+    if words[0] == "sed":
+        return (
+            len(words) >= 3 and words[1] == "-n"
+            and re.fullmatch(r"[0-9]+(?:,[0-9]+)?p", words[2]) is not None
+            and not any(word.startswith("-") for word in words[3:])
+        )
+    if words[0] == "git":
+        return (
+            len(words) >= 2
+            and words[1] in {"status", "diff", "log", "show", "ls-files", "rev-parse"}
+            and not any(word.startswith(("--out", "--ext", "--textconv")) for word in words[2:])
+        )
+    return False
+
+
+def _read_only_shell(command):
+    if not isinstance(command, str) or any(char in command for char in "<>$`\n\r"):
+        return False
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="|;&()")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        return False
+    segment = []
+    for word in words:
+        if word in {"|", ";", "&&"}:
+            if not _read_only_command(segment):
+                return False
+            segment = []
+        elif any(char in word for char in "|;&()"):
+            return False
+        else:
+            segment.append(word)
+    return _read_only_command(segment)
 
 
 def context(event, public_root):
     name = event.get("hook_event_name")
     if name not in {"SessionStart", "SubagentStart", "UserPromptSubmit", "PreToolUse"}:
         return {}
+    tool_input = event.get("tool_input")
+    if name == "PreToolUse" and event.get("tool_name") in {"Bash", "exec_command"} and isinstance(tool_input, dict):
+        if _read_only_shell(tool_input.get("command", tool_input.get("cmd"))):
+            return {}
     host = public_root.parent
     mounted = (host / "AGENTS.md").is_file() and (
         host / public_root.name
