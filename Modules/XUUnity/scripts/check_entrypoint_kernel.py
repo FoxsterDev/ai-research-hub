@@ -7,6 +7,7 @@ root-cause gate, output contract) is byte-complete within the smallest head
 read window. The canonical skill router and output contract must also remain
 within the tail window.
 
+Also enforce a total byte budget so a complete mandatory read stays bounded.
 This replaces the old "150-220 lines / split by 300" line rule. The binding
 constraint is bytes, not lines, because some harnesses truncate file reads:
 Codex CLI reads files via shell with a ~10 KB head+tail cap that DROPS THE
@@ -20,8 +21,8 @@ import os
 import sys
 
 HEAD_BUDGET = 8192       # target smallest head window, in bytes
-# Observed reference point for one shell-output lane. This checker does not
-# enforce total file size; it enforces the byte-complete head/tail kernel.
+# Observed reference point for one shell-output lane. The mandatory entrypoint must also fit within
+# this total budget; move conditional catalogs into routed references.
 REFERENCE_TRUNCATION_CEILING = 10240
 
 # (label, literal substring that must START and END within the head window)
@@ -61,6 +62,10 @@ def check(path):
     tail = data[-HEAD_BUDGET:] if n > HEAD_BUDGET else data
     errors = []
     offsets = {}
+    if n > REFERENCE_TRUNCATION_CEILING:
+        errors.append(
+            "ENTRYPOINT TOO LARGE: %d bytes exceeds %d; move conditional detail to references"
+            % (n, REFERENCE_TRUNCATION_CEILING))
     for label, marker in HEAD_MARKERS:
         idx = data.find(marker.encode())
         if idx == -1:

@@ -15,6 +15,9 @@
   - fallback boundaries
   - failure severity
   - reviewed trigger ownership and delivery-channel boundaries for user-visible flows
+- For a counter, charge, acknowledgement or success marker, name the exact event that advances it; an operation starting, an external attempt and confirmed success are different events.
+- Before moving that write across a delay, thread boundary or external call, compare cancellation, failure and retry outcomes on each affected entry path.
+- If the simpler ordering changes those outcomes, describe it as a behavior change and preserve the approved contract or obtain a decision on that specific semantic change. Existing explicit authorization is sufficient; do not ask again for an already resolved decision.
 - Do not start helper extraction or structural cleanup until those invariants are fixed.
 - When the refactor extracts a state model or moves ownership between units, freeze the target ownership statement with the owner as well — which state, rules and diagnostics the new owner takes — before the first extraction commit. Escalating ownership in steps ships intermediate APIs that the next step supersedes.
 - Keep public method shape, callback timing, threading guarantees, and failure semantics unchanged unless contract change is part of the task.

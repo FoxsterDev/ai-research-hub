@@ -40,13 +40,13 @@ class EntrypointKernelTests(unittest.TestCase):
                 return check_entrypoint_kernel.check(path)
 
     def test_valid_head_and_tail_pass(self) -> None:
-        self.assertTrue(self._check(HEAD + ("padding\n" * 1400) + TAIL))
+        self.assertTrue(self._check(HEAD + ("padding\n" * 1100) + TAIL))
 
     def test_missing_canonical_tail_router_fails(self) -> None:
         self.assertFalse(
             self._check(
                 HEAD
-                + ("padding\n" * 1400)
+                + ("padding\n" * 1100)
                 + "\n## Output\nRe-state the Required output contract.\n"
             )
         )
@@ -57,7 +57,7 @@ class EntrypointKernelTests(unittest.TestCase):
             "",
         )
         self.assertFalse(
-            self._check(without_gate + ("padding\n" * 1400) + TAIL)
+            self._check(without_gate + ("padding\n" * 1100) + TAIL)
         )
 
     def test_duplicate_canonical_router_fails(self) -> None:
@@ -65,10 +65,13 @@ class EntrypointKernelTests(unittest.TestCase):
             self._check(
                 HEAD
                 + "\n## Skill Routing Hints\n"
-                + ("padding\n" * 1400)
+                + ("padding\n" * 1100)
                 + TAIL
             )
         )
+
+    def test_complete_kernel_does_not_excuse_oversized_body(self) -> None:
+        self.assertFalse(self._check(HEAD + ("padding\n" * 2000) + TAIL))
 
     def test_real_start_session_passes(self) -> None:
         path = MODULE_ROOT / "tasks" / "start_session.md"

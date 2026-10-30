@@ -10,6 +10,7 @@ Use it to load only the best-practice context that matches the current task.
 3. After shared skills are loaded, check `Assets/AIOutput/ProjectMemory/SkillOverrides/` for matching project-specific overrides.
 
 ## Rules
+- For a matched family, read its README and any required routing file, then only the selected topic bodies. Include relevant host lifetime guidance and project overrides; report read/application coverage through `knowledge/execution_contract.md`.
 - Do not load all skill families by default.
 - Do not duplicate codestyle or platform rules inside skills unless the skill depends on them.
 - Shared skills stay project-agnostic.

@@ -47,6 +47,22 @@ Keep the set complete and in this order. Use `none` explicitly when a field is i
 - If the user is likely to copy code, commands, config, prompts, or patch text from the answer, add a copy-safety check to `required_self_review` and plan the final answer around clean fenced blocks.
 - If new tests are authored, extend `required_self_review` to include a quick test-quality pass against `skills/tests/testing_doctrine.md` and `reviews/test_quality_review.md`.
 
+## Requirement Meaning And Decision Scope
+When a task changes event timing, state ownership, or an execution boundary, keep a short requirement-to-decision trace alongside the contract: the user's wording or source reference, the inferred meaning, and the ordered actions with their owner/thread. Mark assumptions as assumptions rather than silently promoting them to requirements.
+
+- Approval of one dimension (for example a storage format) does not approve a different dimension (counting event, execution thread, callback surface, or failure behavior).
+- Reconcile conflicting statements against the original requirement before implementation. If intent is already clear, apply it without asking again; ask only when a material semantic conflict remains unresolved.
+- Treat a correction that restores the original intent as an interpretation repair, not automatically as new scope. Update the design and invalidate dependent justifications through `knowledge/change_complexity_budget.md`.
+- Keep one current task contract. Mark superseded decisions as historical; do not let an old design or copied pre-edit declaration govern a newer implementation.
+
+## Selected, Read, And Applied Guidance
+Keep a compact file-level record for the selected stack: selection reason, read status (`full`, `partial`, `unread`, or `unavailable`), and the decision or check it informed. This is evidence accounting, not a second registry or a mandatory separate artifact; reuse the session contract or handoff.
+
+- Read the matched family's README and any router it requires before selecting topic files. Resolve matched host lifetime guidance and project overrides as part of that route.
+- A file's presence, a successful shell exit, a selection plan, or a subagent's read does not prove the root received its full body. On truncated output, read the missing ranges before recording `full`; do not claim application from a filename alone.
+- Before the dependent edit, close mandatory matched-route gaps or record why the route is not applicable. An unrelated family must stay unloaded. Previously complete reads need not be repeated unless the file changed or context is unavailable.
+- In `matched_skills`, reference this compact record when needed rather than inflating the canonical field set. Debug rendering is owned by `utilities/routing_debug_template.md`.
+
 ## Rendering
 - In `tasks/start_session.md`, surface the derived contract under `Derived execution contract` using this field set.
 - For routing/start-session debug, private-pack accounting, or root-cause-gated sessions, render the contract through `utilities/routing_debug_template.md` instead of re-listing the fields.

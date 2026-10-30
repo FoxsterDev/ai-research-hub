@@ -36,6 +36,11 @@ The `document the distinct semantics` branch is available only when the two owne
 
 When two owners differ only by the breadth of what they gate, prefer merging them into one owner with a per-record discriminator over extracting a shared primitive both forward to. Extraction that leaves forwarders behind pays a file and a hop for zero behavior change; the merge removes the collection, the second teardown path, and the class of bug where the two copies diverge. This is the ordinary “replace a type axis that should be data” move, not a novel pattern — the point is that it is the default, not the fallback.
 
+## Revisit The Premise
+Before implementing a new owner, transport callback, writer, or synchronization layer, compare the direct sequence under the existing owner with the proposed mechanism. Name the exact invariant or failure outcome that prevents the smaller option. A background external operation does not by itself require the associated feature state to move to that background thread.
+
+When the requirement or its interpretation changes, revisit the dependent mechanisms together: callbacks, wrappers, thread hops, locks, storage workers, state flags, and implementation-shaped tests. Remove those whose only justification disappeared; retain a mechanism only for a surviving named invariant. Do not defend a new lock solely by citing a worker introduced by the same proposal. Preserve approved event/failure semantics while simplifying (`skills/refactoring/behavior_preservation.md`).
+
 ## Project-Fit Gate
 Before introducing a new lifecycle, binding, shared-operation, popup-flow, cache, or request-coordination abstraction:
 

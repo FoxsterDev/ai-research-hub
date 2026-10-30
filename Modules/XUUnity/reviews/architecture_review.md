@@ -5,6 +5,12 @@
 - `knowledge/change_complexity_budget.md`
 - `knowledge/review_evidence_provenance.md` for change reviews
 
+## Review The Premise First
+- Start from the original requirements and independently approved decisions, not only the author's latest design summary. Check event meaning, execution order, ownership, and the scope of each approval through `knowledge/execution_contract.md`.
+- For a new owner, transport seam, or storage mechanism, evaluate a direct sequence under the existing owner and name the concrete semantic mismatch if that alternative fails. The reviewer may reject the proposed decomposition rather than only check its internal consistency.
+- Separate source fact-checking, document consistency, architecture judgment, and runtime validation in the verdict. A bounded factual worker or a consistency score is not independent architecture approval.
+- For a material ownership/transport/storage redesign, use a reviewer independent of the design author when the available authorized workflow supports it. Give that reviewer the requirements, comparison base and complete candidate diff (including new files), without requiring agreement with the design. If no independent reviewer is available, label the result self-review and preserve that limitation.
+
 ## Check
 - Clear subsystem boundaries
 - platform abstraction quality

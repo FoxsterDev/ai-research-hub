@@ -72,6 +72,12 @@ Examples:
 - If the chosen lane cannot provide trustworthy final accounting for the claim, record that in `validation_gaps` instead of silently weakening the claim.
 - Task files may add stage-specific output obligations, but they should not redefine this schema.
 
+## Carry Evidence Through Changes
+- Record the tested content identity and result together using `knowledge/unity_validation_boundaries.md` (Evidence Provenance). Include relevant dirty and newly added files, not just HEAD.
+- Before closeout, compare the current affected surface with that identity. Mark earlier proof `stale` for changed code, configuration, assets, dependencies or test inputs that can affect the claim; run the narrowest newly required checks. Unrelated edits need not invalidate every result.
+- A result records both scope and operational outcome: a passing inner test does not make a failed lifecycle/bridge lane pass. Conflicting tool health and observed editor state are a diagnostic conflict until verified, not proof of a broken license or a product defect.
+- Keep helper/model, real orchestration, and native/device claims separate. Use the existing testing doctrine to select representative evidence rather than adding tests that only mirror a new mechanism.
+
 ## Stage Responsibilities
 - `tasks/start_session.md`: initialize the validation contract inside the execution contract for the current session.
 - `tasks/feature_design_brief.md`: set the earliest justified contract and use `none` explicitly for unresolved fields.

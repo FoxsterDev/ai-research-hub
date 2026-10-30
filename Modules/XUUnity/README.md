@@ -17,6 +17,11 @@ Canonical session entrypoint:
 - `tasks/start_session.md`
 - do not look for `start_session.md` at the module root
 
+Conditional session references (lookup only the matching sections, then fully read selected owners):
+- `knowledge/session_task_catalog.md` — detailed command aliases, role selection and system utilities
+- `knowledge/session_domain_routes.md` — domain knowledge, risk packs and critical-flow/root-cause routes
+- `knowledge/session_workflow_reference.md` — extended process, private-pack handling, host/project and product-query details
+
 ## Standard Layering
 1. One primary file from `role/` and optional supporting role files only when the task benefits from multiple angles
 2. One or more files from `codestyle/`

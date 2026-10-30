@@ -53,6 +53,13 @@ routing_debug:
 - `validation_contract`: use the active validation contract fields selected for this session. Keep it compact and representative.
 - `why_not_local_fix`: explain why the fix is not allowed to stop at the log site, presenter, local service, or nearest stack frame.
 
+## Guidance Coverage
+For loaded-module accounting, append a compact table using the evidence rules in `knowledge/execution_contract.md`:
+
+`File or public-safe pack id | Selection reason | Read status | Applied decision/check or gap`
+
+Keep available-but-unselected files separate from selected files. Show mandatory matched family routers and host/project overrides; a selection plan is not a read receipt. Do not expose private paths in this table.
+
 ## Private Content Rule
 When private modules are involved, this template may report:
 - pack id
