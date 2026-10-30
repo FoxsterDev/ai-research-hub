@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import errno
 import os
+import socket
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -113,6 +116,83 @@ class BackendContractTests(unittest.TestCase):
             )
             report = boundary.verify(work)
             self.assertFalse(report.authoritative)
+
+
+class NetworkProbeControlTests(unittest.TestCase):
+    """Deterministic backend responses; the positive endpoint is a real socket."""
+
+    def _probe(self, *, control="connected", denied=None, name="bubblewrap",
+               control_returncode=0):
+        denied = str(errno.ECONNREFUSED) if denied is None else denied
+        calls = []
+
+        class Backend:
+            def available(self):
+                return True, ""
+
+            def run(self, spec, command, *, cwd=None):
+                if command[3] == isolation._NETWORK_PROBE:
+                    calls.append((spec.allow_network, command[-1]))
+                    marker = control if spec.allow_network else denied
+                    if spec.allow_network and marker == "connected":
+                        with socket.create_connection(("127.0.0.1", int(command[-1])), timeout=2):
+                            pass
+                    code = control_returncode if spec.allow_network else 0
+                    return subprocess.CompletedProcess(command, code, marker, "")
+                code = int(Path(command[-1]).name in {"protected.txt", "denied.txt"})
+                return subprocess.CompletedProcess(command, code, "ok", "")
+
+        backend = Backend()
+        backend.name = name
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            readable = work / "readable"
+            readable.mkdir()
+            (readable / "allowed.txt").write_text("ok")
+            result = isolation.probe_enforcement(
+                readable_roots=[str(readable)], writable_roots=[str(work)],
+                protected_file=work / "protected.txt",
+                denied_write_path=work / "denied.txt",
+                allowed_write_path=work / "allowed.txt", backend=backend,
+            )
+        return result, calls
+
+    def test_uncontrolled_refusal_is_unavailable_not_denial(self):
+        result, calls = self._probe(control=str(errno.ECONNREFUSED))
+        self.assertFalse(result.available)
+        self.assertFalse(result.network_denied)
+        self.assertEqual(1, len(calls))
+        self.assertTrue(calls[0][0])
+        self.assertIn("control_network_failed:" + str(errno.ECONNREFUSED), result.details)
+
+    def test_failed_control_process_is_unavailable(self):
+        result, calls = self._probe(control_returncode=1)
+        self.assertFalse(result.available)
+        self.assertFalse(result.network_denied)
+        self.assertEqual(1, len(calls))
+
+    def test_bubblewrap_refusal_requires_same_live_control_endpoint(self):
+        result, calls = self._probe()
+        self.assertTrue(result.available)
+        self.assertTrue(result.network_denied)
+        self.assertEqual([True, False], [allow for allow, _ in calls])
+        self.assertEqual(calls[0][1], calls[1][1])
+        self.assertNotIn(str(errno.ECONNREFUSED), isolation._DENIED_CONNECT_ERRNOS)
+
+    def test_controlled_connection_is_not_denial(self):
+        result, _ = self._probe(denied="connected")
+        self.assertTrue(result.available)
+        self.assertFalse(result.network_denied)
+
+    def test_refusal_is_not_generically_accepted_for_other_backends(self):
+        result, _ = self._probe(name="seatbelt")
+        self.assertTrue(result.available)
+        self.assertFalse(result.network_denied)
+
+    def test_existing_permissions_denial_remains_accepted(self):
+        result, _ = self._probe(name="seatbelt", denied=str(errno.EACCES))
+        self.assertTrue(result.available)
+        self.assertTrue(result.network_denied)
 
 
 class ReplayCorpusTests(unittest.TestCase):

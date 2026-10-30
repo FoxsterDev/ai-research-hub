@@ -35,7 +35,7 @@ class EntrypointKernelTests(unittest.TestCase):
     def _check(self, text: str) -> bool:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "entrypoint.md"
-            path.write_text(text, encoding="utf-8")
+            path.write_bytes(text.encode("utf-8"))
             with contextlib.redirect_stdout(io.StringIO()):
                 return check_entrypoint_kernel.check(path)
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 import errno
 import json
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -286,7 +287,7 @@ _NETWORK_PROBE = (
     "try:\n"
     "    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
     "    s.settimeout(2)\n"
-    "    s.connect((\"127.0.0.1\", 9))\n"
+    "    s.connect((\"127.0.0.1\", int(sys.argv[1])))\n"
     "    print(\"connected\")\n"
     "except OSError as e:\n"
     "    print(e.errno if e.errno is not None else \"none\")\n"
@@ -378,15 +379,46 @@ def probe_enforcement(
         if not write_denied:
             details.append("denied_write_succeeded")
 
-        network = run_python(_NETWORK_PROBE, None)
-        marker = network.stdout.strip()
-        network_denied = (
-            network.returncode == 0 and marker in _DENIED_CONNECT_ERRNOS
-        )
-        if not network_denied:
-            details.append(
-                f"network_probe_result:{marker or network.stderr.strip()[-160:]}"
+        # Keep a known-live endpoint open across both policy variants. A refusal
+        # from an arbitrary unused port is not proof of network isolation.
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(2)
+            listener.settimeout(2)
+            command = [sys.executable, "-I", "-c", _NETWORK_PROBE,
+                       str(listener.getsockname()[1])]
+            network_control = backend.run(
+                spec._replace(allow_network=True), command, cwd=cwd
             )
+            if (network_control.returncode != 0
+                    or network_control.stdout.strip() != "connected"):
+                details.append(
+                    "control_network_failed:"
+                    + (network_control.stdout.strip()
+                       or network_control.stderr.strip()[-160:])
+                )
+                return EnforcementProbe(
+                    False, False, False, False, backend.name, tuple(details)
+                )
+            # Confirm the child reached our listener, then free the backlog slot.
+            connection, _ = listener.accept()
+            connection.close()
+            network = backend.run(spec, command, cwd=cwd)
+            marker = network.stdout.strip()
+            # Linux's isolated loopback can refuse the host listener instead of
+            # returning a permissions error. Accept that only for Bubblewrap,
+            # after the identical network-enabled control reached this endpoint.
+            isolated_loopback_refusal = (
+                backend.name == "bubblewrap"
+                and marker == str(errno.ECONNREFUSED)
+            )
+            network_denied = network.returncode == 0 and (
+                marker in _DENIED_CONNECT_ERRNOS or isolated_loopback_refusal
+            )
+            if not network_denied:
+                details.append(
+                    f"network_probe_result:{marker or network.stderr.strip()[-160:]}"
+                )
     except (OSError, subprocess.TimeoutExpired) as error:
         return EnforcementProbe(
             False, False, False, False, backend.name, (f"probe_error:{error}",)
