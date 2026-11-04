@@ -106,12 +106,25 @@ def _png_size(path: str) -> tuple[int, int]:
     return int(width), int(height)
 
 
+def _fully_transparent(path: str) -> bool | None:
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    with Image.open(path) as image:
+        if image.mode not in ("RGBA", "LA") and "transparency" not in image.info:
+            return False
+        alpha = image.convert("RGBA").getchannel("A")
+        return alpha.getextrema()[1] == 0
+
+
 def _walk(node: dict, depth: int, max_depth: int, lines: list[str]) -> None:
     box = node.get("absoluteBoundingBox") or {}
     size = ""
     if box.get("width") is not None:
         size = f"  {round(box['width'])}x{round(box['height'])}"
-    lines.append(f"{'  ' * depth}{node.get('type', '?'):<12} {node.get('id', '?'):<12} {node.get('name', '')}{size}")
+    hidden = "  (hidden)" if node.get("visible", True) is False else ""
+    lines.append(f"{'  ' * depth}{node.get('type', '?'):<12} {node.get('id', '?'):<12} {node.get('name', '')}{size}{hidden}")
     if depth >= max_depth:
         return
     for child in node.get("children", []) or []:
@@ -276,18 +289,28 @@ def cmd_export(args: argparse.Namespace) -> None:
         sys.exit("error: spec contains no exports")
 
     size_ids = {export.get("bounds_node_id") or export["node_id"] for export in exports}
+    size_ids |= {export["node_id"] for export in exports}
     ids = ",".join(urllib.parse.quote(i) for i in sorted(size_ids))
     nodes_payload = _api_get(f"/files/{file_key}/nodes?ids={ids}&depth=1", token)
     natural_sizes: dict[str, tuple[float, float]] = {}
+    hidden_nodes: set[str] = set()
     for node_id, entry in nodes_payload.get("nodes", {}).items():
         if not entry:
             continue
+        if entry["document"].get("visible", True) is False:
+            hidden_nodes.add(node_id)
         box = entry["document"].get("absoluteBoundingBox") or {}
         if box.get("width"):
             natural_sizes[node_id] = (float(box["width"]), float(box["height"]))
 
     failures: list[str] = []
+    warnings: list[str] = []
     results: list[dict] = []
+    for export in exports:
+        if export["node_id"] in hidden_nodes:
+            warnings.append(
+                f"{export['file']}: node {export['node_id']} is hidden in Figma (visible=false); its render is "
+                "usually blank. Unhide it in Figma or export a visible variant.")
     by_scale: dict[float, list[dict]] = {}
     for export in exports:
         size_key = export.get("bounds_node_id") or export["node_id"]
@@ -320,10 +343,15 @@ def cmd_export(args: argparse.Namespace) -> None:
             url = urls.get(export["node_id"])
             destination = os.path.join(out_dir, export["file"])
             if not url:
-                failures.append(f"{export['node_id']} -> no image URL returned")
+                hidden_note = " (node is hidden in Figma)" if export["node_id"] in hidden_nodes else ""
+                failures.append(f"{export['node_id']} -> no image URL returned{hidden_note}")
                 continue
             _download(url, destination)
             width, height = _png_size(destination)
+            blank = _fully_transparent(destination)
+            if blank:
+                hidden_note = "; the node is hidden in Figma" if export["node_id"] in hidden_nodes else ""
+                failures.append(f"{export['file']}: exported PNG is fully transparent{hidden_note}")
             target_w = export.get("target_width")
             target_h = export.get("target_height")
             ok = True
@@ -335,7 +363,7 @@ def cmd_export(args: argparse.Namespace) -> None:
                 failures.append(f"{export['file']}: got {width}x{height}, wanted {target_w}x{target_h}")
             results.append({"file": destination, "width": width, "height": height, "scale": scale, "ok": ok})
 
-    print(json.dumps({"exported": results, "failures": failures}, indent=2))
+    print(json.dumps({"exported": results, "warnings": warnings, "failures": failures}, indent=2))
     if failures:
         sys.exit(1)
 
