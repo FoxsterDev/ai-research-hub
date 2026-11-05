@@ -13,6 +13,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 - `virtualized_scrollrect.md` — large `ScrollRect` lists or grids, virtualization, pooled cells, viewport-window math.
 - `textmeshpro/rich_text_rendering.md` — HTML-shaped strings into TMP labels; converting `<a>`, `<br>`, `<p>` and entities into the closed TMP rich-text tag set; survey of FancyTextRendering / tmpro-custom-tags.
 - `textmeshpro/glyph_coverage.md` — `TMP_FontAsset.HasCharacter` / `HasCharacters` across TMP versions; sanitizer recipe for missing-glyph `□`.
+- `textmeshpro/static_font_asset_generation.md` — generating or rebuilding a static SDF font asset in editor code; single-atlas rule, in-place shared rebuild, verifying face data.
 - `textmeshpro/emoji_rendering.md` — five rendering options (TMP Sprite Asset / color emoji font / UI Image badge / replace-at-parse / OS font fallback) with decision rubric.
 
 ## Narrow Routing
@@ -26,6 +27,7 @@ Reached via the coarse UI hint in `tasks/start_session.md`. Load only the narrow
 - `ScrollRect` virtualization, infinite scroll, pooled cells → `virtualized_scrollrect.md`.
 - `<p>`, `<a>`, `<br>`, `&amp;`, `&nbsp;`, HTML markup in TMP labels, disclaimer or terms text, "user sees literal markup" bug → `textmeshpro/rich_text_rendering.md`.
 - `TMP_FontAsset.HasCharacter`, `HasCharacters`, font fallback chain, missing-glyph `□`, supplementary-plane codepoints, cross-TMP-version API question → `textmeshpro/glyph_coverage.md`.
+- `TMP_FontAsset.CreateFontAsset`, rebuilding an SDF font asset, label vanishes after a font rebuild, `GetFallbackMaterial` `UnassignedReferenceException`, `m_AtlasIndex`, font weight differs from the file name → `textmeshpro/static_font_asset_generation.md`.
 - rendering emoji / country flags / symbols the font does not cover, choosing between TMP Sprite Asset / color emoji font / UI Image badge / text-equivalent replacement → `textmeshpro/emoji_rendering.md`.
 
 When in doubt within the TMP subset, all three TMP files are short and cross-link to each other; loading them together is acceptable.

@@ -58,6 +58,15 @@ S4 Export   -> S5 Generate -> S6 Publish         -> S7 Visual Acceptance
 - S5 fails when the host generator reports a contract warning the doc did not explicitly waive.
 - S7 follows the reference-acceptance discipline: no verdict without a deterministic state; `blocked_nondeterministic` and `pending_manual_style` are honest terminal states.
 
+## Fidelity Rules
+
+Layer names and the layer panel can disagree with the rendered design. Take values from these node fields:
+
+- Typography from the text node `style` (`fontPostScriptName`, `fontWeight`, `fontSize`, `lineHeightPx`, `letterSpacing`), never from the layer name; mixed runs need `characterStyleOverrides`.
+- Icon size and position from `absoluteRenderBounds`; `absoluteBoundingBox` includes frame padding. Keep the sprite aspect unless the design stretches it.
+- Exported PNGs already include layer opacity; do not apply it again as a color alpha in the engine.
+- Compare one state at a time: hide sibling state variants before an isolated render.
+
 ## Module Files
 
 - `templates/design_tech_doc_template.md` — the per-batch Design Tech Doc contract.
