@@ -84,7 +84,8 @@ def expand(rule: dict) -> tuple[list[tuple[Path, Path | None]], list[Path]]:
                     continue
                 if match.is_symlink() or not match.exists():
                     continue
-                targets.append((match, base if container else None))
+                owner = base.parent if rule.get('container_kind') == 'unity_library' else base
+                targets.append((match, owner if container else None))
         for parent in {base, *(t.parent for t, _ in targets if common.within(t, base))}:
             tombstones.extend(p for p in parent.glob(TOMBSTONE + '*') if p.is_dir() and not p.is_symlink())
     return sorted(set(targets)), sorted(set(tombstones))
@@ -151,7 +152,8 @@ def run_rule(rule: dict, protected: list[Path], broker_state: str | None, apply:
     try:
         _rule_minimum(rule)
         targets, tombstones = expand(rule)
-        table = table_source()
+        ignored = set(rule.get('ignore_reference_from', []))
+        table = [row for row in table_source() if row[0] not in ignored]
         active = common.blocking(table, rule.get('block_executables', []))
         if active:
             return [{'rule': rule['name'], 'path': str(t), 'state': 'deferred',
@@ -173,8 +175,10 @@ def run_rule(rule: dict, protected: list[Path], broker_state: str | None, apply:
                 rows.append({'rule': rule['name'], 'path': str(t),
                              'state': 'tombstone_partial' if failures else 'tombstone_swept'})
             for row in eligible:
-                fresh = table_source()
-                if common.blocking(fresh, rule.get('block_executables', [])) or common.referencing(fresh, Path(row['path'])):
+                fresh = [r for r in table_source() if r[0] not in ignored]
+                owner = dict((str(t), c) for t, c in targets).get(row['path'])
+                if (common.blocking(fresh, rule.get('block_executables', [])) or common.referencing(fresh, Path(row['path']))
+                        or (owner is not None and common.referencing(fresh, owner))):
                     row.update(state='deferred', reason='activity appeared before delete')
                     continue
                 try:

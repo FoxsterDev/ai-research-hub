@@ -40,8 +40,14 @@ fire for growth over `growth_alert_bytes`, a new item over
   `targets` relative to each container (`.` is the container itself);
 - `minimum_age_hours` (>= 24), checked against the newest descendant mtime;
 - optional `name_prefixes`, `block_executables` (matched against process
-  executable names, never argument text), `skip_dirty_git`,
-  `require_unity_project`, `forbid_suffixes`, `use_broker`.
+  executable names, never argument text), `ignore_reference_from` (executable
+  names whose command lines merely list paths, such as a launcher's recent
+  projects), `skip_dirty_git`, `require_unity_project`, `forbid_suffixes`,
+  `use_broker`.
+
+For `unity_library` containers the live-reference check uses the project root,
+so an editor opened with `-projectPath <project>` keeps only that project's
+Library, while other idle projects stay eligible.
 
 A target is deleted only if it is canonical (no symlinks), outside
 `protected_paths`, fully readable, free of `.xcresult/.xcarchive/.ipa`, stale,

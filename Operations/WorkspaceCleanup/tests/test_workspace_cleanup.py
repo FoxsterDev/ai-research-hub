@@ -188,6 +188,19 @@ class ReclaimTests(Fixture):
         self.assertTrue(fake.exists())
         self.assertTrue((self.unity / 'Assets').exists())
 
+    def test_unity_editor_blocks_only_its_project_and_launcher_lists_are_ignored(self):
+        other = unity_project(self.projects / 'Other')
+        age(self.projects, 800 * 3600)
+        rule = {'name': 'unity', 'scan_roots': [str(self.projects)], 'container_kind': 'unity_library',
+                'targets': ['.'], 'minimum_age_hours': 168, 'require_unity_project': True,
+                'ignore_reference_from': ['Unity Hub Helper (Renderer)']}
+        table = lambda: [('Unity', f'Unity -projectPath {self.unity} -logFile /tmp/editor.log'),
+                         ('Unity Hub Helper (Renderer)', f'hub --recent {self.unity} {other}')]
+        rows = {r['path']: r['state'] for r in self.reclaim(rule, table_source=table)['entries']}
+        self.assertEqual(rows, {str(self.unity / 'Library'): 'deferred', str(other / 'Library'): 'deleted'})
+        self.assertTrue((self.unity / 'Library').exists())
+        self.assertFalse((other / 'Library').exists())
+
     def test_root_rule_prefix_and_dirty_git_guard(self):
         tmp = self.root / 'tmp'
         (tmp / 'pt-old').mkdir(parents=True)
