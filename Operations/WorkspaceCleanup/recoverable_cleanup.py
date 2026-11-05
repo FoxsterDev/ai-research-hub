@@ -1,43 +1,35 @@
-"""Exact-allowlist cache quarantine. No deletion, Simulator mutation or expiry."""
+"""Tier B: exact-allowlist quarantine with restore and time-bounded purge."""
 from __future__ import annotations
 import contextlib
 import ctypes
-import fcntl
 import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import plistlib
-import re
+import shutil
 import stat
 import subprocess
+import sys
 import time
 import uuid
 
-class Deferred(RuntimeError):
-    """Preserve this candidate when ownership or recovery is uncertain."""
+import cleanup_common as common
+from cleanup_common import Deferred, canonical, within
 
 PROTECTED = {'.git', 'archives', 'evidence', 'screenshots', 'logs', 'test', 'tests',
              '_codesignature', 'release', 'receipts'}
 SUFFIXES = {'.xcresult', '.xcarchive', '.app', '.ipa', '.zip', '.png', '.jpg',
             '.jpeg', '.heic', '.mov', '.mp4'}
-BUILD = re.compile(r'(?:^|[/\s])(?:Xcode|xcodebuild|xctest|Unity|Simulator|clang(?:\+\+)?|'
-                   r'swiftc|swift-frontend|XCBBuildService|ibtoold|actool)(?:\s|$)')
+BUILD_EXECUTABLES = {'Xcode', 'xcodebuild', 'xctest', 'Unity', 'Simulator', 'clang', 'clang++', 'swiftc',
+                     'swift-frontend', 'swift-build', 'XCBBuildService', 'ibtoold', 'actool'}
 CATEGORIES = {'temporary', 'scratch', 'unity_library', 'xcode_derived_data', 'model_fitness_workspace'}
+MAX_ENTRIES = 100000
+MAX_BYTES = 5 * 1024**3
 
-def canonical(path):
-    if not isinstance(path, (str, os.PathLike)) or not os.path.isabs(path):
-        raise Deferred('path must be an explicit absolute filesystem path')
-    path = Path(os.path.abspath(path))
-    if any(p.is_symlink() for p in [path, *path.parents]) or path.resolve() != path:
-        raise Deferred(f'non-canonical or symlink path: {path}')
-    return path
 
-def within(path, root):
-    return path == root or root in path.parents
-
-def snapshot(path, protected=(), minimum_age_hours=0):
+def snapshot(path, protected=(), minimum_age_hours=0, max_entries=MAX_ENTRIES, max_bytes=MAX_BYTES):
     canonical(path)
     if any(within(path, p) or within(p, path) for p in protected):
         raise Deferred(f'protected path overlap: {path}')
@@ -62,7 +54,7 @@ def snapshot(path, protected=(), minimum_age_hours=0):
             if stat.S_ISREG(s.st_mode) and s.st_nlink != 1:
                 raise Deferred(f'hardlinked file: {item}')
             count += 1
-            if count > 100000:
+            if count > max_entries:
                 raise Deferred('inventory exceeds bounded entry budget')
             newest = max(newest, s.st_mtime)
             signature = [str(item.relative_to(path)), s.st_dev, s.st_ino, s.st_mode,
@@ -73,8 +65,8 @@ def snapshot(path, protected=(), minimum_age_hours=0):
             digest.update(json.dumps(signature).encode())
             if item.is_file():
                 total += s.st_size
-                if total > 5 * 1024**3:
-                    raise Deferred('inventory exceeds 5GiB per-candidate budget')
+                if total > max_bytes:
+                    raise Deferred('inventory exceeds per-candidate byte budget')
                 with item.open('rb') as source:
                     for chunk in iter(lambda: source.read(1024 * 1024), b''):
                         digest.update(chunk)
@@ -84,6 +76,12 @@ def snapshot(path, protected=(), minimum_age_hours=0):
     if time.time() - newest < minimum_age_hours * 3600:
         raise Deferred('candidate or descendant is inside retention window')
     return {'sha256': digest.hexdigest(), 'bytes': total, 'entries': count}
+
+
+def budgets(policy):
+    return {'max_entries': int(policy.get('max_inventory_entries', MAX_ENTRIES)),
+            'max_bytes': int(policy.get('max_inventory_bytes', MAX_BYTES))}
+
 
 def fsync_directory(path):
     fd = os.open(path, os.O_RDONLY)
@@ -103,6 +101,7 @@ def write_json(path, value):
     os.replace(temporary, path)
     fsync_directory(path.parent)
 
+
 def rename_exclusive(source, destination):
     # macOS renamex_np(RENAME_EXCL), verified in SDK sys/stdio.h; no copy fallback.
     libc = ctypes.CDLL(None, use_errno=True)
@@ -114,6 +113,7 @@ def rename_exclusive(source, destination):
     if rename(os.fsencode(source), os.fsencode(destination), 4) != 0:
         error = ctypes.get_errno()
         raise OSError(error, os.strerror(error), str(source))
+
 
 def owner_scope(entry, policy):
     """Bind an approved cache to its actual host-wide or workspace scope.
@@ -153,6 +153,7 @@ def owner_scope(entry, policy):
         raise Deferred('cache has no verified containment or Xcode workspace binding')
     raise Deferred('unknown cache ownership; explicit reviewed binding required')
 
+
 def owners_idle(entry, policy, expected):
     path = canonical(entry['path'])
     if any(within(path, canonical(p)) or within(canonical(p), path)
@@ -163,17 +164,15 @@ def owners_idle(entry, policy, expected):
     if expected['kind'] == 'workspace':
         process_idle(Path(expected['root']))
 
+
 def process_idle(path):
-    commands = subprocess.run(['ps', '-axo', 'command='], check=True, capture_output=True, text=True, timeout=15).stdout
-    aliases = {str(path)}
-    for prefix in ('/private/tmp/', '/private/var/', '/private/etc/'):
-        if str(path).startswith(prefix):
-            aliases.add(str(path)[len('/private'):])
-    if any(alias in commands for alias in aliases):
+    table = common.process_table()
+    if common.referencing(table, path):
         raise Deferred('live process command references candidate')
-    if any(BUILD.search(line) for line in commands.splitlines()):
-        raise Deferred('active build/test/editor/Simulator process')
+    if active := common.blocking(table, BUILD_EXECUTABLES):
+        raise Deferred(f"active build/test/editor/Simulator process: {', '.join(active)}")
     open_files_idle(path)
+
 
 def open_files_idle(path):
     result = subprocess.run(['/usr/sbin/lsof', '-nP', '+D', str(path)], capture_output=True, text=True, timeout=30)
@@ -182,40 +181,17 @@ def open_files_idle(path):
     if result.stdout.strip():
         raise Deferred('candidate has open files')
 
+
 @contextlib.contextmanager
 def idle_lease(policy, path, entry, ownership):
-    state = canonical(policy['broker_state_dir'])
-    contract = json.loads((state / 'contract.json').read_text())
-    if contract.get('schemaVersion') != 1 or contract.get('contractVersion') != 1 or contract.get('capacity') != 2:
-        raise Deferred('unsupported broker contract')
-    handles = []
-    try:
-        for slot in range(2):
-            h = canonical(state / 'capacity' / f'slot-{slot}.lock').open('r+')
-            handles.append(h)
-            try:
-                fcntl.flock(h, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as error:
-                raise Deferred('active local/cloud broker lease') from error
+    with common.broker_idle(policy.get('broker_state_dir'), common.process_table()):
         owners_idle(entry, policy, ownership)
         process_idle(path)
         yield
-    finally:
-        for h in handles:
-            h.close()
+
 
 def git_untracked(path):
-    result = subprocess.run(['git', '-c', 'core.fsmonitor=false', '-C', str(path.parent),
-                             'rev-parse', '--show-toplevel'], capture_output=True, text=True, timeout=15)
-    if result.returncode:
-        if 'not a git repository' in result.stderr:
-            return
-        raise Deferred('Git ownership inventory unavailable')
-    repository = Path(result.stdout.strip())
-    relative = path.relative_to(repository)
-    tracked = subprocess.run(['git', '-c', 'core.fsmonitor=false', '-C', str(repository),
-                              'ls-files', '--', str(relative)], check=True, capture_output=True, text=True, timeout=15)
-    if tracked.stdout.strip():
+    if common.git_tracked_inside(path):
         raise Deferred('tracked source or evidence inside candidate')
 
 
@@ -234,8 +210,7 @@ def eligible(entry, policy):
             'Index.noindex', 'ModuleCache.noindex', 'CompilationCache.noindex', 'Intermediates.noindex'}:
         raise Deferred('only bounded regenerable DerivedData subdirectories are eligible')
     if category == 'unity_library':
-        from workspace_cleanup import _is_unity_project
-        if path.name != 'Library' or not _is_unity_project(path.parent):
+        if path.name != 'Library' or not common.is_unity_project(path.parent):
             raise Deferred('Unity Library requires verified project identity')
     if category == 'model_fitness_workspace' and path.name not in {
             'compile-tree', 'final-tree', 'prepared', 'treatment-fixture', 'workspaces',
@@ -243,14 +218,24 @@ def eligible(entry, policy):
         raise Deferred('not an allowlisted generated model-fitness directory name')
     return path, minimum, [canonical(p) for p in policy.get('protected_paths', [])]
 
+
+def _mark(receipt, record, state, reason):
+    try:
+        record.update(state=state, reason=reason, updated_at=time.time())
+        write_json(receipt, record)
+    except OSError:
+        pass
+
+
 def quarantine(entry, policy, apply):
     path, minimum, protected = eligible(entry, policy)
+    limits = budgets(policy)
     ownership = owner_scope(entry, policy)
     git_untracked(path)
-    before = snapshot(path, protected, minimum)
+    before = snapshot(path, protected, minimum, **limits)
     result = {'path': str(path), 'category': entry['category'], 'ownership': ownership, **before, 'state': 'eligible'}
     with idle_lease(policy, path, entry, ownership):
-        if snapshot(path, protected, minimum) != before:
+        if snapshot(path, protected, minimum, **limits) != before:
             raise Deferred('candidate changed after inventory')
         if not apply:
             return result
@@ -267,25 +252,36 @@ def quarantine(entry, policy, apply):
                   'entry': entry, 'ownership': ownership,
                   'snapshot': before, 'state': 'intent', 'created_at': time.time()}
         write_json(receipt, record)
-        owners_idle(entry, policy, ownership)
-        process_idle(path)
-        if snapshot(path, protected, minimum) != before:
-            raise Deferred('candidate changed immediately before move')
-        git_untracked(path)
-        process_idle(path)
-        owners_idle(entry, policy, ownership)
         try:
+            owners_idle(entry, policy, ownership)
+            process_idle(path)
+            if snapshot(path, protected, minimum, **limits) != before:
+                raise Deferred('candidate changed immediately before move')
+            git_untracked(path)
+            process_idle(path)
+            owners_idle(entry, policy, ownership)
             rename_exclusive(path, destination)
+        except (OSError, Deferred, subprocess.SubprocessError) as error:
+            if path.exists() and not destination.exists():
+                _mark(receipt, record, 'aborted', str(error))
+                raise Deferred(f'{error}; source preserved') from error
+            result.update(state='moved_unconfirmed', manifest=str(receipt), destination=str(destination),
+                          reason=f'{error}; inspect durable intent {receipt}')
+            return result
+        try:
             fsync_directory(path.parent)
             fsync_directory(destination.parent)
-            if snapshot(destination) != before:
+            if snapshot(destination, **limits) != before:
                 raise Deferred('post-move content changed')
             record['state'] = 'quarantined'
             write_json(receipt, record)
         except (OSError, Deferred) as error:
-            raise Deferred(f'{error}; inspect durable recovery intent {receipt}') from error
+            result.update(state='moved_unconfirmed', manifest=str(receipt), destination=str(destination),
+                          reason=f'{error}; payload moved, inspect durable intent {receipt}')
+            return result
         result.update(state='quarantined', manifest=str(receipt), destination=str(destination))
     return result
+
 
 def restore(receipt, policy):
     root, receipt = canonical(policy['quarantine_root']), canonical(receipt)
@@ -309,7 +305,7 @@ def restore(receipt, policy):
     if record.get('ownership', ownership) != ownership:
         raise Deferred('restore ownership binding changed')
     with idle_lease(policy, destination, entry, ownership):
-        if snapshot(destination) != record['snapshot']:
+        if snapshot(destination, **budgets(policy)) != record['snapshot']:
             raise Deferred('quarantine payload changed; inspect before restoring')
         process_idle(destination)
         # Original path may have been recreated/opened since the collision check.
@@ -322,16 +318,94 @@ def restore(receipt, policy):
         write_json(receipt, record)
     return record
 
+
+def _remove_tree(path):
+    failures = []
+    record = lambda _f, p, e: failures.append(f'{p}: {e}')
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=record)
+    else:
+        shutil.rmtree(path, onerror=record)
+    return failures
+
+
+def purge_expired(policy, *, apply, now=None):
+    """Delete quarantine payloads older than quarantine_ttl_hours whose fingerprint is unchanged."""
+    ttl = policy.get('quarantine_ttl_hours')
+    if ttl is None:
+        return []
+    ttl = float(ttl)
+    if not math.isfinite(ttl) or ttl < 24:
+        raise Deferred('quarantine_ttl_hours must be >= 24')
+    now = time.time() if now is None else now
+    root = canonical(policy['quarantine_root'])
+    rows = []
+    for receipt in sorted(root.glob('*/manifest.json')):
+        row = {'manifest': str(receipt)}
+        try:
+            record = json.loads(receipt.read_text())
+            payload = receipt.parent / 'payload'
+            state = record.get('state')
+            if state in {'purged', 'restored', 'aborted'}:
+                continue
+            if state == 'purge_partial':
+                tombstone = receipt.parent / '.purging'
+                failures = _remove_tree(tombstone) if apply and tombstone.is_dir() else []
+                if apply and not failures:
+                    record.update(state='purged', purged_at=now)
+                    write_json(receipt, record)
+                rows.append({**row, 'state': 'purged' if apply and not failures else 'purge_partial'})
+                continue
+            if state == 'intent' and not payload.exists():
+                if apply:
+                    _mark(receipt, record, 'aborted', 'reconciled: no payload was moved')
+                rows.append({**row, 'state': 'reconciled_aborted'})
+                continue
+            if Path(record['source']).exists() and state == 'intent':
+                rows.append({**row, 'state': 'deferred', 'reason': 'intent with both source and payload present'})
+                continue
+            age_hours = (now - float(record['created_at'])) / 3600
+            row.update(source=record['source'], age_hours=round(age_hours, 1))
+            if age_hours < ttl:
+                rows.append({**row, 'state': 'retained', 'reason': 'inside quarantine TTL'})
+                continue
+            if snapshot(canonical(payload), **budgets(policy)) != record['snapshot']:
+                rows.append({**row, 'state': 'deferred', 'reason': 'payload changed since quarantine'})
+                continue
+            size = common.tree_stats(payload, ())['allocated_bytes']
+            row['allocated_bytes'] = size
+            if not apply:
+                rows.append({**row, 'state': 'purge_eligible'})
+                continue
+            tombstone = receipt.parent / '.purging'
+            payload.rename(tombstone)
+            failures = _remove_tree(tombstone)
+            record.update(state='purge_partial' if failures else 'purged', purged_at=now)
+            write_json(receipt, record)
+            rows.append({**row, 'state': record['state'], **({'reason': failures[0]} if failures else {})})
+        except (Deferred, OSError, ValueError, KeyError) as error:
+            rows.append({**row, 'state': 'deferred', 'reason': str(error)})
+    return rows
+
+
 def run(policy, *, apply=False, restore_path=None):
     if restore_path is not None:
         return {'mode': 'restore', 'result': restore(restore_path, policy)}
     entries, deferred_categories = [], set()
-    for entry in policy['allowlist']:
+    for entry in policy.get('allowlist', []):
         category = entry.get('category', 'unknown')
         try:
-            entries.append(quarantine(entry, policy, apply))
+            row = quarantine(entry, policy, apply)
+            if row['state'] == 'moved_unconfirmed':
+                deferred_categories.add(category)
+            entries.append(row)
         except (Deferred, OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             deferred_categories.add(category)
             entries.append({**entry, 'state': 'deferred', 'reason': str(error)})
-    return {'mode': 'quarantine' if apply else 'dry_run', 'entries': entries,
-            'deferred_categories': sorted(deferred_categories), 'permanent_deletion': False}
+    try:
+        purge = purge_expired(policy, apply=apply)
+    except (Deferred, OSError, ValueError, KeyError) as error:
+        purge = [{'state': 'deferred', 'reason': f'purge unavailable: {error}'}]
+    return {'mode': 'quarantine' if apply else 'dry_run', 'entries': entries, 'purge': purge,
+            'deferred_categories': sorted(deferred_categories), 'permanent_deletion': bool(apply and any(
+                row.get('state') == 'purged' for row in purge))}

@@ -15,6 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import recoverable_cleanup as safe
 import workspace_cleanup as legacy
 
+def ps(rows):
+    comm='\n'.join(f'{i} {exe}' for i,(exe,_a) in enumerate(rows,1))
+    args='\n'.join(f'{i} {a}' for i,(_e,a) in enumerate(rows,1))
+    return [subprocess.CompletedProcess([],0,comm,''),subprocess.CompletedProcess([],0,args,'')]
+
 class RecoverableTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -150,11 +155,12 @@ class RecoverableTests(unittest.TestCase):
             if calls==3:(self.cache/'data.bin').write_bytes(b'changed')
             return real(*args,**kw)
         with patch.object(safe,'snapshot',side_effect=changing):self.deferred()
-    def test_rename_failure_preserves_with_durable_intent(self):
+    def test_rename_failure_preserves_and_marks_intent_aborted(self):
         with patch.object(safe,'rename_exclusive',side_effect=OSError(errno.EACCES,'denied')):
             self.deferred()
         manifests=list(self.quarantine.glob('*/manifest.json'))
-        self.assertEqual(len(manifests),1);self.assertEqual(json.loads(manifests[0].read_text())['state'],'intent')
+        self.assertEqual(len(manifests),1);self.assertEqual(json.loads(manifests[0].read_text())['state'],'aborted')
+        self.assertFalse((manifests[0].parent/'payload').exists())
     def test_journal_failure_before_move_preserves(self):
         with patch.object(safe,'write_json',side_effect=OSError('disk full')):self.deferred()
     def test_journal_failure_after_move_recoverable_from_intent(self):
@@ -166,7 +172,8 @@ class RecoverableTests(unittest.TestCase):
             return real(path,value)
         with patch.object(safe,'write_json',side_effect=fail_after):
             result=self.run_safe()
-        self.assertEqual(result['entries'][0]['state'],'deferred')
+        self.assertEqual(result['entries'][0]['state'],'moved_unconfirmed')
+        self.assertFalse(self.cache.exists())
         receipt=next(self.quarantine.glob('*/manifest.json'))
         self.assertEqual(json.loads(receipt.read_text())['state'],'intent')
         safe.restore(receipt,self.policy);self.assertTrue(self.cache.exists())
@@ -203,20 +210,27 @@ class RecoverableTests(unittest.TestCase):
         self.assertEqual([r['state'] for r in result['entries']],['deferred','eligible'])
     def test_process_inventory_build_and_open_file_fail_closed(self):
         patch.stopall()
-        for process in ['xcodebuild -test','/Applications/Xcode.app/Contents/MacOS/Xcode','/usr/bin/swiftc foo']:
-            with patch.object(safe.subprocess,'run',return_value=subprocess.CompletedProcess([],0,process,'')):
+        for exe in ['/usr/bin/xcodebuild','/Applications/Xcode.app/Contents/MacOS/Xcode','/usr/bin/swiftc']:
+            with patch.object(safe.subprocess,'run',side_effect=ps([(exe,exe+' build')])):
                 with self.assertRaises(safe.Deferred):safe.process_idle(self.cache)
-        with patch.object(safe.subprocess,'run',side_effect=[subprocess.CompletedProcess([],0,'python cleanup',''),subprocess.CompletedProcess([],0,'open file','')]):
-            with self.assertRaises(safe.Deferred):safe.process_idle(self.cache)
+        with patch.object(safe.subprocess,'run',side_effect=ps([('/usr/bin/python3','python cleanup')])+[subprocess.CompletedProcess([],0,'open file','')]):
+            with self.assertRaisesRegex(safe.Deferred,'open files'):safe.process_idle(self.cache)
+    def test_executable_name_not_argument_tokens_marks_activity(self):
+        patch.stopall()
+        renderer='/Applications/Claude.app/Contents/Frameworks/Claude Helper (Renderer).app/Contents/MacOS/Claude Helper (Renderer)'
+        hub='/Applications/Unity Hub.app/Contents/MacOS/Unity Hub'
+        rows=[(renderer,renderer+' --type=renderer Simulator Xcode Unity'),(hub,hub)]
+        with patch.object(safe.subprocess,'run',side_effect=ps(rows)+[subprocess.CompletedProcess([],1,'','')]):
+            safe.process_idle(self.cache)
     def test_cli_recoverable_roundtrip_report(self):
-        policy=self.root/'policy.json';policy.write_text(json.dumps({'schema_version':1,'recoverable':self.policy}))
+        policy=self.root/'policy.json';policy.write_text(json.dumps({'schema_version':2,'recoverable':self.policy}))
         report=self.root/'report.json'
-        self.assertEqual(legacy.main(['--config',str(policy),'--report',str(report)]),0)
+        self.assertEqual(legacy.main(['--config',str(policy),'--report',str(report),'--lock',str(self.root/'l.lock')]),0)
         self.assertTrue(self.cache.exists())
-        self.assertEqual(legacy.main(['--config',str(policy),'--apply','--report',str(report)]),0)
-        receipt=json.loads(report.read_text())['entries'][0]['manifest']
+        self.assertEqual(legacy.main(['--config',str(policy),'--apply','--report',str(report),'--lock',str(self.root/'l.lock')]),0)
+        receipt=json.loads(report.read_text())['recoverable']['entries'][0]['manifest']
         self.assertFalse(self.cache.exists())
-        self.assertEqual(legacy.main(['--config',str(policy),'--restore',receipt,'--report',str(report)]),0)
+        self.assertEqual(legacy.main(['--config',str(policy),'--restore',receipt,'--report',str(report),'--lock',str(self.root/'l.lock')]),0)
         self.assertTrue(self.cache.exists())
     def test_git_tracked_cache_is_preserved(self):
         subprocess.run(['git','init',str(self.cache.parent)],check=True,capture_output=True)
@@ -248,15 +262,15 @@ class RecoverableTests(unittest.TestCase):
         with patch.object(safe,'snapshot',side_effect=expiring):self.deferred()
     def test_arbitrary_process_reference_blocks(self):
         patch.stopall()
-        with patch.object(safe.subprocess,'run',return_value=subprocess.CompletedProcess([],0,f'custom-worker --cache {self.cache}','')):
-            with self.assertRaises(safe.Deferred):safe.process_idle(self.cache)
+        with patch.object(safe.subprocess,'run',side_effect=ps([('/usr/local/bin/custom-worker',f'custom-worker --cache {self.cache}')])):
+            with self.assertRaisesRegex(safe.Deferred,'references'):safe.process_idle(self.cache)
     def test_nan_cannot_bypass_retention(self):
         self.policy['allowlist'][0]['minimum_age_hours']=float('nan');self.deferred()
     def test_private_var_tmp_process_aliases_block(self):
         patch.stopall()
         for physical,alias in [('/private/var/folders/cache','/var/folders/cache'),('/private/tmp/cache','/tmp/cache')]:
-            with patch.object(safe.subprocess,'run',return_value=subprocess.CompletedProcess([],0,f'worker --cache={alias}','')):
-                with self.assertRaises(safe.Deferred):safe.process_idle(Path(physical))
+            with patch.object(safe.subprocess,'run',side_effect=ps([('/usr/local/bin/worker',f'worker --cache={alias}')])):
+                with self.assertRaisesRegex(safe.Deferred,'references'):safe.process_idle(Path(physical))
     def test_inventory_timeout_defers(self):
         self.process.side_effect=subprocess.TimeoutExpired('lsof',30)
         self.deferred()
