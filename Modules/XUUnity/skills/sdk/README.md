@@ -15,6 +15,7 @@ Then add only the needed topic files:
 - `store_compliance.md` for ATT, manifest, plist, entitlement, privacy-manifest, or store-policy-sensitive SDK work
 - `knowledge/sdk_stability_scoring.md` and `tasks/sdk_update_research.md` for one-command SDK update candidate research
 - the matching `knowledge/vendors/<vendor>.md` profile when a vendor-specific profile exists
+- `knowledge/vendors/facebook_unity_sdk.md` for Facebook Unity SDK startup or scene-load cost on Android (`CodelessIAPAutoLog`, `sceneLoaded` assembly scan)
 
 ## Composition
 SDK work often composes with:

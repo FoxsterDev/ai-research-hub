@@ -24,3 +24,10 @@
 - Batch pooled-item population first, then perform the smallest necessary layout rebuild pass once the content tree is stable.
 - For substantial scroll views, prefer pooling plus `RectMask2D`; keep hierarchy churn low because reparenting pooled items dirties graphics and can widen rebuild scope.
 - When the total data count greatly exceeds the visible item count, use a virtualized window instead of instantiating one UI object per entry. A list that shows `10` cells at once usually needs only the visible cells plus a small buffer, not all `100+` item views.
+
+## Toggled Layout Components
+Applies when a controller keeps `LayoutGroup`/`ContentSizeFitter` disabled for performance and enables them only to re-solve after a change.
+- Bound the re-solve window by rendered frames, not only by seconds: on a low-end device a `0.2 s` window can be one heavy frame, and nested layouts are frozen half-solved (visible as overlapping items). Keep a minimum frame count and force-rebuild before disabling again.
+- `LayoutRebuilder.ForceRebuildLayoutImmediate(root)` does nothing for the subtree when `root` itself has no layout controller. Rebuild each cached group, child-first, instead of only the view root.
+- A change probe must not re-walk the hierarchy on every check: cache the child list until `transform.hierarchyCount` changes, avoid LINQ allocations, and stagger probes so sibling views do not all probe on the same frame.
+- Lay a view out when it is presented, before its first rendered frame, only if its content changed since the last settle done while it was visible; a hidden view cannot be laid out, so do not record a settle for it.

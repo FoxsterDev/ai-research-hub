@@ -35,6 +35,7 @@ Conditional reference extracted from `tasks/start_session.md`. All paths are mod
 - Load `knowledge/glossary.md` for protocol/system onboarding, handoff, or when terms such as `project memory`, `previous outputs`, `bridge crossing`, or `release blocker` are likely to be ambiguous.
 - Load `knowledge/ios_passive_network_monitoring.md` when the task is about `NWPathMonitor`, iOS path observers, passive network-environment monitoring, VPN or proxy heuristic detection on iOS, tunnel classification, or replacing legacy reachability-style logic.
 - Load the matching `knowledge/vendors/<vendor>.md` profile when `xuunity sdk discover <Vendor>` or another SDK update research task targets a vendor with a public profile.
+- Load `knowledge/vendors/facebook_unity_sdk.md` when a profile shows `CodelessIAPAutoLog`, a Facebook SDK `sceneLoaded` handler, or an assembly-wide type scan at Facebook init or scene load.
 - Load `knowledge/vendors/applovin_max.md` when the task targets AppLovin, AppLovin MAX, MAX, or a MAX-mediated network such as Pangle, ByteDance, Google AdMob, Meta, ironSource, Unity Ads, or Liftoff.
 - `knowledge/review_quality_scoring.md` is intentionally not selected from this block: it is owned and triggered by the review path (`tasks/code_review.md` and `reviews/*` whenever a review reaches a concrete verdict), so it loads through those files rather than here.
 

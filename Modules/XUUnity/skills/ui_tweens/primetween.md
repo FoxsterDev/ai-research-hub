@@ -51,6 +51,7 @@
 - Does `Tween.Custom(...)` use the current non-obsolete overload, especially when combining target binding with settings reuse?
 
 ## Debug Notes
+- `PRIME_TWEEN_SAFETY_CHECKS` in a development build (`UNITY_ASSERTIONS`) records a stack trace for every created tween. Tween-heavy moments then show hundreds of milliseconds that release builds do not have. Keep the define opt-in for debugging sessions and discount `PrimeTweenManager` cost in development captures.
 - Use the PrimeTween manager in play mode to inspect running tweens and their targets.
 - Supplying useful targets to delayed or custom tweens improves debugging and ownership tracing.
 - If a tween starts on an inactive hierarchy object, check whether the disabled-target warning is revealing a real lifecycle bug.
