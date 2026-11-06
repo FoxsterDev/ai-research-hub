@@ -164,6 +164,7 @@ Load the relevant shared skills first, then use `platforms/` for Android-only, i
 - `knowledge/risk_classification.md`
 - `knowledge/ios_passive_network_monitoring.md`
 - `knowledge/sdk_stability_scoring.md`
+- `knowledge/vendors/facebook_unity_sdk.md`
 - `knowledge/vendors/appsflyer.md`
 - `knowledge/vendors/applovin_max.md`
 - `knowledge/vendors/applovin/README.md`

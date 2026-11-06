@@ -28,10 +28,10 @@ Assemble the minimum correct stack for the user's task. Unity runtime work assum
 ## Task And Role Routing
 - `xuunity fix ...` -> `tasks/bug_fixing.md`; structural ownership changes also load `tasks/refactoring.md`.
 - `xuunity refactor ...` -> `tasks/refactoring.md`.
-- `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`.
 - `xuunity feature design ...` -> `tasks/feature_design_brief.md`; `xuunity arch plan ...` -> `tasks/architecture_plan.md` and `role/architect.md`.
-- `xuunity review ...` -> `tasks/code_review.md`; choose the narrower review for git, tests, SDK, native, architecture or release scope.
+- `xuunity feature ...` or `xuunity implement ...` -> `tasks/feature_development.md`.
 - `xuunity full review ...` or `xuunity review all ...` -> `reviews/full_review.md`.
+- `xuunity review ...` -> `tasks/code_review.md`; choose the narrower review for git, tests, SDK, native, architecture or release scope.
 - `xuunity apply approved extraction ...` -> `utilities/knowledge_integration.md`; extraction alone -> `utilities/knowledge_extraction_triage.md`.
 - Use one primary role: senior Unity developer for implementation/review, architect for architecture, researcher for protocol synthesis; honor explicit role selection. Supporting roles must change decision quality.
 - For other commands, role aliases, product queries, system utilities, delivery or external-provider selectors, look up the matching complete section in `knowledge/session_task_catalog.md`. Preserve its phase and authorization boundaries; a routing match is not permission to publish or message.
