@@ -71,7 +71,7 @@ Conditional reference extracted from `tasks/start_session.md`. All paths are mod
   - manifest, plist, entitlement, privacy-manifest, JNI, or native bridge contract change -> `reviews/policy_packs/manifest_native_changes.md`
   - ads, rewarded flows, reward grants, purchase-adjacent monetization hooks, ad revenue callbacks, or monetization rollout/config changes -> `reviews/policy_packs/monetization_changes.md`
   - save/load, persistence ownership, serialization boundary, migration, startup restore, cache/local/remote merge, stale-write, or destructive reset changes -> `reviews/policy_packs/save_load_changes.md`
-  - long-lived screens, popup or modal flows, first-visible state, async UI gating, duplicate open/close, lifecycle re-entry, or view-versus-backing-state ownership changes -> `reviews/policy_packs/ui_heavy_changes.md`
+  - long-lived screens, popup or modal flows, first-visible state, async UI gating, duplicate open/close, lifecycle re-entry, view-versus-backing-state ownership, or layout-component / Canvas-split / forced-or-toggled-layout changes on a frequently shown screen -> `reviews/policy_packs/ui_heavy_changes.md`
 
 
 ## Critical Bug Escalation Rules

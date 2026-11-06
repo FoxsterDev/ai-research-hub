@@ -10,6 +10,7 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 - the task changes async UI loading, paged lists, remote-content UI, network-dependent progression, retry behavior, or UI refresh orchestration
 - the task changes duplicate open, duplicate close, back navigation, resume, re-entry, interruption, ad-return, or scene-return behavior
 - the task changes ownership boundaries between view state, presenter/controller state, backing model state, cached state, or remote authoritative state
+- the task adds, removes, or changes `LayoutGroup`, `ContentSizeFitter`, or `LayoutElement` setup, Canvas splits, or code that forces, toggles, or animates layout on a frequently shown screen, including such changes made only in prefab or scene YAML
 
 ## Primary Risk Signals
 - first-visible UI can imply data, eligibility, availability, or success that is not yet authoritative
@@ -27,6 +28,7 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 - `skills/core/mobile_runtime_safety.md` when pause, resume, focus, back navigation, interruption, or mobile lifecycle behavior matters
 - `skills/async/` when UI state depends on await paths, callbacks, cancellation, delayed data, pagination, retries, or network responses
 - `skills/optimization/loading_and_microfreeze_prevention.md` when opening, refreshing, scrolling, animating, or closing the UI can cause frame spikes
+- `skills/ui/layout_and_rebuilds.md` when the task changes layout components, Canvas splits, or code that forces, toggles, or animates layout
 - `skills/ui/mobile_ux_quality.md` when the task touches product-facing mobile layout, safe areas, touch targets, text scaling, localization, RTL, or readability
 - `skills/ui/adaptive_grids.md` when the UI includes adaptive card grids, inventories, stores, rewards, galleries, or scrollable shelves
 - `skills/ui/virtualized_scrollrect.md` when large lists, grids, infinite scroll, pooled cells, or paged UI data are involved
@@ -42,6 +44,7 @@ Strengthen the review and validation stack for UI-heavy work where screen lifeti
 - Does the UI degrade truthfully when network data, remote content, SDK-backed data, images, or optional sections are missing or late?
 - Are refresh, retry, pagination, sorting, filtering, recycled-cell binding, and stale-response behavior deterministic?
 - Does validation cover actual interactive behavior rather than only source inspection or compile-time confidence?
+- Does the layout converge in one canvas update, and does any frequently changing element re-solve more than its own fixed-size boundary?
 
 ## Required Evidence
 - the UI entry points touched, including navigation triggers, buttons, presenters/controllers, views, models, services, async loaders, and close or completion paths
@@ -101,6 +104,9 @@ Use this proposal step to make runtime UI validation available at closeout witho
 - recycled list or grid cells retain old listeners, selection, loading images, timers, badges, or error state
 - retry or pagination appends late responses into a newer query, filter, sort, or dataset revision
 - layout, localization, safe-area, or larger-text changes make critical controls unreachable or overlapping on mobile
+- layout components are disabled and re-enabled by code for performance, hiding layout that does not converge
+- a `ContentSizeFitter` sizes a child of a layout group on the group's axis, so siblings overlap after one layout pass
+- `ForceRebuildLayoutImmediate` runs per frame or in loops, or a size property inside a layout group is animated, re-solving layout every frame
 
 ## Release-Risk Framing
 - Treat UI that can block progression, monetization, account access, save/restore, reward claim, purchase-adjacent entitlement, or mandatory consent as high risk until the interactive flow is validated.
@@ -114,7 +120,7 @@ Use this proposal step to make runtime UI validation available at closeout witho
 - A popup/UI warning that depends on remote content, asset bundles, backend design ids, ad-readiness callbacks, or a first-show startup path must not remain UI-heavy only. Co-load `reviews/policy_packs/startup_changes.md`; make startup/config ownership primary when the likely fix depends on initialization owner, active config/profile, content manifest, or service readiness.
 - If correctness depends on runtime UI state, first-visible popup behavior, blocking popup behavior, or whether a popup can be proven visible/interactive after async content loads, perform a private Game QA session-plan capability check when optional private-pack routing is available.
 - If the private runtime UI validation pack or equivalent project validation capability is unavailable, state that as an explicit validation gap rather than treating source inspection, compile, or static routing as complete UI proof.
-- Do not use this pack for purely visual polish, copy, static art, or isolated layout tweaks unless they affect interaction safety, critical-flow gating, lifecycle behavior, async state, or release-visible correctness.
+- Do not use this pack for purely visual polish, copy, static art, or visual-only layout tweaks unless they affect interaction safety, critical-flow gating, lifecycle behavior, async state, or release-visible correctness. A change to layout components, Canvas splits, or code that forces, toggles, or animates layout on a frequently shown screen is not visual-only.
 
 ## Final Review Must Report
 - the UI surfaces touched and whether each is a long-lived screen, temporary flow, shared navigation shell, or collection-heavy surface

@@ -12,6 +12,8 @@
 - Avoid nested layout groups on hot or frequently refreshed screens.
 - Batch content changes before forcing layout-sensitive updates.
 - Do not trigger avoidable `ContentSizeFitter` and layout recalculations in loops.
+- A layout change marks its element and walks up through parents while each parent has an enabled layout group, then rebuilds the topmost one. Keep frequently changing elements (timers, counters, balances) behind a fixed-size boundary: a parent without a layout group, or a fixed-size `LayoutElement`. Size them for their longest value and update them only when the value changes, so a tick re-solves the element, not the screen. When the element's size must reflow its siblings, the chain is intended; batch those updates instead.
+- Never let a `ContentSizeFitter` size a child of a layout group on the group's axis. The group places the child first, the fitter then resizes it, and the layout diverges (overlaps) until something re-queues the group; extra canvas updates do not fix it. The group controls that axis (`childControl*`), and children get size from a `LayoutElement` or their own group. Fitters belong on roots whose parent is not a layout group, such as `ScrollRect` content. The inspector warning about a parent layout group flags exactly this.
 - A `LayoutElement` size is in canvas units, not screen pixels; do not derive one from a screen-space measurement, because the two differ by the canvas scale factor. For a proportional split between siblings, set `flexibleHeight` or `flexibleWidth` and let the layout group divide free space: no conversion is involved and the ratio survives a resolution change. Absolute `preferredHeight` remains the correct tool when the pane must be a fixed physical size.
 - A layout property is resolved as the maximum across every `LayoutElement` on the same object. Write all of `GetComponents<LayoutElement>()`; an authored or vendored prefab can carry more than one, and setting the first leaves the second in charge.
 - Profile slow device behavior, not only desktop editor behavior.
@@ -26,6 +28,8 @@
 - When the total data count greatly exceeds the visible item count, use a virtualized window instead of instantiating one UI object per entry. A list that shows `10` cells at once usually needs only the visible cells plus a small buffer, not all `100+` item views.
 
 ## Toggled Layout Components
+Prefer always-enabled layout components. Enabled UGUI layout costs nothing while nothing changes. Disabling it for performance hides divergence bugs (see the fitter rule above), makes every content change depend on a manual refresh, and in one low-end Android A/B measured slower than removing the toggling entirely (frames over 33 ms per warm run 47 → 31.5). Treat the rules below as migration guidance for an existing toggler you cannot remove yet; do not adopt the pattern.
+
 Applies when a controller keeps `LayoutGroup`/`ContentSizeFitter` disabled for performance and enables them only to re-solve after a change.
 - Bound the re-solve window by rendered frames, not only by seconds: on a low-end device a `0.2 s` window can be one heavy frame, and nested layouts are frozen half-solved (visible as overlapping items). Keep a minimum frame count and force-rebuild before disabling again.
 - `LayoutRebuilder.ForceRebuildLayoutImmediate(root)` does nothing for the subtree when `root` itself has no layout controller. Rebuild each cached group, child-first, instead of only the view root.
