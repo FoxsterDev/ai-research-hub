@@ -44,6 +44,15 @@ AIRoot instructions must remain reusable and public-safe. Host-private paths,
 credentials, project identities, release evidence, and model-specific operating
 preferences belong in the host repository or agent-private configuration.
 
+## Commit Identity
+
+Every commit in AIRoot and its nested repositories, including merges and tags, is
+authored and committed as `FoxsterDev <foxsterdev@gmail.com>`. Check
+`git config user.name` and `git config user.email` before committing and set them
+in the repo config when they differ. Merge pull requests locally and push, because
+the GitHub merge button records the account profile identity instead. Do not add
+co-author trailers.
+
 ## Optional Host Harness
 
 When mounted, load `../AIOutput/Harness/KERNEL.md` if present. After runtime
