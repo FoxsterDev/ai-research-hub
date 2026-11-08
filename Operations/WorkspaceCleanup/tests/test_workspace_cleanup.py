@@ -215,6 +215,20 @@ class ReclaimTests(Fixture):
         self.assertEqual(rows, {'pt-dirty': 'kept', 'pt-old': 'deleted'})
         self.assertTrue((tmp / 'other-old').exists() and dirty.exists())
 
+    def test_scratch_root_rule_honours_excludes_and_ownership(self):
+        tmp = self.root / 'tmp'
+        for name in ('task-a', 'com.apple.launchd.x', 'claude-501', 'tool.sock'):
+            (tmp / name).mkdir(parents=True)
+        age(tmp)
+        rule = {'name': 'tmp', 'roots': [str(tmp)], 'targets': ['*'], 'minimum_age_hours': 72,
+                'exclude_names': ['com.apple.*', 'claude-*', '*.sock'], 'require_owner': True}
+        rows = {Path(r['path']).name: r['state'] for r in self.reclaim(rule, apply=False)['entries']}
+        self.assertEqual(rows, {'task-a': 'eligible'})
+        with patch.object(reclaim.os, 'getuid', return_value=os.getuid() + 1):
+            rows = {Path(r['path']).name: r for r in self.reclaim(rule)['entries']}
+        self.assertEqual(rows['task-a']['reason'], 'owned by another user')
+        self.assertTrue((tmp / 'task-a').exists())
+
     def test_rule_without_retention_is_refused(self):
         rule = {**self.rule, 'minimum_age_hours': 1}
         self.assertEqual(self.reclaim(rule)['entries'][0]['state'], 'deferred')

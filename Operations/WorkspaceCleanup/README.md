@@ -42,8 +42,9 @@ fire for growth over `growth_alert_bytes`, a new item over
 - optional `name_prefixes`, `block_executables` (matched against process
   executable names, never argument text), `ignore_reference_from` (executable
   names whose command lines merely list paths, such as a launcher's recent
-  projects), `skip_dirty_git`, `require_unity_project`, `forbid_suffixes`,
-  `use_broker`.
+  projects), `exclude_names` (globs on the target name), `require_owner`
+  (only entries owned by the running user), `skip_dirty_git`,
+  `require_unity_project`, `forbid_suffixes`, `use_broker`.
 
 For `unity_library` containers the live-reference check uses the project root,
 so an editor opened with `-projectPath <project>` keeps only that project's

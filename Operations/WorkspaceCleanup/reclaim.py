@@ -72,6 +72,7 @@ def expand(rule: dict) -> tuple[list[tuple[Path, Path | None]], list[Path]]:
     tombstones: list[Path] = []
     container = bool(rule.get('container_kind'))
     prefixes = tuple(rule.get('name_prefixes', []))
+    excludes = rule.get('exclude_names', [])
     for base in bases:
         if not base.is_dir() or base.is_symlink():
             continue
@@ -81,6 +82,8 @@ def expand(rule: dict) -> tuple[list[tuple[Path, Path | None]], list[Path]]:
                 if match.name.startswith(TOMBSTONE):
                     continue
                 if prefixes and not match.name.startswith(prefixes):
+                    continue
+                if any(fnmatch(match.name, pattern) for pattern in excludes):
                     continue
                 if match.is_symlink() or not match.exists():
                     continue
@@ -120,6 +123,8 @@ def assess(target: Path, rule: dict, protected: list[Path], now: float, table, o
         path = common.canonical(target)
         if any(common.within(path, p) or common.within(p, path) for p in protected):
             return {**row, 'state': 'kept', 'reason': 'protected path overlap'}
+        if rule.get('require_owner') and os.lstat(path).st_uid != os.getuid():
+            return {**row, 'state': 'kept', 'reason': 'owned by another user'}
         stats = common.tree_stats(path, rule.get('forbid_suffixes', common.PROTECTED_SUFFIXES))
         row.update(logical_bytes=stats['logical_bytes'], allocated_bytes=stats['allocated_bytes'],
                    newest_age_hours=round(max(0.0, now - stats['newest_mtime']) / 3600, 1))
