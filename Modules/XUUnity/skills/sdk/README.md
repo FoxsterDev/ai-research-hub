@@ -13,6 +13,7 @@ Then add only the needed topic files:
 - `callback_safety.md` for callback thread origin, listener lifetime, callback ordering, marshaling, or double-delivery risk
 - `privacy_compliance.md` for consent, attribution identity, privacy-sensitive data flow, or user-tracking behavior
 - `store_compliance.md` for ATT, manifest, plist, entitlement, privacy-manifest, or store-policy-sensitive SDK work
+- `in_app_purchases.md` for store purchase clients, consumable or subscription delivery, purchase confirmation, restore, or an IAP package change; it requires reusing a host-declared shared purchase client
 - `knowledge/sdk_stability_scoring.md` and `tasks/sdk_update_research.md` for one-command SDK update candidate research
 - the matching `knowledge/vendors/<vendor>.md` profile when a vendor-specific profile exists
 - `knowledge/vendors/facebook_unity_sdk.md` for Facebook Unity SDK startup or scene-load cost on Android (`CodelessIAPAutoLog`, `sceneLoaded` assembly scan)

@@ -171,6 +171,20 @@
       "expect_artifact_paths_include": [
         "AIRoot/Modules/XUUnity/knowledge/detached_callback_attribution.md"
       ]
+    },
+    {
+      "id": "store_purchase_loads_iap_skill",
+      "description": "A store purchase task must pull the in-app purchase skill and the monetization pack it depends on.",
+      "task_kind": "feature",
+      "risk_class": "high",
+      "task_text": "Add a consumable in-app purchase pack to the store screen and deliver it after the purchase is confirmed.",
+      "planned_mutation_paths": [
+        "Sample/Scripts/StoreScreen.cs"
+      ],
+      "expect_rule_ids_include": [
+        "iap_purchase_flow",
+        "monetization_policy"
+      ]
     }
   ]
 }

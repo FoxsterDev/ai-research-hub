@@ -45,6 +45,7 @@ MODULE_FILES = [
     "skills/tests/testing_doctrine.md",
     "skills/mobile/startup.md",
     "reviews/policy_packs/monetization_changes.md",
+    "skills/sdk/in_app_purchases.md",
     "reviews/policy_packs/startup_changes.md",
     "reviews/policy_packs/sdk_changes.md",
     "knowledge/execution_contract.md",

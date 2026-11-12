@@ -415,6 +415,42 @@
       "human_owner": "{module}/reviews/policy_packs/monetization_changes.md"
     },
     {
+      "id": "iap_purchase_flow",
+      "description": "Store purchase work loads the in-app purchase skill (shared client first, deliver-then-confirm, idempotent delivery).",
+      "priority": 23,
+      "selectors": {
+        "keywords_any": [
+          "iap",
+          "in-app purchase",
+          "in-app purchases",
+          "purchase",
+          "purchases",
+          "consumable",
+          "non-consumable",
+          "storecontroller",
+          "com.unity.purchasing",
+          "restore purchases",
+          "billing library"
+        ]
+      },
+      "requirements": [
+        {
+          "id": "iap_skill",
+          "mode": "all_of",
+          "paths": [
+            "{module}/skills/sdk/in_app_purchases.md"
+          ],
+          "weight": 2,
+          "phase": "before_first_mutation"
+        }
+      ],
+      "dependencies": [
+        "monetization_policy"
+      ],
+      "risk": "critical",
+      "human_owner": "{module}/skills/sdk/in_app_purchases.md"
+    },
+    {
       "id": "startup_policy",
       "description": "Startup/boot-path changes load startup guidance and its policy pack.",
       "priority": 24,
@@ -658,5 +694,5 @@
       "human_owner": "{module}/reviews/policy_packs/sdk_changes.md"
     }
   ],
-  "ruleset_hash": "ce6bbb8719f9020b04d4a248ccba83d6f7fe9c37d7c0b30a4a28477c2e99742c"
+  "ruleset_hash": "888bec111b9ad5602743ca652b4a0919af21850b73e1ce06fc773b08a364bb0e"
 }

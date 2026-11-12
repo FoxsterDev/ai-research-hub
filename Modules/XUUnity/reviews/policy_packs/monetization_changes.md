@@ -24,6 +24,7 @@ Strengthen the review and validation stack for monetization-sensitive work where
 - `skills/sdk/callback_safety.md` when SDK callbacks, listeners, ad lifecycle events, or revenue callbacks are part of the flow
 - `skills/sdk/initialization.md` when ad loading, show readiness, consent, or revenue reporting depends on SDK startup
 - `skills/sdk/privacy_compliance.md` when consent, privacy flags, ATT, GDPR, or store policy affects ad loading or reporting
+- `skills/sdk/in_app_purchases.md` when store purchases, paid content delivery, purchase confirmation, restore, or the purchase client change
 - `skills/refactoring/reward_grant_idempotency.md` when reward delivery, prize claim, duplicate callback, or resume-sensitive grant handling changes
 - `skills/async/` when callbacks, await paths, cancellation, timeout, queueing, or delayed delivery are involved
 - `skills/tests/smoke_and_release_checks.md` when release confidence depends on device or store-build monetization smoke coverage
