@@ -128,7 +128,7 @@ Interpret short commands by intent:
 - `xuunity system research watch ...` -> `utilities/internet_research_watch.md`
 - `xuunity system research what is new ...` -> `utilities/internet_research_watch.md`
 - `xuunity system evaluate ...`, `xuunity system installation review ...`, or `xuunity system review this installation ...` -> `utilities/system_self_evaluation.md`
-- `xuunity system protocol clean review ...`, `xuunity system protocol cleanup review ...`, `xuunity system clean protocol review ...`, `xuunity system sanitary review ...`, or `xuunity system public core sanitation ...` -> `utilities/system_protocol_clean_review.md`
+- `xuunity system clean review ...`, `xuunity system protocol clean review ...`, `xuunity system protocol cleanup review ...`, `xuunity system clean protocol review ...`, `xuunity system sanitary review ...`, or `xuunity system public core sanitation ...` -> `utilities/system_protocol_clean_review.md`
 - `xuunity system health improve ...` -> `utilities/system_health_review.md` in bounded improve mode
 - `xuunity system health review ...` or `xuunity system health ...` -> `utilities/system_health_review.md` in review mode
 - `xuunity system output cleanup ...` -> `utilities/system_output_cleanup.md`

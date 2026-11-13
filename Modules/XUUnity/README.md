@@ -325,6 +325,7 @@ Recommended short commands:
 - `xuunity integrate approved knowledge`
 - `xuunity system evaluate the protocol structure`
 - `xuunity system installation review`
+- `xuunity system clean review`
 - `xuunity system protocol clean review`
 - `xuunity system protocol cleanup review`
 - `xuunity system sanitary review`

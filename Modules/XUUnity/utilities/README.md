@@ -172,6 +172,7 @@ Flow:
 6. `system_output_cleanup.md` only when generated reports or retention are also in scope
 
 Short commands:
+- `xuunity system clean review`
 - `xuunity system protocol clean review`
 - `xuunity system protocol cleanup review`
 - `xuunity system clean protocol review`

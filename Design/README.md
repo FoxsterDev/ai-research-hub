@@ -145,8 +145,8 @@ These remain the canonical references for current behavior. The four importance-
 - **`XUUNITY_PERSONAL_PAID_MODULE_OVERLAY_DESIGN.md`** — importance **5**, **✅ 100%**.
   The mother design of paid modules. All 5 schemas present; `module_registry_tool.py` implements every
   designed command + 5 extra (`route-smoke`, `session-plan`, MCP helpers, `validate-installer`);
-  generated module resolution is covered by the public tooling contract; `start_session.md` steps 12a-12e
-  route the overlay flow. *Done (2026-06-16): pack example synced to the shipped `usage.md` naming; remains the contract source of truth. The optional `xuunity module` CLI wrapper stays deferred by design.*
+  generated module resolution is covered by the public tooling contract. The overlay flow is documented in the
+  [session workflow reference](../Modules/XUUnity/knowledge/session_workflow_reference.md#process). *Done (2026-06-16): pack example synced to the shipped `usage.md` naming; remains the contract source of truth. The optional `xuunity module` CLI wrapper stays deferred by design.*
 - **`XUUNITY_PAID_MODULE_FIRST_PRINCIPLES_FIX_PLAN.md`** — importance **5**, **✅ 100% (25/25 tests)**.
   P0–P2 confirmed: schema `xuunity.entitlements.schema.json` (provider/trustLevel/license/sync),
   resolver/verifier split, redaction boundary (`outputBoundary: redacted_api`, detector `public_game_qa_path_leak()`),
@@ -169,7 +169,7 @@ These remain the canonical references for current behavior. The four importance-
   **Residual:** host-local matrix rows, broader fixture/bug-family coverage, optional CI wiring. *(Backlog #2.)*
 - **`XUUNITY_PRODUCT_PROTOCOLS_DESIGN.md`** — importance **4**, **🟡 ~75% (est.)**.
   6 protocols shipped + 2 beyond plan (`project_health_audit`, `project_memory_freshness`), shorthand routing
-  in `start_session.md:380-389`. **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
+  in the [session task catalog](../Modules/XUUnity/knowledge/session_task_catalog.md#shorthand-expansion-rules). **Not created**: the planned `protocols/flow_explainer.md` and `protocols/delivery_scope.md`
   (+ `decision_note` / `rollout_note` formats). *Rec: build the missing protocols or drop them from the design. (Backlog #6.)*
 
 ### Drafts (in progress)
@@ -216,7 +216,8 @@ plans and the files they generate. All 4 were mislabeled `active` — corrected 
 
 - **Workstream-3 prompts** (`MASTER`, `MONETIZATION`, `SAVE_LOAD`, `UI_HEAVY`) — `historical`. These are the
   prompts that generated the policy packs. The packs already live in `reviews/policy_packs/` and are wired into
-  routing (`start_session.md:179-199, 351-355`); the prompts have fully done their job and remain only as reproducible recipes.
+  routing (see [Risk Routing Hints](../Modules/XUUnity/knowledge/session_domain_routes.md#risk-routing-hints)).
+  The prompts remain as reproducible recipes.
 - **`XUUNITY_UPSTREAM_SUBMODULE_DESIGN.md`** — `legacy`. The doc declares itself "Legacy reference only"; the old
   single-upstream model is dismantled, successor is `XUUNITY_EXTERNAL_REPOS_DESIGN.md`.
 

@@ -25,6 +25,7 @@ verify the applied change against the recorded baseline.
 - final review after old-report cleanup changes touch public protocol docs
 
 Short commands:
+- `xuunity system clean review`
 - `xuunity system protocol clean review`
 - `xuunity system protocol cleanup review`
 - `xuunity system clean protocol review`
