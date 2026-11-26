@@ -36,6 +36,9 @@ These are not part of the host bootstrap path.
   external AI runs.
 - `WorkspaceCleanup/`
   Tested cleanup engine for regenerable developer caches and scratch artifacts.
+- `AppSimilarityScan/`
+  Static similarity self-check of iOS app bundles against peer apps (App Store
+  Guideline 4.3 spam / near-duplicate risk), with rarity weighting and code ownership.
 - `XUUNITY_TASK_REGISTRY_PUBLIC_REPORT.md`
   Public-safe report for the `xuunity` task registry surface.
 
